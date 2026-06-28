@@ -78,6 +78,15 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            <label className="flex items-center gap-2 mt-2 cursor-pointer w-fit">
+              <input
+                type="checkbox"
+                checked={showPassword}
+                onChange={(e) => setShowPassword(e.target.checked)}
+                className="w-3.5 h-3.5 accent-blue-600"
+              />
+              <span className="text-xs text-gray-500">Show password</span>
+            </label>
           </div>
 
           {error && (

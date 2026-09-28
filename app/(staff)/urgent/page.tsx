@@ -17,7 +17,7 @@ export default async function UrgentPage() {
   const [{ data }, { data: people }] = await Promise.all([
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).neq('status', 'done')
       .order('priority').order('created_at'),
-    supabase.from('staff_directory').select('id, full_name'),
+    supabase.rpc('staff_directory'),
   ])
   const tasks = (data ?? []) as TaskListItem[]
   const names = Object.fromEntries((people ?? []).map((p: { id: string; full_name: string }) => [p.id, p.full_name]))

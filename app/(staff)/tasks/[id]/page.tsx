@@ -81,6 +81,9 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
               <DueDate date={task.due_date} status={task.status} className="ml-auto" />
             </div>
             <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {[task.client?.company_name, task.service?.name, task.platform?.name, task.department?.name].filter(Boolean).join(' · ') || '—'}
+            </p>
             {task.description
               ? <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{task.description}</p>
               : <p className="mt-3 text-sm italic text-slate-400">No description.</p>}

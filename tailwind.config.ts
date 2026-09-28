@@ -3,7 +3,7 @@ import type { Config } from 'tailwindcss'
 // GoPortals brand — taken from the logo:
 //   brand (teal-blue "PORTALS") #045E80 · lime ("GO") #95C12C · navy accent #28378F
 const config: Config = {
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {

@@ -68,14 +68,25 @@ export function TaskProperties({
       </div>
 
       {canMarkUrgent && (
-        <button
-          onClick={() => update('is_urgent', !task.is_urgent)}
-          disabled={saving === 'is_urgent'}
-          className={cn('flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ring-1 ring-inset transition',
-            task.is_urgent ? 'bg-red-600 text-white ring-red-600 hover:bg-red-700' : 'bg-white text-slate-600 ring-slate-300 hover:bg-red-50 hover:text-red-700')}
-        >
-          <Flame className="h-4 w-4" /> {task.is_urgent ? 'Urgent — click to clear' : 'Mark as urgent'}
-        </button>
+        <div className={row}>
+          <span className={label}>Urgent</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={task.is_urgent}
+            onClick={() => update('is_urgent', !task.is_urgent)}
+            disabled={saving === 'is_urgent'}
+            title={task.is_urgent ? 'In the urgent pool — click to remove' : 'Put this task in the urgent pool'}
+            className="flex items-center gap-2 text-sm disabled:opacity-60"
+          >
+            <span className={cn('relative h-5 w-9 flex-shrink-0 rounded-full transition', task.is_urgent ? 'bg-red-600' : 'bg-slate-300')}>
+              <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition', task.is_urgent ? 'left-[18px]' : 'left-0.5')} />
+            </span>
+            <span className={cn('inline-flex items-center gap-1', task.is_urgent ? 'font-semibold text-red-700' : 'text-slate-500')}>
+              {task.is_urgent && <Flame className="h-3.5 w-3.5" />}{task.is_urgent ? 'Yes' : 'No'}
+            </span>
+          </button>
+        </div>
       )}
     </div>
   )

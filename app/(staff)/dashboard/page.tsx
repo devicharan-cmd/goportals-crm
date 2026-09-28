@@ -52,7 +52,7 @@ export default async function DashboardPage() {
           <p className="text-sm font-medium text-lime-600">{format(new Date(), 'EEEE, d MMMM')}</p>
           <h1 className="text-2xl font-bold">{greeting()}, {me.full_name.split(' ')[0] || 'there'} 👋</h1>
         </div>
-        <ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>
+        {me.role !== 'super_admin' && <ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">

@@ -3,7 +3,7 @@ import { Building2, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
 import { Avatar, Card, EmptyState, PageHeader } from '@/components/ui/primitives'
-import { AccountStatusBadge, Badge } from '@/components/ui/badges'
+import { AccountStatusBadge } from '@/components/ui/badges'
 import { ClientFormModal } from '@/components/clients/ClientFormModal'
 import { STAGE_LABELS } from '@/lib/constants'
 import { nameMap } from '@/lib/queries'
@@ -12,7 +12,6 @@ import type { Client } from '@/types/database'
 export const metadata = { title: 'Clients' }
 
 type Row = Client & {
-  client_platforms: { platform: { name: string } | null }[]
   client_team: { profile_id: string }[]
 }
 
@@ -21,7 +20,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: { q?
   const supabase = createClient()
 
   let query = supabase.from('clients')
-    .select('*, client_platforms(platform:platforms(name)), client_team(profile_id)')
+    .select('*, client_team(profile_id)')
     .order('company_name')
   if (searchParams.q) query = query.ilike('company_name', `%${searchParams.q.replace(/[%_,()]/g, ' ')}%`)
   if (searchParams.status) query = query.eq('status', searchParams.status)
@@ -81,10 +80,6 @@ export default async function ClientsPage({ searchParams }: { searchParams: { q?
                           {STAGE_LABELS[c.stage]}{c.contact_name ? ` · ${c.contact_name}` : ''}
                         </p>
                       </div>
-                    </div>
-                    <div className="flex flex-wrap gap-1 sm:w-64">
-                      {c.client_platforms.slice(0, 4).map((p, i) => p.platform && <Badge key={i}>{p.platform.name}</Badge>)}
-                      {c.client_platforms.length > 4 && <Badge>+{c.client_platforms.length - 4}</Badge>}
                     </div>
                     <div className="flex items-center gap-4 sm:w-60 sm:justify-end">
                       <div className="flex -space-x-2">

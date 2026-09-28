@@ -53,8 +53,7 @@ function LoginForm() {
       </form>
 
       <p className="mt-8 text-center text-sm text-slate-500">
-        New brand?{' '}
-        <Link href="/signup" className="font-semibold text-brand-600 hover:text-brand-700">Create a client account</Link>
+        New brand? Contact GoPortals and we&apos;ll send you an invite.
       </p>
     </>
   )

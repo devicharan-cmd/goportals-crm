@@ -41,7 +41,7 @@ export function dueState(dueDate: string | null | undefined, status?: TaskStatus
 
 export function dueLabel(dueDate: string | null | undefined, status?: TaskStatus): string {
   const s = dueState(dueDate, status)
-  if (s === 'none') return dueDate ? formatDate(dueDate) : 'No due date'
+  if (s === 'none') return dueDate ? `Due ${formatDate(dueDate)}` : 'No due date'
   const days = differenceInCalendarDays(new Date(dueDate!), new Date())
   if (s === 'overdue') return `${-days}d overdue`
   if (s === 'today') return 'Due today'

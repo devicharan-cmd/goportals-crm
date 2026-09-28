@@ -65,9 +65,15 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     await admin.from('invites').delete().eq('id', invite.id)
-    const msg = error.message.toLowerCase().includes('already')
+    console.error('[invite] Supabase refused the invite:', error.status, error.message)
+    const raw = error.message.toLowerCase()
+    const msg = raw.includes('already')
       ? 'Someone with this email already has an account.'
-      : error.message
+      : raw.includes('not authorized')
+        ? "Supabase's built-in email only sends to your Supabase team members. Set up custom SMTP (e.g. Resend) in Supabase → Authentication → Emails to invite anyone."
+        : raw.includes('rate limit')
+          ? 'Too many emails sent recently (Supabase limit). Wait an hour, or set up custom SMTP in Supabase.'
+          : error.message
     return NextResponse.json({ error: msg }, { status: 400 })
   }
 

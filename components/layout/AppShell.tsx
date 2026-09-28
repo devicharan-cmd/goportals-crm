@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Bell, Briefcase, Building2, CheckSquare, ClipboardList, FileSignature, Flame, LayoutDashboard,
-  LogOut, Menu, PanelLeftClose, PanelLeftOpen, PieChart, Settings2, ShieldCheck, UserPlus, Users, X,
+  ChevronLeft, ChevronRight, LogOut, Menu, PieChart, Settings2, ShieldCheck, UserPlus, Users, X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
@@ -109,27 +109,24 @@ export function AppShell({
       title={collapsed ? 'Show sidebar (Ctrl+B)' : 'Hide sidebar (Ctrl+B)'}
       aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
       aria-expanded={!collapsed}
-      className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+      className="absolute -right-3 top-5 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-card transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
     >
-      {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+      {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
     </button>
   )
 
   const renderSidebar = (compact: boolean, desktop: boolean) => (
     <div className="flex h-full flex-col">
       {compact ? (
-        <div className="flex flex-col items-center gap-2 px-2 pb-1 pt-3">
+        <div className="flex h-16 items-center justify-center px-2">
           <Link href={isClient ? '/portal' : '/dashboard'} title="GoPortals">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 font-display text-sm font-extrabold text-white">G<span className="text-lime-400">P</span></span>
           </Link>
-          {toggleButton}
         </div>
       ) : (
         <div className="flex h-16 items-center justify-between gap-2 pl-5 pr-3">
           <Link href={isClient ? '/portal' : '/dashboard'} title="GoPortals"><Logo priority /></Link>
-          {desktop
-            ? toggleButton
-            : <button className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" onClick={() => setOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button>}
+          {!desktop && <button className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" onClick={() => setOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button>}
         </div>
       )}
 
@@ -201,7 +198,10 @@ export function AppShell({
     <div className="min-h-screen">
       {/* Desktop sidebar */}
       <aside className={cn('fixed inset-y-0 left-0 z-30 hidden border-r border-slate-200 bg-white transition-[width] duration-200 lg:block',
-        collapsed ? 'w-16' : 'w-64')}>{renderSidebar(collapsed, true)}</aside>
+        collapsed ? 'w-16' : 'w-64')}>
+        {renderSidebar(collapsed, true)}
+        {toggleButton}
+      </aside>
 
       {/* Mobile drawer */}
       {open && (

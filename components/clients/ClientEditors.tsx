@@ -29,8 +29,9 @@ function useMutation() {
 
 const ErrorLine = ({ error }: { error: string }) => (error ? <p className="px-5 pb-3 text-xs text-red-600">{error}</p> : null)
 
-// ─── Platforms + listing counts ──────────────────────────────
-export type ClientPlatformRow = { platform_id: string; seller_id: string | null; total_listings: number; live_listings: number }
+// ─── Platforms the client sells on ──────────────────────────
+// (client_platforms also has live/total listing columns — hidden for now; counts were manual.)
+export type ClientPlatformRow = { platform_id: string }
 
 export function ClientPlatformsEditor({
   clientId, rows, platforms, editable,
@@ -41,37 +42,18 @@ export function ClientPlatformsEditor({
   const available = platforms.filter(p => p.is_active && !rows.some(r => r.platform_id === p.id))
   const supabase = createClient()
 
-  const save = (platform_id: string, field: 'total_listings' | 'live_listings' | 'seller_id', value: string) =>
-    run(() => supabase.from('client_platforms')
-      .update({ [field]: field === 'seller_id' ? value || null : Number(value) || 0 })
-      .eq('client_id', clientId).eq('platform_id', platform_id))
-
   return (
     <div>
       {rows.length === 0 && <p className="px-5 py-4 text-sm text-slate-400">No platforms yet.</p>}
       <ul className="divide-y divide-slate-100">
         {rows.map(r => (
-          <li key={r.platform_id} className="flex flex-wrap items-center gap-3 px-5 py-3">
-            <span className="min-w-[120px] flex-1 text-sm font-medium text-slate-800">{byId[r.platform_id]?.name ?? '—'}</span>
-            {editable ? (
-              <>
-                <label className="flex items-center gap-1.5 text-xs text-slate-500">
-                  Live
-                  <input type="number" min="0" defaultValue={r.live_listings} className="input h-8 w-20 py-1 text-sm"
-                         onBlur={e => Number(e.target.value) !== r.live_listings && save(r.platform_id, 'live_listings', e.target.value)} />
-                </label>
-                <label className="flex items-center gap-1.5 text-xs text-slate-500">
-                  Total
-                  <input type="number" min="0" defaultValue={r.total_listings} className="input h-8 w-20 py-1 text-sm"
-                         onBlur={e => Number(e.target.value) !== r.total_listings && save(r.platform_id, 'total_listings', e.target.value)} />
-                </label>
-                <button disabled={busy} onClick={() => run(() => supabase.from('client_platforms').delete().eq('client_id', clientId).eq('platform_id', r.platform_id))}
-                        className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600" aria-label="Remove platform">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </>
-            ) : (
-              <span className="text-xs text-slate-500">{r.live_listings} / {r.total_listings} live</span>
+          <li key={r.platform_id} className="flex items-center gap-3 px-5 py-2.5">
+            <span className="flex-1 text-sm font-medium text-slate-800">{byId[r.platform_id]?.name ?? '—'}</span>
+            {editable && (
+              <button disabled={busy} onClick={() => run(() => supabase.from('client_platforms').delete().eq('client_id', clientId).eq('platform_id', r.platform_id))}
+                      className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600" aria-label="Remove platform" title="Remove platform">
+                <Trash2 className="h-4 w-4" />
+              </button>
             )}
           </li>
         ))}

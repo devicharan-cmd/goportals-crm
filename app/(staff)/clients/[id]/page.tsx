@@ -27,7 +27,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     await Promise.all([
       supabase.from('clients').select('*').eq('id', id).maybeSingle(),
       supabase.from('client_internal').select('*').eq('client_id', id).maybeSingle(),
-      supabase.from('client_platforms').select('platform_id, seller_id, total_listings, live_listings').eq('client_id', id),
+      supabase.from('client_platforms').select('platform_id').eq('client_id', id),
       supabase.from('client_services').select('id, service_id, custom_name, status').eq('client_id', id).order('created_at'),
       supabase.from('client_team').select('profile_id, department_id').eq('client_id', id),
       supabase.from('tasks').select(TASK_LIST_SELECT).eq('client_id', id).order('status').order('due_date', { nullsFirst: false }).limit(100),
@@ -138,7 +138,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           </Card>
 
           <Card>
-            <CardHeader title="Platforms & listings" />
+            <CardHeader title="Platforms" />
             <ClientPlatformsEditor clientId={client.id} rows={(platforms ?? []) as ClientPlatformRow[]} platforms={lookups.platforms} editable={canEdit} />
           </Card>
 

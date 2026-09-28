@@ -67,7 +67,7 @@ function DraggableCard({ task, names, assignOptions }: CardProps) {
 function Column({ status, label, tasks, names, assignOptions }: { status: TaskStatus; label: string; tasks: TaskListItem[]; names: Record<string, string>; assignOptions?: AssigneeOption[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: status })
   return (
-    <div className="flex w-72 flex-shrink-0 flex-col">
+    <div className="flex min-w-0 flex-col">
       <div className="mb-2 flex items-center gap-2 px-1">
         <span className={cn('h-2 w-2 rounded-full', STATUS_DOT[status])} />
         <h3 className="text-sm font-semibold text-slate-700">{label}</h3>
@@ -122,7 +122,7 @@ export function TaskBoard({
     <div>
       {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       <DndContext id="task-board" sensors={sensors} onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))} onDragEnd={onDragEnd} onDragCancel={() => setActiveId(null)}>
-        <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
+        <div className="-mx-4 grid auto-cols-[minmax(180px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
           {STATUS_OPTIONS.map(s => (
             <Column key={s.value} status={s.value} label={s.label} names={names} assignOptions={assignOptions} tasks={tasks.filter(t => t.status === s.value)} />
           ))}

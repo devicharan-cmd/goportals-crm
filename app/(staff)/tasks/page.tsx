@@ -21,7 +21,9 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
 
   // Employees only ever see their own + urgent tasks (RLS), so "My tasks" vs "All" matters for managers/admins.
   const canSeeMore = me.role !== 'employee'
-  const scope = canSeeMore ? searchParams.scope ?? 'mine' : 'mine'
+  // Super admins start on all tasks (nothing is usually assigned to them); others on their own.
+  const defaultScope = me.role === 'super_admin' ? 'all' : 'mine'
+  const scope = canSeeMore ? searchParams.scope ?? defaultScope : 'mine'
   const board = searchParams.view === 'board'
 
   let query = supabase.from('tasks').select(TASK_LIST_SELECT)
@@ -54,11 +56,13 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
     <>
       <PageHeader
         title="Tasks"
-        description={scope === 'mine' ? 'Tasks assigned to you.' : 'All tasks in your departments and clients.'}
+        description={scope === 'mine' ? 'Tasks assigned to you.'
+          : me.role === 'super_admin' ? 'Every task across all clients.' : 'Tasks of your employees, departments and clients.'}
         actions={<ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
       />
       <TaskFilters
         showScope={canSeeMore}
+        defaultScope={defaultScope}
         clients={lookups.clients.map(c => ({ value: c.id, label: c.company_name }))}
         people={(me.role === 'super_admin' ? lookups.staff : assignableFor(me, lookups)).map(p => ({ value: p.id, label: p.full_name || p.email }))}
         departments={lookups.departments.map(d => ({ value: d.id, label: d.name }))}
@@ -72,8 +76,10 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
             names={names}
             assignOptions={assignOptions}
             empty={{
-              title: scope === 'mine' ? 'Nothing assigned to you' : 'No tasks match these filters',
-              description: scope === 'mine' ? 'Check the urgent pool or create a task.' : undefined,
+              title: scope === 'mine' ? 'Nothing assigned to you' : status === 'active' && !searchParams.q ? 'No open tasks' : 'No tasks match these filters',
+              description: scope === 'mine' ? 'Check the urgent pool or create a task.'
+                : status === 'active' && !searchParams.q ? 'Finished tasks are hidden. Choose “Status: all” to see them.'
+                : 'Try clearing the filters.',
               action: scope === 'mine' ? <ButtonLink href="/urgent" variant="secondary">Open urgent pool</ButtonLink> : undefined,
             }}
           />

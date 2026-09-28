@@ -1,69 +1,46 @@
 import type { Config } from 'tailwindcss'
 
+// GoPortals brand — taken from the logo:
+//   brand (teal-blue "PORTALS") #045E80 · lime ("GO") #95C12C · navy accent #28378F
 const config: Config = {
-  darkMode: ['class'],
-  content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
-  ],
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
   theme: {
-    container: {
-      center: true,
-      padding: '2rem',
-      screens: { '2xl': '1400px' },
-    },
     extend: {
       colors: {
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
-        primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
+        brand: {
+          50:  '#EAF4F8',
+          100: '#CFE6EF',
+          200: '#9FCCDE',
+          300: '#63A9C4',
+          400: '#2A87AA',
+          500: '#0A6F94',
+          600: '#045E80',
+          700: '#034C68',
+          800: '#033B51',
+          900: '#022B3B',
+          950: '#011B26',
         },
-        secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
+        lime: {
+          50:  '#F5FAE8',
+          100: '#E8F3C8',
+          200: '#D3E896',
+          300: '#BADA5E',
+          400: '#A5CD3F',
+          500: '#95C12C',
+          600: '#789C20',
+          700: '#5B771A',
+          800: '#465B17',
+          900: '#394B16',
         },
-        destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))',
-        },
-        muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))',
-        },
-        accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
-        },
-        card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))',
-        },
+        navy: '#28378F',
       },
-      borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+      fontFamily: {
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'var(--font-sans)', 'system-ui', 'sans-serif'],
       },
-      keyframes: {
-        'accordion-down': {
-          from: { height: '0' },
-          to: { height: 'var(--radix-accordion-content-height)' },
-        },
-        'accordion-up': {
-          from: { height: 'var(--radix-accordion-content-height)' },
-          to: { height: '0' },
-        },
-      },
-      animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
+      boxShadow: {
+        card: '0 1px 2px 0 rgb(2 43 59 / 0.04), 0 1px 3px 0 rgb(2 43 59 / 0.06)',
+        pop:  '0 10px 30px -10px rgb(2 43 59 / 0.25)',
       },
     },
   },

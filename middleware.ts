@@ -1,8 +1,17 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Routes anyone can open.
+const PUBLIC_PREFIXES = ['/login', '/signup', '/forgot-password', '/auth']
+// Routes for clients who have not finished signup / are waiting for approval.
+const CLIENT_GATE_PREFIXES = ['/onboarding', '/pending']
+const STAFF_PREFIXES = ['/dashboard', '/tasks', '/urgent', '/clients', '/team', '/reports', '/notifications', '/admin']
+
+const startsWithAny = (path: string, prefixes: string[]) =>
+  prefixes.some(p => path === p || path.startsWith(p + '/'))
+
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+  let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,48 +21,65 @@ export async function middleware(request: NextRequest) {
         getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
+          response = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
         },
       },
     }
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  const { pathname } = request.nextUrl
+  const path = request.nextUrl.pathname
+  const go = (to: string) => {
+    if (path === to) return response
+    const res = NextResponse.redirect(new URL(to, request.url))
+    response.cookies.getAll().forEach(c => res.cookies.set(c))   // keep refreshed session
+    return res
+  }
 
-  const isPortalRoute    = pathname.startsWith('/portal')
-  const isDashboardRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/clients') ||
-                           pathname.startsWith('/tickets') || pathname.startsWith('/team') ||
-                           pathname.startsWith('/reports') || pathname.startsWith('/notifications')
-  const isLoginRoute     = pathname.startsWith('/login') || pathname.startsWith('/auth')
+  if (path.startsWith('/api')) return response   // API routes check auth themselves
+  if (path.startsWith('/auth')) return response  // callback / set-password handle their own session
 
   if (!user) {
-    if (isLoginRoute) return supabaseResponse
-    return NextResponse.redirect(new URL('/login', request.url))
+    return startsWithAny(path, PUBLIC_PREFIXES) ? response : go('/login')
   }
 
-  const role = (user.user_metadata && user.user_metadata.role) ? String(user.user_metadata.role) : ''
-  const isClient = role === 'client'
+  const { data: profile } = await supabase
+    .from('profiles').select('role, status').eq('id', user.id).single()
 
-  if (isLoginRoute) {
-    if (isClient) return NextResponse.redirect(new URL('/portal/dashboard', request.url))
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+  if (!profile) return startsWithAny(path, PUBLIC_PREFIXES) ? response : go('/login?error=no_profile')
+
+  // Suspended / rejected accounts
+  if (profile.status === 'suspended' || profile.status === 'rejected') {
+    return path === '/blocked' ? response : go('/blocked')
   }
 
-  if (isClient && isDashboardRoute) {
-    return NextResponse.redirect(new URL('/portal/dashboard', request.url))
+  // ── Client ──
+  if (profile.role === 'client') {
+    let gate: string | null = null
+    if (profile.status === 'pending') {
+      const [{ data: client }, { data: needsAgreement }] = await Promise.all([
+        supabase.from('clients').select('id').eq('owner_id', user.id).maybeSingle(),
+        supabase.rpc('needs_agreement'),
+      ])
+      gate = !client || needsAgreement ? '/onboarding' : '/pending'
+    } else {
+      const { data: needsAgreement } = await supabase.rpc('needs_agreement')
+      if (needsAgreement) gate = '/onboarding'
+    }
+
+    if (gate) return startsWithAny(path, [gate]) ? response : go(gate)
+    return path.startsWith('/portal') ? response : go('/portal')
   }
 
-  if (!isClient && isPortalRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
-
-  return supabaseResponse
+  // ── Staff ──
+  if (profile.status !== 'active') return path === '/blocked' ? response : go('/blocked')
+  if (path.startsWith('/admin') && profile.role !== 'super_admin') return go('/dashboard')
+  if (startsWithAny(path, ['/clients', '/team', '/reports']) && profile.role === 'employee') return go('/dashboard')
+  if (startsWithAny(path, STAFF_PREFIXES)) return response
+  return go('/dashboard')
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|logo.png|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }

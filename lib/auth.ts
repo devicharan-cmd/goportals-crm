@@ -1,10 +1,11 @@
 // Server-only helpers (uses cookies via lib/supabase/server).
 import { cache } from 'react'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { AppRole, Profile } from '@/types/database'
 
-export const STAFF_ROLES: AppRole[] = ['super_admin', 'manager', 'employee']
+export const STAFF_ROLES: AppRole[] = ['super_admin', 'admin', 'team_lead', 'employee']
 
 export const isStaffRole = (role: AppRole | null | undefined) =>
   !!role && STAFF_ROLES.includes(role)
@@ -12,9 +13,11 @@ export const isStaffRole = (role: AppRole | null | undefined) =>
 /** Logged-in user's profile (one DB call per request). Null when signed out. */
 export const getProfile = cache(async (): Promise<Profile | null> => {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  // middleware already verified the JWT with Supabase Auth for this request —
+  // trust its header instead of paying for a second getUser() round-trip here.
+  const userId = headers().get('x-user-id') ?? (await supabase.auth.getUser()).data.user?.id
+  if (!userId) return null
+  const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
   return (data as Profile) ?? null
 })
 
@@ -34,4 +37,5 @@ export async function requireRole(roles: AppRole[]): Promise<Profile> {
 
 export const requireStaff      = () => requireRole(STAFF_ROLES)
 export const requireSuperAdmin = () => requireRole(['super_admin'])
+export const requireAdmin      = () => requireRole(['super_admin', 'admin'])
 export const requireClient     = () => requireRole(['client'])

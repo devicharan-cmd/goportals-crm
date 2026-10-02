@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { CheckCircle2, FileSignature, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { requireSuperAdmin } from '@/lib/auth'
+import { requireAdmin } from '@/lib/auth'
 import { Card, EmptyState, PageHeader } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { ApprovalActions } from '@/components/clients/ClientEditors'
@@ -11,15 +11,15 @@ import type { Client } from '@/types/database'
 export const metadata = { title: 'Approvals' }
 
 type Row = Client & {
-  client_platforms: { platform: { name: string } | null }[]
+  ecommerce_accounts: { account_name: string; platform: { name: string } | null }[]
   client_services: { custom_name: string | null; service: { name: string } | null }[]
   agreement_acceptances: { accepted_at: string }[]
 }
 
 export default async function ApprovalsPage() {
-  await requireSuperAdmin()
+  await requireAdmin()
   const { data } = await createClient().from('clients')
-    .select('*, client_platforms(platform:platforms(name)), client_services(custom_name, service:services(name)), agreement_acceptances(accepted_at)')
+    .select('*, ecommerce_accounts(account_name, platform:platforms(name)), client_services(custom_name, service:services(name)), agreement_acceptances(accepted_at)')
     .eq('status', 'pending').eq('signup_source', 'self_signup')
     .order('created_at')
   const rows = (data ?? []) as unknown as Row[]
@@ -47,10 +47,10 @@ export default async function ApprovalsPage() {
                 </div>
                 <div className="mt-4 grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-3">
                   <div>
-                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Platforms</p>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">E-commerce accounts</p>
                     <div className="flex flex-wrap gap-1">
-                      {c.client_platforms.map((p, i) => p.platform && <Badge key={i}>{p.platform.name}</Badge>)}
-                      {c.client_platforms.length === 0 && <span className="text-sm text-slate-400">—</span>}
+                      {c.ecommerce_accounts.map((a, i) => <Badge key={i}>{a.platform?.name ? `${a.platform.name} · ${a.account_name}` : a.account_name}</Badge>)}
+                      {c.ecommerce_accounts.length === 0 && <span className="text-sm text-slate-400">—</span>}
                     </div>
                   </div>
                   <div>

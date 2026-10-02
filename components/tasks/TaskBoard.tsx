@@ -12,7 +12,7 @@ import { Avatar } from '@/components/ui/primitives'
 import { AssignButton } from '@/components/tasks/AssignButton'
 import type { AssigneeOption } from '@/lib/queries'
 import { DueDate, PriorityBadge } from '@/components/ui/badges'
-import { STATUS_DOT, STATUS_OPTIONS } from '@/lib/constants'
+import { TASK_STATUS_DOT, TASK_STATUS_OPTIONS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { cn, errorMessage, taskCode } from '@/lib/utils'
 import type { TaskListItem, TaskStatus } from '@/types/database'
 
@@ -36,7 +36,7 @@ function Card({ task, names, overlay, linked, assignOptions }: CardProps & { ove
   return (
     <div className={cn('rounded-lg border bg-white text-left',
       overlay ? 'rotate-1 border-brand-400 shadow-pop' : 'border-slate-200 shadow-card',
-      task.is_urgent && task.status !== 'done' && 'border-l-4 border-l-red-500')}>
+      task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && 'border-l-4 border-l-red-500')}>
       {linked
         ? <Link href={`/tasks/${task.id}`} draggable={false} className="block p-3 pb-2 hover:bg-slate-50/60">{body}</Link>
         : <div className="p-3 pb-2">{body}</div>}
@@ -44,7 +44,7 @@ function Card({ task, names, overlay, linked, assignOptions }: CardProps & { ove
         {task.assignee_id
           ? <span className="flex min-w-0 items-center gap-1.5 text-xs text-slate-600"><Avatar name={names[task.assignee_id]} size="xs" /><span className="truncate">{names[task.assignee_id] ?? '—'}</span></span>
           : <span className="text-[11px] italic text-slate-400">Unassigned</span>}
-        {assignOptions && task.status !== 'done' && (
+        {assignOptions && !TASK_TERMINAL_STATUSES.includes(task.status) && (
           // Keep clicks / drags inside the picker from starting a drag or opening the task.
           <span onPointerDown={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
             <AssignButton taskId={task.id} currentId={task.assignee_id} options={assignOptions} variant="link" />
@@ -69,7 +69,7 @@ function Column({ status, label, tasks, names, assignOptions }: { status: TaskSt
   return (
     <div className="flex min-w-0 flex-col">
       <div className="mb-2 flex items-center gap-2 px-1">
-        <span className={cn('h-2 w-2 rounded-full', STATUS_DOT[status])} />
+        <span className={cn('h-2 w-2 rounded-full', TASK_STATUS_DOT[status])} />
         <h3 className="text-sm font-semibold text-slate-700">{label}</h3>
         <span className="rounded-full bg-slate-200/70 px-2 text-xs font-medium text-slate-600">{tasks.length}</span>
       </div>
@@ -123,7 +123,7 @@ export function TaskBoard({
       {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       <DndContext id="task-board" sensors={sensors} onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))} onDragEnd={onDragEnd} onDragCancel={() => setActiveId(null)}>
         <div className="-mx-4 grid auto-cols-[minmax(180px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
-          {STATUS_OPTIONS.map(s => (
+          {TASK_STATUS_OPTIONS.map(s => (
             <Column key={s.value} status={s.value} label={s.label} names={names} assignOptions={assignOptions} tasks={tasks.filter(t => t.status === s.value)} />
           ))}
         </div>

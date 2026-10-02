@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Bell, Briefcase, Building2, CheckSquare, ClipboardList, FileSignature, Flame, LayoutDashboard,
-  ChevronLeft, ChevronRight, LogOut, Menu, PieChart, Settings2, ShieldCheck, UserPlus, Users, X,
+  Bell, Briefcase, Building2, CheckSquare, ClipboardList, FileSignature, Flame, LayoutDashboard, Layers,
+  ChevronLeft, ChevronRight, LogOut, Menu, PieChart, Settings2, ShieldCheck, UserCircle, UserPlus, Users, X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
@@ -21,18 +21,19 @@ const STAFF_NAV: NavGroup[] = [
   {
     items: [
       { href: '/dashboard',     label: 'Dashboard',   icon: LayoutDashboard },
+      { href: '/tickets',       label: 'Tickets',     icon: ClipboardList },
       { href: '/tasks',         label: 'Tasks',       icon: CheckSquare },
       { href: '/urgent',        label: 'Urgent pool', icon: Flame, badge: 'urgent' },
-      { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'manager'] },
-      { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'manager'] },
-      { href: '/reports',       label: 'Reports',     icon: PieChart, roles: ['super_admin', 'manager'] },
+      { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'admin'] },
+      { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'admin', 'team_lead'] },
+      { href: '/reports',       label: 'Reports',     icon: PieChart, roles: ['super_admin', 'admin'] },
     ],
   },
   {
     label: 'Admin',
     items: [
-      { href: '/admin/approvals', label: 'Approvals',  icon: ShieldCheck, roles: ['super_admin'], badge: 'approvals' },
-      { href: '/admin/users',     label: 'Users & invites', icon: UserPlus, roles: ['super_admin'] },
+      { href: '/admin/approvals', label: 'Approvals',  icon: ShieldCheck, roles: ['super_admin', 'admin'], badge: 'approvals' },
+      { href: '/admin/users',     label: 'Users & invites', icon: UserPlus, roles: ['super_admin', 'admin'] },
       { href: '/admin/settings',  label: 'Platforms & services', icon: Settings2, roles: ['super_admin'] },
       { href: '/admin/agreement', label: 'Agreement',  icon: FileSignature, roles: ['super_admin'] },
     ],
@@ -42,9 +43,11 @@ const STAFF_NAV: NavGroup[] = [
 const CLIENT_NAV: NavGroup[] = [
   {
     items: [
-      { href: '/portal',           label: 'Overview',  icon: LayoutDashboard },
-      { href: '/portal/tasks',     label: 'My tasks',  icon: ClipboardList },
-      { href: '/portal/tasks/new', label: 'New request', icon: Briefcase },
+      { href: '/portal',             label: 'Overview',    icon: LayoutDashboard },
+      { href: '/portal/tickets',     label: 'My tickets', icon: ClipboardList },
+      { href: '/portal/tickets/new', label: 'New ticket', icon: Briefcase },
+      { href: '/portal/services',    label: 'My services', icon: Layers },
+      { href: '/portal/profile',     label: 'Company profile', icon: UserCircle },
     ],
   },
 ]
@@ -93,8 +96,8 @@ export function AppShell({
   const isActive = (href: string) =>
     href === '/portal' || href === '/dashboard'
       ? pathname === href
-      : href === '/portal/tasks'
-        ? pathname.startsWith(href) && pathname !== '/portal/tasks/new'
+      : href === '/portal/tickets'
+        ? pathname.startsWith(href) && pathname !== '/portal/tickets/new'
         : pathname === href || pathname.startsWith(href + '/')
 
   async function signOut() {
@@ -216,7 +219,7 @@ export function AppShell({
           <button className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
-          <div className="lg:hidden"><Logo className="h-7" /></div>
+          <div className="lg:hidden"><Logo className="h-7" priority /></div>
           <div className="flex-1" />
           <Link href={notificationsHref} className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700" aria-label="Notifications">
             <Bell className="h-5 w-5" />

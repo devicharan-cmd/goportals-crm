@@ -8,6 +8,7 @@ import { TaskCode } from '@/components/tasks/TaskCode'
 import { ButtonLink } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/primitives'
 import { Badge, PriorityBadge, StatusBadge, UrgentBadge, DueDate } from '@/components/ui/badges'
+import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { TaskProperties } from '@/components/tasks/TaskProperties'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
@@ -41,8 +42,12 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
   const names = nameMap(lookups.people)
 
   const assignees = assigneeOptionsFor(me, lookups)
-  const canAssign = me.role !== 'employee' || !task.assignee_id || task.assignee_id === me.id
-  const canClaim = task.is_urgent && !task.assignee_id && task.status !== 'done'
+  // Employees may still claim an unassigned task, but once a task has an assignee
+  // (even themselves), only managers/admins can change who it's assigned to.
+  const canAssign = me.role !== 'employee' || !task.assignee_id
+  const canEditDueDate = me.role !== 'employee'
+  const canReview = me.role !== 'employee'
+  const canClaim = task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
 
   const details: [string, React.ReactNode][] = [
     ['Task ID', <span key="id" className="font-mono font-semibold">{taskCode(task.task_number)}</span>],
@@ -74,8 +79,8 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
           <Card className="p-6">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <TaskCode number={task.task_number} />
-              {task.is_urgent && task.status !== 'done' && <UrgentBadge />}
-              <StatusBadge status={task.status} />
+              {task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && <UrgentBadge />}
+              <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={TASK_STATUS_STYLES[task.status]} dotClassName={TASK_STATUS_DOT[task.status]} />
               <PriorityBadge priority={task.priority} />
               {task.source === 'client' && <Badge className="bg-lime-50 text-lime-800 ring-lime-200">Client request</Badge>}
               <DueDate date={task.due_date} status={task.status} className="ml-auto" />
@@ -118,6 +123,8 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
               assigneeName={task.assignee_id ? names[task.assignee_id] ?? null : null}
               canMarkUrgent={me.role !== 'employee'}
               canAssign={canAssign}
+              canEditDueDate={canEditDueDate}
+              canReview={canReview}
             />
           </Card>
           <Card>

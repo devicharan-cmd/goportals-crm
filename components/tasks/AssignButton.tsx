@@ -14,12 +14,13 @@ export type { AssigneeOption }
 
 /** "Change assignee" — pick someone from a searchable list and save straight away. */
 export function AssignButton({
-  taskId, currentId, options, variant = 'button',
+  taskId, currentId, options, variant = 'button', table = 'tasks',
 }: {
   taskId: string
   currentId: string | null
   options: AssigneeOption[]
   variant?: 'button' | 'link'
+  table?: 'tasks' | 'tickets'
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -43,7 +44,7 @@ export function AssignButton({
   async function save() {
     setSaving(true)
     setError('')
-    const { error } = await createClient().from('tasks').update({ assignee_id: selected }).eq('id', taskId)
+    const { error } = await createClient().from(table).update({ assignee_id: selected }).eq('id', taskId)
     setSaving(false)
     if (error) return setError(errorMessage(error))
     setOpen(false)

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { KanbanSquare, List, Search, X } from 'lucide-react'
-import { STATUS_OPTIONS } from '@/lib/constants'
+import { TASK_STATUS_OPTIONS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
 type Option = { value: string; label: string }
@@ -82,7 +82,7 @@ export function TaskFilters({
           <select className={select} aria-label="Status" value={params.get('status') ?? 'active'} onChange={e => set('status', e.target.value === 'active' ? '' : e.target.value)}>
             <option value="active">Status: not done</option>
             <option value="all">Status: all</option>
-            {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>Status: {s.label.toLowerCase()}</option>)}
+            {TASK_STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>Status: {s.label.toLowerCase()}</option>)}
           </select>
         )}
         <select className={select} aria-label="Client" value={params.get('client') ?? ''} onChange={e => set('client', e.target.value)}>

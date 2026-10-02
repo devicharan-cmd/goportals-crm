@@ -13,18 +13,20 @@ const ICONS: Record<string, React.ElementType> = {
   assigned: UserCheck,
   status_changed: RefreshCw,
   client_task: Inbox,
+  client_ticket: Inbox,
   urgent: Flame,
   comment: MessageSquare,
 }
 
-export function NotificationsList({ items, taskHref }: { items: Notification[]; taskHref: string }) {
+export function NotificationsList({ items, taskHref, ticketHref }: { items: Notification[]; taskHref: string; ticketHref: string }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const unread = items.filter(n => !n.is_read)
 
   async function open(n: Notification) {
     if (!n.is_read) await createClient().from('notifications').update({ is_read: true }).eq('id', n.id)
-    if (n.task_id) router.push(`${taskHref}/${n.task_id}`)
+    if (n.ticket_id) router.push(`${ticketHref}/${n.ticket_id}`)
+    else if (n.task_id) router.push(`${taskHref}/${n.task_id}`)
     router.refresh()
   }
 

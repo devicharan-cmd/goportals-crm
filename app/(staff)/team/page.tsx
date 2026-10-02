@@ -20,13 +20,13 @@ const TABS = [
 ] as const
 
 export default async function TeamPage({ searchParams }: { searchParams: { show?: string } }) {
-  const me = await requireRole(['super_admin', 'manager'])
+  const me = await requireRole(['super_admin', 'admin', 'team_lead'])
   const supabase = createClient()
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
   const [lookups, { data }, { data: doneData }] = await Promise.all([
     getStaffLookups(),
-    supabase.from('tasks').select('assignee_id, estimated_hours, status, due_date').neq('status', 'done').not('assignee_id', 'is', null),
-    supabase.from('tasks').select('assignee_id').eq('status', 'done').gte('closed_at', monthStart.toISOString()).not('assignee_id', 'is', null),
+    supabase.from('tasks').select('assignee_id, estimated_hours, status, due_date').not('status', 'in', '(completed,cancelled)').not('assignee_id', 'is', null),
+    supabase.from('tasks').select('assignee_id').eq('status', 'completed').gte('closed_at', monthStart.toISOString()).not('assignee_id', 'is', null),
   ])
   const tasks = (data ?? []) as Pick<Task, 'assignee_id' | 'estimated_hours' | 'status' | 'due_date'>[]
   const doneThisMonth = (doneData ?? []).reduce<Record<string, number>>((acc, t: { assignee_id: string }) => {
@@ -35,9 +35,14 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
   }, {})
   const deptName = Object.fromEntries(lookups.departments.map(d => [d.id, d.name]))
 
-  // Super admin: all staff. Manager / TL: employees only (no admins or other managers).
+  // Super admin / admin: all staff, company-wide. Team lead: only employees sharing a department with them.
   // Active and not-active people are both listed.
-  const visible = lookups.people.filter(p => me.role === 'super_admin' ? p.role !== 'client' : p.role === 'employee')
+  const myDepartmentIds = new Set(lookups.departmentMembers.filter(m => m.profile_id === me.id).map(m => m.department_id))
+  const sharesMyDepartment = (profileId: string) =>
+    lookups.departmentMembers.some(m => m.profile_id === profileId && myDepartmentIds.has(m.department_id))
+  const visible = lookups.people.filter(p =>
+    ['super_admin', 'admin'].includes(me.role) ? p.role !== 'client'
+      : p.role === 'employee' && sharesMyDepartment(p.id))
   const everyone = visible.map(p => {
     const mine = tasks.filter(t => t.assignee_id === p.id)
     const hours = mine.reduce((s, t) => s + Number(t.estimated_hours ?? 3), 0)
@@ -61,11 +66,11 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
     <>
       <PageHeader
         title="Team"
-        description={`${me.role === 'super_admin' ? 'All team members' : 'All employees'}. Workload = estimated hours of unfinished tasks vs weekly capacity.`}
+        description={`${['super_admin', 'admin'].includes(me.role) ? 'All team members' : 'Your department\'s employees'}. Workload = estimated hours of unfinished tasks vs weekly capacity.`}
         actions={
           <>
-            {me.role === 'super_admin' && <ButtonLink href="/admin/users" variant="secondary">Manage users & invites</ButtonLink>}
-            <InviteStaffButton departments={lookups.departments} roles={['employee']} />
+            {['super_admin', 'admin'].includes(me.role) && <ButtonLink href="/admin/users" variant="secondary">Manage users & invites</ButtonLink>}
+            {me.role !== 'team_lead' && <InviteStaffButton departments={lookups.departments} roles={['employee']} />}
           </>
         }
       />

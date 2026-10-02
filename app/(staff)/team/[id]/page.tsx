@@ -10,14 +10,14 @@ import { Avatar, Card, CardHeader, StatCard } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { WeeklyDoneChart, type WeekBucket } from '@/components/team/WeeklyDoneChart'
-import { ROLE_LABELS, STATUS_DOT, STATUS_LABELS } from '@/lib/constants'
+import { ROLE_LABELS, TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { capacityColor, cn, dueState } from '@/lib/utils'
 import type { Profile, TaskListItem, TaskStatus } from '@/types/database'
 
 export const metadata = { title: 'Employee stats' }
 
 export default async function EmployeeStatsPage({ params }: { params: { id: string } }) {
-  const me = await requireRole(['super_admin', 'manager'])
+  const me = await requireRole(['super_admin', 'admin', 'team_lead'])
   const supabase = createClient()
 
   const [{ data: personData }, { data: taskData }, { data: logData }, lookups] = await Promise.all([
@@ -29,8 +29,12 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
   if (!personData) notFound()
   const person = personData as Profile
   if (person.role === 'client') notFound()
-  // Managers / TLs look at employees only.
-  if (me.role === 'manager' && person.role !== 'employee' && person.id !== me.id) redirect('/team')
+  // Team leads only look at employees in a department they share, or themselves.
+  if (me.role === 'team_lead') {
+    const myDepartmentIds = new Set(lookups.departmentMembers.filter(m => m.profile_id === me.id).map(m => m.department_id))
+    const shared = lookups.departmentMembers.some(m => m.profile_id === person.id && myDepartmentIds.has(m.department_id))
+    if (person.id !== me.id && (person.role !== 'employee' || !shared)) redirect('/team')
+  }
 
   const tasks = (taskData ?? []) as TaskListItem[]
   const names = nameMap(lookups.people)
@@ -38,8 +42,8 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
   const weekStart = startOfWeek(now, { weekStartsOn: 1 })
   const monthStart = startOfMonth(now)
 
-  const open = tasks.filter(t => t.status !== 'done')
-  const done = tasks.filter(t => t.status === 'done' && t.closed_at)
+  const open = tasks.filter(t => !TASK_TERMINAL_STATUSES.includes(t.status))
+  const done = tasks.filter(t => t.status === 'completed' && t.closed_at)
   const overdue = open.filter(t => dueState(t.due_date, t.status) === 'overdue')
   const doneWeek = done.filter(t => new Date(t.closed_at!) >= weekStart)
   const doneMonth = done.filter(t => new Date(t.closed_at!) >= monthStart)
@@ -52,7 +56,7 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
   const openHours = open.reduce((s, t) => s + Number(t.estimated_hours ?? 3), 0)
   const workload = Math.round((openHours / (person.weekly_capacity_hours || 40)) * 100)
 
-  const byStatus = (['open', 'in_progress', 'in_review', 'blocked'] as TaskStatus[]).map(s => ({ s, n: open.filter(t => t.status === s).length }))
+  const byStatus = (['todo', 'in_progress', 'ready_for_review', 'changes_requested'] as TaskStatus[]).map(s => ({ s, n: open.filter(t => t.status === s).length }))
 
   // Completed per week, last 8 weeks (Mon–Sun)
   const weeks: WeekBucket[] = Array.from({ length: 8 }, (_, i) => {
@@ -120,7 +124,7 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
           <div className="mt-3 flex flex-wrap gap-3">
             {byStatus.map(({ s, n }) => (
               <span key={s} className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-                <span className={cn('h-2 w-2 rounded-full', STATUS_DOT[s])} /> {STATUS_LABELS[s]} <span className="font-semibold text-slate-900">{n}</span>
+                <span className={cn('h-2 w-2 rounded-full', TASK_STATUS_DOT[s])} /> {TASK_STATUS_LABELS[s]} <span className="font-semibold text-slate-900">{n}</span>
               </span>
             ))}
           </div>

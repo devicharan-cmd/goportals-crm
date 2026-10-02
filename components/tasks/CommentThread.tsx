@@ -8,25 +8,30 @@ import { Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
 import { ROLE_LABELS } from '@/lib/constants'
 import { cn, errorMessage, formatRelative } from '@/lib/utils'
-import type { AppRole, TaskComment } from '@/types/database'
+import type { AppRole } from '@/types/database'
+
+type CommentLike = { id: string; author_id: string | null; body: string; is_internal: boolean; created_at: string }
 
 /**
- * One discussion per task. Who decides visibility (also enforced in the DB, migration 009):
+ * One discussion per task (or ticket — pass table="ticket_comments" idField="ticket_id").
+ * Who decides visibility (also enforced in the DB, migration 009 for tasks / 014 for tickets):
  *   client → always public · employee → always team-only · manager / super admin → choose.
  */
 export function CommentThread({
-  taskId, comments, names, roles, meId, myRole,
+  taskId, comments, names, roles, meId, myRole, table = 'task_comments', idField = 'task_id',
 }: {
   taskId: string
-  comments: TaskComment[]
+  comments: CommentLike[]
   names: Record<string, string>
   roles?: Record<string, AppRole>
   meId: string
   myRole: AppRole
+  table?: 'task_comments' | 'ticket_comments'
+  idField?: 'task_id' | 'ticket_id'
 }) {
   const router = useRouter()
   const isStaff = myRole !== 'client'
-  const canChoose = myRole === 'super_admin' || myRole === 'manager'
+  const canChoose = myRole === 'super_admin' || myRole === 'admin' || myRole === 'team_lead'
   const [body, setBody] = useState('')
   const [isPublic, setIsPublic] = useState(!isStaff)
   const [filter, setFilter] = useState<'all' | 'public' | 'team'>('all')
@@ -41,8 +46,8 @@ export function CommentThread({
     if (!body.trim()) return
     setSaving(true)
     setError('')
-    const { error } = await createClient().from('task_comments').insert({
-      task_id: taskId, author_id: meId, body: body.trim(), is_internal: !willBePublic,
+    const { error } = await createClient().from(table).insert({
+      [idField]: taskId, author_id: meId, body: body.trim(), is_internal: !willBePublic,
     })
     setSaving(false)
     if (error) return setError(errorMessage(error))

@@ -22,7 +22,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             Go beyond <span className="text-lime-400">limit.</span>
           </h1>
           <p className="mt-4 text-lg text-brand-100">
-            Your e-commerce and quick-commerce growth partner — every request, task and result in one workspace.
+            Your e-commerce and quick-commerce growth partner — every ticket, task and result in one workspace.
           </p>
           <ul className="mt-8 space-y-3">
             {POINTS.map(p => (

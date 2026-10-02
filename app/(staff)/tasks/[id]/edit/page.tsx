@@ -37,6 +37,7 @@ export default async function EditTaskPage({ params }: { params: { id: string } 
         task={task}
         meId={me.id}
         canMarkUrgent={me.role !== 'employee'}
+        canEditAssignment={me.role !== 'employee'}
         clients={lookups.clients}
         assignees={assignees}
         departments={lookups.departments}

@@ -9,6 +9,7 @@ import { Card, CardHeader, EmptyState, StatCard } from '@/components/ui/primitiv
 import { DueDate, PriorityBadge } from '@/components/ui/badges'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { ClaimButton } from '@/components/tasks/ClaimButton'
+import { DashboardTaskPanel } from '@/components/tasks/DashboardTaskPanel'
 import { dueState, formatRelative, taskCode } from '@/lib/utils'
 import type { TaskListItem } from '@/types/database'
 
@@ -22,21 +23,32 @@ function greeting() {
 export default async function DashboardPage() {
   const me = await requireStaff()
   const supabase = createClient()
-  const isLead = me.role !== 'employee'
+  const isLead = ['super_admin', 'admin'].includes(me.role)
 
-  const [mine, urgent, requests, approvals, people] = await Promise.all([
-    supabase.from('tasks').select(TASK_LIST_SELECT).eq('assignee_id', me.id).neq('status', 'done')
+  const [mine, urgent, requests, approvals, people, allWorking, allDone] = await Promise.all([
+    supabase.from('tasks').select(TASK_LIST_SELECT).eq('assignee_id', me.id).not('status', 'in', '(completed,cancelled)')
       .order('due_date', { ascending: true, nullsFirst: false }).limit(50),
-    supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).is('assignee_id', null).neq('status', 'done')
+    supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
       .order('priority').order('created_at').limit(5),
     isLead
-      ? supabase.from('tasks').select(TASK_LIST_SELECT).eq('source', 'client').is('assignee_id', null).neq('status', 'done')
+      ? supabase.from('tasks').select(TASK_LIST_SELECT).eq('source', 'client').is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
           .order('created_at', { ascending: false }).limit(6)
       : Promise.resolve({ data: [] }),
-    me.role === 'super_admin'
+    ['super_admin', 'admin'].includes(me.role)
       ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('signup_source', 'self_signup')
       : Promise.resolve({ count: 0 }),
     supabase.from('profiles').select('id, full_name, email'),
+    ['super_admin', 'admin'].includes(me.role)
+      ? supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).not('status', 'in', '(completed,cancelled)')
+          .order('is_urgent', { ascending: false })
+          .order('due_date', { ascending: true, nullsFirst: false })
+          .limit(15)
+      : Promise.resolve({ data: [], count: 0 }),
+    ['super_admin', 'admin'].includes(me.role)
+      ? supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).eq('status', 'completed')
+          .order('closed_at', { ascending: false, nullsFirst: false })
+          .limit(15)
+      : Promise.resolve({ data: [], count: 0 }),
   ])
 
   const myTasks = (mine.data ?? []) as TaskListItem[]
@@ -44,6 +56,10 @@ export default async function DashboardPage() {
   const clientRequests = (requests.data ?? []) as TaskListItem[]
   const names = nameMap(people.data ?? [])
   const dueNow = myTasks.filter(t => ['overdue', 'today'].includes(dueState(t.due_date, t.status))).length
+  const workingTasks = (allWorking.data ?? []) as TaskListItem[]
+  const doneTasks = (allDone.data ?? []) as TaskListItem[]
+  const workingCount = allWorking.count ?? 0
+  const doneCount = allDone.count ?? 0
 
   return (
     <>
@@ -52,14 +68,14 @@ export default async function DashboardPage() {
           <p className="text-sm font-medium text-lime-600">{format(new Date(), 'EEEE, d MMMM')}</p>
           <h1 className="text-2xl font-bold">{greeting()}, {me.full_name.split(' ')[0] || 'there'} 👋</h1>
         </div>
-        {me.role !== 'super_admin' && <ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
+        {!['super_admin', 'admin'].includes(me.role) && <ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="My open tasks" value={myTasks.length} icon={CheckSquare} href="/tasks" />
         <StatCard label="Due today / overdue" value={dueNow} icon={AlarmClock} tone={dueNow ? 'red' : 'lime'} href="/tasks" />
         <StatCard label="Urgent waiting" value={urgentTasks.length} icon={Flame} tone={urgentTasks.length ? 'red' : 'lime'} href="/urgent" />
-        {me.role === 'super_admin'
+        {['super_admin', 'admin'].includes(me.role)
           ? <StatCard label="Clients awaiting approval" value={approvals.count ?? 0} icon={ShieldCheck} tone={approvals.count ? 'amber' : 'lime'} href="/admin/approvals" />
           : <StatCard label="New client requests" value={clientRequests.length} icon={Inbox} tone="brand" href="/tasks?scope=all&assignee=none" />}
       </div>
@@ -122,6 +138,18 @@ export default async function DashboardPage() {
           )}
         </div>
       </div>
+
+      {['super_admin', 'admin'].includes(me.role) && (
+        <div className="mt-6">
+          <DashboardTaskPanel
+            workingTasks={workingTasks}
+            doneTasks={doneTasks}
+            workingCount={workingCount}
+            doneCount={doneCount}
+            names={names}
+          />
+        </div>
+      )}
     </>
   )
 }

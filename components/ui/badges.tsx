@@ -1,9 +1,9 @@
 import { Flame } from 'lucide-react'
 import { cn, dueLabel, dueState } from '@/lib/utils'
 import {
-  ACCOUNT_STATUS_STYLES, PRIORITY_STYLES, STATUS_DOT, STATUS_LABELS, STATUS_STYLES,
+  ACCOUNT_STATUS_STYLES, PRIORITY_STYLES, SERVICE_STATUS_LABELS, SERVICE_STATUS_STYLES,
 } from '@/lib/constants'
-import type { AccountStatus, TaskPriority, TaskStatus } from '@/types/database'
+import type { AccountStatus, ClientServiceStatus, TaskPriority, TaskStatus } from '@/types/database'
 
 export function Badge({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
@@ -16,11 +16,12 @@ export function Badge({ className, children }: { className?: string; children: R
   )
 }
 
-export function StatusBadge({ status }: { status: TaskStatus }) {
+/** Renders either a task or a ticket status — pass the right label/style/dot from lib/constants (TASK_STATUS_* or TICKET_STATUS_*). */
+export function StatusBadge({ label, className, dotClassName }: { label: string; className: string; dotClassName: string }) {
   return (
-    <Badge className={STATUS_STYLES[status]}>
-      <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[status])} />
-      {STATUS_LABELS[status]}
+    <Badge className={className}>
+      <span className={cn('h-1.5 w-1.5 rounded-full', dotClassName)} />
+      {label}
     </Badge>
   )
 }
@@ -39,6 +40,10 @@ export function UrgentBadge() {
 
 export function AccountStatusBadge({ status }: { status: AccountStatus }) {
   return <Badge className={cn('capitalize', ACCOUNT_STATUS_STYLES[status])}>{status}</Badge>
+}
+
+export function ClientServiceStatusBadge({ status }: { status: ClientServiceStatus }) {
+  return <Badge className={SERVICE_STATUS_STYLES[status]}>{SERVICE_STATUS_LABELS[status]}</Badge>
 }
 
 const DUE_STYLES = {

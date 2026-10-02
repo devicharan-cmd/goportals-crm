@@ -14,7 +14,7 @@ type Row = Pick<Task, 'id' | 'client_id' | 'assignee_id' | 'status' | 'due_date'
 }
 
 export default async function ReportsPage({ searchParams }: { searchParams: { month?: string } }) {
-  await requireRole(['super_admin', 'manager'])
+  await requireRole(['super_admin', 'admin'])
   const supabase = createClient()
 
   const month = /^\d{4}-\d{2}$/.test(searchParams.month ?? '') ? searchParams.month! : format(new Date(), 'yyyy-MM')

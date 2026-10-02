@@ -17,12 +17,11 @@ type SP = { view?: string; scope?: string; status?: string; client?: string; ass
 export default async function TasksPage({ searchParams }: { searchParams: SP }) {
   const me = await requireStaff()
   const supabase = createClient()
-  const lookups = await getStaffLookups()
 
   // Employees only ever see their own + urgent tasks (RLS), so "My tasks" vs "All" matters for managers/admins.
   const canSeeMore = me.role !== 'employee'
-  // Super admins start on all tasks (nothing is usually assigned to them); others on their own.
-  const defaultScope = me.role === 'super_admin' ? 'all' : 'mine'
+  // Super admins/admins start on all tasks (nothing is usually assigned to them); others on their own.
+  const defaultScope = ['super_admin', 'admin'].includes(me.role) ? 'all' : 'mine'
   const scope = canSeeMore ? searchParams.scope ?? defaultScope : 'mine'
   const board = searchParams.view === 'board'
 
@@ -38,7 +37,7 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
 
   const status = searchParams.status ?? 'active'
   if (!board && !parseTaskCode(searchParams.q)) {
-    if (status === 'active') query = query.neq('status', 'done')
+    if (status === 'active') query = query.not('status', 'in', '(completed,cancelled)')
     else if (status !== 'all') query = query.eq('status', status)
   }
   if (searchParams.client) query = query.eq('client_id', searchParams.client)
@@ -47,7 +46,7 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
   if (idSearch) query = query.eq('task_number', idSearch)
   else if (searchParams.q) query = query.ilike('title', `%${searchParams.q.replace(/[%_,()]/g, ' ')}%`)
 
-  const { data } = await query
+  const [{ data }, lookups] = await Promise.all([query, getStaffLookups()])
   const tasks = (data ?? []) as TaskListItem[]
   const names = nameMap(lookups.people)
   const assignOptions = me.role !== 'employee' ? assigneeOptionsFor(me, lookups) : undefined
@@ -57,14 +56,14 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
       <PageHeader
         title="Tasks"
         description={scope === 'mine' ? 'Tasks assigned to you.'
-          : me.role === 'super_admin' ? 'Every task across all clients.' : 'Tasks of your employees, departments and clients.'}
+          : ['super_admin', 'admin'].includes(me.role) ? 'Every task across all clients.' : 'Tasks of your employees, departments and clients.'}
         actions={<ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
       />
       <TaskFilters
         showScope={canSeeMore}
         defaultScope={defaultScope}
         clients={lookups.clients.map(c => ({ value: c.id, label: c.company_name }))}
-        people={(me.role === 'super_admin' ? lookups.staff : assignableFor(me, lookups)).map(p => ({ value: p.id, label: p.full_name || p.email }))}
+        people={(['super_admin', 'admin'].includes(me.role) ? lookups.staff : assignableFor(me, lookups)).map(p => ({ value: p.id, label: p.full_name || p.email }))}
         departments={lookups.departments.map(d => ({ value: d.id, label: d.name }))}
       />
       {board ? (

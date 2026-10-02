@@ -9,26 +9,27 @@ import { Card, CardHeader } from '@/components/ui/primitives'
 import { AccountStatusBadge, Badge } from '@/components/ui/badges'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { ClientFormModal } from '@/components/clients/ClientFormModal'
+import { HealthBar } from '@/components/clients/HealthBar'
 import {
-  ApprovalActions, ClientPlatformsEditor, ClientServicesEditor, ClientStatusSelect, ClientTeamEditor, InviteLoginButton,
-  type ClientPlatformRow, type ClientServiceRow, type ClientTeamRow,
+  ApprovalActions, EcommerceAccountsEditor, ClientServicesEditor, ClientStatusSelect, ClientTeamEditor, InviteLoginButton,
+  type EcommerceAccountRow, type ClientServiceRow, type ClientTeamRow,
 } from '@/components/clients/ClientEditors'
 import { DeleteButton } from '@/components/shared/DeleteButton'
-import { STAGE_LABELS } from '@/lib/constants'
+import { STAGE_LABELS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { formatDate, formatINR } from '@/lib/utils'
 import type { Client, ClientInternal, TaskListItem } from '@/types/database'
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
-  const me = await requireRole(['super_admin', 'manager'])
+  const me = await requireRole(['super_admin', 'admin'])
   const supabase = createClient()
   const id = params.id
 
-  const [{ data: clientData }, { data: internalData }, { data: platforms }, { data: services }, { data: team }, { data: tasks }, { data: acceptances }, lookups] =
+  const [{ data: clientData }, { data: internalData }, { data: accounts }, { data: services }, { data: team }, { data: tasks }, { data: acceptances }, lookups] =
     await Promise.all([
       supabase.from('clients').select('*').eq('id', id).maybeSingle(),
       supabase.from('client_internal').select('*').eq('client_id', id).maybeSingle(),
-      supabase.from('client_platforms').select('platform_id').eq('client_id', id),
-      supabase.from('client_services').select('id, service_id, custom_name, status').eq('client_id', id).order('created_at'),
+      supabase.from('ecommerce_accounts').select('id, platform_id, account_name, seller_id, status').eq('client_id', id).order('created_at'),
+      supabase.from('client_services').select('id, service_id, custom_name, status, ecommerce_account_id, agreed_price, currency, billing_type').eq('client_id', id).order('created_at'),
       supabase.from('client_team').select('profile_id, department_id').eq('client_id', id),
       supabase.from('tasks').select(TASK_LIST_SELECT).eq('client_id', id).order('status').order('due_date', { nullsFirst: false }).limit(100),
       supabase.from('agreement_acceptances').select('accepted_at, agreement:agreements(version)').eq('client_id', id).order('accepted_at', { ascending: false }),
@@ -39,14 +40,15 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const internal = internalData as ClientInternal | null
   const names = nameMap(lookups.people)
 
-  const isAdmin = me.role === 'super_admin'
-  const myDepts = lookups.departmentMembers.filter(m => m.profile_id === me.id).map(m => m.department_id)
+  // Only super_admin and admin reach this page (requireRole above) — both get full edit rights;
+  // deleting a client stays super_admin-only (isSuperAdmin), everything else uses isAdmin.
+  const isAdmin = ['super_admin', 'admin'].includes(me.role)
+  const isSuperAdmin = me.role === 'super_admin'
   const teamRows = (team ?? []) as ClientTeamRow[]
-  const managerCovers = me.role === 'manager' && teamRows.some(r => r.profile_id === me.id || myDepts.includes(r.department_id))
-  const canEdit = isAdmin || managerCovers
+  const canEdit = isAdmin
   const allTasks = (tasks ?? []) as TaskListItem[]
-  const openTasks = allTasks.filter(t => t.status !== 'done')
-  const doneTasks = allTasks.filter(t => t.status === 'done')
+  const openTasks = allTasks.filter(t => !TASK_TERMINAL_STATUSES.includes(t.status))
+  const doneTasks = allTasks.filter(t => TASK_TERMINAL_STATUSES.includes(t.status))
   const accepted = (acceptances ?? []) as unknown as { accepted_at: string; agreement: { version: string } | null }[]
 
   const staffWithDepts = lookups.staff.map(p => ({
@@ -109,10 +111,12 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           {internal && (
             <Card>
               <CardHeader title="Account (internal)" />
-              <dl className="grid grid-cols-2 gap-px bg-slate-100 text-sm">
+              <div className="px-5 pt-4">
+                <HealthBar score={internal.health_score} />
+              </div>
+              <dl className="mt-4 grid grid-cols-2 gap-px bg-slate-100 text-sm">
                 {[
                   ['Retainer', formatINR(internal.monthly_retainer) + (internal.monthly_retainer != null ? '/mo' : '')],
-                  ['Health', `${internal.health_score}/100`],
                   ['Contract start', formatDate(internal.contract_start)],
                   ['Contract end', formatDate(internal.contract_end)],
                 ].map(([k, v]) => (
@@ -133,18 +137,18 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               rows={teamRows}
               people={staffWithDepts}
               departments={lookups.departments}
-              editableDepartmentIds={isAdmin ? lookups.departments.map(d => d.id) : me.role === 'manager' ? myDepts : []}
+              editableDepartmentIds={isAdmin ? lookups.departments.map(d => d.id) : []}
             />
           </Card>
 
           <Card>
-            <CardHeader title="Platforms" />
-            <ClientPlatformsEditor clientId={client.id} rows={(platforms ?? []) as ClientPlatformRow[]} platforms={lookups.platforms} editable={canEdit} />
+            <CardHeader title="E-commerce accounts" description="A client can have several accounts on the same platform" />
+            <EcommerceAccountsEditor clientId={client.id} rows={(accounts ?? []) as EcommerceAccountRow[]} platforms={lookups.platforms} editable={canEdit} />
           </Card>
 
           <Card>
-            <CardHeader title="Services" />
-            <ClientServicesEditor clientId={client.id} rows={(services ?? []) as ClientServiceRow[]} services={lookups.services} editable={canEdit} />
+            <CardHeader title="Services & pricing" description="Price is fixed here and won't change if the service's default price changes later" />
+            <ClientServicesEditor clientId={client.id} rows={(services ?? []) as ClientServiceRow[]} services={lookups.services} accounts={(accounts ?? []) as EcommerceAccountRow[]} editable={canEdit} />
           </Card>
 
           <Card>
@@ -159,7 +163,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                 <dd className="text-right">{accepted.length ? accepted.map(a => `${a.agreement?.version ?? '?'} · ${formatDate(a.accepted_at)}`).join(', ') : <span className="text-amber-700">Not accepted</span>}</dd>
               </div>
             </dl>
-            {isAdmin && <div className="border-t border-slate-100 px-5 py-3"><DeleteButton table="clients" id={client.id} redirectTo="/clients" label="Delete client" /></div>}
+            {isSuperAdmin && <div className="border-t border-slate-100 px-5 py-3"><DeleteButton table="clients" id={client.id} redirectTo="/clients" label="Delete client" /></div>}
           </Card>
         </div>
       </div>

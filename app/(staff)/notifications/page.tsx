@@ -13,7 +13,7 @@ export default async function NotificationsPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader title="Notifications" />
-      <Card className="overflow-hidden"><NotificationsList items={(data ?? []) as Notification[]} taskHref="/tasks" /></Card>
+      <Card className="overflow-hidden"><NotificationsList items={(data ?? []) as Notification[]} taskHref="/tasks" ticketHref="/tickets" /></Card>
     </div>
   )
 }

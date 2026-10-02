@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
+import 'leaflet/dist/leaflet.css'
 
 const sans    = Inter({ subsets: ['latin'], variable: '--font-sans' })
 const display = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-display', weight: ['600', '700', '800'] })

@@ -4,33 +4,38 @@ import { getProfile } from '@/lib/auth'
 import type { AppRole } from '@/types/database'
 
 /**
- * POST /api/admin/invite — super admin (anyone), or manager (employees only).
+ * POST /api/admin/invite — super admin (any role), or admin (team_lead/employee only).
  *   Staff:  { kind: 'staff',  email, full_name, role, job_title?, department_ids? }
  *   Client: { kind: 'client', email, full_name?, client_id? }
  *           client_id set  → login for an existing (admin-created) client
  *           no client_id   → invite link; the client fills in the onboarding wizard
  *
  * An `invites` row is written first — the handle_new_user DB trigger reads it to give the
- * new login its role. Then Supabase sends the invite email.
+ * new login its role. Then Supabase sends the invite email — its content/branding is set
+ * in the Supabase Dashboard (Authentication → Emails → Invite user), and to lift the
+ * "team members only" + rate-limit restriction on Supabase's default sender, configure
+ * Custom SMTP there (Authentication → Settings → SMTP Settings) using Resend.
  */
+const ROLES_INVITABLE_BY: Partial<Record<AppRole, AppRole[]>> = {
+  super_admin: ['super_admin', 'admin', 'team_lead', 'employee'],
+  admin:       ['team_lead', 'employee'],
+}
+
 export async function POST(req: NextRequest) {
   const me = await getProfile()
-  if (!me || me.status !== 'active' || !['super_admin', 'manager'].includes(me.role)) {
-    return NextResponse.json({ error: 'Only super admins and managers can send invites' }, { status: 403 })
+  if (!me || me.status !== 'active' || !ROLES_INVITABLE_BY[me.role]) {
+    return NextResponse.json({ error: 'Only super admins and admins can send invites' }, { status: 403 })
   }
 
   const body = await req.json()
-  if (me.role === 'manager' && !(body.kind === 'staff' && body.role === 'employee')) {
-    return NextResponse.json({ error: 'Managers can only add employees' }, { status: 403 })
-  }
   const email = String(body.email ?? '').trim().toLowerCase()
   if (!/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ error: 'Enter a valid email' }, { status: 400 })
 
   let role: AppRole
   if (body.kind === 'staff') {
     role = body.role
-    if (!['super_admin', 'manager', 'employee'].includes(role)) {
-      return NextResponse.json({ error: 'Choose a staff role' }, { status: 400 })
+    if (!ROLES_INVITABLE_BY[me.role]!.includes(role)) {
+      return NextResponse.json({ error: 'You are not allowed to invite someone with that role' }, { status: 403 })
     }
   } else if (body.kind === 'client') {
     role = 'client'
@@ -66,14 +71,16 @@ export async function POST(req: NextRequest) {
   if (error) {
     await admin.from('invites').delete().eq('id', invite.id)
     console.error('[invite] Supabase refused the invite:', error.status, error.message)
-    const raw = error.message.toLowerCase()
+    const raw = (error.message || '').toLowerCase()
     const msg = raw.includes('already')
-      ? 'Someone with this email already has an account.'
+      ? 'Someone with this email address already has an account.'
       : raw.includes('not authorized')
-        ? "Supabase's built-in email only sends to your Supabase team members. Set up custom SMTP (e.g. Resend) in Supabase → Authentication → Emails to invite anyone."
+        ? 'Supabase\'s built-in email only sends to your Supabase team members. Set up Custom SMTP (e.g. Resend) in Supabase → Authentication → Settings → SMTP Settings to invite anyone.'
         : raw.includes('rate limit')
-          ? 'Too many emails sent recently (Supabase limit). Wait an hour, or set up custom SMTP in Supabase.'
-          : error.message
+          ? 'Too many emails sent recently (Supabase limit). Wait an hour, or set up Custom SMTP in Supabase.'
+          : error.status && error.status >= 500
+            ? 'Supabase could not send the email (a blank server error) — this almost always means your Custom SMTP send itself failed. Check Authentication → Settings → SMTP Settings, and make sure the sender domain is verified in Resend (Resend → Domains).'
+            : error.message || 'Something went wrong sending the invite.'
     return NextResponse.json({ error: msg }, { status: 400 })
   }
 

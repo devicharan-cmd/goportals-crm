@@ -1,16 +1,25 @@
 // Row types for schema v2 (supabase/migrations/001–004). Keep in sync with the SQL.
 
-export type AppRole       = 'super_admin' | 'manager' | 'employee' | 'client'
+export type AppRole       = 'super_admin' | 'admin' | 'team_lead' | 'employee' | 'client'
 export type AccountStatus = 'pending' | 'active' | 'suspended' | 'rejected'
 export type SignupSource  = 'self_signup' | 'admin_created' | 'invite'
 export type ClientStage   = 'onboarding' | 'setup' | 'scale' | 'retention' | 'churned'
 export type PlatformCategory    = 'marketplace' | 'quick_commerce' | 'd2c' | 'other'
 export type ClientServiceStatus = 'requested' | 'active' | 'stopped'
-export type TaskStatus    = 'open' | 'in_progress' | 'in_review' | 'blocked' | 'done'
+export type TaskStatus   = 'todo' | 'in_progress' | 'ready_for_review' | 'changes_requested' | 'completed' | 'cancelled'
+export type TicketStatus =
+  | 'new' | 'under_review' | 'awaiting_clarification' | 'assigned'
+  | 'in_progress' | 'ready_for_client' | 'resolved' | 'closed'
 export type TaskPriority  = 'P1' | 'P2' | 'P3' | 'P4'
 export type TaskType      = 'task' | 'issue' | 'request' | 'grievance'
 export type TaskSource    = 'internal' | 'client'
 export type DeadlineType  = 'today' | 'this_week' | 'this_month'
+export type EcommerceAccountStatus = 'active' | 'inactive'
+export type AddressInputMethod     = 'map' | 'manual'
+export type BillingType            = 'monthly' | 'one_time' | 'per_task'
+export type TicketCategory =
+  | 'new_listing' | 'active_product_change' | 'price_updation' | 'inventory_update'
+  | 'ads_campaign' | 'shipment' | 'complaint' | 'new_expansion' | 'report' | 'other'
 
 export type StaffRole = Exclude<AppRole, 'client'>
 
@@ -59,6 +68,8 @@ export interface Service {
   department_id: string | null
   is_active: boolean
   sort_order: number
+  default_price: number | null
+  default_billing_type: BillingType | null
 }
 
 export interface Client {
@@ -78,6 +89,15 @@ export interface Client {
   created_by: string | null
   created_at: string
   updated_at: string
+  address_line: string | null
+  city: string | null
+  state: string | null
+  postal_code: string | null
+  country: string | null
+  latitude: number | null
+  longitude: number | null
+  place_id: string | null
+  address_source: AddressInputMethod | null
 }
 
 export interface ClientInternal {
@@ -89,12 +109,22 @@ export interface ClientInternal {
   notes: string | null
 }
 
-export interface ClientPlatform {
+/** A specific store/seller account (migration 013, renamed from client_platforms). */
+export interface EcommerceAccount {
+  id: string
   client_id: string
   platform_id: string
+  account_name: string
   seller_id: string | null
+  store_url: string | null
+  country: string | null
+  currency: string | null
+  status: EcommerceAccountStatus
   total_listings: number
   live_listings: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface ClientService {
@@ -103,6 +133,12 @@ export interface ClientService {
   service_id: string | null
   custom_name: string | null
   status: ClientServiceStatus
+  ecommerce_account_id: string | null
+  agreed_price: number | null
+  currency: string
+  billing_type: BillingType
+  selected_by: string | null
+  selected_at: string
 }
 
 export interface Agreement {
@@ -115,6 +151,18 @@ export interface Agreement {
   created_at: string
 }
 
+export interface AgreementAcceptance {
+  id: string
+  client_id: string
+  profile_id: string
+  agreement_id: string
+  accepted_at: string
+  terms_snapshot: {
+    accounts: { platform: string; account_name: string; status: EcommerceAccountStatus }[]
+    services: { service: string | null; ecommerce_account: string | null; agreed_price: number | null; currency: string; billing_type: BillingType }[]
+  }
+}
+
 export interface Invite {
   id: string
   email: string
@@ -125,6 +173,7 @@ export interface Invite {
   client_id: string | null
   expires_at: string
   used_at: string | null
+  cancelled_at: string | null
   created_at: string
 }
 
@@ -151,6 +200,7 @@ export interface Task {
   assigned_by: string | null
   assigned_at: string | null
   parent_task_id: string | null
+  ticket_id: string | null
   closed_at: string | null
   created_at: string
   updated_at: string
@@ -172,15 +222,19 @@ export interface TaskComment {
   created_at: string
 }
 
-export interface TaskActivity {
+/** Shared shape for activity-timeline rows — ActivityTimeline renders either kind. */
+export interface ActivityEntry {
   id: string
-  task_id: string
   actor_id: string | null
   action: string
   old_value: string | null
   new_value: string | null
   is_client_visible: boolean
   created_at: string
+}
+
+export interface TaskActivity extends ActivityEntry {
+  task_id: string
 }
 
 export interface TimeLog {
@@ -193,6 +247,52 @@ export interface TimeLog {
   created_at: string
 }
 
+export interface Ticket {
+  id: string
+  ticket_number: number         // shown as TK-<n>
+  client_id: string
+  ecommerce_account_id: string | null
+  category: TicketCategory
+  subject: string
+  description: string | null
+  details: Record<string, unknown>
+  priority: TaskPriority | null
+  is_urgent: boolean
+  status: TicketStatus
+  department_id: string | null
+  assignee_id: string | null
+  assigned_by: string | null
+  assigned_at: string | null
+  created_by: string | null
+  closed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface TicketComment {
+  id: string
+  ticket_id: string
+  author_id: string | null
+  body: string
+  is_internal: boolean
+  created_at: string
+}
+
+export interface TicketActivity extends ActivityEntry {
+  ticket_id: string
+}
+
+export interface TicketAttachment {
+  id: string
+  ticket_id: string
+  uploaded_by: string | null
+  storage_path: string
+  file_name: string
+  mime_type: string | null
+  size_bytes: number | null
+  created_at: string
+}
+
 export interface Notification {
   id: string
   recipient_id: string
@@ -200,6 +300,7 @@ export interface Notification {
   title: string
   body: string | null
   task_id: string | null
+  ticket_id: string | null
   client_id: string | null
   is_read: boolean
   created_at: string

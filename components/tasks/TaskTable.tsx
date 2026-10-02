@@ -4,6 +4,7 @@ import { Avatar, EmptyState } from '@/components/ui/primitives'
 import { taskCode } from '@/lib/utils'
 import { DueDate, PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { AssignButton } from '@/components/tasks/AssignButton'
+import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import type { AssigneeOption } from '@/lib/queries'
 import type { TaskListItem } from '@/types/database'
 
@@ -44,7 +45,7 @@ export function TaskTable({
                 <Link href={`${hrefBase}/${t.id}`} className="block">
                   <span className="flex items-center gap-2">
                     <span className="flex-shrink-0 font-mono text-xs font-semibold text-slate-400">{taskCode(t.task_number)}</span>
-                    {t.is_urgent && t.status !== 'done' && <UrgentBadge />}
+                    {t.is_urgent && !TASK_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
                     <span className="truncate font-medium text-slate-900 group-hover:text-brand-700">{t.title}</span>
                   </span>
                   <span className="mt-0.5 block truncate text-xs text-slate-400">
@@ -53,7 +54,7 @@ export function TaskTable({
                 </Link>
               </td>
               {showClient && <td className="px-3 py-3 text-slate-600">{t.client?.company_name ?? '—'}</td>}
-              <td className="px-3 py-3"><StatusBadge status={t.status} /></td>
+              <td className="px-3 py-3"><StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} /></td>
               <td className="px-3 py-3"><PriorityBadge priority={t.priority} /></td>
               {showAssignee && (
                 <td className="px-3 py-3">
@@ -63,7 +64,7 @@ export function TaskTable({
                         <Avatar name={names[t.assignee_id]} size="xs" /> <span className="truncate">{names[t.assignee_id] ?? '—'}</span>
                       </span>
                     ) : <span className="text-xs italic text-slate-400">Unassigned</span>}
-                    {assignOptions && t.status !== 'done' && (
+                    {assignOptions && !TASK_TERMINAL_STATUSES.includes(t.status) && (
                       <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} variant="link" />
                     )}
                   </div>
@@ -85,8 +86,8 @@ export function TaskTable({
                 <PriorityBadge priority={t.priority} />
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                {t.is_urgent && t.status !== 'done' && <UrgentBadge />}
-                <StatusBadge status={t.status} />
+                {t.is_urgent && !TASK_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
+                <StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} />
                 {showClient && t.client && <span className="text-xs text-slate-500">{t.client.company_name}</span>}
                 <DueDate date={t.due_date} status={t.status} className="ml-auto" />
               </div>
@@ -98,7 +99,7 @@ export function TaskTable({
                     ? <><Avatar name={names[t.assignee_id]} size="xs" /> <span className="truncate">{names[t.assignee_id] ?? '—'}</span></>
                     : <span className="italic text-slate-400">Unassigned</span>}
                 </span>
-                {assignOptions && t.status !== 'done' && (
+                {assignOptions && !TASK_TERMINAL_STATUSES.includes(t.status) && (
                   <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} variant="link" />
                 )}
               </div>

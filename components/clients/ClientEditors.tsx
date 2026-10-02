@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { Modal } from '@/components/ui/modal'
-import { cn, errorMessage } from '@/lib/utils'
-import type { ClientServiceStatus, Department, Platform, Service } from '@/types/database'
+import { BILLING_LABELS, SERVICE_STATUS_STYLES } from '@/lib/constants'
+import { cn, errorMessage, formatINR } from '@/lib/utils'
+import type { BillingType, ClientServiceStatus, Department, EcommerceAccountStatus, Platform, Service } from '@/types/database'
 
 function useMutation() {
   const router = useRouter()
@@ -29,29 +30,46 @@ function useMutation() {
 
 const ErrorLine = ({ error }: { error: string }) => (error ? <p className="px-5 pb-3 text-xs text-red-600">{error}</p> : null)
 
-// ─── Platforms the client sells on ──────────────────────────
-// (client_platforms also has live/total listing columns — hidden for now; counts were manual.)
-export type ClientPlatformRow = { platform_id: string }
+// ─── E-commerce accounts (renamed from client_platforms, migration 013) ────
+// A client can have several accounts on the same platform (e.g. two Amazon sellers).
+export type EcommerceAccountRow = {
+  id: string; platform_id: string; account_name: string; seller_id: string | null; status: EcommerceAccountStatus
+}
 
-export function ClientPlatformsEditor({
+export function EcommerceAccountsEditor({
   clientId, rows, platforms, editable,
-}: { clientId: string; rows: ClientPlatformRow[]; platforms: Platform[]; editable: boolean }) {
+}: { clientId: string; rows: EcommerceAccountRow[]; platforms: Platform[]; editable: boolean }) {
   const { busy, error, run } = useMutation()
-  const [adding, setAdding] = useState('')
+  const [platformId, setPlatformId] = useState('')
+  const [accountName, setAccountName] = useState('')
+  const [sellerId, setSellerId] = useState('')
   const byId = Object.fromEntries(platforms.map(p => [p.id, p]))
-  const available = platforms.filter(p => p.is_active && !rows.some(r => r.platform_id === p.id))
   const supabase = createClient()
 
   return (
     <div>
-      {rows.length === 0 && <p className="px-5 py-4 text-sm text-slate-400">No platforms yet.</p>}
+      {rows.length === 0 && <p className="px-5 py-4 text-sm text-slate-400">No e-commerce accounts yet.</p>}
       <ul className="divide-y divide-slate-100">
         {rows.map(r => (
-          <li key={r.platform_id} className="flex items-center gap-3 px-5 py-2.5">
-            <span className="flex-1 text-sm font-medium text-slate-800">{byId[r.platform_id]?.name ?? '—'}</span>
+          <li key={r.id} className="flex items-center gap-3 px-5 py-2.5">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-slate-800">{r.account_name}</p>
+              <p className="text-xs text-slate-400">{byId[r.platform_id]?.name ?? '—'}{r.seller_id ? ` · ${r.seller_id}` : ''}</p>
+            </div>
+            {editable ? (
+              <select value={r.status} disabled={busy}
+                      onChange={e => run(() => supabase.from('ecommerce_accounts').update({ status: e.target.value }).eq('id', r.id))}
+                      className={cn('rounded-md border-0 py-0.5 pl-2 pr-7 text-xs font-medium ring-1 ring-inset',
+                        r.status === 'active' ? 'bg-lime-50 text-lime-700 ring-lime-200' : 'bg-slate-100 text-slate-500 ring-slate-200')}>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            ) : (
+              <Badge className={r.status === 'active' ? 'bg-lime-50 text-lime-700 ring-lime-200' : 'bg-slate-100 text-slate-500 ring-slate-200'}>{r.status}</Badge>
+            )}
             {editable && (
-              <button disabled={busy} onClick={() => run(() => supabase.from('client_platforms').delete().eq('client_id', clientId).eq('platform_id', r.platform_id))}
-                      className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600" aria-label="Remove platform" title="Remove platform">
+              <button disabled={busy} onClick={() => run(() => supabase.from('ecommerce_accounts').delete().eq('id', r.id))}
+                      className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600" aria-label="Remove account" title="Remove account">
                 <Trash2 className="h-4 w-4" />
               </button>
             )}
@@ -59,14 +77,21 @@ export function ClientPlatformsEditor({
         ))}
       </ul>
       <ErrorLine error={error} />
-      {editable && available.length > 0 && (
-        <div className="flex gap-2 border-t border-slate-100 px-5 py-3">
-          <select className="input h-9 py-1.5" value={adding} onChange={e => setAdding(e.target.value)}>
-            <option value="">Add platform…</option>
-            {available.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+      {editable && (
+        <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-3">
+          <select className="input h-9 w-32 py-1.5" value={platformId} onChange={e => setPlatformId(e.target.value)}>
+            <option value="">Platform…</option>
+            {platforms.filter(p => p.is_active).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <Button size="sm" variant="secondary" disabled={!adding} loading={busy}
-                  onClick={async () => { if (await run(() => supabase.from('client_platforms').insert({ client_id: clientId, platform_id: adding }))) setAdding('') }}>
+          <input className="input h-9 flex-1" placeholder="Account name (e.g. ABC Amazon Seller 2)" value={accountName} onChange={e => setAccountName(e.target.value)} />
+          <input className="input h-9 w-32" placeholder="Seller ID" value={sellerId} onChange={e => setSellerId(e.target.value)} />
+          <Button size="sm" variant="secondary" disabled={!platformId || !accountName.trim()} loading={busy}
+                  onClick={async () => {
+                    const ok = await run(() => supabase.from('ecommerce_accounts').insert({
+                      client_id: clientId, platform_id: platformId, account_name: accountName.trim(), seller_id: sellerId.trim() || null,
+                    }))
+                    if (ok) { setPlatformId(''); setAccountName(''); setSellerId('') }
+                  }}>
             <Plus className="h-3.5 w-3.5" /> Add
           </Button>
         </div>
@@ -75,23 +100,23 @@ export function ClientPlatformsEditor({
   )
 }
 
-// ─── Services ────────────────────────────────────────────────
-export type ClientServiceRow = { id: string; service_id: string | null; custom_name: string | null; status: ClientServiceStatus }
-
-const SERVICE_STATUS_STYLES: Record<ClientServiceStatus, string> = {
-  requested: 'bg-amber-50 text-amber-700 ring-amber-200',
-  active:    'bg-lime-50 text-lime-700 ring-lime-200',
-  stopped:   'bg-slate-100 text-slate-500 ring-slate-200',
+// ─── Services (with admin-set price, migration 015) ──────────
+export type ClientServiceRow = {
+  id: string; service_id: string | null; custom_name: string | null; status: ClientServiceStatus
+  ecommerce_account_id: string | null; agreed_price: number | null; currency: string; billing_type: BillingType
 }
 
 export function ClientServicesEditor({
-  clientId, rows, services, editable,
-}: { clientId: string; rows: ClientServiceRow[]; services: Service[]; editable: boolean }) {
+  clientId, rows, services, accounts, editable,
+}: { clientId: string; rows: ClientServiceRow[]; services: Service[]; accounts: EcommerceAccountRow[]; editable: boolean }) {
   const { busy, error, run } = useMutation()
   const [adding, setAdding] = useState('')
   const [custom, setCustom] = useState('')
+  const [accountId, setAccountId] = useState('')
+  const [price, setPrice] = useState('')
+  const [billing, setBilling] = useState<BillingType>('monthly')
   const byId = Object.fromEntries(services.map(s => [s.id, s]))
-  const available = services.filter(s => s.is_active && !rows.some(r => r.service_id === s.id))
+  const accountName = Object.fromEntries(accounts.map(a => [a.id, a.account_name]))
   const supabase = createClient()
 
   return (
@@ -100,10 +125,16 @@ export function ClientServicesEditor({
       <ul className="divide-y divide-slate-100">
         {rows.map(r => (
           <li key={r.id} className="flex items-center gap-3 px-5 py-3">
-            <span className="flex-1 text-sm text-slate-800">
-              {r.service_id ? byId[r.service_id]?.name : r.custom_name}
-              {!r.service_id && <span className="ml-2 text-xs text-slate-400">(custom)</span>}
-            </span>
+            <div className="min-w-0 flex-1">
+              <span className="text-sm text-slate-800">
+                {r.service_id ? byId[r.service_id]?.name : r.custom_name}
+                {!r.service_id && <span className="ml-2 text-xs text-slate-400">(custom)</span>}
+              </span>
+              <p className="text-xs text-slate-400">
+                {r.ecommerce_account_id ? accountName[r.ecommerce_account_id] ?? 'account' : 'Whole account'}
+                {r.agreed_price != null && ` · ${formatINR(r.agreed_price)} ${BILLING_LABELS[r.billing_type]}`}
+              </p>
+            </div>
             {editable ? (
               <select value={r.status} disabled={busy}
                       onChange={e => run(() => supabase.from('client_services').update({ status: e.target.value }).eq('id', r.id))}
@@ -120,20 +151,41 @@ export function ClientServicesEditor({
       </ul>
       <ErrorLine error={error} />
       {editable && (
-        <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-3">
-          <select className="input h-9 flex-1 py-1.5" value={adding} onChange={e => setAdding(e.target.value)}>
-            <option value="">Add service…</option>
-            {available.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          <input className="input h-9 flex-1" placeholder="…or type a custom one" value={custom} onChange={e => setCustom(e.target.value)} />
-          <Button size="sm" variant="secondary" disabled={!adding && !custom.trim()} loading={busy}
-                  onClick={async () => {
-                    const ok = await run(() => supabase.from('client_services').insert(
-                      adding ? { client_id: clientId, service_id: adding, status: 'active' } : { client_id: clientId, custom_name: custom.trim(), status: 'active' }))
-                    if (ok) { setAdding(''); setCustom('') }
-                  }}>
-            <Plus className="h-3.5 w-3.5" /> Add
-          </Button>
+        <div className="space-y-2 border-t border-slate-100 px-5 py-3">
+          <div className="flex flex-wrap gap-2">
+            <select className="input h-9 flex-1 py-1.5" value={adding} onChange={e => setAdding(e.target.value)}>
+              <option value="">Service…</option>
+              {services.filter(s => s.is_active).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <input className="input h-9 flex-1" placeholder="…or type a custom one" value={custom} onChange={e => setCustom(e.target.value)} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <select className="input h-9 w-40 py-1.5" value={accountId} onChange={e => setAccountId(e.target.value)}>
+              <option value="">Whole client</option>
+              {accounts.map(a => <option key={a.id} value={a.id}>{a.account_name}</option>)}
+            </select>
+            <input className="input h-9 w-28" type="number" min="0" placeholder="Price ₹" value={price} onChange={e => setPrice(e.target.value)} />
+            <select className="input h-9 w-28 py-1.5" value={billing} onChange={e => setBilling(e.target.value as BillingType)}>
+              <option value="monthly">Monthly</option>
+              <option value="one_time">One-time</option>
+              <option value="per_task">Per task</option>
+            </select>
+            <Button size="sm" variant="secondary" disabled={!adding && !custom.trim()} loading={busy}
+                    onClick={async () => {
+                      const ok = await run(() => supabase.from('client_services').insert({
+                        client_id: clientId,
+                        service_id: adding || null,
+                        custom_name: adding ? null : custom.trim(),
+                        ecommerce_account_id: accountId || null,
+                        agreed_price: price ? Number(price) : null,
+                        billing_type: billing,
+                        status: 'active',
+                      }))
+                      if (ok) { setAdding(''); setCustom(''); setAccountId(''); setPrice(''); setBilling('monthly') }
+                    }}>
+              <Plus className="h-3.5 w-3.5" /> Add
+            </Button>
+          </div>
         </div>
       )}
     </div>

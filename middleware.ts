@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 const PUBLIC_PREFIXES = ['/login', '/signup', '/forgot-password', '/auth']
 // Routes for clients who have not finished signup / are waiting for approval.
 const CLIENT_GATE_PREFIXES = ['/onboarding', '/pending']
-const STAFF_PREFIXES = ['/dashboard', '/tasks', '/urgent', '/clients', '/team', '/reports', '/notifications', '/admin']
+const STAFF_PREFIXES = ['/dashboard', '/tickets', '/tasks', '/urgent', '/clients', '/team', '/reports', '/notifications', '/admin']
 
 const startsWithAny = (path: string, prefixes: string[]) =>
   prefixes.some(p => path === p || path.startsWith(p + '/'))
@@ -29,6 +29,21 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Hand the verified user id to Server Components via a request header so
+  // getProfile() doesn't need a second round-trip to Supabase Auth to
+  // re-verify the same token on every navigation (this was doubling the
+  // auth latency on every section switch). Always set/clear it here —
+  // never trust a client-supplied value.
+  if (user) {
+    request.headers.set('x-user-id', user.id)
+    const pendingCookies = response.cookies.getAll()
+    response = NextResponse.next({ request })
+    pendingCookies.forEach(c => response.cookies.set(c))
+  } else {
+    request.headers.delete('x-user-id')
+  }
+
   const path = request.nextUrl.pathname
   const go = (to: string) => {
     if (path === to) return response
@@ -74,8 +89,9 @@ export async function middleware(request: NextRequest) {
 
   // ── Staff ──
   if (profile.status !== 'active') return path === '/blocked' ? response : go('/blocked')
-  if (path.startsWith('/admin') && profile.role !== 'super_admin') return go('/dashboard')
-  if (startsWithAny(path, ['/clients', '/team', '/reports']) && profile.role === 'employee') return go('/dashboard')
+  if (path.startsWith('/admin') && !['super_admin', 'admin'].includes(profile.role)) return go('/dashboard')
+  if (startsWithAny(path, ['/clients', '/reports']) && !['super_admin', 'admin'].includes(profile.role)) return go('/dashboard')
+  if (path.startsWith('/team') && profile.role === 'employee') return go('/dashboard')
   if (startsWithAny(path, STAFF_PREFIXES)) return response
   return go('/dashboard')
 }

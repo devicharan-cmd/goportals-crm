@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Link2, Mail, UserPlus, X } from 'lucide-react'
+import { Mail, UserPlus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import { Alert, Avatar, Field } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { ROLE_LABELS } from '@/lib/constants'
 import { cn, errorMessage, formatRelative } from '@/lib/utils'
-import type { AccountStatus, Department, Invite, StaffRole } from '@/types/database'
+import type { AccountStatus, AppRole, Department, Invite, StaffRole } from '@/types/database'
 
 export type StaffRow = {
   id: string; full_name: string; email: string; role: StaffRole; status: AccountStatus
@@ -24,11 +24,17 @@ async function postInvite(body: Record<string, unknown>) {
 }
 
 // ─── One staff member, inline editable ───────────────────────
-export function StaffRowEditor({ row, departments, isMe }: { row: StaffRow; departments: Department[]; isMe: boolean }) {
+export function StaffRowEditor({ row, departments, isMe, actorRole }: {
+  row: StaffRow; departments: Department[]; isMe: boolean; actorRole: AppRole
+}) {
   const router = useRouter()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const supabase = createClient()
+  // Role/status/job title/capacity changes are super-admin-only in the DB (guard_profile_update) —
+  // an admin actor can only manage department membership here, not these fields.
+  const canEditProfile = actorRole === 'super_admin'
+  const canEditDepartments = actorRole === 'super_admin' || actorRole === 'admin'
 
   async function update(fields: Record<string, unknown>) {
     setBusy(true); setError('')
@@ -59,29 +65,39 @@ export function StaffRowEditor({ row, departments, isMe }: { row: StaffRow; depa
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <input defaultValue={row.job_title ?? ''} placeholder="Job title (e.g. Team Lead)" disabled={busy}
+          <input defaultValue={row.job_title ?? ''} placeholder="Job title (e.g. Team Lead)" disabled={busy || !canEditProfile}
                  onBlur={e => e.target.value !== (row.job_title ?? '') && update({ job_title: e.target.value || null })}
                  className="input h-8 w-44 py-1 text-xs" />
-          <select value={row.role} disabled={busy || isMe} onChange={e => update({ role: e.target.value })} className="input h-8 w-auto py-1 text-xs">
-            {(['super_admin', 'manager', 'employee'] as StaffRole[]).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
-          </select>
+          {canEditProfile ? (
+            <select value={row.role} disabled={busy || isMe} onChange={e => update({ role: e.target.value })} className="input h-8 w-auto py-1 text-xs">
+              {(['super_admin', 'admin', 'team_lead', 'employee'] as StaffRole[]).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+            </select>
+          ) : (
+            <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">{ROLE_LABELS[row.role]}</span>
+          )}
           <label className="flex items-center gap-1 text-xs text-slate-500">
-            <input type="number" min="1" max="80" defaultValue={row.weekly_capacity_hours} disabled={busy}
+            <input type="number" min="1" max="80" defaultValue={row.weekly_capacity_hours} disabled={busy || !canEditProfile}
                    onBlur={e => Number(e.target.value) !== row.weekly_capacity_hours && update({ weekly_capacity_hours: Number(e.target.value) || 40 })}
                    className="input h-8 w-16 py-1 text-xs" /> h/wk
           </label>
-          <select value={row.status} disabled={busy || isMe} onChange={e => update({ status: e.target.value })}
-                  className={cn('input h-8 w-auto py-1 text-xs', row.status !== 'active' && 'text-red-700')}>
-            <option value="active">Active</option>
-            <option value="suspended">Suspended</option>
-          </select>
+          {canEditProfile ? (
+            <select value={row.status} disabled={busy || isMe} onChange={e => update({ status: e.target.value })}
+                    className={cn('input h-8 w-auto py-1 text-xs', row.status !== 'active' && 'text-red-700')}>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          ) : (
+            <span className={cn('rounded-md bg-slate-100 px-2 py-1 text-xs font-medium', row.status !== 'active' ? 'text-red-700' : 'text-slate-600')}>
+              {row.status === 'active' ? 'Active' : 'Suspended'}
+            </span>
+          )}
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5 lg:pl-12">
         {departments.map(d => {
           const on = row.departmentIds.includes(d.id)
           return (
-            <button key={d.id} disabled={busy} onClick={() => toggleDept(d.id)}
+            <button key={d.id} disabled={busy || !canEditDepartments} onClick={() => toggleDept(d.id)}
                     className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset transition',
                       on ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-500 ring-slate-200 hover:ring-slate-300')}>
               {d.name}
@@ -96,7 +112,7 @@ export function StaffRowEditor({ row, departments, isMe }: { row: StaffRow; depa
 
 // ─── Invite staff ────────────────────────────────────────────
 export function InviteStaffButton({
-  departments, roles = ['employee', 'manager', 'super_admin'],
+  departments, roles = ['employee', 'team_lead', 'admin', 'super_admin'],
 }: { departments: Department[]; roles?: StaffRole[] }) {
   const onlyEmployees = roles.length === 1 && roles[0] === 'employee'
   const router = useRouter()
@@ -129,13 +145,14 @@ export function InviteStaffButton({
             <Field label="Role" required>
               <select className="input" value={form.role} disabled={onlyEmployees} onChange={e => setForm({ ...form, role: e.target.value as StaffRole })}>
                 {roles.includes('employee') && <option value="employee">Employee</option>}
-                {roles.includes('manager') && <option value="manager">Manager / Team Lead</option>}
+                {roles.includes('team_lead') && <option value="team_lead">Team Lead</option>}
+                {roles.includes('admin') && <option value="admin">Admin</option>}
                 {roles.includes('super_admin') && <option value="super_admin">Super Admin</option>}
               </select>
             </Field>
             <Field label="Job title"><input className="input" placeholder="e.g. Ads Executive" value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} /></Field>
           </div>
-          <Field label="Departments" hint="Managers see the tasks and clients of their departments.">
+          <Field label="Departments" hint="Team Leads see the tasks and tickets of their departments.">
             <div className="flex flex-wrap gap-1.5">
               {departments.map(d => {
                 const on = form.department_ids.includes(d.id)
@@ -160,34 +177,92 @@ export function InviteStaffButton({
   )
 }
 
-// ─── Invite a client (they fill in the onboarding wizard) ────
-export function InviteClientButton() {
+// ─── Add a user: one process for everyone, client or staff ───
+// Same modal, same "set a password by email" mechanics either way — only the
+// fields shown differ, because a client and a staff member genuinely need
+// different data (role/department vs nothing), not because the process differs.
+export function InviteUserButton({ departments, actorRole }: { departments: Department[]; actorRole: AppRole }) {
+  const staffRoleOptions: { value: StaffRole; label: string }[] = actorRole === 'super_admin'
+    ? [{ value: 'employee', label: 'Employee' }, { value: 'team_lead', label: 'Team Lead' },
+       { value: 'admin', label: 'Admin' }, { value: 'super_admin', label: 'Super Admin' }]
+    : [{ value: 'employee', label: 'Employee' }, { value: 'team_lead', label: 'Team Lead' }]
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [form, setForm] = useState({ full_name: '', email: '' })
+  const empty = { kind: 'client' as 'client' | 'staff', full_name: '', email: '', role: 'employee' as StaffRole, job_title: '', department_ids: [] as string[] }
+  const [form, setForm] = useState(empty)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true); setMsg(null)
-    const err = await postInvite({ kind: 'client', ...form })
+    const body = form.kind === 'client'
+      ? { kind: 'client', full_name: form.full_name, email: form.email }
+      : { kind: 'staff', full_name: form.full_name, email: form.email, role: form.role, job_title: form.job_title, department_ids: form.department_ids }
+    const err = await postInvite(body)
     setBusy(false)
     if (err) return setMsg({ ok: false, text: err })
     setMsg({ ok: true, text: `Invite sent to ${form.email}.` })
-    setForm({ full_name: '', email: '' })
+    setForm(empty)
     router.refresh()
   }
 
   return (
     <>
-      <Button variant="secondary" onClick={() => { setOpen(true); setMsg(null) }}><Link2 className="h-4 w-4" /> Invite a client</Button>
-      <Modal open={open} onClose={() => setOpen(false)} title="Invite a client"
-             description="They'll set a password, fill in their company, platforms and services, and accept the agreement. Invited clients don't need approval.">
+      <Button onClick={() => { setOpen(true); setMsg(null) }}><UserPlus className="h-4 w-4" /> Add user</Button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Add a user"
+             description="Same process either way: they get an email to set a password, then land in the right place for their role.">
         <form onSubmit={submit} className="space-y-4">
           {msg && <Alert tone={msg.ok ? 'success' : 'error'}>{msg.text}</Alert>}
-          <Field label="Contact name"><input className="input" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></Field>
+
+          <Field label="Type" required>
+            <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
+              {([['client', 'Client'], ['staff', 'Team member']] as const).map(([v, l]) => (
+                <button key={v} type="button" onClick={() => setForm({ ...form, kind: v })}
+                        className={cn('rounded-md px-3 py-1.5 font-medium transition', form.kind === v ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label={form.kind === 'client' ? 'Contact name' : 'Full name'} required={form.kind === 'staff'}>
+            <input className="input" required={form.kind === 'staff'} value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} />
+          </Field>
           <Field label="Email" required><input className="input" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></Field>
+
+          {form.kind === 'staff' ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Role" required>
+                  <select className="input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value as StaffRole })}>
+                    {staffRoleOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </Field>
+                <Field label="Job title"><input className="input" placeholder="e.g. Ads Executive" value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} /></Field>
+              </div>
+              <Field label="Departments" hint="Team Leads see the tasks and tickets of their departments.">
+                <div className="flex flex-wrap gap-1.5">
+                  {departments.map(d => {
+                    const on = form.department_ids.includes(d.id)
+                    return (
+                      <button type="button" key={d.id}
+                              onClick={() => setForm({ ...form, department_ids: on ? form.department_ids.filter(x => x !== d.id) : [...form.department_ids, d.id] })}
+                              className={cn('rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset',
+                                on ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-300')}>
+                        {d.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              </Field>
+            </>
+          ) : (
+            <p className="text-xs text-slate-500">
+              They&apos;ll set a password, fill in their company details and address, and accept the agreement — no approval step needed.
+            </p>
+          )}
+
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Close</Button>
             <Button type="submit" loading={busy}><Mail className="h-4 w-4" /> Send invite</Button>

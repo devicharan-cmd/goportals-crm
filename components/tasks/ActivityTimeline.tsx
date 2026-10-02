@@ -1,12 +1,15 @@
-import { ACTIVITY_LABELS, STATUS_LABELS } from '@/lib/constants'
+import { ACTIVITY_LABELS, TASK_STATUS_LABELS, TICKET_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatRelative } from '@/lib/utils'
-import type { TaskActivity, TaskStatus } from '@/types/database'
+import type { ActivityEntry } from '@/types/database'
 
-function describe(a: TaskActivity, names: Record<string, string>): string {
+function describe(a: ActivityEntry, names: Record<string, string>, kind: 'task' | 'ticket'): string {
   const label = ACTIVITY_LABELS[a.action] ?? a.action.replace(/_/g, ' ')
+  const statusLabels: Record<string, string> = kind === 'task' ? TASK_STATUS_LABELS : TICKET_STATUS_LABELS
   switch (a.action) {
+    case 'created':
+      return 'created it'
     case 'status_changed':
-      return `moved it to ${STATUS_LABELS[a.new_value as TaskStatus] ?? a.new_value}`
+      return `moved it to ${statusLabels[a.new_value ?? ''] ?? a.new_value}`
     case 'assignee_changed':
       return a.new_value ? `assigned it to ${names[a.new_value] ?? 'a team member'}` : 'unassigned it'
     case 'due_date_changed':
@@ -20,7 +23,7 @@ function describe(a: TaskActivity, names: Record<string, string>): string {
   }
 }
 
-export function ActivityTimeline({ activity, names }: { activity: TaskActivity[]; names: Record<string, string> }) {
+export function ActivityTimeline({ activity, names, kind = 'task' }: { activity: ActivityEntry[]; names: Record<string, string>; kind?: 'task' | 'ticket' }) {
   if (activity.length === 0) return <p className="text-sm text-slate-400">No activity yet.</p>
   return (
     <ol className="relative space-y-4 border-l border-slate-200 pl-5">
@@ -29,7 +32,7 @@ export function ActivityTimeline({ activity, names }: { activity: TaskActivity[]
           <span className="absolute -left-[25px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-brand-400 ring-1 ring-brand-200" />
           <p className="text-sm text-slate-700">
             <span className="font-semibold text-slate-900">{a.actor_id ? names[a.actor_id] ?? 'Someone' : 'System'}</span>{' '}
-            {describe(a, names)}
+            {describe(a, names, kind)}
           </p>
           <p className="text-xs text-slate-400">{formatRelative(a.created_at)}</p>
         </li>

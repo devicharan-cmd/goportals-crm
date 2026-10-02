@@ -18,6 +18,8 @@ export type TaskFormProps = {
   defaultClientId?: string
   defaultAssigneeId?: string
   canMarkUrgent: boolean
+  /** false when an employee is editing a task that's already assigned — only managers/admins can then change assignee/due date. */
+  canEditAssignment?: boolean
   clients: { id: string; company_name: string }[]
   assignees: Option[]
   departments: Department[]
@@ -49,6 +51,7 @@ export function TaskForm(p: TaskFormProps) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(f => ({ ...f, [k]: v }))
+  const canEditAssignment = p.canEditAssignment ?? true
 
   const activePlatforms = useMemo(() => p.platforms.filter(x => x.is_active || x.id === form.platform_id), [p.platforms, form.platform_id])
   const activeServices = useMemo(() => p.services.filter(x => x.is_active || x.id === form.service_id), [p.services, form.service_id])
@@ -144,8 +147,9 @@ export function TaskForm(p: TaskFormProps) {
             {activePlatforms.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
           </select>
         </Field>
-        <Field label="Assignee" hint={p.assignees.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
-          <select className="input" value={form.assignee_id} onChange={e => set('assignee_id', e.target.value)}>
+        <Field label="Assignee"
+               hint={!canEditAssignment ? 'Only managers and admins can change the assignee.' : p.assignees.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
+          <select className="input" value={form.assignee_id} disabled={!canEditAssignment} onChange={e => set('assignee_id', e.target.value)}>
             <option value="">Unassigned</option>
             {p.assignees.map(a => <option key={a.id} value={a.id}>{a.id === p.meId ? `${a.name} (me)` : a.name}</option>)}
           </select>
@@ -160,16 +164,16 @@ export function TaskForm(p: TaskFormProps) {
         </Field>
       </div>
 
-      <Field label="Deadline">
+      <Field label="Deadline" hint={!canEditAssignment ? 'Only managers and admins can change the due date.' : undefined}>
         <div className="flex flex-wrap items-center gap-2">
           {DEADLINE_OPTIONS.map(d => (
-            <button key={d.value} type="button" onClick={() => pickDeadline(d.value)}
-                    className={cn('rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition',
+            <button key={d.value} type="button" disabled={!canEditAssignment} onClick={() => pickDeadline(d.value)}
+                    className={cn('rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition disabled:cursor-not-allowed disabled:opacity-50',
                       form.deadline_type === d.value ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50')}>
               {d.label}
             </button>
           ))}
-          <input type="date" className="input w-auto" value={form.due_date}
+          <input type="date" className="input w-auto" value={form.due_date} disabled={!canEditAssignment}
                  onChange={e => setForm(f => ({ ...f, due_date: e.target.value, deadline_type: '' }))} />
         </div>
       </Field>

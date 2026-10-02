@@ -8,8 +8,9 @@ import { Logo } from '@/components/layout/Logo'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
 import { Markdown } from '@/components/shared/Markdown'
+import { AddressPicker, EMPTY_ADDRESS, type AddressValue } from '@/components/shared/AddressPicker'
 import { PLATFORM_CATEGORY_LABELS } from '@/lib/constants'
-import { cn, errorMessage } from '@/lib/utils'
+import { cn, errorMessage, formatINR } from '@/lib/utils'
 import type { Agreement, Client, Platform, PlatformCategory, Service } from '@/types/database'
 
 const STEPS = [
@@ -18,6 +19,12 @@ const STEPS = [
   { key: 'services',  label: 'Services',  icon: Wrench },
   { key: 'agreement', label: 'Agreement', icon: FileSignature },
 ] as const
+
+type AccountSummary = { account_name: string; platform: { name: string } | null; status: string }
+type ServiceSummary = {
+  agreed_price: number | null; currency: string; billing_type: string; custom_name: string | null
+  service: { name: string } | null; ecommerce_account: { account_name: string } | null
+}
 
 type Props = {
   profile: { full_name: string; email: string }
@@ -29,12 +36,21 @@ type Props = {
   initialPlatformIds: string[]
   initialServiceIds: string[]
   initialCustomServices: string[]
+  myAccounts: AccountSummary[]
+  myClientServices: ServiceSummary[]
 }
 
 export function OnboardingWizard(props: Props) {
-  const { profile, client, platforms, services, agreement, agreementOnly } = props
+  const { profile, client, platforms, services, agreement, agreementOnly, myAccounts, myClientServices } = props
   const router = useRouter()
-  const steps = agreementOnly ? STEPS.filter(s => s.key === 'agreement') : STEPS
+  // Admin already picked accounts/services/prices at creation time — skip straight to
+  // the client's own details + address, then the agreement.
+  const isAdminProvisioned = client?.signup_source === 'admin_created' || client?.signup_source === 'invite'
+  const steps = agreementOnly
+    ? STEPS.filter(s => s.key === 'agreement')
+    : isAdminProvisioned
+      ? STEPS.filter(s => s.key === 'company' || s.key === 'agreement')
+      : STEPS
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -46,6 +62,11 @@ export function OnboardingWizard(props: Props) {
     contact_email: client?.contact_email ?? profile.email,
     contact_phone: client?.contact_phone ?? '',
   })
+  const [address, setAddress] = useState<AddressValue>(client ? {
+    address_line: client.address_line ?? '', city: client.city ?? '', state: client.state ?? '',
+    postal_code: client.postal_code ?? '', country: client.country ?? 'India',
+    latitude: client.latitude, longitude: client.longitude, place_id: client.place_id, address_source: client.address_source,
+  } : EMPTY_ADDRESS)
   const [platformIds, setPlatformIds] = useState<string[]>(props.initialPlatformIds)
   const [serviceIds, setServiceIds] = useState<string[]>(props.initialServiceIds)
   const [custom, setCustom] = useState<string[]>(props.initialCustomServices)
@@ -69,7 +90,10 @@ export function OnboardingWizard(props: Props) {
 
   function validate(): string {
     const key = steps[step].key
-    if (key === 'company' && !company.company_name.trim()) return 'Please enter your company or brand name.'
+    if (key === 'company') {
+      if (!company.company_name.trim()) return 'Please enter your company or brand name.'
+      if (!address.address_line.trim()) return 'Please add your business address.'
+    }
     if (key === 'platforms' && platformIds.length === 0) return 'Select at least one platform.'
     if (key === 'services' && serviceIds.length + custom.length === 0) return 'Select at least one service, or type one.'
     if (key === 'agreement' && !agreed) return 'Please read and accept the agreement to continue.'
@@ -81,11 +105,12 @@ export function OnboardingWizard(props: Props) {
     if (v) return setError(v)
     setError('')
 
-    // Save company/platforms/services before the agreement step.
-    if (steps[step].key === 'services') {
+    // Save company/address/platforms/services on the last step before the agreement.
+    const isLastBeforeAgreement = steps[step + 1]?.key === 'agreement'
+    if (isLastBeforeAgreement) {
       setSaving(true)
       const { error } = await createClient().rpc('save_client_onboarding', {
-        p_company: company,
+        p_company: { ...company, ...address },
         p_platform_ids: platformIds,
         p_service_ids: serviceIds,
         p_custom_services: custom,
@@ -189,6 +214,10 @@ export function OnboardingWizard(props: Props) {
                          onChange={e => setCompany({ ...company, contact_email: e.target.value })} />
                 </Field>
               </div>
+              <div className="border-t border-slate-100 pt-5">
+                <p className="mb-3 text-sm font-semibold text-slate-800">Business address</p>
+                <AddressPicker value={address} onChange={setAddress} />
+              </div>
             </div>
           )}
 
@@ -246,6 +275,39 @@ export function OnboardingWizard(props: Props) {
           {current === 'agreement' && (
             <div className="space-y-5">
               <StepTitle title={agreement?.title ?? 'Service agreement'} subtitle={agreement ? `Version ${agreement.version}` : undefined} />
+
+              {(myAccounts.length > 0 || myClientServices.length > 0) && (
+                <div className="rounded-lg border border-slate-200 p-4">
+                  <p className="mb-3 text-sm font-semibold text-slate-800">What you're agreeing to</p>
+                  {myAccounts.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-1.5">
+                      {myAccounts.map((a, i) => (
+                        <span key={i} className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700">
+                          {a.platform?.name ? `${a.platform.name} · ${a.account_name}` : a.account_name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {myClientServices.length > 0 && (
+                    <ul className="divide-y divide-slate-100 text-sm">
+                      {myClientServices.map((s, i) => (
+                        <li key={i} className="flex items-center justify-between gap-3 py-1.5">
+                          <span className="text-slate-700">
+                            {s.service?.name ?? s.custom_name}
+                            {s.ecommerce_account && <span className="text-slate-400"> · {s.ecommerce_account.account_name}</span>}
+                          </span>
+                          {s.agreed_price != null && (
+                            <span className="flex-shrink-0 font-semibold text-slate-900">
+                              {formatINR(s.agreed_price)}{s.billing_type === 'monthly' ? '/mo' : s.billing_type === 'per_task' ? '/task' : ''}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
               {agreement ? (
                 <div className="max-h-80 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-5">
                   <Markdown text={agreement.body} />

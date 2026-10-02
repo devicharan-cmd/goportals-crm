@@ -7,7 +7,7 @@ import { AccountStatusBadge } from '@/components/ui/badges'
 import { ClientFormModal } from '@/components/clients/ClientFormModal'
 import { STAGE_LABELS } from '@/lib/constants'
 import { nameMap } from '@/lib/queries'
-import type { Client } from '@/types/database'
+import type { Client, Platform, Service } from '@/types/database'
 
 export const metadata = { title: 'Clients' }
 
@@ -16,7 +16,7 @@ type Row = Client & {
 }
 
 export default async function ClientsPage({ searchParams }: { searchParams: { q?: string; status?: string } }) {
-  const me = await requireRole(['super_admin', 'manager'])
+  const me = await requireRole(['super_admin', 'admin'])
   const supabase = createClient()
 
   let query = supabase.from('clients')
@@ -25,10 +25,12 @@ export default async function ClientsPage({ searchParams }: { searchParams: { q?
   if (searchParams.q) query = query.ilike('company_name', `%${searchParams.q.replace(/[%_,()]/g, ' ')}%`)
   if (searchParams.status) query = query.eq('status', searchParams.status)
 
-  const [{ data }, { data: openTasks }, { data: people }] = await Promise.all([
+  const [{ data }, { data: openTasks }, { data: people }, { data: platforms }, { data: services }] = await Promise.all([
     query,
-    supabase.from('tasks').select('client_id').neq('status', 'done'),
+    supabase.from('tasks').select('client_id').not('status', 'in', '(completed,cancelled)'),
     supabase.from('profiles').select('id, full_name, email'),
+    supabase.from('platforms').select('*').order('sort_order'),
+    supabase.from('services').select('*').order('sort_order'),
   ])
   const clients = (data ?? []) as Row[]
   const names = nameMap(people ?? [])
@@ -42,7 +44,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: { q?
       <PageHeader
         title="Clients"
         description={`${clients.length} brand${clients.length === 1 ? '' : 's'}`}
-        actions={me.role === 'super_admin' && <ClientFormModal canEditInternal />}
+        actions={['super_admin', 'admin'].includes(me.role) && <ClientFormModal canEditInternal platforms={(platforms ?? []) as Platform[]} services={(services ?? []) as Service[]} />}
       />
 
       <form className="mb-4 flex flex-wrap gap-2">

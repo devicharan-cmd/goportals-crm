@@ -89,6 +89,18 @@ export function ServicesEditor({ services, departments }: { services: Service[];
             </div>
             <input defaultValue={s.description ?? ''} placeholder="Short description shown to clients" className={cn(inlineInput, 'mt-1.5 text-xs text-slate-500')}
                    onBlur={e => e.target.value !== (s.description ?? '') && save('services', s.id, { description: e.target.value || null })} />
+            <div className="mt-1.5 flex items-center gap-2">
+              <input defaultValue={s.default_price ?? ''} type="number" min="0" placeholder="Default price ₹" className={cn(inlineInput, 'w-32')}
+                     onBlur={e => save('services', s.id, { default_price: e.target.value ? Number(e.target.value) : null })} />
+              <select defaultValue={s.default_billing_type ?? ''} className={cn(inlineInput, 'w-28')}
+                      onChange={e => save('services', s.id, { default_billing_type: e.target.value || null })}>
+                <option value="">Billing…</option>
+                <option value="monthly">Monthly</option>
+                <option value="one_time">One-time</option>
+                <option value="per_task">Per task</option>
+              </select>
+              <span className="text-[11px] text-slate-400">Admins set the actual price per client; this is just the default.</span>
+            </div>
           </li>
         ))}
       </ul>

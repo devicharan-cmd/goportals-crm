@@ -21,12 +21,14 @@ export default async function OnboardingPage() {
       supabase.rpc('needs_agreement'),
     ])
 
-  const [{ data: myPlatforms }, { data: myServices }] = client
+  const [{ data: myPlatforms }, { data: myServices }, { data: myAccounts }, { data: myClientServices }] = client
     ? await Promise.all([
-        supabase.from('client_platforms').select('platform_id').eq('client_id', client.id),
+        supabase.from('ecommerce_accounts').select('platform_id').eq('client_id', client.id),
         supabase.from('client_services').select('service_id, custom_name').eq('client_id', client.id),
+        supabase.from('ecommerce_accounts').select('account_name, platform:platforms(name), status').eq('client_id', client.id),
+        supabase.from('client_services').select('agreed_price, currency, billing_type, custom_name, service:services(name), ecommerce_account:ecommerce_accounts(account_name)').eq('client_id', client.id).neq('status', 'stopped'),
       ])
-    : [{ data: [] }, { data: [] }]
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }]
 
   return (
     <OnboardingWizard
@@ -39,6 +41,11 @@ export default async function OnboardingPage() {
       initialPlatformIds={(myPlatforms ?? []).map((p: { platform_id: string }) => p.platform_id)}
       initialServiceIds={(myServices ?? []).filter((s: { service_id: string | null }) => s.service_id).map((s: { service_id: string | null }) => s.service_id!)}
       initialCustomServices={(myServices ?? []).filter((s: { custom_name: string | null }) => s.custom_name).map((s: { custom_name: string | null }) => s.custom_name!)}
+      myAccounts={(myAccounts ?? []) as unknown as { account_name: string; platform: { name: string } | null; status: string }[]}
+      myClientServices={(myClientServices ?? []) as unknown as {
+        agreed_price: number | null; currency: string; billing_type: string; custom_name: string | null
+        service: { name: string } | null; ecommerce_account: { account_name: string } | null
+      }[]}
     />
   )
 }

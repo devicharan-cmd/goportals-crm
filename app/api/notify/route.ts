@@ -1,95 +1,75 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getProfile } from '@/lib/auth'
+import { brandedEmailHtml } from '@/lib/email'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = 'GoPortals CRM <notifications@goportals.co>'
+const FROM = 'GoPortals <notifications@goportals.co>'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://agency-crm-gilt-sigma.vercel.app'
 
-export async function POST(req: Request) {
+const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
+const fmt = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+
+/**
+ * POST /api/notify { type: 'overdue' | 'renewal' | 'all' }
+ * Allowed for a signed-in super admin, or a scheduler sending `Authorization: Bearer $CRON_SECRET`.
+ */
+export async function POST(req: NextRequest) {
+  const secret = process.env.CRON_SECRET
+  const viaCron = !!secret && req.headers.get('authorization') === `Bearer ${secret}`
+  if (!viaCron) {
+    const me = await getProfile()
+    if (!me || me.role !== 'super_admin' || me.status !== 'active') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  }
+  if (!process.env.RESEND_API_KEY) return NextResponse.json({ error: 'RESEND_API_KEY is not set' }, { status: 500 })
+
+  const { type = 'all' } = await req.json().catch(() => ({}))
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const db = createAdminClient()
+  const today = new Date().toISOString().slice(0, 10)
+  const sent: string[] = []
+
   try {
-    const { type } = await req.json()
-    const supabase = createClient()
-    const now = new Date()
-    const sent: string[] = []
-
-    // ── 1. OVERDUE ALERTS ──────────────────────────────────────────
     if (type === 'overdue' || type === 'all') {
-      const { data: overdue } = await supabase
-        .from('tickets')
-        .select('id, title, due_date, priority, clients(name), assignee:team_members!assignee_id(name, email)')
-        .lt('due_date', now.toISOString())
-        .neq('status', 'done')
-        .not('assignee_id', 'is', null)
-
-      for (const ticket of overdue ?? []) {
-        const assignee = ticket.assignee as any
-        if (!assignee?.email) continue
+      const { data } = await db.from('tasks')
+        .select('id, task_number, title, due_date, priority, client:clients(company_name), assignee:profiles!tasks_assignee_id_fkey(full_name, email)')
+        .lt('due_date', today).not('status', 'in', '(completed,cancelled)').not('assignee_id', 'is', null)
+      for (const t of (data ?? []) as unknown as { id: string; task_number: number; title: string; due_date: string; priority: string; client: { company_name: string } | null; assignee: { email: string } | null }[]) {
+        if (!t.assignee?.email) continue
         await resend.emails.send({
-          from: FROM,
-          to: assignee.email,
-          subject: `⚠️ Overdue: ${ticket.title}`,
-          html: `
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-              <div style="background:#1E40AF;padding:20px 24px;">
-                <h2 style="color:white;margin:0;font-size:18px;">GoPortals CRM</h2>
-              </div>
-              <div style="padding:24px;background:#f9fafb;border:1px solid #e5e7eb;">
-                <h3 style="color:#DC2626;margin:0 0 16px;">Ticket Overdue</h3>
-                <p style="margin:0 0 8px;color:#111827;font-size:15px;font-weight:600;">${ticket.title}</p>
-                <p style="margin:0 0 8px;color:#6B7280;font-size:13px;">Client: ${(ticket.clients as any)?.name ?? '—'}</p>
-                <p style="margin:0 0 8px;color:#6B7280;font-size:13px;">Priority: ${ticket.priority}</p>
-                <p style="margin:0 0 20px;color:#DC2626;font-size:13px;">Due date: ${new Date(ticket.due_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                <a href="${APP_URL}/tickets/${ticket.id}" style="background:#1E40AF;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-size:14px;">View Ticket →</a>
-              </div>
-              <p style="color:#9CA3AF;font-size:12px;padding:12px 24px;text-align:center;">GoPortals Agency CRM · <a href="${APP_URL}" style="color:#9CA3AF;">Open App</a></p>
-            </div>
-          `,
+          from: FROM, to: t.assignee.email, subject: `Overdue GP-${t.task_number}: ${t.title}`,
+          html: brandedEmailHtml('Task overdue',
+            [`<strong>GP-${t.task_number} · ${esc(t.title)}</strong>`, `Client: ${esc(t.client?.company_name ?? '—')}`, `Priority: ${t.priority}`, `Was due: ${fmt(t.due_date)}`],
+            `${APP_URL}/tasks/${t.id}`, 'Open task', '#DC2626'),
         })
-        sent.push(`overdue:${ticket.id}`)
+        sent.push(`overdue:${t.id}`)
       }
     }
 
-    // ── 2. RENEWAL ALERTS ─────────────────────────────────────────
     if (type === 'renewal' || type === 'all') {
-      const in7Days = new Date(now.getTime() + 7 * 86400000).toISOString()
-      const { data: renewals } = await supabase
-        .from('clients')
-        .select('id, name, contract_end, primary_member:team_members!primary_member_id(name, email)')
-        .lte('contract_end', in7Days)
-        .gte('contract_end', now.toISOString())
-        .eq('is_active', true)
-
-      for (const client of renewals ?? []) {
-        const member = client.primary_member as any
-        if (!member?.email) continue
-        const daysLeft = Math.ceil((new Date(client.contract_end).getTime() - now.getTime()) / 86400000)
+      const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
+      const [{ data: renewals }, { data: admins }] = await Promise.all([
+        db.from('client_internal').select('client_id, contract_end, client:clients(company_name, status)')
+          .gte('contract_end', today).lte('contract_end', in7),
+        db.from('profiles').select('email').eq('role', 'super_admin').eq('status', 'active'),
+      ])
+      const to = (admins ?? []).map((a: { email: string }) => a.email)
+      for (const r of (renewals ?? []) as unknown as { client_id: string; contract_end: string; client: { company_name: string; status: string } | null }[]) {
+        if (!to.length || r.client?.status !== 'active') continue
         await resend.emails.send({
-          from: FROM,
-          to: member.email,
-          subject: `🔔 Renewal in ${daysLeft}d: ${client.name}`,
-          html: `
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-              <div style="background:#1E40AF;padding:20px 24px;">
-                <h2 style="color:white;margin:0;font-size:18px;">GoPortals CRM</h2>
-              </div>
-              <div style="padding:24px;background:#fffbeb;border:1px solid #FCD34D;">
-                <h3 style="color:#92400E;margin:0 0 16px;">Contract Renewal Due Soon</h3>
-                <p style="margin:0 0 8px;color:#111827;font-size:15px;font-weight:600;">${client.name}</p>
-                <p style="margin:0 0 8px;color:#6B7280;font-size:13px;">Contract ends: ${new Date(client.contract_end).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                <p style="margin:0 0 20px;color:#92400E;font-size:13px;font-weight:600;">${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining</p>
-                <a href="${APP_URL}/clients/${client.id}" style="background:#1E40AF;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-size:14px;">View Client →</a>
-              </div>
-              <p style="color:#9CA3AF;font-size:12px;padding:12px 24px;text-align:center;">GoPortals Agency CRM · <a href="${APP_URL}" style="color:#9CA3AF;">Open App</a></p>
-            </div>
-          `,
+          from: FROM, to, subject: `Contract renewal: ${r.client.company_name}`,
+          html: brandedEmailHtml('Contract renewal due soon',
+            [`<strong>${esc(r.client.company_name)}</strong>`, `Contract ends ${fmt(r.contract_end)}`],
+            `${APP_URL}/clients/${r.client_id}`, 'Open client', '#B45309'),
         })
-        sent.push(`renewal:${client.id}`)
+        sent.push(`renewal:${r.client_id}`)
       }
     }
 
     return NextResponse.json({ ok: true, sent })
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 })
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: (err as Error).message, sent }, { status: 500 })
   }
 }

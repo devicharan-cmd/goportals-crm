@@ -1,103 +1,61 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import { requireClient } from '@/lib/auth'
+import { ButtonLink } from '@/components/ui/button'
+import { Card, PageHeader } from '@/components/ui/primitives'
+import { TicketTable } from '@/components/shared/TicketTable'
+import { cn, parseTicketCode } from '@/lib/utils'
+import type { Ticket } from '@/types/database'
 
-function TicketRow({ ticket }: { ticket: any }) {
-  const isOverdue = ticket.due_date && new Date(ticket.due_date) < new Date() && ticket.status !== 'done'
-  return (
-    <div className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50">
-      <span className={`text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${
-        ticket.priority === 'P1' ? 'bg-red-100 text-red-700' :
-        ticket.priority === 'P2' ? 'bg-orange-100 text-orange-700' :
-        ticket.priority === 'P3' ? 'bg-blue-100 text-blue-700' :
-        'bg-gray-100 text-gray-600'
-      }`}>{ticket.priority}</span>
-      <span className="text-sm text-gray-900 flex-1">{ticket.title}</span>
-      {ticket.platform && <span className="text-xs text-gray-400 capitalize">{ticket.platform}</span>}
-      {ticket.deadline_type && ticket.status !== 'done' && (
-        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-          ticket.deadline_type === 'today' ? 'bg-red-50 text-red-600' :
-          ticket.deadline_type === 'this_week' ? 'bg-orange-50 text-orange-600' :
-          'bg-blue-50 text-blue-600'
-        }`}>
-          {ticket.deadline_type === 'today' ? '🔴 Today' :
-           ticket.deadline_type === 'this_week' ? '🟠 This Week' : '🔵 This Month'}
-        </span>
-      )}
-      {isOverdue && <span className="text-xs text-red-500 font-medium">Overdue</span>}
-      <span className={`text-xs px-2 py-0.5 rounded-full ${
-        ticket.status === 'done'        ? 'bg-green-100 text-green-700' :
-        ticket.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-        ticket.status === 'blocked'     ? 'bg-red-100 text-red-700' :
-        ticket.status === 'in_review'   ? 'bg-purple-100 text-purple-700' :
-        'bg-gray-100 text-gray-600'
-      }`}>{ticket.status.replace(/_/g, ' ')}</span>
-    </div>
-  )
-}
+export const metadata = { title: 'My tickets' }
 
-export default async function PortalTicketsPage() {
+const TABS = [
+  { key: 'open', label: 'Open' },
+  { key: 'done', label: 'Completed' },
+  { key: 'all',  label: 'All' },
+]
+
+export default async function PortalTicketsPage({ searchParams }: { searchParams: { status?: string; q?: string } }) {
+  await requireClient()
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const tab = TABS.some(t => t.key === searchParams.status) ? searchParams.status! : 'open'
 
-  const clientId = user.user_metadata?.client_id as string
-  if (!clientId) redirect('/login')
-
-  const { data: tickets } = await supabase
-    .from('tickets')
-    .select('id, title, status, priority, platform, due_date, deadline_type, external_ref, created_at, assignee:team_members!assignee_id(name)')
-    .eq('client_id', clientId)
-    .order('created_at', { ascending: false })
-
-  const open = (tickets ?? []).filter((t: any) => t.status !== 'done')
-  const done = (tickets ?? []).filter((t: any) => t.status === 'done')
+  let query = supabase.from('tickets').select('*').order('created_at', { ascending: false })
+  const idSearch = parseTicketCode(searchParams.q)
+  if (idSearch) query = query.eq('ticket_number', idSearch)
+  else {
+    if (searchParams.q) query = query.ilike('subject', `%${searchParams.q.replace(/[%_,()]/g, ' ')}%`)
+    if (tab === 'open') query = query.neq('status', 'closed')
+    if (tab === 'done') query = query.eq('status', 'closed')
+  }
+  const { data } = await query
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tickets</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{open.length} open · {done.length} completed</p>
+    <>
+      <PageHeader
+        title="My tickets"
+        description="Everything you've asked us to do, and what we're working on for you."
+        actions={<ButtonLink href="/portal/tickets/new"><Plus className="h-4 w-4" /> New ticket</ButtonLink>}
+      />
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
+          {TABS.map(t => (
+            <Link key={t.key} href={t.key === 'open' ? '/portal/tickets' : `/portal/tickets?status=${t.key}`}
+                  className={cn('rounded-md px-3 py-1 font-medium', tab === t.key ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
+              {t.label}
+            </Link>
+          ))}
         </div>
-        <Link
-          href="/portal/tickets/new"
-          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg"
-        >
-          <Plus className="w-4 h-4" />
-          Submit Request
-        </Link>
+        <form className="relative min-w-[220px] flex-1 sm:max-w-xs">
+          {tab !== 'open' && <input type="hidden" name="status" value={tab} />}
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input name="q" defaultValue={searchParams.q} placeholder="Search subject or TK-1024…" className="input h-9 pl-9" />
+        </form>
       </div>
-
-      {open.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-700">Open ({open.length})</h2>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {open.map((t: any) => <TicketRow key={t.id} ticket={t} />)}
-          </div>
-        </div>
-      )}
-
-      {done.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-700">Completed ({done.length})</h2>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {done.map((t: any) => <TicketRow key={t.id} ticket={t} />)}
-          </div>
-        </div>
-      )}
-
-      {(!tickets || tickets.length === 0) && (
-        <div className="bg-white rounded-xl border border-gray-200 px-5 py-10 text-center text-sm text-gray-400">
-          No tickets yet.{' '}
-          <Link href="/portal/tickets/new" className="text-blue-600 hover:underline">Submit your first request →</Link>
-        </div>
-      )}
-    </div>
+      <Card className="overflow-hidden">
+        <TicketTable tickets={(data ?? []) as Ticket[]} empty={{ title: tab === 'done' ? 'Nothing completed yet' : 'No open tickets' }} />
+      </Card>
+    </>
   )
 }

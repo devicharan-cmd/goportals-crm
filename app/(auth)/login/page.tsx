@@ -1,107 +1,64 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Eye, EyeOff } from 'lucide-react'
+import { Suspense, useState } from 'react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Alert, Field } from '@/components/ui/primitives'
+import { PasswordInput } from '@/components/auth/PasswordInput'
 
-export default function LoginPage() {
+function LoginForm() {
+  const router = useRouter()
+  const params = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
-  const supabase = createClient()
+  const [error, setError] = useState(
+    params.get('error') === 'no_profile' ? 'Your account is not set up yet. Please contact GoPortals.' : '',
+  )
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
-
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-
+    const { error } = await createClient().auth.signInWithPassword({ email, password })
     if (error) {
-      setError(error.message)
+      setError(error.message === 'Invalid login credentials' ? 'Wrong email or password.' : error.message)
       setLoading(false)
-    } else {
-      router.push('/dashboard')
-      router.refresh()
+      return
     }
+    router.push('/')
+    router.refresh()
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
-        {/* Logo / brand */}
-        <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600 mb-4">
-            <span className="text-white font-bold text-lg">GP</span>
-          </div>
-          <h1 className="text-xl font-bold text-gray-900">GoPortals CRM</h1>
-          <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
+    <>
+      <h2 className="text-2xl font-bold">Welcome back</h2>
+      <p className="mt-1 text-sm text-slate-500">Sign in to your GoPortals workspace.</p>
+
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        {error && <Alert>{error}</Alert>}
+        <Field label="Email">
+          <input type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
+                 className="input" placeholder="you@company.com" />
+        </Field>
+        <Field label="Password">
+          <PasswordInput required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
+        </Field>
+        <div className="flex justify-end">
+          <Link href="/forgot-password" className="text-sm font-medium text-brand-600 hover:text-brand-700">Forgot password?</Link>
         </div>
+        <Button type="submit" size="lg" loading={loading} className="w-full">Sign in</Button>
+      </form>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="you@goportals.co"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="••••••••"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                tabIndex={-1}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            <label className="flex items-center gap-2 mt-2 cursor-pointer w-fit">
-              <input
-                type="checkbox"
-                checked={showPassword}
-                onChange={(e) => setShowPassword(e.target.checked)}
-                className="w-3.5 h-3.5 accent-blue-600"
-              />
-              <span className="text-xs text-gray-500">Show password</span>
-            </label>
-          </div>
-
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
-      </div>
-    </div>
+      <p className="mt-8 text-center text-sm text-slate-500">
+        New brand? Contact GoPortals and we&apos;ll send you an invite.
+      </p>
+    </>
   )
+}
+
+export default function LoginPage() {
+  return <Suspense><LoginForm /></Suspense>
 }

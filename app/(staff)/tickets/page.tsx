@@ -41,7 +41,7 @@ export default async function StaffTicketsPage({ searchParams }: { searchParams:
   return (
     <>
       <PageHeader title="Tickets" description="Tickets raised by clients through the portal."
-        actions={me.role !== 'employee' && (
+        actions={['super_admin', 'admin'].includes(me.role) && (
           <ButtonLink href="/tickets/new" size="sm"><Plus className="h-3.5 w-3.5" /> New ticket</ButtonLink>
         )} />
       <div className="mb-4 flex flex-wrap items-center gap-3">

@@ -1,16 +1,17 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Flame } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
-import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TYPE_OPTIONS } from '@/lib/constants'
-import { cn, dueDateFor, errorMessage } from '@/lib/utils'
-import type { Department, DeadlineType, Platform, Service, Task, TaskPriority, TaskType } from '@/types/database'
+import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TICKET_STATUS_LABELS, TYPE_OPTIONS } from '@/lib/constants'
+import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
+import type { Department, DeadlineType, Platform, Service, Task, TaskPriority, TaskType, TicketStatus } from '@/types/database'
 
 type Option = { id: string; name: string }
+type TicketOption = { id: string; ticket_number: number; subject: string; status: TicketStatus }
 
 export type TaskFormProps = {
   mode: 'create' | 'edit'
@@ -44,17 +45,37 @@ export function TaskForm(p: TaskFormProps) {
     assignee_id:     t?.assignee_id
                      ?? (p.defaultAssigneeId && p.assignees.some(a => a.id === p.defaultAssigneeId) ? p.defaultAssigneeId : null)
                      ?? (p.mode === 'create' && p.assignees.length === 1 ? p.meId : ''),
+    ticket_id:       t?.ticket_id ?? '',
     due_date:        t?.due_date ?? '',
     deadline_type:   (t?.deadline_type ?? '') as DeadlineType | '',
     estimated_hours: String(t?.estimated_hours ?? 3),
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [tickets, setTickets] = useState<TicketOption[]>([])
+  const [loadingTickets, setLoadingTickets] = useState(false)
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(f => ({ ...f, [k]: v }))
   const canEditAssignment = p.canEditAssignment ?? true
 
   const activePlatforms = useMemo(() => p.platforms.filter(x => x.is_active || x.id === form.platform_id), [p.platforms, form.platform_id])
   const activeServices = useMemo(() => p.services.filter(x => x.is_active || x.id === form.service_id), [p.services, form.service_id])
+
+  // A client can have several tickets — load that client's tickets so a task
+  // can be traced back to the specific one it's for, instead of only the client.
+  useEffect(() => {
+    if (!form.client_id) { setTickets([]); return }
+    let cancelled = false
+    setLoadingTickets(true)
+    createClient().from('tickets').select('id, ticket_number, subject, status').eq('client_id', form.client_id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { if (!cancelled) { setTickets((data ?? []) as TicketOption[]); setLoadingTickets(false) } })
+    return () => { cancelled = true }
+  }, [form.client_id])
+
+  function pickClient(clientId: string) {
+    // The previously picked ticket almost certainly belonged to the old client.
+    setForm(f => ({ ...f, client_id: clientId, ticket_id: '' }))
+  }
 
   function pickService(id: string) {
     const svc = p.services.find(s => s.id === id)
@@ -77,6 +98,7 @@ export function TaskForm(p: TaskFormProps) {
       title:           form.title.trim(),
       description:     form.description.trim() || null,
       client_id:       form.client_id,
+      ticket_id:       form.ticket_id || null,
       type:            form.type,
       priority:        form.priority,
       is_urgent:       form.is_urgent,
@@ -119,9 +141,20 @@ export function TaskForm(p: TaskFormProps) {
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Client" required>
-          <select className="input" value={form.client_id} onChange={e => set('client_id', e.target.value)} required>
+          <select className="input" value={form.client_id} onChange={e => pickClient(e.target.value)} required>
             <option value="">Select client…</option>
             {p.clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+          </select>
+        </Field>
+        <Field label="Ticket"
+               hint={!form.client_id ? 'Pick a client first' : loadingTickets ? 'Loading…' : tickets.length === 0 ? 'No tickets for this client' : 'Links this task back to the request it\'s for'}>
+          <select className="input" value={form.ticket_id} disabled={!form.client_id || loadingTickets} onChange={e => set('ticket_id', e.target.value)}>
+            <option value="">No ticket (standalone task)</option>
+            {tickets.map(tk => (
+              <option key={tk.id} value={tk.id}>
+                {ticketCode(tk.ticket_number)} · {tk.subject}{tk.status === 'closed' ? ` (${TICKET_STATUS_LABELS[tk.status]})` : ''}
+              </option>
+            ))}
           </select>
         </Field>
         <Field label="Type">

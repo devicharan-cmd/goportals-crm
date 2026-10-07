@@ -52,6 +52,32 @@ export function departmentIdsFor(profileId: string, lookups: StaffLookups): Set<
   return new Set(lookups.departmentMembers.filter(m => m.profile_id === profileId).map(m => m.department_id))
 }
 
+/**
+ * Client IDs a team_lead actually has work with — unions three sources, since
+ * any one of them can be how a client first became "theirs" in practice:
+ *  - client_team coverage (personally, or through one of their departments —
+ *    the same table manager_covers_client() (DB) uses for visibility)
+ *  - tasks assigned to them or their department
+ *  - tickets assigned to them or their department
+ * Used to scope the "Client" picker on the new/edit task form, which
+ * otherwise lists every company client (unlike /clients, admin/super_admin only).
+ */
+export async function clientIdsForTeamLead(profileId: string, departmentIds: string[]): Promise<Set<string>> {
+  const supabase = createClient()
+  const parts = [`profile_id.eq.${profileId}`]
+  const scopeParts = [`assignee_id.eq.${profileId}`]
+  if (departmentIds.length) {
+    parts.push(`department_id.in.(${departmentIds.join(',')})`)
+    scopeParts.push(`department_id.in.(${departmentIds.join(',')})`)
+  }
+  const [{ data: team }, { data: tasks }, { data: tickets }] = await Promise.all([
+    supabase.from('client_team').select('client_id').or(parts.join(',')),
+    supabase.from('tasks').select('client_id').or(scopeParts.join(',')),
+    supabase.from('tickets').select('client_id').or(scopeParts.join(',')),
+  ])
+  return new Set([...(team ?? []), ...(tasks ?? []), ...(tickets ?? [])].map(r => r.client_id))
+}
+
 /** All profile IDs (excluding profileId itself) sharing at least one department with profileId. */
 export function profileIdsSharingDepartment(profileId: string, lookups: StaffLookups): Set<string> {
   const myDepts = departmentIdsFor(profileId, lookups)

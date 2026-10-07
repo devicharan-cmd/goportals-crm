@@ -3,11 +3,12 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeOptionsFor, getStaffLookups, getTicketAttachments, nameMap, resolveTicketId, ticketPageTitle } from '@/lib/queries'
+import { assigneeOptionsFor, getStaffLookups, getTicketAttachments, nameMap, resolveTicketId, TASK_LIST_SELECT, ticketPageTitle } from '@/lib/queries'
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { AssignButton } from '@/components/tasks/AssignButton'
 import { ClaimTicketButton } from '@/components/tickets/ClaimTicketButton'
 import { CommentThread } from '@/components/tasks/CommentThread'
+import { TaskTable } from '@/components/tasks/TaskTable'
 import { Card, CardHeader } from '@/components/ui/primitives'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { TicketAttachmentsList } from '@/components/shared/TicketAttachmentsList'
@@ -16,7 +17,7 @@ import { TicketProperties } from '@/components/tickets/TicketProperties'
 import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
 import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_STYLES, TICKET_TERMINAL_STATUSES } from '@/lib/constants'
 import { formatDate, ticketCode } from '@/lib/utils'
-import type { Ticket, TicketActivity, TicketComment } from '@/types/database'
+import type { TaskListItem, Ticket, TicketActivity, TicketComment } from '@/types/database'
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
   return { title: await ticketPageTitle(params.id) }
@@ -28,12 +29,13 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
 
-  const [{ data }, { data: comments }, { data: activity }, lookups, attachments] = await Promise.all([
+  const [{ data }, { data: comments }, { data: activity }, lookups, attachments, { data: linkedTasks }] = await Promise.all([
     supabase.from('tickets').select('*, client:clients(id, company_name), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))').eq('id', ticketId).maybeSingle(),
     supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
     supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
     getStaffLookups(),
     getTicketAttachments(ticketId),
+    supabase.from('tasks').select(TASK_LIST_SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: false }),
   ])
   if (!data) notFound()
   const ticket = data as Ticket & {
@@ -41,6 +43,7 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
     ecommerce_account: { account_name: string; platform: { name: string } | null } | null
   }
   const names = nameMap(lookups.people)
+  const tasksFromTicket = (linkedTasks ?? []) as TaskListItem[]
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
   const assignees = assigneeOptionsFor(me, lookups)
   const canAssign = me.role !== 'employee' || !ticket.assignee_id || ticket.assignee_id === me.id
@@ -100,6 +103,13 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
               </dl>
             )}
           </Card>
+
+          {tasksFromTicket.length > 0 && (
+            <Card className="overflow-hidden">
+              <CardHeader title={`Tasks from this ticket (${tasksFromTicket.length})`} />
+              <TaskTable tasks={tasksFromTicket} names={names} empty={{ title: 'No tasks yet' }} />
+            </Card>
+          )}
 
           <Card>
             <CardHeader title={`Discussion (${(comments ?? []).length})`}

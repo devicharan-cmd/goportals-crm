@@ -17,7 +17,7 @@ import { ClaimButton } from '@/components/tasks/ClaimButton'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { AssignButton } from '@/components/tasks/AssignButton'
 import { TYPE_LABELS } from '@/lib/constants'
-import { formatDate, formatRelative, taskCode } from '@/lib/utils'
+import { formatDate, formatRelative, taskCode, ticketCode } from '@/lib/utils'
 import type { TaskActivity, TaskComment, TaskListItem, TimeLog } from '@/types/database'
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
@@ -31,14 +31,17 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
   if (!taskId) notFound()
 
   const [{ data }, { data: comments }, { data: activity }, { data: logs }, lookups] = await Promise.all([
-    supabase.from('tasks').select(`${TASK_LIST_SELECT}, service:services(id, name)`).eq('id', taskId).maybeSingle(),
+    supabase.from('tasks').select(`${TASK_LIST_SELECT}, service:services(id, name), ticket:tickets(id, ticket_number, subject)`).eq('id', taskId).maybeSingle(),
     supabase.from('task_comments').select('*').eq('task_id', taskId).order('created_at'),
     supabase.from('task_activity').select('*').eq('task_id', taskId).order('created_at', { ascending: false }),
     supabase.from('time_logs').select('*').eq('task_id', taskId).order('logged_date', { ascending: false }),
     getStaffLookups(),
   ])
   if (!data) notFound()
-  const task = data as TaskListItem & { service: { id: string; name: string } | null }
+  const task = data as TaskListItem & {
+    service: { id: string; name: string } | null
+    ticket: { id: string; ticket_number: number; subject: string } | null
+  }
   const names = nameMap(lookups.people)
 
   const assignees = assigneeOptionsFor(me, lookups)
@@ -58,6 +61,9 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
     ['Department', task.department?.name ?? '—'],
     ['Platform', task.platform?.name ?? '—'],
     ['Raised by', task.created_by ? `${names[task.created_by] ?? '—'}${task.source === 'client' ? ' (client)' : ''}` : '—'],
+    ...(task.ticket ? [['From ticket', <Link key="ticket" href={`/tickets/${task.ticket.id}`} className="font-medium text-brand-700 hover:underline">
+        {ticketCode(task.ticket.ticket_number)} · {task.ticket.subject}
+      </Link>] as [string, React.ReactNode]] : []),
     ['Created', formatDate(task.created_at)],
     ['Assigned', task.assigned_at ? `${formatRelative(task.assigned_at)}${task.assigned_by ? ` by ${names[task.assigned_by] ?? '—'}` : ''}` : '—'],
     ...(task.closed_at ? [['Closed', formatDate(task.closed_at)] as [string, React.ReactNode]] : []),

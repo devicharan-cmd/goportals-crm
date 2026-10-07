@@ -9,7 +9,7 @@ export type ClientServiceStatus = 'requested' | 'active' | 'stopped'
 export type TaskStatus   = 'todo' | 'in_progress' | 'ready_for_review' | 'changes_requested' | 'completed' | 'cancelled'
 export type TicketStatus =
   | 'new' | 'under_review' | 'awaiting_clarification' | 'assigned'
-  | 'in_progress' | 'ready_for_client' | 'resolved' | 'closed'
+  | 'in_progress' | 'ready_for_client' | 'resolved' | 'reopened' | 'closed'
 export type TaskPriority  = 'P1' | 'P2' | 'P3' | 'P4'
 export type TaskType      = 'task' | 'issue' | 'request' | 'grievance'
 export type TaskSource    = 'internal' | 'client'
@@ -219,6 +219,16 @@ export interface TaskComment {
   author_id: string | null
   body: string
   is_internal: boolean
+  created_at: string
+}
+
+export interface TaskChecklistItem {
+  id: string
+  task_id: string
+  text: string
+  is_done: boolean
+  sort_order: number
+  created_by: string | null
   created_at: string
 }
 

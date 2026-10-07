@@ -44,11 +44,12 @@ export const TASK_TERMINAL_STATUSES: TaskStatus[] = ['completed', 'cancelled']
 export const TICKET_STATUS_OPTIONS: { value: TicketStatus; label: string }[] = [
   { value: 'new',                    label: 'New' },
   { value: 'under_review',           label: 'Under review' },
-  { value: 'awaiting_clarification', label: 'Awaiting clarification' },
+  { value: 'awaiting_clarification', label: 'Awaiting client reply' },
   { value: 'assigned',               label: 'Assigned' },
   { value: 'in_progress',            label: 'In progress' },
   { value: 'ready_for_client',       label: 'Ready for client' },
   { value: 'resolved',               label: 'Resolved' },
+  { value: 'reopened',               label: 'Reopened' },
   { value: 'closed',                 label: 'Closed' },
 ]
 export const TICKET_STATUS_LABELS = Object.fromEntries(TICKET_STATUS_OPTIONS.map(s => [s.value, s.label])) as Record<TicketStatus, string>
@@ -61,6 +62,7 @@ export const TICKET_STATUS_STYLES: Record<TicketStatus, string> = {
   in_progress:            'bg-brand-50 text-brand-700 ring-brand-200',
   ready_for_client:       'bg-teal-50 text-teal-700 ring-teal-200',
   resolved:               'bg-amber-50 text-amber-700 ring-amber-200',
+  reopened:               'bg-orange-50 text-orange-700 ring-orange-200',
   closed:                 'bg-lime-50 text-lime-700 ring-lime-200',
 }
 
@@ -72,6 +74,7 @@ export const TICKET_STATUS_DOT: Record<TicketStatus, string> = {
   in_progress:            'bg-brand-500',
   ready_for_client:       'bg-teal-500',
   resolved:               'bg-amber-500',
+  reopened:               'bg-orange-500',
   closed:                 'bg-lime-500',
 }
 

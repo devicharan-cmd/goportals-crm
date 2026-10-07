@@ -46,6 +46,9 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
   const tasksFromTicket = (linkedTasks ?? []) as TaskListItem[]
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
   const assignees = assigneeOptionsFor(me, lookups)
+  const deptLeads = Object.fromEntries(
+    lookups.departmentMembers.filter(m => m.is_lead).map(m => [m.department_id, { id: m.profile_id, name: names[m.profile_id] ?? 'Unknown' }]),
+  )
   const canAssign = me.role !== 'employee' || !ticket.assignee_id || ticket.assignee_id === me.id
   const canClose = ['super_admin', 'admin'].includes(me.role)
   const canClaim = ticket.is_urgent && !ticket.assignee_id && !TICKET_TERMINAL_STATUSES.includes(ticket.status)
@@ -129,7 +132,7 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
 
         <div className="space-y-6">
           <Card className="p-5">
-            <TicketProperties ticket={ticket} departments={lookups.departments} canAssign={canAssign} canMarkUrgent={me.role !== 'employee'} canClose={canClose} />
+            <TicketProperties ticket={ticket} departments={lookups.departments} deptLeads={deptLeads} assignees={assignees} canAssign={canAssign} canMarkUrgent={me.role !== 'employee'} canClose={canClose} />
           </Card>
           <Card>
             <CardHeader title="Details" />

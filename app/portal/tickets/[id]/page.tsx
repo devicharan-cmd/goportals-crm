@@ -14,6 +14,7 @@ import { TicketAttachmentsList } from '@/components/shared/TicketAttachmentsList
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
 import { CloseTicketButton } from '@/components/portal/CloseTicketButton'
+import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
 import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_OPTIONS, TICKET_STATUS_STYLES } from '@/lib/constants'
 import { cn, formatDate, ticketCode } from '@/lib/utils'
 import type { TicketActivity, TicketComment, Ticket } from '@/types/database'
@@ -41,7 +42,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
   const canEdit = ticket.status === 'new' && ticket.created_by === me.id
   const canClose = ticket.status === 'resolved'
 
-  const steps = TICKET_STATUS_OPTIONS.filter(s => s.value !== 'awaiting_clarification')
+  const steps = TICKET_STATUS_OPTIONS.filter(s => s.value !== 'awaiting_clarification' && s.value !== 'reopened')
   const stepIndex = steps.findIndex(s => s.value === ticket.status)
 
   return (
@@ -90,6 +91,8 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
 
             {ticket.status === 'awaiting_clarification' ? (
               <p className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">This ticket is on hold — check the comments below, we may need something from you.</p>
+            ) : ticket.status === 'reopened' ? (
+              <p className="mt-6 rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700">Sent back for changes — the team has been notified and is reworking it.</p>
             ) : (
               <ol className="mt-6 grid grid-cols-4 gap-2 sm:grid-cols-7">
                 {steps.map((s, i) => (
@@ -102,6 +105,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
             )}
 
             {canClose && <CloseTicketButton ticketId={ticket.id} />}
+            {canClose && <ReopenTicketButton ticketId={ticket.id} />}
           </Card>
 
           <Card>

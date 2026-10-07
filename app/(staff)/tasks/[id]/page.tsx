@@ -13,12 +13,13 @@ import { TaskProperties } from '@/components/tasks/TaskProperties'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
 import { TimeLogPanel } from '@/components/tasks/TimeLogPanel'
+import { ChecklistPanel } from '@/components/tasks/ChecklistPanel'
 import { ClaimButton } from '@/components/tasks/ClaimButton'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { AssignButton } from '@/components/tasks/AssignButton'
 import { TYPE_LABELS } from '@/lib/constants'
 import { formatDate, formatRelative, taskCode, ticketCode } from '@/lib/utils'
-import type { TaskActivity, TaskComment, TaskListItem, TimeLog } from '@/types/database'
+import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TimeLog } from '@/types/database'
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
   return { title: await taskPageTitle(params.id) }
@@ -30,11 +31,12 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
   const taskId = await resolveTaskId(params.id)
   if (!taskId) notFound()
 
-  const [{ data }, { data: comments }, { data: activity }, { data: logs }, lookups] = await Promise.all([
+  const [{ data }, { data: comments }, { data: activity }, { data: logs }, { data: checklist }, lookups] = await Promise.all([
     supabase.from('tasks').select(`${TASK_LIST_SELECT}, service:services(id, name), ticket:tickets(id, ticket_number, subject)`).eq('id', taskId).maybeSingle(),
     supabase.from('task_comments').select('*').eq('task_id', taskId).order('created_at'),
     supabase.from('task_activity').select('*').eq('task_id', taskId).order('created_at', { ascending: false }),
     supabase.from('time_logs').select('*').eq('task_id', taskId).order('logged_date', { ascending: false }),
+    supabase.from('task_checklist_items').select('*').eq('task_id', taskId).order('sort_order'),
     getStaffLookups(),
   ])
   if (!data) notFound()
@@ -51,6 +53,7 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
   const canEditDueDate = me.role !== 'employee'
   const canReview = me.role !== 'employee'
   const canClaim = task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
+  const canEditChecklist = me.role !== 'employee' || task.assignee_id === me.id
 
   const details: [string, React.ReactNode][] = [
     ['Task ID', <span key="id" className="font-mono font-semibold">{taskCode(task.task_number)}</span>],
@@ -105,6 +108,15 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
               </div>
             )}
           </Card>
+
+          {((checklist ?? []).length > 0 || canEditChecklist) && (
+            <Card className="overflow-hidden">
+              <CardHeader title="Checklist" />
+              <div className="p-5">
+                <ChecklistPanel taskId={task.id} items={(checklist ?? []) as TaskChecklistItem[]} canEdit={canEditChecklist} />
+              </div>
+            </Card>
+          )}
 
           <Card>
             <CardHeader title={`Discussion (${(comments ?? []).length})`}

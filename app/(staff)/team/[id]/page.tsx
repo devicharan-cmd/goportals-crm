@@ -4,14 +4,14 @@ import { addWeeks, differenceInHours, format, startOfMonth, startOfWeek } from '
 import { AlarmClock, ArrowLeft, CheckCircle2, Clock, Gauge, ListTodo, Mail, Plus, Target, Timer } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { assigneeOptionsFor, getStaffLookups, nameMap, TASK_LIST_SELECT } from '@/lib/queries'
+import { assigneeOptionsFor, getStaffLookups, nameMap, profileIdsSharingDepartment, TASK_LIST_SELECT } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader, StatCard } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { WeeklyDoneChart, type WeekBucket } from '@/components/team/WeeklyDoneChart'
 import { ROLE_LABELS, TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
-import { capacityColor, cn, dueState } from '@/lib/utils'
+import { capacityColor, capacityTextColor, cn, dueState } from '@/lib/utils'
 import type { Profile, TaskListItem, TaskStatus } from '@/types/database'
 
 export const metadata = { title: 'Employee stats' }
@@ -31,8 +31,7 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
   if (person.role === 'client') notFound()
   // Team leads only look at employees in a department they share, or themselves.
   if (me.role === 'team_lead') {
-    const myDepartmentIds = new Set(lookups.departmentMembers.filter(m => m.profile_id === me.id).map(m => m.department_id))
-    const shared = lookups.departmentMembers.some(m => m.profile_id === person.id && myDepartmentIds.has(m.department_id))
+    const shared = profileIdsSharingDepartment(me.id, lookups).has(person.id)
     if (person.id !== me.id && (person.role !== 'employee' || !shared)) redirect('/team')
   }
 
@@ -115,7 +114,7 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
         <div className="card col-span-2 p-5">
           <div className="mb-2 flex items-center justify-between">
             <p className="flex items-center gap-2 text-xs font-medium text-slate-500"><Gauge className="h-4 w-4 text-slate-400" /> Workload (open estimated hours vs weekly capacity)</p>
-            <span className={cn('text-sm font-bold', workload >= 100 ? 'text-red-600' : workload >= 80 ? 'text-amber-600' : 'text-slate-800')}>{workload}%</span>
+            <span className={cn('text-sm font-bold', capacityTextColor(workload))}>{workload}%</span>
           </div>
           <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
             <div className={cn('h-full rounded-full', capacityColor(workload))} style={{ width: `${Math.min(100, workload)}%` }} />

@@ -65,6 +65,12 @@ export function capacityColor(pct: number): string {
   return 'bg-brand-500'
 }
 
+export function capacityTextColor(pct: number): string {
+  if (pct >= 100) return 'text-red-600'
+  if (pct >= 80) return 'text-amber-600'
+  return 'text-slate-700'
+}
+
 /** Client relationship health (0-100): green when good, red when at risk. */
 export function healthColor(score: number): string {
   if (score >= 70) return 'bg-lime-500'

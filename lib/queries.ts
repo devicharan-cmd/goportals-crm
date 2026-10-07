@@ -8,6 +8,9 @@ import type { Department, Platform, Profile, Service } from '@/types/database'
 export const TASK_LIST_SELECT =
   '*, client:clients(id, company_name), platform:platforms(id, name), department:departments(id, name)'
 
+/** Columns + joins used by every ticket list. */
+export const TICKET_LIST_SELECT = '*, client:clients(id, company_name)'
+
 export type Person = Pick<Profile, 'id' | 'full_name' | 'email' | 'role' | 'job_title' | 'status' | 'weekly_capacity_hours'>
 export type ClientOption = { id: string; company_name: string }
 export type DepartmentMember = { department_id: string; profile_id: string; is_lead: boolean }
@@ -44,13 +47,27 @@ export async function getStaffLookups(): Promise<StaffLookups> {
   }
 }
 
+/** Department IDs a profile belongs to. */
+export function departmentIdsFor(profileId: string, lookups: StaffLookups): Set<string> {
+  return new Set(lookups.departmentMembers.filter(m => m.profile_id === profileId).map(m => m.department_id))
+}
+
+/** All profile IDs (excluding profileId itself) sharing at least one department with profileId. */
+export function profileIdsSharingDepartment(profileId: string, lookups: StaffLookups): Set<string> {
+  const myDepts = departmentIdsFor(profileId, lookups)
+  return new Set(
+    lookups.departmentMembers
+      .filter(m => m.profile_id !== profileId && myDepts.has(m.department_id))
+      .map(m => m.profile_id),
+  )
+}
+
 /** People a user may assign to — mirrors can_assign() in the DB. */
 export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
   if (me.role === 'super_admin' || me.role === 'admin') return lookups.staff
   if (me.role === 'team_lead') {
     // Self first, then active employees sharing a department with me (mirrors can_assign()'s team_lead branch).
-    const myDepts = new Set(lookups.departmentMembers.filter(m => m.profile_id === me.id).map(m => m.department_id))
-    const sharedIds = new Set(lookups.departmentMembers.filter(m => myDepts.has(m.department_id)).map(m => m.profile_id))
+    const sharedIds = profileIdsSharingDepartment(me.id, lookups)
     return [
       ...lookups.staff.filter(p => p.id === me.id),
       ...lookups.staff.filter(p => p.role === 'employee' && sharedIds.has(p.id)),

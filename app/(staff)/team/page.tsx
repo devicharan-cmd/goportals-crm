@@ -2,13 +2,13 @@ import Link from 'next/link'
 import { Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { getStaffLookups } from '@/lib/queries'
+import { getStaffLookups, profileIdsSharingDepartment } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { InviteStaffButton } from '@/components/admin/UserAdmin'
 import { Avatar, Card, EmptyState, PageHeader } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { ROLE_LABELS } from '@/lib/constants'
-import { capacityColor, cn, dueState } from '@/lib/utils'
+import { capacityColor, capacityTextColor, cn, dueState } from '@/lib/utils'
 import type { Task } from '@/types/database'
 
 export const metadata = { title: 'Team' }
@@ -37,12 +37,10 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
 
   // Super admin / admin: all staff, company-wide. Team lead: only employees sharing a department with them.
   // Active and not-active people are both listed.
-  const myDepartmentIds = new Set(lookups.departmentMembers.filter(m => m.profile_id === me.id).map(m => m.department_id))
-  const sharesMyDepartment = (profileId: string) =>
-    lookups.departmentMembers.some(m => m.profile_id === profileId && myDepartmentIds.has(m.department_id))
+  const sharedIds = profileIdsSharingDepartment(me.id, lookups)
   const visible = lookups.people.filter(p =>
     ['super_admin', 'admin'].includes(me.role) ? p.role !== 'client'
-      : p.role === 'employee' && sharesMyDepartment(p.id))
+      : p.role === 'employee' && sharedIds.has(p.id))
   const everyone = visible.map(p => {
     const mine = tasks.filter(t => t.assignee_id === p.id)
     const hours = mine.reduce((s, t) => s + Number(t.estimated_hours ?? 3), 0)
@@ -114,7 +112,7 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
                 <div className="mt-4">
                   <div className="mb-1.5 flex justify-between text-xs">
                     <span className="text-slate-500">Workload {m.hours}h / {m.weekly_capacity_hours}h</span>
-                    <span className={cn('font-semibold', m.pct >= 100 ? 'text-red-600' : m.pct >= 80 ? 'text-amber-600' : 'text-slate-700')}>{m.pct}%</span>
+                    <span className={cn('font-semibold', capacityTextColor(m.pct))}>{m.pct}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                     <div className={cn('h-full rounded-full', capacityColor(m.pct))} style={{ width: `${Math.min(100, m.pct)}%` }} />

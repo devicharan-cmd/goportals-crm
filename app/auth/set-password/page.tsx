@@ -14,6 +14,21 @@ export default function SetPasswordPage() {
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+
+  async function continueToLogin() {
+    setLoading(true)
+    setError('')
+    try {
+      const { error } = await createClient().auth.signOut({ scope: 'local' })
+      if (error) throw error
+      router.replace('/login?password-updated=1')
+      router.refresh()
+    } catch {
+      setError('Your password was updated, but this recovery session could not be cleared. Retry before continuing.')
+      setLoading(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -21,17 +36,43 @@ export default function SetPasswordPage() {
     if (password !== confirm) return setError('Passwords do not match.')
     setLoading(true)
     setError('')
+    setSuccess(false)
+    let passwordUpdated = false
     try {
-      const { error } = await createClient().auth.updateUser({ password })
-      if (error) {
-        setError(error.message.toLowerCase().includes('session') ? 'Your link has expired. Please request a new one.' : error.message)
+      const supabase = createClient()
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) throw sessionError
+      if (!session) {
+        setError('Your email-link session has expired or is missing. Request a new link and try again.')
         setLoading(false)
         return
       }
-      router.replace('/')
+
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) {
+        const message = error.message.toLowerCase()
+        setError(/session|expired|invalid|token/.test(message)
+          ? 'Your email link has expired or was already used. Request a new link and try again.'
+          : error.message)
+        setLoading(false)
+        return
+      }
+
+      passwordUpdated = true
+      setSuccess(true)
+      const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' })
+      if (signOutError) {
+        setError('Your password was updated, but this recovery session could not be cleared. Retry before continuing.')
+        setLoading(false)
+        return
+      }
+
+      router.replace('/login?password-updated=1')
       router.refresh()
     } catch {
-      setError('Unable to update your password right now. Check your connection and try again.')
+      setError(passwordUpdated
+        ? 'Your password was updated, but this recovery session could not be cleared. Retry before continuing.'
+        : 'Unable to update your password right now. Check your connection and try again.')
       setLoading(false)
     }
   }
@@ -40,16 +81,26 @@ export default function SetPasswordPage() {
     <AuthLayout>
       <h2 className="text-2xl font-bold">Choose your password</h2>
       <p className="mt-1 text-sm text-slate-500">You&apos;ll use this with your email to sign in.</p>
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-        {error && <Alert>{error}</Alert>}
-        <Field label="New password" hint="At least 8 characters">
-          <PasswordInput required minLength={8} value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" />
-        </Field>
-        <Field label="Confirm password">
-          <PasswordInput required value={confirm} onChange={e => setConfirm(e.target.value)} autoComplete="new-password" />
-        </Field>
-        <Button type="submit" size="lg" loading={loading} className="w-full">Save and continue</Button>
-      </form>
+      {success ? (
+        <div className="mt-8 space-y-4">
+          <Alert tone="success">Password updated successfully. Please log in with your new password.</Alert>
+          {error && <Alert>{error}</Alert>}
+          <Button type="button" size="lg" loading={loading} onClick={continueToLogin} className="w-full">
+            Continue to sign in
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+          {error && <Alert>{error}</Alert>}
+          <Field label="New password" hint="At least 8 characters">
+            <PasswordInput required minLength={8} value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" />
+          </Field>
+          <Field label="Confirm password">
+            <PasswordInput required value={confirm} onChange={e => setConfirm(e.target.value)} autoComplete="new-password" />
+          </Field>
+          <Button type="submit" size="lg" loading={loading} className="w-full">Save and continue</Button>
+        </form>
+      )}
     </AuthLayout>
   )
 }

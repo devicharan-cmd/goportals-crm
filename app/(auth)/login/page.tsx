@@ -11,6 +11,7 @@ import { PasswordInput } from '@/components/auth/PasswordInput'
 function LoginForm() {
   const router = useRouter()
   const params = useSearchParams()
+  const passwordUpdated = params.get('password-updated') === '1'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -56,6 +57,7 @@ function LoginForm() {
       <p className="mt-1 text-sm text-slate-500">Sign in to your GoPortals workspace.</p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        {passwordUpdated && <Alert tone="success">Password updated successfully. Please log in with your new password.</Alert>}
         {error && <Alert>{error}</Alert>}
         <Field label="Email">
           <input type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}

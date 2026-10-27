@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assignableFor, assigneeOptionsFor, getStaffLookups, nameMap, TASK_LIST_SELECT } from '@/lib/queries'
+import { assignableFor, assigneeOptionsFor, getTaskPageLookups, nameMap, TASK_LIST_SELECT } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Card, PageHeader } from '@/components/ui/primitives'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
@@ -24,6 +24,7 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
   const defaultScope = ['super_admin', 'admin'].includes(me.role) ? 'all' : 'mine'
   const scope = canSeeMore ? searchParams.scope ?? defaultScope : 'mine'
   const board = searchParams.view === 'board'
+  const idSearch = parseTaskCode(searchParams.q)
 
   let query = supabase.from('tasks').select(TASK_LIST_SELECT)
     .order('is_urgent', { ascending: false })
@@ -31,24 +32,31 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
     .order('created_at', { ascending: false })
     .limit(500)
 
-  if (scope === 'mine' && !parseTaskCode(searchParams.q)) query = query.eq('assignee_id', me.id)
+  if (scope === 'mine' && !idSearch) query = query.eq('assignee_id', me.id)
   else if (searchParams.assignee === 'none') query = query.is('assignee_id', null)
   else if (searchParams.assignee) query = query.eq('assignee_id', searchParams.assignee)
 
   const status = searchParams.status ?? 'active'
-  if (!board && !parseTaskCode(searchParams.q)) {
+  if (!board && !idSearch) {
     if (status === 'active') query = query.not('status', 'in', '(completed,cancelled)')
     else if (status !== 'all') query = query.eq('status', status)
   }
   if (searchParams.client) query = query.eq('client_id', searchParams.client)
   if (searchParams.dept) query = query.eq('department_id', searchParams.dept)
-  const idSearch = parseTaskCode(searchParams.q)
   if (idSearch) query = query.eq('task_number', idSearch)
   else if (searchParams.q) query = query.ilike('title', `%${searchParams.q.replace(/[%_,()]/g, ' ')}%`)
 
-  const [{ data }, lookups] = await Promise.all([query, getStaffLookups()])
+  const [{ data }, lookups] = await Promise.all([
+    query,
+    getTaskPageLookups({
+      includePeople: me.role !== 'employee' || !!idSearch,
+      includeAssignments: me.role !== 'employee',
+    }),
+  ])
   const tasks = (data ?? []) as TaskListItem[]
-  const names = nameMap(lookups.people)
+  const names = me.role === 'employee' && !idSearch
+    ? { [me.id]: me.full_name || me.email }
+    : nameMap(lookups.people)
   const assignOptions = me.role !== 'employee' ? assigneeOptionsFor(me, lookups) : undefined
 
   return (

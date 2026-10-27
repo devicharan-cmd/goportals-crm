@@ -21,14 +21,19 @@ export default function SetPasswordPage() {
     if (password !== confirm) return setError('Passwords do not match.')
     setLoading(true)
     setError('')
-    const { error } = await createClient().auth.updateUser({ password })
-    if (error) {
-      setError(error.message.includes('session') ? 'Your link has expired. Please request a new one.' : error.message)
+    try {
+      const { error } = await createClient().auth.updateUser({ password })
+      if (error) {
+        setError(error.message.toLowerCase().includes('session') ? 'Your link has expired. Please request a new one.' : error.message)
+        setLoading(false)
+        return
+      }
+      router.replace('/')
+      router.refresh()
+    } catch {
+      setError('Unable to update your password right now. Check your connection and try again.')
       setLoading(false)
-      return
     }
-    router.replace('/')
-    router.refresh()
   }
 
   return (

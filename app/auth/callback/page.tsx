@@ -16,23 +16,34 @@ function Callback() {
   const params = useSearchParams()
   const [error, setError] = useState('')
   const started = useRef(false)
+  const errorCode = params.get('error_code')
+  const errorDescription = params.get('error_description')?.replace(/\+/g, ' ')
+  const expiredLink = errorCode === 'otp_expired'
+  const visibleError = expiredLink
+    ? 'This password reset link has expired or was already used. Request a new link to choose your password.'
+    : error || errorDescription
 
   useEffect(() => {
     if (started.current) return   // links are single-use; don't run twice in dev strict mode
     started.current = true
+    const hash = new URLSearchParams(window.location.hash.slice(1))
+    const next = params.get('next')
+
+    // Supabase redirects expired or invalid links with an error in the URL.
+    // Don't start session processing for those links; show recovery immediately.
+    const linkError = hash.get('error_description') ?? params.get('error_description')
+    if (linkError) {
+      setError(linkError.replace(/\+/g, ' '))
+      return
+    }
+
     // Own client with URL auto-detection off, so the code/token is exchanged exactly once (below).
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { isSingleton: false, auth: { detectSessionInUrl: false } },
     )
-    const hash = new URLSearchParams(window.location.hash.slice(1))
-    const next = params.get('next')
-
     async function run() {
-      const linkError = hash.get('error_description') ?? params.get('error_description')
-      if (linkError) throw new Error(linkError.replace(/\+/g, ' '))
-
       const type = hash.get('type') ?? params.get('type')
       const accessToken = hash.get('access_token')
       const refreshToken = hash.get('refresh_token')
@@ -59,15 +70,24 @@ function Callback() {
       router.refresh()
     }
 
-    run().catch(e => setError(e.message ?? 'This link is invalid or has expired.'))
+    run().catch(e => setError(e instanceof Error ? e.message : 'This link is invalid or has expired.'))
   }, [params, router])
 
-  if (error) {
+  if (visibleError) {
     return (
       <div className="space-y-4">
-        <h2 className="text-2xl font-bold">Link problem</h2>
-        <Alert>{error}</Alert>
-        <Link href="/login" className="inline-block text-sm font-semibold text-brand-600">Go to sign in</Link>
+        <h2 className="text-2xl font-bold">
+          {expiredLink ? 'Reset link expired' : 'Email link problem'}
+        </h2>
+        <Alert>{visibleError}</Alert>
+        <div className="flex flex-wrap items-center gap-4 text-sm font-semibold">
+          <Link href="/forgot-password" className="text-brand-600">
+            Request a new reset link
+          </Link>
+          <Link href="/login" className="text-slate-600">
+            Back to sign in
+          </Link>
+        </div>
       </div>
     )
   }

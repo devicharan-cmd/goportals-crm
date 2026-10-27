@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { KanbanSquare, List, Plus, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeOptionsFor, getStaffLookups, nameMap } from '@/lib/queries'
+import { assigneeOptionsFor, getTicketBoardLookups, nameMap } from '@/lib/queries'
 import { Card, PageHeader } from '@/components/ui/primitives'
 import { ButtonLink } from '@/components/ui/button'
 import { TicketTable, type TicketListItem } from '@/components/shared/TicketTable'
@@ -33,10 +33,13 @@ export default async function StaffTicketsPage({ searchParams }: { searchParams:
       if (tab === 'done') query = query.eq('status', 'closed')
     }
   }
-  const [{ data }, lookups] = await Promise.all([query, getStaffLookups()])
+  const [{ data }, lookups] = await Promise.all([
+    query,
+    board ? getTicketBoardLookups({ includeAssignments: me.role !== 'employee' }) : Promise.resolve(null),
+  ])
   const tickets = (data ?? []) as TicketListItem[]
-  const names = nameMap(lookups.people)
-  const assignOptions = me.role !== 'employee' ? assigneeOptionsFor(me, lookups) : undefined
+  const names = lookups ? nameMap(lookups.people) : {}
+  const assignOptions = me.role !== 'employee' && lookups ? assigneeOptionsFor(me, lookups) : undefined
 
   return (
     <>

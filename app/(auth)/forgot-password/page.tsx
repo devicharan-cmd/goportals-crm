@@ -16,12 +16,17 @@ export default function ForgotPasswordPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await createClient().auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/auth/set-password`,
-    })
-    setLoading(false)
-    if (error) setError(error.message)
-    else setSent(true)
+    try {
+      const { error } = await createClient().auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/auth/set-password`,
+      })
+      if (error) setError(error.message)
+      else setSent(true)
+    } catch {
+      setError('Unable to send a reset link right now. Check your connection and try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

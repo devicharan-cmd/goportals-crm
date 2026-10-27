@@ -22,14 +22,32 @@ function LoginForm() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await createClient().auth.signInWithPassword({ email, password })
-    if (error) {
-      setError(error.message === 'Invalid login credentials' ? 'Wrong email or password.' : error.message)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setError(error.message === 'Invalid login credentials' ? 'Wrong email or password.' : error.message)
+        setLoading(false)
+        return
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .maybeSingle()
+
+      if (profileError || !profile) {
+        setError(profileError ? 'Unable to load your account. Please try again.' : 'Your account is not set up yet. Please contact GoPortals.')
+        setLoading(false)
+        return
+      }
+
+      router.replace(profile.role === 'client' ? '/portal' : '/dashboard')
+    } catch {
+      setError('Unable to sign in right now. Check your connection and try again.')
       setLoading(false)
-      return
     }
-    router.push('/')
-    router.refresh()
   }
 
   return (
@@ -49,7 +67,9 @@ function LoginForm() {
         <div className="flex justify-end">
           <Link href="/forgot-password" className="text-sm font-medium text-brand-600 hover:text-brand-700">Forgot password?</Link>
         </div>
-        <Button type="submit" size="lg" loading={loading} className="w-full">Sign in</Button>
+        <Button type="submit" size="lg" loading={loading} className="w-full">
+          {loading ? 'Signing in…' : 'Sign in'}
+        </Button>
       </form>
 
       <p className="mt-8 text-center text-sm text-slate-500">

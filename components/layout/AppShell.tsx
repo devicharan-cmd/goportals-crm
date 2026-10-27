@@ -154,6 +154,8 @@ export function AppShell({
                   <li key={item.href}>
                     <Link
                       href={item.href}
+                      onMouseEnter={() => router.prefetch(item.href)}
+                      onFocus={() => router.prefetch(item.href)}
                       title={compact ? item.label + (count ? ` (${count})` : '') : undefined}
                       aria-label={compact ? item.label : undefined}
                       className={cn(

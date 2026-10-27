@@ -9,6 +9,17 @@ import { createBrowserClient } from '@supabase/ssr'
 import { AuthLayout } from '@/components/layout/AuthLayout'
 import { Alert } from '@/components/ui/primitives'
 
+function getLinkErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : ''
+  if (/code verifier|pkce/i.test(message)) {
+    return 'This link was requested from a different site or browser. Request a fresh link from this site and open it in the same browser.'
+  }
+  if (/expired|invalid|already been used|otp_expired/i.test(message)) {
+    return 'This email link has expired or was already used. Request a fresh link and use only the newest email.'
+  }
+  return message || 'This link is invalid or has expired.'
+}
+
 // Landing page for every Supabase email link: signup confirmation, invites, password reset.
 // Handles all three link styles Supabase can send: #access_token (invite), ?code (PKCE), ?token_hash.
 function Callback() {
@@ -20,14 +31,14 @@ function Callback() {
   const errorDescription = params.get('error_description')?.replace(/\+/g, ' ')
   const expiredLink = errorCode === 'otp_expired'
   const visibleError = expiredLink
-    ? 'This password reset link has expired or was already used. Request a new link to choose your password.'
+    ? 'This password reset link has expired, was already used, or was replaced by a newer request. Request a fresh link and use only the newest email.'
     : error || errorDescription
 
   useEffect(() => {
     if (started.current) return   // links are single-use; don't run twice in dev strict mode
     started.current = true
     const hash = new URLSearchParams(window.location.hash.slice(1))
-    const next = params.get('next')
+    const next = params.get('next') === '/auth/set-password' ? '/auth/set-password' : '/'
 
     // Supabase redirects expired or invalid links with an error in the URL.
     // Don't start session processing for those links; show recovery immediately.
@@ -70,7 +81,7 @@ function Callback() {
       router.refresh()
     }
 
-    run().catch(e => setError(e instanceof Error ? e.message : 'This link is invalid or has expired.'))
+    run().catch(e => setError(getLinkErrorMessage(e)))
   }, [params, router])
 
   if (visibleError) {

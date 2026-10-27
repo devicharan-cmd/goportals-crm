@@ -47,6 +47,58 @@ export async function getStaffLookups(): Promise<StaffLookups> {
   }
 }
 
+/** Only the lookups used by the staff task list and board. */
+export async function getTaskPageLookups({ includePeople, includeAssignments }: {
+  includePeople: boolean
+  includeAssignments: boolean
+}): Promise<StaffLookups> {
+  const supabase = createClient()
+  const [people, clients, departments, members] = await Promise.all([
+    includePeople
+      ? supabase.from('profiles').select('id, full_name, email, role, job_title, status, weekly_capacity_hours').order('full_name')
+      : Promise.resolve({ data: [] }),
+    supabase.from('clients').select('id, company_name').order('company_name'),
+    supabase.from('departments').select('*').order('sort_order'),
+    includeAssignments
+      ? supabase.from('department_members').select('department_id, profile_id, is_lead')
+      : Promise.resolve({ data: [] }),
+  ])
+  const all = (people.data ?? []) as Person[]
+  return {
+    people: all,
+    staff: all.filter(p => p.role !== 'client' && p.status === 'active'),
+    clients: (clients.data ?? []) as ClientOption[],
+    departments: (departments.data ?? []) as Department[],
+    platforms: [],
+    services: [],
+    departmentMembers: (members.data ?? []) as DepartmentMember[],
+  }
+}
+
+/** Lookups used by the ticket board; list view needs no lookup queries. */
+export async function getTicketBoardLookups({ includeAssignments }: { includeAssignments: boolean }): Promise<StaffLookups> {
+  const supabase = createClient()
+  const [people, departments, members] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, email, role, job_title, status, weekly_capacity_hours').order('full_name'),
+    includeAssignments
+      ? supabase.from('departments').select('*').order('sort_order')
+      : Promise.resolve({ data: [] }),
+    includeAssignments
+      ? supabase.from('department_members').select('department_id, profile_id, is_lead')
+      : Promise.resolve({ data: [] }),
+  ])
+  const all = (people.data ?? []) as Person[]
+  return {
+    people: all,
+    staff: all.filter(p => p.role !== 'client' && p.status === 'active'),
+    clients: [],
+    departments: (departments.data ?? []) as Department[],
+    platforms: [],
+    services: [],
+    departmentMembers: (members.data ?? []) as DepartmentMember[],
+  }
+}
+
 /** Department IDs a profile belongs to. */
 export function departmentIdsFor(profileId: string, lookups: StaffLookups): Set<string> {
   return new Set(lookups.departmentMembers.filter(m => m.profile_id === profileId).map(m => m.department_id))

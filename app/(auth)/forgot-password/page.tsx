@@ -16,9 +16,13 @@ export default function ForgotPasswordPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setSent(false)
     try {
-      const { error } = await createClient().auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/auth/set-password`,
+      const normalizedEmail = email.trim().toLowerCase()
+      const callbackUrl = new URL('/auth/callback', window.location.origin)
+      callbackUrl.searchParams.set('next', '/auth/set-password')
+      const { error } = await createClient().auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: callbackUrl.toString(),
       })
       if (error) setError(error.message)
       else setSent(true)
@@ -35,11 +39,28 @@ export default function ForgotPasswordPage() {
       <p className="mt-1 text-sm text-slate-500">We&apos;ll email you a link to set a new password.</p>
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         {error && <Alert>{error}</Alert>}
-        {sent && <Alert tone="success">If an account exists for {email}, a reset link is on its way.</Alert>}
+        {sent && (
+          <Alert tone="success">
+            If an account exists for {email.trim()}, a reset link is on its way. Use the newest email only; requesting another link invalidates older ones.
+          </Alert>
+        )}
         <Field label="Email">
-          <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="input" />
+          <input
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={e => {
+              setEmail(e.target.value)
+              setSent(false)
+              setError('')
+            }}
+            className="input"
+          />
         </Field>
-        <Button type="submit" size="lg" loading={loading} className="w-full">Send reset link</Button>
+        <Button type="submit" size="lg" loading={loading} className="w-full">
+          {sent ? 'Send another reset link' : 'Send reset link'}
+        </Button>
       </form>
       <p className="mt-8 text-center text-sm">
         <Link href="/login" className="font-semibold text-brand-600">Back to sign in</Link>

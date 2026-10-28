@@ -118,7 +118,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
 
           <Card>
             <CardHeader title="Activity" />
-            <div className="p-5"><ActivityTimeline activity={(activity ?? []) as TicketActivity[]} names={names} /></div>
+            <div className="p-5"><ActivityTimeline activity={(activity ?? []) as TicketActivity[]} names={names} kind="ticket" /></div>
           </Card>
         </div>
 
@@ -130,7 +130,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
                 <dt className="text-slate-500">Handled by</dt>
                 <dd>{ticket.assignee_id
                   ? <span className="flex items-center gap-2"><Avatar name={names[ticket.assignee_id]} size="xs" />{names[ticket.assignee_id] ?? 'GoPortals team'}</span>
-                  : <span className="text-slate-400">Being assigned</span>}</dd>
+                  : <span className="text-slate-400">{['resolved', 'closed'].includes(ticket.status) ? 'GoPortals team' : 'Being assigned'}</span>}</dd>
               </div>
               {[
                 ['Account', ticket.ecommerce_account ? `${ticket.ecommerce_account.platform?.name ?? ''} · ${ticket.ecommerce_account.account_name}` : null],

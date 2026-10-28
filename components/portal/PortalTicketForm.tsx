@@ -116,6 +116,10 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
     for (const f of def.fields) {
       if (isVisible(f.showIf) && f.required && !(details[f.key] ?? '').trim()) return fail(`Please fill in "${f.label}".`)
     }
+    // A report whose range runs backwards is always a mistake, and nothing
+    // downstream checks it.
+    const from = details.date_from, to = details.date_to
+    if (from && to && from > to) return fail('The "From" date must come before the "To" date.')
     if (descriptionRequired && !description.trim()) return fail('Please add a description.')
     if (!subject.trim()) return fail('Please add a subject.')
 
@@ -283,7 +287,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
 
           {!def.hideDescription && (
             <Field label={def.descriptionLabel ?? 'Description'} required={descriptionRequired} hint="Anything else that helps us move faster.">
-              <textarea className="input min-h-[110px]" value={description} onChange={e => setDescription(e.target.value)} />
+              <textarea className="input min-h-[110px]" required={descriptionRequired} value={description} onChange={e => setDescription(e.target.value)} />
             </Field>
           )}
 

@@ -5,6 +5,8 @@
 // update the trigger too.
 import type { TicketCategory } from '@/types/database'
 
+// 'password' is deliberately unused: ticket details are stored as plain JSON,
+// so credentials must never be collected here (migration 063 scrubs them).
 export type TicketFieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'password' | 'platform'
 
 /** Show this field only when another field (usually a 'select') already holds a given value. */
@@ -185,8 +187,6 @@ export const TICKET_CATEGORIES: TicketCategoryDef[] = [
         placeholder: 'State the new warehouse is in',
         showIf: { key: 'shipment_type', equals: 'new_warehouse' } },
       { key: 'gst_id', label: 'GST ID (GSTIN)', type: 'text', required: false,
-        showIf: { key: 'shipment_type', equals: 'new_warehouse' } },
-      { key: 'gst_password', label: 'GST portal password', type: 'password', required: false,
         showIf: { key: 'shipment_type', equals: 'new_warehouse' } },
     ],
     fileFields: [

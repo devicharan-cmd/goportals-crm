@@ -25,9 +25,10 @@ export default async function ClientsPage({ searchParams }: { searchParams: { q?
   if (searchParams.q) query = query.ilike('company_name', `%${searchParams.q.replace(/[%_,()]/g, ' ')}%`)
   if (searchParams.status) query = query.eq('status', searchParams.status)
 
-  const [{ data }, { data: openTasks }, { data: people }, { data: platforms }, { data: services }] = await Promise.all([
+  const [{ data }, { data: openTasks }, { data: openTickets }, { data: people }, { data: platforms }, { data: services }] = await Promise.all([
     query,
     supabase.from('tasks').select('client_id').not('status', 'in', '(completed,cancelled)'),
+    supabase.from('tickets').select('client_id').neq('status', 'closed'),
     supabase.from('profiles').select('id, full_name, email'),
     supabase.from('platforms').select('*').order('sort_order'),
     supabase.from('services').select('*').order('sort_order'),
@@ -39,10 +40,13 @@ export default async function ClientsPage({ searchParams }: { searchParams: { q?
     : { data: [] }
   const imageUrlByPath = Object.fromEntries((signedImages ?? []).map(image => [image.path, image.signedUrl]))
   const names = nameMap(people ?? [])
-  const openCount = (openTasks ?? []).reduce<Record<string, number>>((acc, t: { client_id: string }) => {
-    acc[t.client_id] = (acc[t.client_id] ?? 0) + 1
-    return acc
-  }, {})
+  // Open work means both: a client raising tickets but having no tasks yet
+  // used to read as "0 open".
+  const openCount = [...(openTasks ?? []), ...(openTickets ?? [])]
+    .reduce<Record<string, number>>((acc, row: { client_id: string }) => {
+      acc[row.client_id] = (acc[row.client_id] ?? 0) + 1
+      return acc
+    }, {})
 
   return (
     <>

@@ -39,6 +39,8 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
   // an admin actor can only manage department membership here, not these fields.
   const canEditProfile = actorRole === 'super_admin'
   const canEditDepartments = actorRole === 'super_admin' || actorRole === 'admin'
+  // full_name is the one field the DB lets anyone change on their own row.
+  const canEditName = canEditProfile || isMe
 
   async function update(fields: Record<string, unknown>) {
     setBusy(true); setError('')
@@ -63,8 +65,20 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Avatar name={row.full_name || row.email} />
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-slate-900">{row.full_name || '—'} {isMe && <span className="text-xs font-normal text-slate-400">(you)</span>}</p>
+          <div className="min-w-0 flex-1">
+            {/* Everyone may fix their own name; a super admin may fix anyone's.
+                Without this, accounts invited without one show as a raw email
+                across the team list, assignee pickers and activity trails. */}
+            {canEditName ? (
+              <div className="flex items-center gap-2">
+                <input defaultValue={row.full_name ?? ''} placeholder="Full name" disabled={busy}
+                       onBlur={e => e.target.value.trim() !== (row.full_name ?? '') && update({ full_name: e.target.value.trim() })}
+                       className="input h-8 w-full max-w-56 py-1 text-sm font-semibold" />
+                {isMe && <span className="text-xs text-slate-400">(you)</span>}
+              </div>
+            ) : (
+              <p className="truncate font-semibold text-slate-900">{row.full_name || '—'} {isMe && <span className="text-xs font-normal text-slate-400">(you)</span>}</p>
+            )}
             <p className="truncate text-xs text-slate-500">{row.email}</p>
           </div>
         </div>

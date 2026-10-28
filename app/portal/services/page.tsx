@@ -30,7 +30,7 @@ function groupByAccount(rows: Row[]): Group[] {
     const key = r.ecommerce_account?.id ?? 'whole-client'
     const title = r.ecommerce_account
       ? `${r.ecommerce_account.platform?.name ?? 'Unknown platform'} · ${r.ecommerce_account.account_name}`
-      : 'Whole client'
+      : 'All accounts'
     if (!groups.has(key)) groups.set(key, { key, title, rows: [] })
     groups.get(key)!.rows.push(r)
   }

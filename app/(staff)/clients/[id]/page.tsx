@@ -86,7 +86,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             {isAdmin && client.status === 'pending' && (
               <ApprovalActions clientId={client.id} hasAgreement={accepted.length > 0} />
             )}
-            {isAdmin && client.status !== 'pending' && <ClientStatusSelect clientId={client.id} ownerId={client.owner_id} status={client.status} />}
+            {isAdmin && client.status !== 'pending' && <ClientStatusSelect clientId={client.id} status={client.status} />}
             {isAdmin && !client.owner_id && <InviteLoginButton clientId={client.id} email={client.contact_email} name={client.contact_name} />}
             {canEdit && <ClientFormModal client={client} internal={internal} canEditInternal={!!internal} />}
             <ButtonLink href={`/tasks/new?client_id=${client.id}`} size="sm"><Plus className="h-3.5 w-3.5" /> Task</ButtonLink>

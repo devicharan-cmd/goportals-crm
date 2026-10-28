@@ -245,7 +245,9 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
         open={imageDialogOpen}
         onClose={cancelLogoUpload}
         title={currentImage ? 'Update company logo' : 'Add company logo'}
-        titleClassName="text-lg"
+        titleClassName="text-xl"
+        closeButtonClassName="h-10 w-10 rounded-full text-slate-500 hover:bg-brand-50 hover:text-brand-700 hover:rotate-90 active:scale-95"
+        closeIconClassName="h-5 w-5"
       >
         <div className="space-y-5">
           <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 sm:flex-row">

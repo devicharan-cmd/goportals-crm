@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 
 export function Modal({
   open, onClose, title, description, children, size = 'md', titleClassName,
+  closeButtonClassName, closeIconClassName,
 }: {
   open: boolean
   onClose: () => void
@@ -14,6 +15,8 @@ export function Modal({
   children: React.ReactNode
   size?: 'md' | 'lg'
   titleClassName?: string
+  closeButtonClassName?: string
+  closeIconClassName?: string
 }) {
   useEffect(() => {
     if (!open) return
@@ -40,10 +43,10 @@ export function Modal({
           </div>
           <button
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-all duration-150 hover:bg-slate-100 hover:text-slate-700 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2"
+            className={cn('flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-all duration-150 hover:bg-slate-100 hover:text-slate-700 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2', closeButtonClassName)}
             aria-label="Close"
           >
-            <X className="h-5 w-5" />
+            <X className={cn('h-5 w-5', closeIconClassName)} />
           </button>
         </div>
         <div className="px-6 py-5">{children}</div>

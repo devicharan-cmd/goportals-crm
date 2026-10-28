@@ -66,6 +66,13 @@ export type TicketCategoryDef = {
   guideUrl?: string
 }
 
+/**
+ * The guideline PDFs live outside git (`*.pdf` is ignored) and were never
+ * deployed, so every `guideUrl` below returned the 404 page. Commit the files
+ * to `public/guidelines/` and flip this to true to show the links again.
+ */
+export const GUIDELINE_PDFS_PUBLISHED = false
+
 export const TICKET_CATEGORIES: TicketCategoryDef[] = [
   {
     value: 'new_listing', label: 'New listing', hint: 'Get a new product listed',

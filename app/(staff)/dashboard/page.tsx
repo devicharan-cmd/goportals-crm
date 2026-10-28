@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { format } from 'date-fns'
 import { AlarmClock, CheckSquare, Flame, Inbox, Plus, ShieldCheck, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
@@ -11,14 +10,22 @@ import { TaskTable } from '@/components/tasks/TaskTable'
 import { ClaimButton } from '@/components/tasks/ClaimButton'
 import { DashboardTaskPanel } from '@/components/tasks/DashboardTaskPanel'
 import { TicketTable, type TicketListItem } from '@/components/shared/TicketTable'
-import { capacityColor, capacityTextColor, cn, dueState, formatRelative, taskCode } from '@/lib/utils'
+import { capacityColor, capacityTextColor, cn, dueState, formatRelative, taskCode, ticketCode } from '@/lib/utils'
 import type { TaskListItem } from '@/types/database'
 
 export const metadata = { title: 'Dashboard' }
 
+// The server runs in UTC; staff are in India, so both the greeting and the date
+// below have to be read in IST or they disagree either side of midnight.
+const IST = 'Asia/Kolkata'
+
 function greeting() {
-  const h = Number(new Intl.DateTimeFormat('en-IN', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }).format(new Date()))
+  const h = Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: IST }).format(new Date())) % 24
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
+}
+
+function todayInIndia() {
+  return new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: IST }).format(new Date())
 }
 
 export default async function DashboardPage() {
@@ -34,7 +41,7 @@ export default async function DashboardPage() {
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
       .order('priority').order('created_at').limit(5),
     isAdmin
-      ? supabase.from('tasks').select(TASK_LIST_SELECT).eq('source', 'client').is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
+      ? supabase.from('tickets').select(TICKET_LIST_SELECT).in('status', ['new', 'under_review']).is('assignee_id', null)
           .order('created_at', { ascending: false }).limit(6)
       : Promise.resolve({ data: [] }),
     isAdmin
@@ -61,7 +68,7 @@ export default async function DashboardPage() {
 
   const myTasks = (mine.data ?? []) as TaskListItem[]
   const urgentTasks = (urgent.data ?? []) as TaskListItem[]
-  const clientRequests = (requests.data ?? []) as TaskListItem[]
+  const clientRequests = (requests.data ?? []) as unknown as TicketListItem[]
   const names = nameMap(people.data ?? [])
   const dueNow = myTasks.filter(t => ['overdue', 'today'].includes(dueState(t.due_date, t.status))).length
   const workingTasks = (allWorking.data ?? []) as TaskListItem[]
@@ -110,7 +117,7 @@ export default async function DashboardPage() {
     <>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-lime-600">{format(new Date(), 'EEEE, d MMMM')}</p>
+          <p className="text-sm font-medium text-lime-600">{todayInIndia()}</p>
           <h1 className="text-2xl font-bold">{greeting()}, {me.full_name.split(' ')[0] || 'there'} 👋</h1>
         </div>
         {!isAdmin && <ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
@@ -122,7 +129,7 @@ export default async function DashboardPage() {
         <StatCard label="Urgent waiting" value={urgentTasks.length} icon={Flame} tone={urgentTasks.length ? 'red' : 'lime'} href="/urgent" />
         {isAdmin
           ? <StatCard label="Clients awaiting approval" value={approvals.count ?? 0} icon={ShieldCheck} tone={approvals.count ? 'amber' : 'lime'} href="/admin/approvals" />
-          : <StatCard label="New client requests" value={clientRequests.length} icon={Inbox} tone="brand" href="/tasks?scope=all&assignee=none" />}
+          : <StatCard label="New client tickets" value={clientRequests.length} icon={Inbox} tone="brand" href="/tickets" />}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -161,17 +168,17 @@ export default async function DashboardPage() {
 
           {isAdmin && (
             <Card className="overflow-hidden">
-              <CardHeader title="New client requests" description="Raised from the portal, not yet assigned" />
+              <CardHeader title="New client tickets" description="Raised from the portal, not yet assigned" />
               {clientRequests.length === 0 ? (
-                <EmptyState title="No new requests" />
+                <EmptyState title="No new tickets" />
               ) : (
                 <ul className="divide-y divide-slate-100">
                   {clientRequests.map(t => (
                     <li key={t.id}>
-                      <Link href={`/tasks/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
-                        <PriorityBadge priority={t.priority} />
+                      <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+                        {t.priority ? <PriorityBadge priority={t.priority} /> : <span className="w-7 text-center text-xs text-slate-300">—</span>}
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-slate-400">{taskCode(t.task_number)}</span>{t.title}</p>
+                          <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-slate-400">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                           <p className="truncate text-xs text-slate-500">{t.client?.company_name} · {formatRelative(t.created_at)}</p>
                         </div>
                       </Link>

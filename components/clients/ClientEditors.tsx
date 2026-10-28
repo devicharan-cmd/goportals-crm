@@ -279,15 +279,13 @@ export function ApprovalActions({ clientId, hasAgreement }: { clientId: string; 
 }
 
 // ─── Status (suspend / reactivate) ───────────────────────────
-export function ClientStatusSelect({ clientId, ownerId, status }: { clientId: string; ownerId: string | null; status: string }) {
+export function ClientStatusSelect({ clientId, status }: { clientId: string; status: string }) {
   const { busy, error, run } = useMutation()
   const supabase = createClient()
+  // One RPC, so the client row and their login can never drift apart
+  // (profiles RLS silently ignored a manager's write — see migration 062).
   async function change(next: string) {
-    await run(async () => {
-      const r1 = await supabase.from('clients').update({ status: next }).eq('id', clientId)
-      if (r1.error || !ownerId) return r1
-      return supabase.from('profiles').update({ status: next }).eq('id', ownerId)
-    })
+    await run(() => supabase.rpc('set_client_status', { p_client_id: clientId, p_status: next }))
   }
   return (
     <span className="inline-flex flex-col items-end">

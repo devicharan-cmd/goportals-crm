@@ -1,5 +1,5 @@
 import { addMonths, endOfMonth, format, parse, startOfMonth } from 'date-fns'
-import { CheckCircle2, Clock, Inbox, TimerOff } from 'lucide-react'
+import { ClipboardList, CheckCircle2, Clock, Inbox, TimerOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
 import { nameMap } from '@/lib/queries'
@@ -8,6 +8,11 @@ import { PrintButton } from '@/components/shared/PrintButton'
 import type { Task } from '@/types/database'
 
 export const metadata = { title: 'Reports' }
+
+type TicketRow = {
+  id: string; client_id: string; status: string; created_at: string; closed_at: string | null
+  client: { company_name: string } | null
+}
 
 type Row = Pick<Task, 'id' | 'client_id' | 'assignee_id' | 'status' | 'due_date' | 'created_at' | 'closed_at' | 'source'> & {
   client: { company_name: string } | null
@@ -24,14 +29,19 @@ export default async function ReportsPage({ searchParams }: { searchParams: { mo
   const to = end.toISOString()
 
   // Tasks created OR closed in the month (RLS limits managers to their scope).
-  const [{ data }, { data: logs }, { data: people }] = await Promise.all([
+  const [{ data }, { data: ticketData }, { data: logs }, { data: people }] = await Promise.all([
     supabase.from('tasks')
       .select('id, client_id, assignee_id, status, due_date, created_at, closed_at, source, client:clients(company_name)')
+      .or(`and(created_at.gte.${from},created_at.lte.${to}),and(closed_at.gte.${from},closed_at.lte.${to})`),
+    // Tickets are what the client actually sees, so the month has to count them too.
+    supabase.from('tickets')
+      .select('id, client_id, status, created_at, closed_at, client:clients(company_name)')
       .or(`and(created_at.gte.${from},created_at.lte.${to}),and(closed_at.gte.${from},closed_at.lte.${to})`),
     supabase.from('time_logs').select('profile_id, hours').gte('logged_date', format(start, 'yyyy-MM-dd')).lte('logged_date', format(end, 'yyyy-MM-dd')),
     supabase.from('profiles').select('id, full_name, email'),
   ])
   const tasks = (data ?? []) as unknown as Row[]
+  const tickets = (ticketData ?? []) as unknown as TicketRow[]
   const names = nameMap(people ?? [])
   const inMonth = (d: string | null) => !!d && new Date(d) >= start && new Date(d) <= end
 
@@ -54,11 +64,19 @@ export default async function ReportsPage({ searchParams }: { searchParams: { mo
     byPerson.set(l.profile_id, r)
   })
 
-  const byClient = new Map<string, { name: string; created: number; done: number; fromClient: number }>()
+  const ticketsRaised = tickets.filter(t => inMonth(t.created_at))
+  const ticketsClosed = tickets.filter(t => inMonth(t.closed_at))
+
+  const byClient = new Map<string, { name: string; created: number; done: number; tickets: number }>()
   tasks.forEach(t => {
-    const r = byClient.get(t.client_id) ?? { name: t.client?.company_name ?? '—', created: 0, done: 0, fromClient: 0 }
-    if (inMonth(t.created_at)) { r.created++; if (t.source === 'client') r.fromClient++ }
+    const r = byClient.get(t.client_id) ?? { name: t.client?.company_name ?? '—', created: 0, done: 0, tickets: 0 }
+    if (inMonth(t.created_at)) r.created++
     if (inMonth(t.closed_at)) r.done++
+    byClient.set(t.client_id, r)
+  })
+  tickets.forEach(t => {
+    const r = byClient.get(t.client_id) ?? { name: t.client?.company_name ?? '—', created: 0, done: 0, tickets: 0 }
+    if (inMonth(t.created_at)) r.tickets++
     byClient.set(t.client_id, r)
   })
 
@@ -82,11 +100,13 @@ export default async function ReportsPage({ searchParams }: { searchParams: { mo
         }
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <StatCard label="Tickets raised" value={ticketsRaised.length} icon={ClipboardList} tone="brand" />
+        <StatCard label="Tickets closed" value={ticketsClosed.length} icon={CheckCircle2} tone="lime" />
+        <StatCard label="Hours logged" value={Math.round(totalHours * 10) / 10} icon={Clock} tone="amber" />
         <StatCard label="Tasks created" value={created.length} icon={Inbox} />
         <StatCard label="Tasks completed" value={closed.length} icon={CheckCircle2} tone="lime" />
         <StatCard label="Completed late" value={closedLate.length} icon={TimerOff} tone={closedLate.length ? 'red' : 'lime'} />
-        <StatCard label="Hours logged" value={Math.round(totalHours * 10) / 10} icon={Clock} tone="amber" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -114,14 +134,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: { mo
           <CardHeader title="By client" />
           <table className="w-full text-sm">
             <thead><tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-              <th className="px-5 py-2.5">Client</th><th className="px-3 py-2.5 text-right">Created</th><th className="px-3 py-2.5 text-right">From client</th><th className="px-5 py-2.5 text-right">Done</th>
+              <th className="px-5 py-2.5">Client</th><th className="px-3 py-2.5 text-right">Created</th><th className="px-3 py-2.5 text-right">Tickets</th><th className="px-5 py-2.5 text-right">Done</th>
             </tr></thead>
             <tbody className="divide-y divide-slate-100">
               {Array.from(byClient.values()).sort((a, b) => b.created - a.created).map(r => (
                 <tr key={r.name}>
                   <td className="px-5 py-2.5 font-medium text-slate-800">{r.name}</td>
                   <td className="px-3 py-2.5 text-right">{r.created}</td>
-                  <td className="px-3 py-2.5 text-right">{r.fromClient}</td>
+                  <td className="px-3 py-2.5 text-right">{r.tickets}</td>
                   <td className="px-5 py-2.5 text-right">{r.done}</td>
                 </tr>
               ))}

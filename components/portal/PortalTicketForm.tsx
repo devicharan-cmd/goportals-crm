@@ -6,7 +6,7 @@ import { FileText, Flame, HelpCircle, Paperclip, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
-import { TICKET_CATEGORIES, TICKET_CATEGORY_BY_VALUE, type TicketFieldDef, type TicketFieldShowIf } from '@/lib/ticket-categories'
+import { GUIDELINE_PDFS_PUBLISHED, TICKET_CATEGORIES, TICKET_CATEGORY_BY_VALUE, type TicketFieldDef, type TicketFieldShowIf } from '@/lib/ticket-categories'
 import { cn, errorMessage } from '@/lib/utils'
 import type { TaskPriority, Ticket, TicketCategory } from '@/types/database'
 
@@ -45,6 +45,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [showGuide, setShowGuide] = useState(false)
+  const errorRef = useRef<HTMLDivElement | null>(null)
   const submittingRef = useRef(false)  // synchronous guard — `saving` state only updates on next render, too late for a fast double-click
 
   const activeCategory = isEdit ? category : pickedCategory
@@ -53,23 +54,27 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
   const isVisible = (showIf?: TicketFieldShowIf) => !showIf || details[showIf.key] === showIf.equals
 
   function renderField(f: TicketFieldDef) {
+    // A hidden conditional field must not be required, or the browser blocks
+    // submission on a control nobody can see.
+    const isRequired = !!f.required && isVisible(f.showIf)
     return (
       <Field key={f.key} label={f.label} required={f.required} className={f.type === 'textarea' ? 'sm:col-span-2' : undefined}>
         {f.type === 'textarea' ? (
-          <textarea className="input min-h-[90px]" value={details[f.key] ?? ''} placeholder={f.placeholder}
+          <textarea className="input min-h-[90px]" required={isRequired} value={details[f.key] ?? ''} placeholder={f.placeholder}
                     onChange={e => setField(f.key, e.target.value)} />
         ) : f.type === 'select' ? (
-          <select className="input" value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)}>
+          <select className="input" required={isRequired} value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)}>
             <option value="">Select…</option>
             {f.options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         ) : f.type === 'platform' ? (
-          <select className="input" value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)}>
+          <select className="input" required={isRequired} value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)}>
             <option value="">Select a platform…</option>
             {platforms.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         ) : (
-          <input className="input" type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
+          <input className="input" required={isRequired}
+                 type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
                  value={details[f.key] ?? ''} placeholder={f.placeholder} onChange={e => setField(f.key, e.target.value)}
                  autoComplete={f.type === 'password' ? 'new-password' : undefined} />
         )}
@@ -95,17 +100,24 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
     }))
   }
 
+  // The alert renders at the top of the form; scroll it into view or a long
+  // form just looks like the Submit button did nothing.
+  function fail(message: string) {
+    setError(message)
+    requestAnimationFrame(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (submittingRef.current) return
     if (!def) return
-    if (clients && !clientId) return setError('Select a client for this ticket.')
-    if (accountMode === 'required' && !accountId) return setError('Select an e-commerce account for this ticket.')
+    if (clients && !clientId) return fail('Select a client for this ticket.')
+    if (accountMode === 'required' && !accountId) return fail('Select an e-commerce account for this ticket.')
     for (const f of def.fields) {
-      if (isVisible(f.showIf) && f.required && !(details[f.key] ?? '').trim()) return setError(`Please fill in "${f.label}".`)
+      if (isVisible(f.showIf) && f.required && !(details[f.key] ?? '').trim()) return fail(`Please fill in "${f.label}".`)
     }
-    if (descriptionRequired && !description.trim()) return setError('Please add a description.')
-    if (!subject.trim()) return setError('Please add a subject.')
+    if (descriptionRequired && !description.trim()) return fail('Please add a description.')
+    if (!subject.trim()) return fail('Please add a subject.')
 
     submittingRef.current = true
     setSaving(true)
@@ -126,7 +138,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
     if (error) {
       submittingRef.current = false
       setSaving(false)
-      return setError(errorMessage(error))
+      return fail(errorMessage(error))
     }
     if (files.length > 0) await uploadAttachments(data.id, supabase)
     router.push(`${hrefBase}/${data.id}`)
@@ -137,7 +149,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
 
   return (
     <form onSubmit={submit} className="card space-y-6 p-6">
-      {error && <Alert>{error}</Alert>}
+      <div ref={errorRef}>{error && <Alert>{error}</Alert>}</div>
 
       {clients && (
         isEdit ? (
@@ -191,7 +203,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
             </div>
           )}
 
-          {(def.guide || def.guideUrl) && (
+          {(def.guide || (GUIDELINE_PDFS_PUBLISHED && def.guideUrl)) && (
             <div className="flex flex-wrap items-center gap-3">
               {def.guide && (
                 <button type="button" onClick={() => setShowGuide(s => !s)}
@@ -199,7 +211,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
                   <HelpCircle className="h-3.5 w-3.5" /> {showGuide ? 'Hide guide' : 'See guide'}
                 </button>
               )}
-              {def.guideUrl && (
+              {GUIDELINE_PDFS_PUBLISHED && def.guideUrl && (
                 <a href={def.guideUrl} target="_blank" rel="noopener noreferrer"
                    className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-800">
                   <FileText className="h-3.5 w-3.5" /> View listing guideline (PDF)

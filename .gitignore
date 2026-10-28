@@ -24,8 +24,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Generated documents (kept locally, not in git)
+# Generated documents (kept locally, not in git) — except the client-facing
+# guideline PDFs, which the ticket form links to and must be deployed.
 *.pdf
+!public/guidelines/*.pdf
 
 # TypeScript build cache
 *.tsbuildinfo

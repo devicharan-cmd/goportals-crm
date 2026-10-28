@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { Loader2 } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
@@ -45,14 +46,15 @@ async function AuthorizedStaffLayout({ children }: { children: React.ReactNode }
 }
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
-  // Keep the navigation and page skeleton visible while the first protected
-  // request verifies the session and loads the staff profile.
+  // This fallback is also what a *client* account sees for the moment before
+  // requireStaff() redirects them, so it must not render the staff navigation.
+  // A neutral splash keeps the internal menu out of their browser entirely.
   return (
     <Suspense fallback={
-      <AppShell user={{ name: '', email: '', role: 'employee', jobTitle: null }}
-        counts={{ notifications: 0, urgent: 0, approvals: 0 }}>
-        <StaffLoading />
-      </AppShell>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <Loader2 className="h-6 w-6 animate-spin text-brand-600" />
+        <span className="sr-only">Loading</span>
+      </div>
     }>
       <AuthorizedStaffLayout>{children}</AuthorizedStaffLayout>
     </Suspense>

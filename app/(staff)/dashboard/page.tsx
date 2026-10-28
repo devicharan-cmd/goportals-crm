@@ -38,7 +38,7 @@ export default async function DashboardPage() {
           .order('created_at', { ascending: false }).limit(6)
       : Promise.resolve({ data: [] }),
     isAdmin
-      ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('signup_source', 'self_signup')
+      ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending')
       : Promise.resolve({ count: 0 }),
     supabase.from('profiles').select('id, full_name, email'),
     isAdmin

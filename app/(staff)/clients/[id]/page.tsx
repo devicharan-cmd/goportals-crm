@@ -83,7 +83,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {isAdmin && client.status === 'pending' && client.signup_source === 'self_signup' && (
+            {isAdmin && client.status === 'pending' && (
               <ApprovalActions clientId={client.id} hasAgreement={accepted.length > 0} />
             )}
             {isAdmin && client.status !== 'pending' && <ClientStatusSelect clientId={client.id} ownerId={client.owner_id} status={client.status} />}

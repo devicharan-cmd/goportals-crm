@@ -20,14 +20,14 @@ export default async function ApprovalsPage() {
   await requireAdmin()
   const { data } = await createClient().from('clients')
     .select('*, ecommerce_accounts(account_name, platform:platforms(name)), client_services(custom_name, service:services(name)), agreement_acceptances(accepted_at)')
-    .eq('status', 'pending').eq('signup_source', 'self_signup')
+    .eq('status', 'pending')
     .order('created_at')
   const rows = (data ?? []) as unknown as Row[]
 
   return (
     <div className="mx-auto max-w-4xl">
       {rows.length === 0 ? (
-        <Card><EmptyState icon={ShieldCheck} title="No pending sign-ups" description="New self-registered clients will appear here." /></Card>
+        <Card><EmptyState icon={ShieldCheck} title="No clients waiting" description="Clients appear here once they finish onboarding, until you approve them." /></Card>
       ) : (
         <div className="space-y-4">
           {rows.map(c => {
@@ -40,7 +40,7 @@ export default async function ApprovalsPage() {
                     <p className="text-sm text-slate-500">
                       {[c.contact_name, c.contact_email, c.contact_phone].filter(Boolean).join(' · ')}
                     </p>
-                    <p className="mt-1 text-xs text-slate-400">Signed up {formatRelative(c.created_at)}{c.gstin ? ` · GSTIN ${c.gstin}` : ''}</p>
+                    <p className="mt-1 text-xs text-slate-400">Added {formatRelative(c.created_at)}{c.gstin ? ` · GSTIN ${c.gstin}` : ''}</p>
                   </div>
                   <ApprovalActions clientId={c.id} hasAgreement={accepted} />
                 </div>

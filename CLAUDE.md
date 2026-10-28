@@ -18,98 +18,71 @@ Internal CRM for an e-commerce marketplace agency: brands ("clients") selling on
 
 ## Layout
 ```
-middleware.ts                 auth + role routing (see Auth)
-lib/supabase/client.ts        createClient()  – browser, for 'use client' components
-lib/supabase/server.ts        createClient()  – server components / route handlers (cookies)
-lib/supabase/admin.ts         createAdminClient() – service role, bypasses RLS, API routes ONLY
-lib/utils.ts                  cn, formatDate, formatRelative, isOverdue, isDueSoon, getInitials,
-                              getHealthColor, getCapacityColor, truncate
-types/index.ts                all types + label/color maps (SERVICE_TYPE_ROLES, SERVICE_TYPE_LABELS,
-                              LIFECYCLE_STAGE_LABELS, PLATFORM_LABELS, PRIORITY_COLORS, STATUS_COLORS)
-supabase/migrations/001_schema.sql   original schema (OUT OF DATE — see Schema drift)
+middleware.ts                 session verification and role routing
+lib/auth.ts                   profile lookup and server-side role guards
+lib/supabase/client.ts        browser Supabase client
+lib/supabase/server.ts        server component / route Supabase client
+lib/supabase/admin.ts         server-only service-role client; bypasses RLS
+lib/queries.ts                shared server-side data lookups
+types/database.ts             schema-v2 row interfaces, roles, statuses, enum unions
+supabase/migrations/001_enums_tables.sql  base v2 schema (followed by numbered migrations)
 
-app/(auth)/login              email+password login (client component)
-app/(dashboard)/layout.tsx    Sidebar + TopBar shell, redirects to /login if no user
-  dashboard/                  KPI cards, per-member open tasks, recent tickets, SendNotificationsButton
-  clients/                    list (listing stats, dept in-charges) · new · [id] detail · [id]/edit
-  tickets/                    list view + KanbanBoard · new (?client_id= prefill) · [id] detail · [id]/edit
-  team/                       workload bars; AdminTeamPanel for admins
-  reports/                    page.tsx (server fetch) → ReportsClient.tsx (month/member filter, print-PDF)
-  notifications/              in-app notifications for current member
-app/portal/                   client portal: layout (checks role==='client'), dashboard, tickets, tickets/new
-app/api/admin/assignments     GET/POST/DELETE client_assignments (POST/DELETE admin-only)
-app/api/admin/portal-user     POST invite brand rep (user_metadata {role:'client', client_id, name})
-app/api/admin/team            POST invite member + insert team_members; PATCH whitelisted fields
-app/api/notify                POST {type:'overdue'|'renewal'|'all'} → Resend emails (no auth check)
-
-components/shared    Sidebar (NAV array — add new pages here), TopBar, SendNotificationsButton
-components/clients   ClientForm, EditClientForm, AssignMembersPanel, CreatePortalUserButton
-components/tickets   TicketForm, EditTicketForm, KanbanBoard, TicketStatusUpdater, CommentBox, TimeLogBox, ActivityLog
-components/team      AdminTeamPanel
-components/portal    PortalTicketForm, PortalSignOutButton
-components/reports   ExportPDFButton (window.print)
+app/(auth)/                    login, signup, forgot-password and password recovery
+app/(staff)/                   dashboard, clients, tasks, tickets, urgent, team, reports, admin
+app/onboarding/ and app/pending/ client onboarding and approval gate
+app/portal/                    client-facing dashboard, tickets, profile and services
+app/api/                       auth callbacks, admin operations, agreement acceptance, email
+components/                    shared UI and admin, client, task, ticket, team and portal features
 ```
 
 ## Auth & roles
-- Supabase Auth. Two kinds of users, distinguished by `user.user_metadata.role`:
-  - `'client'` → brand rep; only `/portal/*`. Their brand is `user_metadata.client_id`.
-  - anything else → internal staff; `/dashboard`, `/clients`, `/tickets`, `/team`, `/reports`, `/notifications`.
-- `middleware.ts` redirects: no user → `/login`; client on dashboard routes → `/portal/dashboard`; staff on `/portal` → `/dashboard`. **If you add a new top-level internal route, add it to `isDashboardRoute` in middleware.**
-- Staff ↔ `team_members` row via `team_members.user_id = auth.users.id`.
-- **Admin = `team_members.is_admin`** (boolean), NOT `role === 'admin'`. Standard pattern in server pages:
-  ```ts
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: currentMember } = user
-    ? await supabase.from('team_members').select('id, is_admin').eq('user_id', user.id).single()
-    : { data: null }
-  const isAdmin = currentMember?.is_admin ?? false
-  ```
-  API routes each define a local `verifyAdmin()` doing the same, then use `createAdminClient()`.
-- Visibility: admins see all brands/tickets; non-admins only see clients in `client_assignments` where `member_id = currentMember.id` (filtering is done in page code, not RLS — see `clients/page.tsx`, `tickets/page.tsx`).
+- Supabase Auth authenticates the user; `public.profiles` supplies the app role and account status. Never authorize from `user_metadata`.
+- Roles are `super_admin`, `admin`, `team_lead`, `employee`, and `client`. `lib/auth.ts` owns role guards; admin access includes `super_admin` and `admin`.
+- Middleware verifies the session and routes users; server pages and RLS enforce profile status, role, and data visibility. If adding a staff route, update the staff route handling in `middleware.ts` and apply the correct server-side role guard.
+- Client signup uses `/onboarding`, agreement acceptance, then `/pending` until approved. Do not activate a self-signup client by skipping the agreement or approval flow.
+- Supabase service-role access bypasses RLS. Keep it in server-only code and use it only where an authorized admin API operation requires it.
 
-## Data model (actual, as used by the code)
-Enums (Postgres + `types/index.ts`, keep in sync):
-- `ticket_status`: open, in_progress, in_review, done, blocked · `ticket_priority`: P1–P4 (P1 highest) · `ticket_type`: task, issue, request, grievance
-- `platform`: amazon, flipkart, myntra, blinkit, meesho, nykaa, other
-- `lifecycle_stage`: onboarding, setup, scale, retention, churned · `service_type`: onboarding_setup, full_account_management, ads_only
-- `work_role`: ads_management, operations, reporting_grievance, setup_listing · `member_role`: admin, team_lead, member
+## Database schema and legacy migration
+The application and `types/database.ts` use schema v2. The schema is maintained in `supabase/migrations/`; `001_schema.sql` and the old `team_members`/single-ticket model described in previous notes are not the current source of truth.
 
-Tables:
-- **team_members**: id, user_id, name, email (unique), role, department, weekly_capacity_hours (40), avatar_url, is_active, **is_admin**, timestamps
-- **clients**: id, name, industry, service_type, lifecycle_stage, health_score (0–100), **account_status** ('Working' | 'On Hold' | 'Discontinued'), **total_listings**, **live_listings**, contact_name/email/phone, whatsapp_group_link, contract_start/end (date), monthly_retainer (₹), primary/secondary_member_id, primary/secondary_work_role, platforms (platform[]), notes, is_active, timestamps
-- **client_assignments**: client_id, member_id (unique pair, upsert on `client_id,member_id`), **assignment_role** (dept: 'ads' | 'operations' | 'listing' | 'reporting' | 'grievance' | 'setup')
-- **tickets**: id, title, description, client_id (required), assignee_id, reporter_id, type, status, priority, platform, external_ref (marketplace case ID), due_date (date), **deadline_type** ('today' | 'this_week' | 'this_month' | null), estimated_hours (default 3), actual_hours, parent_ticket_id, is_auto_generated, **assigned_date**, **assigned_by**, created_at, updated_at, closed_at
-- **comments** (ticket_id, author_id, content) · **time_logs** (ticket_id, member_id, hours, logged_date, notes) · **activity_logs** (ticket_id, client_id, actor_id, action, old_value, new_value) · **notifications** (recipient_id, type, title, body, ticket_id, client_id, is_read) · **ticket_blockers** (unused in UI)
+Core model:
+- `auth.users` is the Supabase login identity. `public.profiles` is the app identity and source of role/status (`super_admin`, `admin`, `team_lead`, `employee`, `client`). Do not authorize from user metadata. Migration 041 leaves the retired `manager` enum value in Postgres for compatibility; app code should use the roles in `types/database.ts`.
+- Client records are in `clients`, with internal/commercial fields in `client_internal`; marketplace accounts use `ecommerce_accounts`; selected work uses `client_services`; staff/client links use `client_team` and `department_members`.
+- `tasks` are internal work assigned to staff. `tickets` are client requests and have a separate lifecycle. Migration 014 introduced tickets; migration 044 split task and ticket statuses. Do not merge these concepts or map old legacy tickets into the new client-ticket table.
+- Supporting tables include `departments`, `platforms`, `services`, `agreements`, `agreement_acceptances`, `invites`, `task_comments`, `task_attachments`, `task_activity`, `ticket_comments`, `ticket_attachments`, `time_logs`, and `notifications`.
+- RLS, triggers, and RPCs enforce access and business rules. Keep role/status guards, onboarding/agreement/approval rules, and task/ticket lifecycle logic in SQL where they already exist; do not bypass them with client-side writes or a service-role client.
 
-DB triggers (don't duplicate in app code):
-- `updated_at` auto-set on clients/tickets/team_members/comments.
-- `closed_at` set when status → done, cleared when reopened.
-- Inserting a client with `lifecycle_stage='onboarding'` auto-creates **10 onboarding tickets** (P2, `is_auto_generated=true`, assigned to primary_member_id).
+### Existing legacy database cutover
+The data-preserving cutover uses these files in this order:
+1. `000_archive_legacy_v1.sql` moves existing v1 tables and enum types from `public` into the `legacy` schema. It does not drop those source tables or their rows. Run it against an existing v1 database before creating v2 objects.
+2. Run schema migrations `001` through `056` in numeric order to create and evolve v2. In production, skip optional sample-data scripts `012`, `049`, `051`, and `052` unless sample records are deliberately wanted.
+3. For a database that had the v1 data archived by step 1, run `057_migrate_legacy_v1_data.sql`. It copies matched legacy users, clients, service/platform selections, staff assignments, old work items, comments, time logs, activity, and notifications into v2 while leaving the `legacy` source rows intact. It is designed to be re-runnable with conflict guards.
 
-### Schema v2 (in progress) ⚠
-`supabase/migrations/001–004` now hold a **new** schema (roles super_admin/manager/employee/client in `profiles`, `tasks` instead of `tickets`, client signup + agreement + approval, RLS enforced in the DB). The app code below still targets the OLD schema until it is migrated — plan: `~/.claude/plans/let-s-plan-the-database-vast-quilt.md`. Business rules live in DB triggers (`guard_task_write`, `guard_profile_update`, `log_task_activity`, `notify_task_change`) and RPCs (`claim_task`, `save_client_onboarding`, `accept_agreement`, `approve_client`) — don't duplicate them in app code.
+Important migration details:
+- Legacy `tickets` are copied as internal v2 `tasks`; they are not client-submitted v2 `tickets`.
+- `legacy.ticket_blockers` remains archived; migration 057 has no v2 destination for it.
+- `058_team_lead_client_visibility.sql` updates `can_see_client()` so team leads can see client details for tasks and tickets already within their assigned or managed scope. It changes no tables or rows and must be applied to Supabase separately from the app deployment.
+- Some copy statements require matching Auth users, clients, departments, or services. Audit row counts and unmatched source rows before treating the cutover as complete; never drop the `legacy` schema as part of routine cleanup.
+- `012_seed_test_data.sql`, `049_seed_test_data_v2.sql`, `051_seed_staff_invites.sql`, and `052_seed_more_staff_invites.sql` add development/sample records. Review before running them against production; they are not required to migrate customer data.
+- A clean new database has no v1 source tables, so do not run `057_migrate_legacy_v1_data.sql` there. The v2 SQL migrations are not applied to Supabase by a Git push or Vercel deployment; apply and verify database changes separately.
 
-### Schema drift ⚠ (old schema)
-Columns in **bold** above plus the whole `client_assignments` table exist in the live Supabase DB but are **not** in `001_schema.sql`, and `is_admin`/`deadline_type`/etc. are missing from `types/index.ts` (code uses `any` casts). When you change the schema: write a new `supabase/migrations/00N_*.sql` (the user runs it in the Supabase SQL editor), and update `types/index.ts`.
-
-RLS: authenticated users can SELECT everything (notifications only their own) and INSERT/UPDATE clients, tickets, comments, time_logs, team_members. No DELETE policies — deletes need the admin client via an API route. RLS does not isolate portal clients; portal pages must always filter by `client_id`.
+When changing the schema, add the next numbered migration, preserve existing data, and update `types/database.ts` and the affected queries/forms. Back up production first. Treat migrations that change enum values, statuses, or existing rows as one-time unless their SQL explicitly guarantees safe re-runs. Verify the Supabase result before deploying app code that depends on the change.
 
 ## Code conventions
 - Server Components (default) fetch with `@/lib/supabase/server` and pass data as props to `'use client'` components. Parallelize with `Promise.all`.
 - Client components write directly to Supabase via `@/lib/supabase/client`, then `router.refresh()` (and `router.push(...)` after create/edit). Admin-only writes go through `fetch('/api/admin/...')`.
 - Forms: local `useState` form object, `saving`/`error` state, empty strings → `null` on insert (`form.x || null`).
-- Joins use PostgREST FK hints: `assignee:team_members!assignee_id(id, name)`, `primary_member:team_members!primary_member_id(...)`, `clients(name)`. Results are typed loosely (`any`) — follow that pattern.
-- Activity log: `TicketStatusUpdater` inserts `activity_logs` rows (`status_changed`, `assignee_changed`); KanbanBoard drag does optimistic update + revert on error but does NOT log activity.
+- Joins use the current v2 tables and foreign keys (for example, task assignees are `profiles`, and client ownership is `clients.owner_id`). Follow the explicit FK names used in the relevant query and keep result types aligned with `types/database.ts`.
+- Task and ticket history use separate v2 tables (`task_activity` and ticket comments/activity); preserve that separation when adding history or notifications.
 - Styling: plain Tailwind, cards = `bg-white rounded-xl border border-gray-200`, primary button = `bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg`. Priority/status badge colors are often inlined ternaries rather than `PRIORITY_COLORS`/`STATUS_COLORS`.
 - Deadline helpers are duplicated per file (dashboard, tickets page, KanbanBoard, portal): days = diff of midnight-normalized dates; <0 overdue (red), 0 today (red), ≤3 soon (amber), else ok (green).
 - `deadline_type` quick buttons (TicketForm/EditTicketForm `applyDeadlineType`) also set `due_date` (today / upcoming Sunday / month end).
-- Workload (`team/page.tsx`): used hours = Σ `estimated_hours` (fallback 3) of tickets with status open/in_progress/blocked/in_review; % vs `weekly_capacity_hours`; colors via `getCapacityColor` (≥100 red, ≥80 yellow).
-- Reports: month bucket = `(assigned_date ?? created_at).slice(0,7)`; only tickets with an assignee count; "escalated" = blocked. Renewal alerts = contract_end within 60 days.
+- Workload and reports should use the current v2 task, profile, and client relationships; do not reuse v1 `team_members` or single-ticket assumptions.
 - Currency ₹ with `toLocaleString('en-IN')`; dates via `formatDate` → `dd MMM yyyy`.
 - Some status maps include legacy `waiting_on_client` / `escalated` keys — not real enum values.
 
 ## Checklist for common changes
-- **New ticket/client field**: migration SQL → `types/index.ts` → create form + edit form (insert/update payload) → display pages → any explicit `select(...)` column lists (tickets/page.tsx `SELECT`, portal pages, reports).
-- **New internal page**: `app/(dashboard)/<name>/page.tsx` + entry in `Sidebar` `NAV` + prefix in middleware `isDashboardRoute`.
+- **New ticket/client field**: migration SQL → `types/database.ts` → create/edit payloads → display pages → any explicit PostgREST `select(...)` column lists.
+- **New internal page**: add it under `app/(staff)/<name>/page.tsx`, add its navigation entry, and include it in middleware route handling and the appropriate server-side role guard.
 - **New admin action**: API route with `verifyAdmin()` + `createAdminClient()`; call from client component via `fetch`, then `router.refresh()`.
-- **Portal change**: always scope queries with `.eq('client_id', user.user_metadata.client_id)`; never expose internal comments, retainer, or team capacity.
+- **Portal change**: scope client data through the authenticated profile's `clients.owner_id` relationship and RLS; never expose internal comments, retainer, or team capacity.

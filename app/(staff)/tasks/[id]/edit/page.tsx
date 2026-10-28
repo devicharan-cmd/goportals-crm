@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assignableFor, getStaffLookups, nameMap } from '@/lib/queries'
+import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getStaffLookups, nameMap } from '@/lib/queries'
 import { PageHeader } from '@/components/ui/primitives'
 import { TaskForm } from '@/components/tasks/TaskForm'
 import type { Task } from '@/types/database'
@@ -26,6 +26,15 @@ export default async function EditTaskPage({ params }: { params: { id: string } 
     assignees.unshift({ id: task.assignee_id, name: names[task.assignee_id] ?? 'Current assignee' })
   }
 
+  // Same team_lead scoping as the new-task form — but never drop the task's
+  // own client out of the list just because it falls outside that scope.
+  let clients = lookups.clients
+  if (me.role === 'team_lead') {
+    const deptIds = Array.from(departmentIdsFor(me.id, lookups))
+    const clientIds = await clientIdsForTeamLead(me.id, deptIds)
+    clients = lookups.clients.filter(c => clientIds.has(c.id) || c.id === task.client_id)
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader
@@ -38,7 +47,7 @@ export default async function EditTaskPage({ params }: { params: { id: string } 
         meId={me.id}
         canMarkUrgent={me.role !== 'employee'}
         canEditAssignment={me.role !== 'employee'}
-        clients={lookups.clients}
+        clients={clients}
         assignees={assignees}
         departments={lookups.departments}
         platforms={lookups.platforms}

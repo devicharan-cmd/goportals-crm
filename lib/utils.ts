@@ -9,9 +9,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Everything is rendered on the server, which runs in UTC, while the team and
+// the clients are in India — without a fixed zone a ticket raised at 1am IST
+// showed yesterday's date.
+const IST = 'Asia/Kolkata'
+
 export function formatDate(date: string | null | undefined): string {
   if (!date) return '—'
-  return format(new Date(date), 'dd MMM yyyy')
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: IST })
+    .format(new Date(date))
 }
 
 export function formatRelative(date: string | null | undefined): string {

@@ -25,7 +25,10 @@ function greeting() {
 }
 
 function todayInIndia() {
-  return new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: IST }).format(new Date())
+  const parts = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: IST })
+    .formatToParts(new Date())
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? ''
+  return `${get('weekday')}, ${get('day')} ${get('month')}`
 }
 
 export default async function DashboardPage() {

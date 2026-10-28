@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
-import { PageHeader } from '@/components/ui/primitives'
 import { PortalProfileForm } from '@/components/portal/PortalProfileForm'
 import type { Client } from '@/types/database'
 
@@ -16,7 +15,6 @@ export default async function PortalProfilePage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHeader title="Company profile" description="Keep your basic details and address up to date." />
       <PortalProfileForm client={client as Client} imageUrl={image?.signedUrl} />
     </div>
   )

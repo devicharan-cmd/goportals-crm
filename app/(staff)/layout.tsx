@@ -15,7 +15,7 @@ async function StaffShell({ me, children }: {
     supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)'),
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null).neq('status', 'closed'),
     ['super_admin', 'admin'].includes(me.role)
-      ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('signup_source', 'self_signup')
+      ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending')
       : Promise.resolve({ count: 0 }),
   ])
 

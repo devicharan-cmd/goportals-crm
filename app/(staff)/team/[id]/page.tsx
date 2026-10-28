@@ -87,11 +87,25 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
                 ? <Badge className="bg-lime-50 text-lime-700 ring-lime-200"><span className="h-1.5 w-1.5 rounded-full bg-lime-500" /> Active</Badge>
                 : <Badge className="bg-slate-100 text-slate-500 ring-slate-200"><span className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Not active</Badge>}
             </div>
-            <p className="mt-0.5 text-sm text-slate-500">{person.job_title || ROLE_LABELS[person.role]}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {/* One meta row: role, job title, departments, then email after a divider. */}
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
               <Badge className="bg-brand-50 text-brand-700 ring-brand-200">{ROLE_LABELS[person.role]}</Badge>
-              {depts.map(d => <Badge key={d}>{d}</Badge>)}
-              <a href={`mailto:${person.email}`} className="ml-1 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-brand-700"><Mail className="h-3.5 w-3.5" />{person.email}</a>
+              {person.job_title && <span className="text-slate-500">{person.job_title}</span>}
+              {depts.length > 0 && <span className="flex flex-wrap gap-1.5">{depts.map(d => <Badge key={d}>{d}</Badge>)}</span>}
+              <span className="hidden h-4 w-px bg-slate-200 sm:block" />
+              {/* Opens Gmail compose; a bare mailto: does nothing on PCs with no default mail app. */}
+              <a
+                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(person.email)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Email ${person.full_name || person.email}`}
+                className="group inline-flex min-w-0 items-center gap-2 text-slate-600 transition-colors hover:text-brand-700"
+              >
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-lime-100 text-lime-700 transition-colors group-hover:bg-lime-500 group-hover:text-white">
+                  <Mail className="h-3.5 w-3.5" />
+                </span>
+                <span className="truncate underline-offset-4 group-hover:underline">{person.email}</span>
+              </a>
             </div>
           </div>
           {active && (

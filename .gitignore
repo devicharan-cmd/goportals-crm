@@ -26,3 +26,6 @@ yarn-error.log*
 
 # Generated documents (kept locally, not in git)
 *.pdf
+
+# TypeScript build cache
+*.tsbuildinfo

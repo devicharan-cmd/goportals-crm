@@ -198,14 +198,14 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
           {form.contact_name.trim() && <p className="mt-1 text-sm text-slate-500">{form.contact_name.trim()}</p>}
           {imageError && !imageDialogOpen && <p role="alert" className="mt-2 text-xs text-red-600">{imageError}</p>}
 
-          <div className="mt-5 w-full space-y-2 border-t border-slate-100 pt-4 text-left text-xs text-slate-500">
+          <div className="mt-5 w-full space-y-2 border-t border-slate-100 pt-4 text-center text-xs text-slate-500">
             {(address.city.trim() || address.state.trim()) && (
-              <p className="flex items-center gap-2">
+              <p className="flex items-center justify-center gap-2">
                 <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
                 <span className="truncate">{[address.city.trim(), address.state.trim()].filter(Boolean).join(', ')}</span>
               </p>
             )}
-            <p className="flex items-center gap-2">
+            <p className="flex items-center justify-center gap-2">
               <Calendar className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
               <span>Client since {formatDate(client.approved_at ?? client.created_at)}</span>
             </p>
@@ -245,7 +245,6 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
         open={imageDialogOpen}
         onClose={cancelLogoUpload}
         title={currentImage ? 'Update company logo' : 'Add company logo'}
-        description="Choose one PNG, JPG, or WebP image. Maximum file size is 5 MB."
       >
         <div className="space-y-5">
           <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 sm:flex-row">
@@ -256,7 +255,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
             </div>
             <div className="min-w-0 text-center sm:text-left">
               <p className="break-all font-medium text-slate-900">{selectedImage?.name ?? 'No image selected'}</p>
-              <p className="mt-1 text-sm text-slate-500">{selectedImage ? `${(selectedImage.size / 1024 / 1024).toFixed(2)} MB` : 'Select an image to preview it before uploading.'}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{selectedImage ? `${(selectedImage.size / 1024 / 1024).toFixed(2)} MB` : 'PNG, JPG, or WebP · Up to 5 MB. Select one image to preview it before uploading.'}</p>
               <Button type="button" variant="secondary" className="mt-3" onClick={() => fileInput.current?.click()} disabled={imageBusy}>
                 <ImagePlus className="mr-2 h-4 w-4" /> Choose image
               </Button>

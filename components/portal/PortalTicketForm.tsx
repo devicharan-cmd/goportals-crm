@@ -83,15 +83,16 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
   const scopedAccounts = clients ? accounts.filter(a => a.client_id === clientId) : accounts
 
   async function uploadAttachments(ticketId: string, supabase: ReturnType<typeof createClient>) {
-    for (const { file, label } of files) {
+    // Upload all files at once rather than one after another.
+    await Promise.all(files.map(async ({ file, label }, i) => {
       const fileName = label ? `[${label}] ${file.name}` : file.name
-      const path = `${ticketId}/${Date.now()}-${file.name}`
+      const path = `${ticketId}/${Date.now()}-${i}-${file.name}`
       const { error: upErr } = await supabase.storage.from('ticket-files').upload(path, file)
-      if (upErr) continue  // best-effort: don't block the whole submission on one failed file
+      if (upErr) return  // best-effort: don't block the whole submission on one failed file
       await supabase.from('ticket_attachments').insert({
         ticket_id: ticketId, uploaded_by: meId, storage_path: path, file_name: fileName, mime_type: file.type || null, size_bytes: file.size,
       })
-    }
+    }))
   }
 
   async function submit(e: React.FormEvent) {
@@ -128,10 +129,10 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
       return setError(errorMessage(error))
     }
     if (files.length > 0) await uploadAttachments(data.id, supabase)
-    setSaving(false)
     router.push(`${hrefBase}/${data.id}`)
     router.refresh()
-    // submittingRef intentionally left true — we're navigating away, no need to re-arm the form
+    // saving + submittingRef intentionally left on — the spinner keeps running until the
+    // ticket page replaces this form, instead of stopping while the form is still on screen.
   }
 
   return (

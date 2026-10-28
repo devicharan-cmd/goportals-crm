@@ -17,6 +17,10 @@ export type StaffRow = {
   job_title: string | null; weekly_capacity_hours: number; departmentIds: string[]
 }
 
+function emptyInviteUserForm() {
+  return { kind: 'client' as 'client' | 'staff', full_name: '', email: '', role: 'employee' as StaffRole, job_title: '', department_ids: [] as string[] }
+}
+
 async function postInvite(body: Record<string, unknown>) {
   const res = await fetch('/api/admin/invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   const data = await res.json()
@@ -190,8 +194,13 @@ export function InviteUserButton({ departments, actorRole }: { departments: Depa
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const empty = { kind: 'client' as 'client' | 'staff', full_name: '', email: '', role: 'employee' as StaffRole, job_title: '', department_ids: [] as string[] }
-  const [form, setForm] = useState(empty)
+  const [form, setForm] = useState(emptyInviteUserForm)
+
+  function closeModal() {
+    setOpen(false)
+    setForm(emptyInviteUserForm())
+    setMsg(null)
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -203,14 +212,14 @@ export function InviteUserButton({ departments, actorRole }: { departments: Depa
     setBusy(false)
     if (err) return setMsg({ ok: false, text: err })
     setMsg({ ok: true, text: `Invite sent to ${form.email}.` })
-    setForm(empty)
+    setForm(emptyInviteUserForm())
     router.refresh()
   }
 
   return (
     <>
-      <Button onClick={() => { setOpen(true); setMsg(null) }}><UserPlus className="h-4 w-4" /> Add user</Button>
-      <Modal open={open} onClose={() => setOpen(false)} title="Add a user"
+      <Button onClick={() => { setForm(emptyInviteUserForm()); setMsg(null); setOpen(true) }}><UserPlus className="h-4 w-4" /> Add user</Button>
+      <Modal open={open} onClose={closeModal} title="Add a user"
              description="Same process either way: they get an email to set a password, then land in the right place for their role.">
         <form onSubmit={submit} className="space-y-4">
           {msg && <Alert tone={msg.ok ? 'success' : 'error'}>{msg.text}</Alert>}
@@ -264,7 +273,7 @@ export function InviteUserButton({ departments, actorRole }: { departments: Depa
           )}
 
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Close</Button>
+            <Button type="button" variant="secondary" onClick={closeModal}>Close</Button>
             <Button type="submit" loading={busy}><Mail className="h-4 w-4" /> Send invite</Button>
           </div>
         </form>

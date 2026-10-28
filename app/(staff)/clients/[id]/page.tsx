@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
 import { assigneeOptionsFor, getStaffLookups, nameMap, TASK_LIST_SELECT } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
-import { Card, CardHeader } from '@/components/ui/primitives'
+import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { AccountStatusBadge, Badge } from '@/components/ui/badges'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { ClientFormModal } from '@/components/clients/ClientFormModal'
@@ -37,6 +37,9 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     ])
   if (!clientData) notFound()
   const client = clientData as Client
+  const { data: companyImage } = client.company_profile_image_path
+    ? await supabase.storage.from('client-profile-images').createSignedUrl(client.company_profile_image_path, 3600)
+    : { data: null }
   const internal = internalData as ClientInternal | null
   const names = nameMap(lookups.people)
 
@@ -64,9 +67,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       {/* Header */}
       <Card className="mb-6 p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 font-display text-lg font-bold text-white">
-            {client.company_name.slice(0, 2).toUpperCase()}
-          </div>
+          <CompanyAvatar name={client.company_name} src={companyImage?.signedUrl} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold">{client.company_name}</h1>

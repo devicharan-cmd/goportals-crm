@@ -80,6 +80,7 @@ export interface Client {
   contact_email: string | null
   contact_phone: string | null
   whatsapp_group_link: string | null
+  company_profile_image_path: string | null
   owner_id: string | null
   status: AccountStatus
   stage: ClientStage

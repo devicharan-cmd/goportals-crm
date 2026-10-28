@@ -21,6 +21,13 @@ const ROLES_INVITABLE_BY: Partial<Record<AppRole, AppRole[]>> = {
   admin:       ['team_lead', 'employee'],
 }
 
+function inviteApiError(message: string) {
+  if (message.toLowerCase().includes('invalid api key')) {
+    return 'The server Supabase admin key is invalid or belongs to a different project. In Vercel, set SUPABASE_SERVICE_ROLE_KEY to this project’s service_role key, matching NEXT_PUBLIC_SUPABASE_URL, then redeploy.'
+  }
+  return message
+}
+
 export async function POST(req: NextRequest) {
   const me = await getProfile()
   if (!me || me.status !== 'active' || !ROLES_INVITABLE_BY[me.role]) {
@@ -43,6 +50,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'kind must be staff or client' }, { status: 400 })
   }
 
+  const adminUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!adminUrl || !serviceRoleKey) {
+    console.error('[invite] Missing Supabase server configuration:', {
+      urlConfigured: Boolean(adminUrl),
+      serviceRoleKeyConfigured: Boolean(serviceRoleKey),
+    })
+    return NextResponse.json({ error: 'Invite service is not configured. Check the Supabase server environment variables in Vercel.' }, { status: 500 })
+  }
+
   const admin = createAdminClient()
 
   if (body.client_id) {
@@ -60,7 +77,7 @@ export async function POST(req: NextRequest) {
     client_id:      body.kind === 'client' ? body.client_id ?? null : null,
     invited_by:     me.id,
   }).select('id').single()
-  if (inviteErr) return NextResponse.json({ error: inviteErr.message }, { status: 400 })
+  if (inviteErr) return NextResponse.json({ error: inviteApiError(inviteErr.message) }, { status: 400 })
 
   const origin = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
@@ -80,7 +97,7 @@ export async function POST(req: NextRequest) {
           ? 'Too many emails sent recently (Supabase limit). Wait an hour, or set up Custom SMTP in Supabase.'
           : error.status && error.status >= 500
             ? 'Supabase could not send the email (a blank server error) — this almost always means your Custom SMTP send itself failed. Check Authentication → Settings → SMTP Settings, and make sure the sender domain is verified in Resend (Resend → Domains).'
-            : error.message || 'Something went wrong sending the invite.'
+        : inviteApiError(error.message || 'Something went wrong sending the invite.')
     return NextResponse.json({ error: msg }, { status: 400 })
   }
 

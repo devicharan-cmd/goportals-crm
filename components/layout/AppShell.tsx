@@ -102,6 +102,12 @@ export function AppShell({
         ? pathname.startsWith(href) && pathname !== '/portal/tickets/new'
         : pathname === href || pathname.startsWith(href + '/')
 
+  // Current page name for the top bar: the active nav item, longest match first.
+  const activeItem = groups.flatMap(g => g.items)
+    .filter(i => isActive(i.href))
+    .sort((a, b) => b.href.length - a.href.length)[0]
+  const pageTitle = activeItem?.label ?? (pathname.startsWith(notificationsHref) ? 'Notifications' : '')
+
   async function signOut() {
     if (signingOut) return
     setSigningOut(true)
@@ -247,6 +253,12 @@ export function AppShell({
             <Menu className="h-5 w-5" />
           </button>
           <div className="lg:hidden"><Logo className="h-7" priority /></div>
+          {pageTitle && (
+            <div className="hidden min-w-0 items-center gap-2.5 sm:flex">
+              <span className="hidden h-6 w-px bg-slate-200 sm:block lg:hidden" />
+              <p className="truncate font-display text-xl font-semibold text-slate-900">{pageTitle}</p>
+            </div>
+          )}
           <div className="flex-1" />
           <Link href={notificationsHref} className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700" aria-label="Notifications">
             <Bell className="h-5 w-5" />

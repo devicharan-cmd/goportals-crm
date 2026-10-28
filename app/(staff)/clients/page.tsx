@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Building2, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { Avatar, Card, EmptyState, PageHeader } from '@/components/ui/primitives'
+import { Avatar, Card, CompanyAvatar, EmptyState, PageHeader } from '@/components/ui/primitives'
 import { AccountStatusBadge } from '@/components/ui/badges'
 import { ClientFormModal } from '@/components/clients/ClientFormModal'
 import { STAGE_LABELS } from '@/lib/constants'
@@ -33,6 +33,11 @@ export default async function ClientsPage({ searchParams }: { searchParams: { q?
     supabase.from('services').select('*').order('sort_order'),
   ])
   const clients = (data ?? []) as Row[]
+  const imagePaths = clients.filter(c => c.company_profile_image_path).map(c => c.company_profile_image_path!)
+  const { data: signedImages } = imagePaths.length
+    ? await supabase.storage.from('client-profile-images').createSignedUrls(imagePaths, 3600)
+    : { data: [] }
+  const imageUrlByPath = Object.fromEntries((signedImages ?? []).map(image => [image.path, image.signedUrl]))
   const names = nameMap(people ?? [])
   const openCount = (openTasks ?? []).reduce<Record<string, number>>((acc, t: { client_id: string }) => {
     acc[t.client_id] = (acc[t.client_id] ?? 0) + 1
@@ -73,9 +78,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: { q?
                 <li key={c.id}>
                   <Link href={`/clients/${c.id}`} className="flex flex-col gap-3 px-5 py-4 hover:bg-slate-50/80 sm:flex-row sm:items-center">
                     <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-brand-600 font-display text-sm font-bold text-white">
-                        {c.company_name.slice(0, 2).toUpperCase()}
-                      </div>
+                      <CompanyAvatar name={c.company_name} src={c.company_profile_image_path ? imageUrlByPath[c.company_profile_image_path] : null} size="sm" />
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-slate-900">{c.company_name}</p>
                         <p className="truncate text-xs text-slate-500">

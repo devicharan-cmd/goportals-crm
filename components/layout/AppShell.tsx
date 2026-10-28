@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Bell, Briefcase, Building2, CheckSquare, ClipboardList, FileSignature, Flame, LayoutDashboard, Layers,
-  ChevronLeft, ChevronRight, LogOut, Menu, PieChart, Settings2, ShieldCheck, UserCircle, UserPlus, Users, X,
+  ChevronLeft, ChevronRight, Loader2, LogOut, Menu, PieChart, Settings2, ShieldCheck, UserCircle, UserPlus, Users, X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
@@ -58,12 +58,14 @@ export type ShellUser = { name: string; email: string; role: AppRole; jobTitle: 
 export type ShellCounts = { notifications: number; urgent?: number; approvals?: number }
 
 export function AppShell({
-  user, counts, companyName, children,
-}: { user: ShellUser; counts: ShellCounts; companyName?: string; children: React.ReactNode }) {
+  user, counts, companyName, companyProfileImageUrl, children,
+}: { user: ShellUser; counts: ShellCounts; companyName?: string; companyProfileImageUrl?: string | null; children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)          // mobile drawer
   const [collapsed, setCollapsed] = useState(false) // desktop: icons-only sidebar
+  const [signingOut, setSigningOut] = useState(false)
+  const [signOutError, setSignOutError] = useState(false)
   const isClient = user.role === 'client'
   const groups = (isClient ? CLIENT_NAV : STAFF_NAV)
     .map(g => ({ ...g, items: g.items.filter(i => !i.roles || i.roles.includes(user.role)) }))
@@ -101,9 +103,18 @@ export function AppShell({
         : pathname === href || pathname.startsWith(href + '/')
 
   async function signOut() {
-    await createClient().auth.signOut()
-    router.push('/login')
-    router.refresh()
+    if (signingOut) return
+    setSigningOut(true)
+    setSignOutError(false)
+    try {
+      const { error } = await createClient().auth.signOut()
+      if (error) throw error
+      router.push('/login')
+      router.refresh()
+    } catch {
+      setSigningOut(false)
+      setSignOutError(true)
+    }
   }
 
   const toggleButton = (
@@ -180,10 +191,11 @@ export function AppShell({
         ))}
       </nav>
 
-      <div className={cn('border-t border-slate-100', compact ? 'p-2' : 'p-3')}>
+      <div className={cn('border-t border-slate-200', compact ? 'p-2' : 'p-3')}>
+        {signOutError && !compact && <p role="alert" className="mb-2 px-2 text-xs text-red-600">Could not sign out. Please try again.</p>}
         <div className={cn('flex items-center rounded-lg', compact ? 'flex-col gap-2 py-1' : 'gap-3 px-2 py-2')}>
           <span title={compact ? `${user.name || user.email} · ${user.jobTitle || ROLE_LABELS[user.role]}` : undefined}>
-            <Avatar name={user.name || user.email} size="sm" />
+            <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : undefined} size="sm" />
           </span>
           {!compact && (
             <div className="min-w-0 flex-1">
@@ -191,8 +203,21 @@ export function AppShell({
               <p className="truncate text-xs text-slate-500">{user.jobTitle || ROLE_LABELS[user.role]}</p>
             </div>
           )}
-          <button onClick={signOut} title="Sign out" aria-label="Sign out" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-            <LogOut className="h-4 w-4" />
+          <button
+            onClick={signOut}
+            disabled={signingOut}
+            title={signingOut ? 'Signing out…' : 'Sign out'}
+            aria-label={signingOut ? 'Signing out' : 'Sign out'}
+            className={cn(
+              'group inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-all duration-150',
+              'text-slate-400 hover:bg-red-50 hover:text-red-700 active:scale-90',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2',
+              'disabled:cursor-wait disabled:opacity-60',
+            )}
+          >
+            {signingOut
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <LogOut className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
           </button>
         </div>
       </div>

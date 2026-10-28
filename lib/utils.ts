@@ -26,7 +26,7 @@ export function formatINR(amount: number | null | undefined): string {
 
 export function getInitials(name: string | null | undefined): string {
   if (!name) return '?'
-  return name.trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  return name.trim().charAt(0).toUpperCase() || '?'
 }
 
 export type DueState = 'overdue' | 'today' | 'soon' | 'ok' | 'none'

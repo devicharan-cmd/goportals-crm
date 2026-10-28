@@ -91,7 +91,7 @@ const AVATAR_COLORS = [
   'bg-amber-100 text-amber-800', 'bg-sky-100 text-sky-700', 'bg-rose-100 text-rose-700',
 ]
 
-export function Avatar({ name, size = 'md', className }: { name: string | null | undefined; size?: 'xs' | 'sm' | 'md' | 'lg'; className?: string }) {
+export function Avatar({ name, src, size = 'md', className }: { name: string | null | undefined; src?: string | null; size?: 'xs' | 'sm' | 'md' | 'lg'; className?: string }) {
   const sizes = { xs: 'h-5 w-5 text-[10px]', sm: 'h-7 w-7 text-xs', md: 'h-9 w-9 text-sm', lg: 'h-12 w-12 text-base' }
   const hash = (name ?? '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   return (
@@ -100,8 +100,20 @@ export function Avatar({ name, size = 'md', className }: { name: string | null |
       className={cn('inline-flex flex-shrink-0 items-center justify-center rounded-full font-semibold',
         sizes[size], AVATAR_COLORS[hash % AVATAR_COLORS.length], className)}
     >
-      {getInitials(name)}
+      {src ? <img src={src} alt="" className="h-full w-full rounded-[inherit] object-cover" /> : getInitials(name)}
     </span>
+  )
+}
+
+export function CompanyAvatar({ name, src, size = 'md', className }: { name: string; src?: string | null; size?: 'sm' | 'md' | 'lg'; className?: string }) {
+  const sizes = { sm: 'h-10 w-10 text-sm', md: 'h-14 w-14 text-lg', lg: 'h-20 w-20 text-2xl' }
+  return (
+    <div aria-label={`${name} company image`} role="img" className={cn(
+      'flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-800 font-display font-bold text-white',
+      sizes[size], className,
+    )}>
+      {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : getInitials(name)}
+    </div>
   )
 }
 

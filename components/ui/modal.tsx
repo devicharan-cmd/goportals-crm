@@ -37,7 +37,11 @@ export function Modal({
             <h2 className="text-base font-semibold">{title}</h2>
             {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
           </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Close">
+          <button
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-all duration-150 hover:bg-slate-100 hover:text-slate-700 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2"
+            aria-label="Close"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>

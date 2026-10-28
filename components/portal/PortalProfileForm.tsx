@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Calendar, Camera, ImagePlus, Loader2, MapPin, Trash2, Upload } from 'lucide-react'
+import { Calendar, Camera, ImagePlus, Loader2, MapPin, Pencil, Trash2, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
@@ -22,7 +22,7 @@ const PROFILE_IMAGE_BUCKET = 'client-profile-images'
 
 export function PortalProfileForm({ client, imageUrl }: { client: Client; imageUrl?: string | null }) {
   const router = useRouter()
-  const [form, setForm] = useState({
+  const savedForm = () => ({
     company_name:        client.company_name,
     gstin:                client.gstin ?? '',
     contact_name:         client.contact_name ?? '',
@@ -30,14 +30,19 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
     contact_phone:        client.contact_phone ?? '',
     whatsapp_group_link:  client.whatsapp_group_link ?? '',
   })
-  const [address, setAddress] = useState<AddressValue>({
+  const savedAddress = (): AddressValue => ({
     address_line: client.address_line ?? '', city: client.city ?? '', state: client.state ?? '',
     postal_code: client.postal_code ?? '', country: client.country ?? 'India',
     latitude: client.latitude, longitude: client.longitude, place_id: client.place_id, address_source: client.address_source,
   })
+  const [form, setForm] = useState(savedForm)
+  const [address, setAddress] = useState<AddressValue>(savedAddress)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+  // Details are read-only until the client clicks "Update profile".
+  const [editing, setEditing] = useState(false)
+  const [addressKey, setAddressKey] = useState(0)  // remounts AddressPicker so Cancel restores the saved address
   const [imageBusy, setImageBusy] = useState(false)
   const [imageError, setImageError] = useState('')
   const [currentImage, setCurrentImage] = useState<string | null>(imageUrl ?? null)
@@ -155,7 +160,22 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
     setSaving(false)
     if (error) return setError(errorMessage(error))
     setSaved(true)
+    setEditing(false)
     router.refresh()
+  }
+
+  function startEditing() {
+    setSaved(false)
+    setError('')
+    setEditing(true)
+  }
+
+  function cancelEditing() {
+    setForm(savedForm())
+    setAddress(savedAddress())
+    setAddressKey(k => k + 1)
+    setError('')
+    setEditing(false)
   }
 
   return (
@@ -216,6 +236,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
       <form onSubmit={submit} className="card min-w-0 space-y-6 p-5 sm:p-6">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Saved.</Alert>}
+        <fieldset disabled={!editing} className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Company / brand name" required className="sm:col-span-2">
             <input className="input" required value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })} />
@@ -229,15 +250,26 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
 
         <div className="border-t border-slate-100 pt-5">
           <p className="mb-3 text-sm font-semibold text-slate-800">Business address</p>
-          <AddressPicker value={address} onChange={setAddress} />
+          {/* The map isn't a form control, so block clicks on it while locked. */}
+          <div className={editing ? undefined : 'pointer-events-none select-none'}>
+            <AddressPicker key={addressKey} value={address} onChange={setAddress} />
+          </div>
         </div>
+        </fieldset>
 
         <p className="text-xs text-slate-400">
           Platforms, services and pricing are set by your GoPortals account manager and can't be changed here.
         </p>
 
-        <div className="flex justify-end border-t border-slate-100 pt-5">
-          <Button type="submit" loading={saving}>Save changes</Button>
+        <div className="flex justify-end gap-2 border-t border-slate-100 pt-5">
+          {editing ? (
+            <>
+              <Button type="button" variant="secondary" onClick={cancelEditing} disabled={saving}>Cancel</Button>
+              <Button type="submit" loading={saving}>Save changes</Button>
+            </>
+          ) : (
+            <Button type="button" onClick={startEditing}><Pencil className="h-4 w-4" /> Update profile</Button>
+          )}
         </div>
       </form>
 

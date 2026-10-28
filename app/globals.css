@@ -58,3 +58,18 @@
   aside, header, .no-print { display: none !important; }
   main { padding: 0 !important; }
 }
+
+/* Scrollbars in the logo's "GO" lime (#95C12C). Firefox + new Chrome use scrollbar-color; Safari uses the ::-webkit rules. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #95C12C transparent;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background-color: #A5CD3F;
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: #789C20; }

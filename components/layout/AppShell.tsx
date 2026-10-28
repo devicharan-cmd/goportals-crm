@@ -247,8 +247,9 @@ export function AppShell({
         </div>
       )}
 
-      <div className={cn('transition-[padding] duration-200', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6">
+      {/* Only the area under the top bar scrolls, so the scrollbar never runs beside the top bar. */}
+      <div className={cn('flex h-screen flex-col transition-[padding] duration-200', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
+        <header className="z-20 flex h-16 flex-shrink-0 items-center gap-3 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6">
           <button className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
@@ -269,7 +270,9 @@ export function AppShell({
             )}
           </Link>
         </header>
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <div className="flex-1 overflow-y-auto">
+          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        </div>
       </div>
     </div>
   )

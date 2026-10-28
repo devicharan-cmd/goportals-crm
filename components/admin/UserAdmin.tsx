@@ -139,7 +139,7 @@ export function InviteStaffButton({
 
   return (
     <>
-      <Button onClick={() => { setOpen(true); setMsg(null) }}><UserPlus className="h-4 w-4" /> {onlyEmployees ? 'Add employee' : 'Invite team member'}</Button>
+      <Button size="sm" onClick={() => { setOpen(true); setMsg(null) }}><UserPlus className="h-3.5 w-3.5" /> {onlyEmployees ? 'Add employee' : 'Invite team member'}</Button>
       <Modal open={open} onClose={() => setOpen(false)} title={onlyEmployees ? 'Add an employee' : 'Invite a team member'} description="They'll get an email to set their password.">
         <form onSubmit={submit} className="space-y-4">
           {msg && <Alert tone={msg.ok ? 'success' : 'error'}>{msg.text}</Alert>}

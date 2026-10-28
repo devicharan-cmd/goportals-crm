@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Building2, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { Avatar, Card, CompanyAvatar, EmptyState, PageHeader } from '@/components/ui/primitives'
+import { Avatar, Card, CompanyAvatar, EmptyState } from '@/components/ui/primitives'
 import { AccountStatusBadge } from '@/components/ui/badges'
 import { ClientFormModal } from '@/components/clients/ClientFormModal'
 import { STAGE_LABELS } from '@/lib/constants'
@@ -46,13 +46,8 @@ export default async function ClientsPage({ searchParams }: { searchParams: { q?
 
   return (
     <>
-      <PageHeader
-        title="Clients"
-        description={`${clients.length} brand${clients.length === 1 ? '' : 's'}`}
-        actions={['super_admin', 'admin'].includes(me.role) && <ClientFormModal canEditInternal platforms={(platforms ?? []) as Platform[]} services={(services ?? []) as Service[]} />}
-      />
-
-      <form className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <form className="flex flex-1 flex-wrap gap-2">
         <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input name="q" defaultValue={searchParams.q} placeholder="Search clients…" className="input h-9 pl-9" />
@@ -66,6 +61,9 @@ export default async function ClientsPage({ searchParams }: { searchParams: { q?
         </select>
         <button className="rounded-lg bg-slate-100 px-3 text-sm font-medium text-slate-700 hover:bg-slate-200">Filter</button>
       </form>
+        {/* Outside the search form: the modal has its own form inside. */}
+        {['super_admin', 'admin'].includes(me.role) && <ClientFormModal canEditInternal platforms={(platforms ?? []) as Platform[]} services={(services ?? []) as Service[]} />}
+      </div>
 
       <Card className="overflow-hidden">
         {clients.length === 0 ? (

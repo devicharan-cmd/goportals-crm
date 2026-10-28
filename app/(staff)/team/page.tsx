@@ -5,7 +5,7 @@ import { requireRole } from '@/lib/auth'
 import { getStaffLookups, profileIdsSharingDepartment } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { InviteStaffButton } from '@/components/admin/UserAdmin'
-import { Avatar, Card, EmptyState, PageHeader } from '@/components/ui/primitives'
+import { Avatar, Card, EmptyState } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { ROLE_LABELS } from '@/lib/constants'
 import { capacityColor, capacityTextColor, cn, dueState } from '@/lib/utils'
@@ -62,24 +62,19 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
 
   return (
     <>
-      <PageHeader
-        title="Team"
-        description={`${['super_admin', 'admin'].includes(me.role) ? 'All team members' : 'Your department\'s employees'}. Workload = estimated hours of unfinished tasks vs weekly capacity.`}
-        actions={
-          <>
-            {['super_admin', 'admin'].includes(me.role) && <ButtonLink href="/admin/users" variant="secondary">Manage users & invites</ButtonLink>}
-            {me.role !== 'team_lead' && <InviteStaffButton departments={lookups.departments} roles={['employee']} />}
-          </>
-        }
-      />
-
-      <div className="mb-4 inline-flex rounded-lg bg-slate-100 p-1 text-sm">
-        {TABS.map(t => (
-          <Link key={t.key} href={t.key === 'all' ? '/team' : `/team?show=${t.key}`}
-                className={cn('rounded-md px-3 py-1 font-medium', show === t.key ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
-            {t.label} <span className="ml-1 text-xs text-slate-400">{counts[t.key]}</span>
-          </Link>
-        ))}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
+          {TABS.map(t => (
+            <Link key={t.key} href={t.key === 'all' ? '/team' : `/team?show=${t.key}`}
+                  className={cn('rounded-md px-3 py-1 font-medium', show === t.key ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
+              {t.label} <span className="ml-1 text-xs text-slate-400">{counts[t.key]}</span>
+            </Link>
+          ))}
+        </div>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {['super_admin', 'admin'].includes(me.role) && <ButtonLink href="/admin/users" variant="secondary" size="sm">Manage users & invites</ButtonLink>}
+          {me.role !== 'team_lead' && <InviteStaffButton departments={lookups.departments} roles={['employee']} />}
+        </div>
       </div>
 
       {members.length === 0 ? (

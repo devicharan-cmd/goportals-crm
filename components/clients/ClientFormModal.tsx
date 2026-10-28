@@ -167,7 +167,7 @@ export function ClientFormModal({
     <>
       {isEdit
         ? <Button variant="secondary" size="sm" onClick={() => setOpen(true)}><Pencil className="h-3.5 w-3.5" /> Edit</Button>
-        : <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Add client</Button>}
+        : <Button size="sm" onClick={() => setOpen(true)}><Plus className="h-3.5 w-3.5" /> Add client</Button>}
 
       <Modal open={open} onClose={() => setOpen(false)} size="lg"
              title={isEdit ? 'Edit client' : 'Add a client'}

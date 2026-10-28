@@ -3,7 +3,7 @@ import { KanbanSquare, List, Plus, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 import { assigneeOptionsFor, getTicketBoardLookups, nameMap } from '@/lib/queries'
-import { Card, PageHeader } from '@/components/ui/primitives'
+import { Card } from '@/components/ui/primitives'
 import { ButtonLink } from '@/components/ui/button'
 import { TicketTable, type TicketListItem } from '@/components/shared/TicketTable'
 import { TicketBoard } from '@/components/tickets/TicketBoard'
@@ -43,10 +43,6 @@ export default async function StaffTicketsPage({ searchParams }: { searchParams:
 
   return (
     <>
-      <PageHeader title="Tickets" description="Tickets raised by clients through the portal."
-        actions={['super_admin', 'admin'].includes(me.role) && (
-          <ButtonLink href="/tickets/new" size="sm"><Plus className="h-3.5 w-3.5" /> New ticket</ButtonLink>
-        )} />
       <div className="mb-4 flex flex-wrap items-center gap-3">
         {!board && (
           <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
@@ -75,6 +71,9 @@ export default async function StaffTicketsPage({ searchParams }: { searchParams:
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input name="q" defaultValue={searchParams.q} placeholder="Search subject or TK-1024…" className="input h-9 pl-9" />
         </form>
+        {['super_admin', 'admin'].includes(me.role) && (
+          <ButtonLink href="/tickets/new" size="sm" className="ml-auto"><Plus className="h-3.5 w-3.5" /> New ticket</ButtonLink>
+        )}
       </div>
       {board ? (
         <TicketBoard tickets={tickets} names={names} assignOptions={assignOptions} />

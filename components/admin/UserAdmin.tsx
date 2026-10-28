@@ -146,7 +146,7 @@ export function InviteStaffButton({
               <select className="input" value={form.role} disabled={onlyEmployees} onChange={e => setForm({ ...form, role: e.target.value as StaffRole })}>
                 {roles.includes('employee') && <option value="employee">Employee</option>}
                 {roles.includes('team_lead') && <option value="team_lead">Team Lead</option>}
-                {roles.includes('admin') && <option value="admin">Admin</option>}
+                {roles.includes('admin') && <option value="admin">Manager</option>}
                 {roles.includes('super_admin') && <option value="super_admin">Super Admin</option>}
               </select>
             </Field>
@@ -184,7 +184,7 @@ export function InviteStaffButton({
 export function InviteUserButton({ departments, actorRole }: { departments: Department[]; actorRole: AppRole }) {
   const staffRoleOptions: { value: StaffRole; label: string }[] = actorRole === 'super_admin'
     ? [{ value: 'employee', label: 'Employee' }, { value: 'team_lead', label: 'Team Lead' },
-       { value: 'admin', label: 'Admin' }, { value: 'super_admin', label: 'Super Admin' }]
+       { value: 'admin', label: 'Manager' }, { value: 'super_admin', label: 'Super Admin' }]
     : [{ value: 'employee', label: 'Employee' }, { value: 'team_lead', label: 'Team Lead' }]
   const router = useRouter()
   const [open, setOpen] = useState(false)

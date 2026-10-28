@@ -99,7 +99,7 @@ export function ServicesEditor({ services, departments }: { services: Service[];
                 <option value="one_time">One-time</option>
                 <option value="per_task">Per task</option>
               </select>
-              <span className="text-[11px] text-slate-400">Admins set the actual price per client; this is just the default.</span>
+              <span className="text-[11px] text-slate-400">Managers set the actual price per client; this is just the default.</span>
             </div>
           </li>
         ))}

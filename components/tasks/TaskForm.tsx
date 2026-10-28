@@ -181,7 +181,7 @@ export function TaskForm(p: TaskFormProps) {
           </select>
         </Field>
         <Field label="Assignee"
-               hint={!canEditAssignment ? 'Only managers and admins can change the assignee.' : p.assignees.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
+               hint={!canEditAssignment ? 'Only managers can change the assignee.' : p.assignees.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
           <select className="input" value={form.assignee_id} disabled={!canEditAssignment} onChange={e => set('assignee_id', e.target.value)}>
             <option value="">Unassigned</option>
             {p.assignees.map(a => <option key={a.id} value={a.id}>{a.id === p.meId ? `${a.name} (me)` : a.name}</option>)}
@@ -197,7 +197,7 @@ export function TaskForm(p: TaskFormProps) {
         </Field>
       </div>
 
-      <Field label="Deadline" hint={!canEditAssignment ? 'Only managers and admins can change the due date.' : undefined}>
+      <Field label="Deadline" hint={!canEditAssignment ? 'Only managers can change the due date.' : undefined}>
         <div className="flex flex-wrap items-center gap-2">
           {DEADLINE_OPTIONS.map(d => (
             <button key={d.value} type="button" disabled={!canEditAssignment} onClick={() => pickDeadline(d.value)}

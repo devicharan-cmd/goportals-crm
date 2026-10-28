@@ -27,7 +27,7 @@ export default async function UsersPage() {
     <>
       <PageHeader
         title="Users & invites"
-        description="Roles, departments and capacity for your team. Admins see every department; Team Leads see and assign within their own."
+        description="Roles, departments and capacity for your team. Managers see every department; Team Leads see and assign within their own."
         actions={<InviteUserButton departments={lookups.departments} actorRole={me.role} />}
       />
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">

@@ -24,7 +24,7 @@ const ROLES_INVITABLE_BY: Partial<Record<AppRole, AppRole[]>> = {
 export async function POST(req: NextRequest) {
   const me = await getProfile()
   if (!me || me.status !== 'active' || !ROLES_INVITABLE_BY[me.role]) {
-    return NextResponse.json({ error: 'Only super admins and admins can send invites' }, { status: 403 })
+    return NextResponse.json({ error: 'Only super admins and managers can send invites' }, { status: 403 })
   }
 
   const body = await req.json()

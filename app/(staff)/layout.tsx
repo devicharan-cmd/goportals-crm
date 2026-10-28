@@ -36,7 +36,7 @@ async function AuthorizedStaffLayout({ children }: { children: React.ReactNode }
   return (
     <Suspense fallback={
       <AppShell user={user} counts={{ notifications: 0, urgent: 0, approvals: 0 }}>
-        {children}
+        <StaffLoading />
       </AppShell>
     }>
       <StaffShell me={me}>{children}</StaffShell>

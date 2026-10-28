@@ -245,22 +245,22 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
         open={imageDialogOpen}
         onClose={cancelLogoUpload}
         title={currentImage ? 'Update company logo' : 'Add company logo'}
-        titleClassName="text-xl"
+        titleClassName="text-2xl"
         closeButtonClassName="h-10 w-10 rounded-full text-slate-500 hover:bg-brand-50 hover:text-brand-700 hover:rotate-90 active:scale-95"
         closeIconClassName="h-5 w-5"
       >
         <div className="space-y-5">
-          <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 sm:flex-row">
-            <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-900 text-3xl font-bold text-white ring-4 ring-white">
-              {selectedImagePreview
-                ? <img src={selectedImagePreview} alt="Selected company logo preview" className="h-full w-full object-cover" />
+          <div className="flex items-center gap-5 rounded-2xl border-2 border-dashed border-brand-200 bg-gradient-to-r from-brand-50/70 to-white p-5 transition hover:border-brand-300 sm:gap-6 sm:p-6">
+            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-900 text-3xl font-bold text-white shadow-lg ring-4 ring-white sm:h-24 sm:w-24 sm:text-4xl">
+              {selectedImagePreview || currentImage
+                ? <img src={selectedImagePreview ?? currentImage ?? undefined} alt={selectedImage ? 'Selected company logo preview' : 'Current company logo'} className="h-full w-full object-cover" />
                 : form.company_name.trim().charAt(0).toUpperCase() || '?' }
             </div>
-            <div className="min-w-0 text-center sm:text-left">
-              <p className="break-all font-medium text-slate-900">{selectedImage?.name ?? 'No image selected'}</p>
-              <p className="mt-1 text-[11px] leading-4 text-slate-500">{selectedImage ? `${(selectedImage.size / 1024 / 1024).toFixed(2)} MB` : 'PNG, JPG, or WebP · Max 5 MB'}</p>
-              <Button type="button" variant="secondary" className="mt-3" onClick={() => fileInput.current?.click()} disabled={imageBusy}>
-                <ImagePlus className="mr-2 h-4 w-4" /> Choose image
+            <div className="min-w-0 flex-1">
+              <p className="break-all text-base font-semibold text-slate-900">{selectedImage?.name ?? (currentImage ? 'Current company logo' : 'No image selected')}</p>
+              <p className="mt-1 text-sm text-slate-500">{selectedImage ? `${(selectedImage.size / 1024 / 1024).toFixed(2)} MB` : currentImage ? 'Choose a new image to replace this logo' : 'PNG, JPG, or WebP · Max 5 MB'}</p>
+              <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={() => fileInput.current?.click()} disabled={imageBusy}>
+                <ImagePlus className="h-4 w-4" /> {selectedImage ? 'Choose another' : 'Choose image'}
               </Button>
             </div>
           </div>

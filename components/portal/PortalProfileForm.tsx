@@ -245,6 +245,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
         open={imageDialogOpen}
         onClose={cancelLogoUpload}
         title={currentImage ? 'Update company logo' : 'Add company logo'}
+        titleClassName="text-lg"
       >
         <div className="space-y-5">
           <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 sm:flex-row">
@@ -255,7 +256,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
             </div>
             <div className="min-w-0 text-center sm:text-left">
               <p className="break-all font-medium text-slate-900">{selectedImage?.name ?? 'No image selected'}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">{selectedImage ? `${(selectedImage.size / 1024 / 1024).toFixed(2)} MB` : 'PNG, JPG, or WebP · Up to 5 MB. Select one image to preview it before uploading.'}</p>
+              <p className="mt-1 text-[11px] leading-4 text-slate-500">{selectedImage ? `${(selectedImage.size / 1024 / 1024).toFixed(2)} MB` : 'PNG, JPG, or WebP · Max 5 MB'}</p>
               <Button type="button" variant="secondary" className="mt-3" onClick={() => fileInput.current?.click()} disabled={imageBusy}>
                 <ImagePlus className="mr-2 h-4 w-4" /> Choose image
               </Button>

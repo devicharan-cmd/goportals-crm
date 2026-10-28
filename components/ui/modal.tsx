@@ -5,7 +5,7 @@ import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function Modal({
-  open, onClose, title, description, children, size = 'md',
+  open, onClose, title, description, children, size = 'md', titleClassName,
 }: {
   open: boolean
   onClose: () => void
@@ -13,6 +13,7 @@ export function Modal({
   description?: string
   children: React.ReactNode
   size?: 'md' | 'lg'
+  titleClassName?: string
 }) {
   useEffect(() => {
     if (!open) return
@@ -34,7 +35,7 @@ export function Modal({
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-4">
           <div>
-            <h2 className="text-base font-semibold">{title}</h2>
+            <h2 className={cn('text-base font-semibold', titleClassName)}>{title}</h2>
             {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
           </div>
           <button

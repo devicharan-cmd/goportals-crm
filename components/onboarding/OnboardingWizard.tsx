@@ -10,7 +10,7 @@ import { Alert, Field } from '@/components/ui/primitives'
 import { Markdown } from '@/components/shared/Markdown'
 import { AddressPicker, EMPTY_ADDRESS, type AddressValue } from '@/components/shared/AddressPicker'
 import { PLATFORM_CATEGORY_LABELS } from '@/lib/constants'
-import { cn, errorMessage, formatINR } from '@/lib/utils'
+import { cn, errorMessage } from '@/lib/utils'
 import type { Agreement, Client, Platform, PlatformCategory, Service } from '@/types/database'
 
 const STEPS = [
@@ -32,6 +32,7 @@ type Props = {
   platforms: Platform[]
   services: Service[]
   agreement: Agreement | null
+  agreementLoadFailed: boolean
   agreementOnly: boolean
   initialPlatformIds: string[]
   initialServiceIds: string[]
@@ -41,16 +42,12 @@ type Props = {
 }
 
 export function OnboardingWizard(props: Props) {
-  const { profile, client, platforms, services, agreement, agreementOnly, myAccounts, myClientServices } = props
+  const { profile, client, platforms, services, agreement, agreementLoadFailed, agreementOnly } = props
   const router = useRouter()
-  // Admin already picked accounts/services/prices at creation time — skip straight to
-  // the client's own details + address, then the agreement.
-  const isAdminProvisioned = client?.signup_source === 'admin_created' || client?.signup_source === 'invite'
   const steps = agreementOnly
     ? STEPS.filter(s => s.key === 'agreement')
-    : isAdminProvisioned
-      ? STEPS.filter(s => s.key === 'company' || s.key === 'agreement')
-      : STEPS
+    : STEPS
+  const [signingOut, setSigningOut] = useState(false)
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -120,7 +117,7 @@ export function OnboardingWizard(props: Props) {
     }
 
     if (steps[step].key === 'agreement') {
-      if (!agreement) return setError('No agreement is published yet. Please contact GoPortals.')
+      if (!agreement) return
       setSaving(true)
       const res = await fetch('/api/agreement/accept', {
         method: 'POST',
@@ -139,6 +136,7 @@ export function OnboardingWizard(props: Props) {
   }
 
   async function signOut() {
+    setSigningOut(true)
     await createClient().auth.signOut()
     router.push('/login')
   }
@@ -149,8 +147,10 @@ export function OnboardingWizard(props: Props) {
     <div className="min-h-screen bg-gradient-to-b from-brand-50 to-slate-50">
       <header className="flex h-16 items-center justify-between px-6">
         <Logo className="h-8" priority />
-        <button onClick={signOut} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800">
-          <LogOut className="h-4 w-4" /> Sign out
+        <button onClick={signOut} disabled={signingOut}
+                className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-red-200 hover:bg-red-50 hover:text-red-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-red-200 active:translate-y-0 disabled:pointer-events-none disabled:opacity-60">
+          <LogOut className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          {signingOut ? 'Signing out…' : 'Sign out'}
         </button>
       </header>
 
@@ -276,47 +276,20 @@ export function OnboardingWizard(props: Props) {
             <div className="space-y-5">
               <StepTitle title={agreement?.title ?? 'Service agreement'} subtitle={agreement ? `Version ${agreement.version}` : undefined} />
 
-              {(myAccounts.length > 0 || myClientServices.length > 0) && (
-                <div className="rounded-lg border border-slate-200 p-4">
-                  <p className="mb-3 text-sm font-semibold text-slate-800">What you're agreeing to</p>
-                  {myAccounts.length > 0 && (
-                    <div className="mb-3 flex flex-wrap gap-1.5">
-                      {myAccounts.map((a, i) => (
-                        <span key={i} className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700">
-                          {a.platform?.name ? `${a.platform.name} · ${a.account_name}` : a.account_name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {myClientServices.length > 0 && (
-                    <ul className="divide-y divide-slate-100 text-sm">
-                      {myClientServices.map((s, i) => (
-                        <li key={i} className="flex items-center justify-between gap-3 py-1.5">
-                          <span className="text-slate-700">
-                            {s.service?.name ?? s.custom_name}
-                            {s.ecommerce_account && <span className="text-slate-400"> · {s.ecommerce_account.account_name}</span>}
-                          </span>
-                          {s.agreed_price != null && (
-                            <span className="flex-shrink-0 font-semibold text-slate-900">
-                              {formatINR(s.agreed_price)}{s.billing_type === 'monthly' ? '/mo' : s.billing_type === 'per_task' ? '/task' : ''}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-
               {agreement ? (
                 <div className="max-h-80 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-5">
                   <Markdown text={agreement.body} />
                 </div>
               ) : (
-                <Alert tone="info">No agreement has been published yet. Please contact GoPortals.</Alert>
+                <Alert tone={agreementLoadFailed ? 'error' : 'info'}>
+                  {agreementLoadFailed
+                    ? 'We couldn’t load the current agreement. Please refresh the page or contact GoPortals.'
+                    : 'No current agreement has been published yet. Please contact GoPortals.'}
+                </Alert>
               )}
               <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-4 hover:bg-slate-50">
                 <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
+                       disabled={!agreement}
                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
                 <span className="text-sm text-slate-700">
                   I have read and agree to the {agreement?.title ?? 'service agreement'} on behalf of{' '}
@@ -333,7 +306,7 @@ export function OnboardingWizard(props: Props) {
             {step > 0 ? (
               <Button variant="ghost" onClick={() => { setError(''); setStep(s => s - 1) }}><ArrowLeft className="h-4 w-4" /> Back</Button>
             ) : <span />}
-            <Button onClick={next} loading={saving} size="lg">
+            <Button onClick={next} loading={saving} disabled={current === 'agreement' && (!agreement || !agreed)} size="lg">
               {current === 'agreement' ? 'Accept & finish' : 'Continue'} {current !== 'agreement' && <ArrowRight className="h-4 w-4" />}
             </Button>
           </div>

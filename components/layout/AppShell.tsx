@@ -30,7 +30,7 @@ const STAFF_NAV: NavGroup[] = [
     ],
   },
   {
-    label: 'Admin',
+    label: 'Manager',
     items: [
       { href: '/admin/approvals', label: 'Approvals',  icon: ShieldCheck, roles: ['super_admin', 'admin'], badge: 'approvals' },
       { href: '/admin/users',     label: 'Users & invites', icon: UserPlus, roles: ['super_admin', 'admin'] },

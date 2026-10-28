@@ -70,7 +70,7 @@ function LoginForm() {
           <Link href="/forgot-password" className="text-sm font-medium text-brand-600 hover:text-brand-700">Forgot password?</Link>
         </div>
         <Button type="submit" size="lg" loading={loading} className="w-full">
-          {loading ? 'Signing in…' : 'Sign in'}
+          {loading ? 'Signing in' : 'Sign in'}
         </Button>
       </form>
 

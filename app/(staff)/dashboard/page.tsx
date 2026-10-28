@@ -208,7 +208,7 @@ export default async function DashboardPage() {
       {isTeamLead && (
         deptMateIds.length === 0 ? (
           <Card className="mt-6">
-            <EmptyState icon={Users} title="No department yet" description="Ask an admin to add you to a department to see your team's work here." />
+            <EmptyState icon={Users} title="No department yet" description="Ask a manager to add you to a department to see your team's work here." />
           </Card>
         ) : (
           <div className="mt-6 space-y-6">

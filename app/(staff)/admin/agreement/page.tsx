@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireSuperAdmin } from '@/lib/auth'
-import { Card, CardHeader, PageHeader } from '@/components/ui/primitives'
+import { Card, CardHeader } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { AgreementEditor } from '@/components/admin/AgreementEditor'
 import { formatDate } from '@/lib/utils'
@@ -22,10 +22,9 @@ export default async function AgreementPage() {
 
   return (
     <>
-      <PageHeader title="Client agreement" description="Clients must accept the current version before they can use the portal." />
       <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
         <Card>
-          <CardHeader title="Publish a new version" description={current ? `Currently live: ${current.version}` : 'No agreement is live yet'} />
+          <CardHeader title="Client agreement" description={current ? `Currently live: ${current.version}` : 'No agreement is live yet'} />
           <div className="p-5"><AgreementEditor current={current} nextVersion={nextVersion} /></div>
         </Card>
         <Card className="h-fit">

@@ -1,6 +1,6 @@
 import { requireSuperAdmin } from '@/lib/auth'
 import { getStaffLookups } from '@/lib/queries'
-import { Card, CardHeader, PageHeader } from '@/components/ui/primitives'
+import { Card, CardHeader } from '@/components/ui/primitives'
 import { DepartmentsEditor, PlatformsEditor, ServicesEditor } from '@/components/admin/MasterData'
 
 export const metadata = { title: 'Platforms & services' }
@@ -10,7 +10,6 @@ export default async function SettingsPage() {
   const { platforms, services, departments } = await getStaffLookups()
   return (
     <>
-      <PageHeader title="Platforms & services" description="These lists appear in client signup and task forms. Switch off instead of deleting to keep history." />
       <div className="grid gap-6 xl:grid-cols-2">
         <Card className="overflow-hidden">
           <CardHeader title="Platforms" description="Marketplaces, quick commerce and D2C channels" />

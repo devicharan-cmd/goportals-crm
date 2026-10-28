@@ -23,8 +23,6 @@ export default async function NewPortalTicketPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader
-        title="New ticket"
-        description="Tell us what you need. Our team is notified straight away."
         back={<Link href="/portal/tickets" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> My tickets</Link>}
       />
       <PortalTicketForm accounts={options} platforms={platforms ?? []} meId={me.id} />

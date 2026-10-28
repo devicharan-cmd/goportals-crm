@@ -26,7 +26,6 @@ export default async function UsersPage() {
   return (
     <>
       <PageHeader
-        title="Users & invites"
         description="Roles, departments and capacity for your team. Managers see every department; Team Leads see and assign within their own."
         actions={<InviteUserButton departments={lookups.departments} actorRole={me.role} />}
       />

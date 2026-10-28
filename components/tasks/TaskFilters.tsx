@@ -13,8 +13,8 @@ type Option = { value: string; label: string }
  * Row 1: scope + view switches, search. Row 2: the dropdown filters.
  */
 export function TaskFilters({
-  clients, people, departments, showScope, defaultScope = 'mine',
-}: { clients: Option[]; people: Option[]; departments: Option[]; showScope: boolean; defaultScope?: 'mine' | 'all' }) {
+  clients, people, departments, showScope, defaultScope = 'mine', action,
+}: { clients: Option[]; people: Option[]; departments: Option[]; showScope: boolean; defaultScope?: 'mine' | 'all'; action?: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -71,10 +71,7 @@ export function TaskFilters({
             </button>
           ))}
         </div>
-        <div className="relative ml-auto w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search title or GP-1024…" className="input h-9 pl-9" />
-        </div>
+        {action && <div className="ml-auto">{action}</div>}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -105,6 +102,10 @@ export function TaskFilters({
             <X className="h-4 w-4" /> Clear filters
           </button>
         )}
+        <div className="relative ml-auto w-full sm:w-72">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search title or GP-1024…" className="input h-9 pl-9" />
+        </div>
       </div>
     </div>
   )

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
 import { getMyClientId } from '@/lib/portal'
 import { BILLING_LABELS } from '@/lib/constants'
-import { Card, CardHeader, EmptyState, PageHeader } from '@/components/ui/primitives'
+import { Card, CardHeader, EmptyState } from '@/components/ui/primitives'
 import { ClientServiceStatusBadge } from '@/components/ui/badges'
 import { formatINR } from '@/lib/utils'
 import type { BillingType, ClientServiceStatus } from '@/types/database'
@@ -54,7 +54,6 @@ export default async function PortalServicesPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="My services" description="Every service on your account, active and past, grouped by platform." />
       {rows.length === 0 ? (
         <Card>
           <EmptyState icon={Layers} title="No services yet" description="Once GoPortals adds a service to your account, it'll show up here." />

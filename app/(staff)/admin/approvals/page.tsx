@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { CheckCircle2, FileSignature, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth'
-import { Card, EmptyState, PageHeader } from '@/components/ui/primitives'
+import { Card, EmptyState } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { ApprovalActions } from '@/components/clients/ClientEditors'
 import { formatRelative } from '@/lib/utils'
@@ -26,7 +26,6 @@ export default async function ApprovalsPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <PageHeader title="Client approvals" description="Brands that signed up themselves. Approve to give them portal access." />
       {rows.length === 0 ? (
         <Card><EmptyState icon={ShieldCheck} title="No pending sign-ups" description="New self-registered clients will appear here." /></Card>
       ) : (

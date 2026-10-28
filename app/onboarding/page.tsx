@@ -12,7 +12,7 @@ export default async function OnboardingPage() {
   if (profile.role !== 'client') redirect('/dashboard')
 
   const supabase = createClient()
-  const [{ data: client }, { data: platforms }, { data: services }, { data: agreement }, { data: needsAgreement }] =
+  const [{ data: client }, { data: platforms }, { data: services }, { data: agreement, error: agreementError }, { data: needsAgreement }] =
     await Promise.all([
       supabase.from('clients').select('*').eq('owner_id', profile.id).maybeSingle(),
       supabase.from('platforms').select('*').eq('is_active', true).order('sort_order'),
@@ -37,6 +37,7 @@ export default async function OnboardingPage() {
       platforms={(platforms ?? []) as Platform[]}
       services={(services ?? []) as Service[]}
       agreement={agreement as Agreement | null}
+      agreementLoadFailed={!!agreementError}
       agreementOnly={client?.status === 'active' && !!needsAgreement}
       initialPlatformIds={(myPlatforms ?? []).map((p: { platform_id: string }) => p.platform_id)}
       initialServiceIds={(myServices ?? []).filter((s: { service_id: string | null }) => s.service_id).map((s: { service_id: string | null }) => s.service_id!)}

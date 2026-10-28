@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 import { TASK_LIST_SELECT } from '@/lib/queries'
 import { TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
-import { Avatar, Card, CardHeader, EmptyState, PageHeader } from '@/components/ui/primitives'
+import { Avatar, Card, CardHeader, EmptyState } from '@/components/ui/primitives'
 import { DueDate, PriorityBadge, StatusBadge } from '@/components/ui/badges'
 import { ClaimButton } from '@/components/tasks/ClaimButton'
 import { ClaimTicketButton } from '@/components/tickets/ClaimTicketButton'
@@ -34,10 +34,6 @@ export default async function UrgentPage() {
 
   return (
     <>
-      <PageHeader
-        title={<span className="flex items-center gap-2"><Flame className="h-6 w-6 text-red-600" /> Urgent pool</span>}
-        description="Urgent work anyone on the team can pick up. First to pick it up gets it."
-      />
 
       <Card className="mb-6 overflow-hidden">
         <CardHeader title={`Tickets waiting for someone (${openTickets.length})`} />

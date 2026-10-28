@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 import { assignableFor, assigneeOptionsFor, getTaskPageLookups, nameMap, TASK_LIST_SELECT } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
-import { Card, PageHeader } from '@/components/ui/primitives'
+import { Card } from '@/components/ui/primitives'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { TaskBoard } from '@/components/tasks/TaskBoard'
@@ -61,18 +61,13 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
 
   return (
     <>
-      <PageHeader
-        title="Tasks"
-        description={scope === 'mine' ? 'Tasks assigned to you.'
-          : ['super_admin', 'admin'].includes(me.role) ? 'Every task across all clients.' : 'Tasks of your employees, departments and clients.'}
-        actions={<ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
-      />
       <TaskFilters
         showScope={canSeeMore}
         defaultScope={defaultScope}
         clients={lookups.clients.map(c => ({ value: c.id, label: c.company_name }))}
         people={(['super_admin', 'admin'].includes(me.role) ? lookups.staff : assignableFor(me, lookups)).map(p => ({ value: p.id, label: p.full_name || p.email }))}
         departments={lookups.departments.map(d => ({ value: d.id, label: d.name }))}
+        action={<ButtonLink href="/tasks/new" size="sm"><Plus className="h-3.5 w-3.5" /> New task</ButtonLink>}
       />
       {board ? (
         <TaskBoard tasks={tasks} names={names} assignOptions={assignOptions} />

@@ -43,8 +43,9 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const internal = internalData as ClientInternal | null
   const names = nameMap(lookups.people)
 
-  // Only super_admin and admin reach this page (requireRole above) — both get full edit rights;
-  // deleting a client stays super_admin-only (isSuperAdmin), everything else uses isAdmin.
+  // Only super_admin and admin reach this page (requireRole above). Both get full
+  // edit rights; deleting a client, approving one and changing an account's
+  // status are super-admin-only — everything else uses isAdmin.
   const isAdmin = ['super_admin', 'admin'].includes(me.role)
   const isSuperAdmin = me.role === 'super_admin'
   const teamRows = (team ?? []) as ClientTeamRow[]
@@ -83,10 +84,10 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {isAdmin && client.status === 'pending' && (
+            {isSuperAdmin && client.status === 'pending' && (
               <ApprovalActions clientId={client.id} hasAgreement={accepted.length > 0} />
             )}
-            {isAdmin && client.status !== 'pending' && <ClientStatusSelect clientId={client.id} status={client.status} />}
+            {isSuperAdmin && client.status !== 'pending' && <ClientStatusSelect clientId={client.id} status={client.status} />}
             {isAdmin && !client.owner_id && <InviteLoginButton clientId={client.id} email={client.contact_email} name={client.contact_name} />}
             {canEdit && <ClientFormModal client={client} internal={internal} canEditInternal={!!internal} />}
             <ButtonLink href={`/tasks/new?client_id=${client.id}`} size="sm"><Plus className="h-3.5 w-3.5" /> Task</ButtonLink>

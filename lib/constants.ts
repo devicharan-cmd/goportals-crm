@@ -54,6 +54,17 @@ export const TICKET_STATUS_OPTIONS: { value: TicketStatus; label: string }[] = [
 ]
 export const TICKET_STATUS_LABELS = Object.fromEntries(TICKET_STATUS_OPTIONS.map(s => [s.value, s.label])) as Record<TicketStatus, string>
 
+/**
+ * The same statuses said to the client whose ticket it is. "Awaiting client
+ * reply" and "Ready for client" are how the team talks about a client — read
+ * on their own portal they describe someone else.
+ */
+export const TICKET_STATUS_LABELS_CLIENT: Record<TicketStatus, string> = {
+  ...TICKET_STATUS_LABELS,
+  awaiting_clarification: 'Your reply needed',
+  ready_for_client:       'Ready for your review',
+}
+
 export const TICKET_STATUS_STYLES: Record<TicketStatus, string> = {
   new:                    'bg-slate-100 text-slate-700 ring-slate-200',
   under_review:           'bg-violet-50 text-violet-700 ring-violet-200',

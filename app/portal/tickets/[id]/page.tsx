@@ -15,7 +15,7 @@ import { RevealableValue } from '@/components/shared/RevealableValue'
 import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
 import { CloseTicketButton } from '@/components/portal/CloseTicketButton'
 import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
-import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_OPTIONS, TICKET_STATUS_STYLES } from '@/lib/constants'
+import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS_CLIENT, TICKET_STATUS_OPTIONS, TICKET_STATUS_STYLES } from '@/lib/constants'
 import { cn, formatDate, ticketCode } from '@/lib/utils'
 import type { TicketActivity, TicketComment, Ticket } from '@/types/database'
 
@@ -65,7 +65,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs font-semibold text-slate-400">{ticketCode(ticket.ticket_number)}</span>
               {ticket.is_urgent && ticket.status !== 'closed' && <UrgentBadge />}
-              <StatusBadge label={TICKET_STATUS_LABELS[ticket.status]} className={TICKET_STATUS_STYLES[ticket.status]} dotClassName={TICKET_STATUS_DOT[ticket.status]} />
+              <StatusBadge label={TICKET_STATUS_LABELS_CLIENT[ticket.status]} className={TICKET_STATUS_STYLES[ticket.status]} dotClassName={TICKET_STATUS_DOT[ticket.status]} />
               {ticket.priority && <PriorityBadge priority={ticket.priority} />}
               <span className="ml-auto text-xs text-slate-400">{TICKET_CATEGORY_LABELS[ticket.category]}</span>
             </div>
@@ -101,7 +101,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
                 {steps.map((s, i) => (
                   <li key={s.value}>
                     <div className={cn('h-1.5 rounded-full', i <= stepIndex ? 'bg-lime-500' : 'bg-slate-200')} />
-                    <p className={cn('mt-1.5 text-xs', i === stepIndex ? 'font-semibold text-slate-900' : 'text-slate-400')}>{s.label}</p>
+                    <p className={cn('mt-1.5 text-xs', i === stepIndex ? 'font-semibold text-slate-900' : 'text-slate-400')}>{TICKET_STATUS_LABELS_CLIENT[s.value]}</p>
                   </li>
                 ))}
               </ol>
@@ -129,7 +129,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
                 team assigned it to GoPortals team", so drop them here too. */}
             <div className="p-5"><ActivityTimeline
               activity={((activity ?? []) as TicketActivity[]).filter(a => a.action !== 'assignee_changed')}
-              names={names} kind="ticket" /></div>
+              names={names} kind="ticket" audience="client" /></div>
           </Card>
         </div>
 

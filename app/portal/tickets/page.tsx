@@ -50,7 +50,7 @@ export default async function PortalTicketsPage({ searchParams }: { searchParams
         <ButtonLink href="/portal/tickets/new" size="sm" className="ml-auto"><Plus className="h-3.5 w-3.5" /> New ticket</ButtonLink>
       </div>
       <Card className="overflow-hidden">
-        <TicketTable tickets={(data ?? []) as Ticket[]} empty={{ title: tab === 'done' ? 'Nothing completed yet' : 'No open tickets' }} />
+        <TicketTable tickets={(data ?? []) as Ticket[]} audience="client" empty={{ title: tab === 'done' ? 'Nothing completed yet' : 'No open tickets' }} />
       </Card>
     </>
   )

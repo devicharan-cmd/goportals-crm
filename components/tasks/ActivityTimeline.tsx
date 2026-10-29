@@ -1,10 +1,12 @@
-import { ACTIVITY_LABELS, TASK_STATUS_LABELS, TICKET_STATUS_LABELS } from '@/lib/constants'
+import { ACTIVITY_LABELS, TASK_STATUS_LABELS, TICKET_STATUS_LABELS, TICKET_STATUS_LABELS_CLIENT } from '@/lib/constants'
 import { formatDate, formatRelative } from '@/lib/utils'
 import type { ActivityEntry } from '@/types/database'
 
-function describe(a: ActivityEntry, names: Record<string, string>, kind: 'task' | 'ticket'): string {
+function describe(a: ActivityEntry, names: Record<string, string>, kind: 'task' | 'ticket', audience: 'staff' | 'client'): string {
   const label = ACTIVITY_LABELS[a.action] ?? a.action.replace(/_/g, ' ')
-  const statusLabels: Record<string, string> = kind === 'task' ? TASK_STATUS_LABELS : TICKET_STATUS_LABELS
+  const statusLabels: Record<string, string> = kind === 'task'
+    ? TASK_STATUS_LABELS
+    : audience === 'client' ? TICKET_STATUS_LABELS_CLIENT : TICKET_STATUS_LABELS
   switch (a.action) {
     case 'created':
       return 'created it'
@@ -23,7 +25,7 @@ function describe(a: ActivityEntry, names: Record<string, string>, kind: 'task' 
   }
 }
 
-export function ActivityTimeline({ activity, names, kind = 'task' }: { activity: ActivityEntry[]; names: Record<string, string>; kind?: 'task' | 'ticket' }) {
+export function ActivityTimeline({ activity, names, kind = 'task', audience = 'staff' }: { activity: ActivityEntry[]; names: Record<string, string>; kind?: 'task' | 'ticket'; audience?: 'staff' | 'client' }) {
   if (activity.length === 0) return <p className="text-sm text-slate-400">No activity yet.</p>
   return (
     <ol className="relative space-y-4 border-l border-slate-200 pl-5">
@@ -32,7 +34,7 @@ export function ActivityTimeline({ activity, names, kind = 'task' }: { activity:
           <span className="absolute -left-[25px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-brand-400 ring-1 ring-brand-200" />
           <p className="text-sm text-slate-700">
             <span className="font-semibold text-slate-900">{a.actor_id ? names[a.actor_id] ?? 'Someone' : 'System'}</span>{' '}
-            {describe(a, names, kind)}
+            {describe(a, names, kind, audience)}
           </p>
           <p className="text-xs text-slate-400">{formatRelative(a.created_at)}</p>
         </li>

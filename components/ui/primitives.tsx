@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { AlertCircle, CheckCircle2 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 
-export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={cn('card', className)}>{children}</div>
+export function Card({ className, children, id }: { className?: string; children: React.ReactNode; id?: string }) {
+  return <div id={id} className={cn('card', className)}>{children}</div>
 }
 
 export function CardHeader({

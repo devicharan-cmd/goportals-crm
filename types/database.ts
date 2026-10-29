@@ -287,6 +287,8 @@ export interface TicketComment {
   body: string
   is_internal: boolean
   created_at: string
+  /** When the other side read it — drives the sent / seen ticks (migration 070). */
+  seen_at: string | null
 }
 
 export interface TicketActivity extends ActivityEntry {

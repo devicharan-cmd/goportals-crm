@@ -58,13 +58,22 @@ export const TICKET_STATUS_LABELS = {
 } as Record<TicketStatus, string>
 
 /**
- * Client-facing wording for ticket workflow stages.
+ * The same stages said to the client whose ticket it is, and the only wording
+ * they should ever read. It must match ticket_status_label_client() in the
+ * database, which words their notifications — the two drifted apart once and
+ * the same stage reached the client under two different names.
+ *
+ * Two stages are easy to get backwards. ready_for_review is our own team
+ * checking the work, so it must not sound like the client's turn; resolved
+ * and ready_for_client both are their turn, since the portal offers approve
+ * and request-changes on either.
  */
 export const TICKET_STATUS_LABELS_CLIENT: Record<TicketStatus, string> = {
   ...TICKET_STATUS_LABELS,
   awaiting_clarification: 'Under review',
-  ready_for_review:       'Ready for review',
-  ready_for_client:       'Client review',
+  ready_for_review:       'Team review',
+  resolved:               'Ready for your approval',
+  ready_for_client:       'Ready for your approval',
 }
 
 export const TICKET_STATUS_STYLES: Record<TicketStatus, string> = {

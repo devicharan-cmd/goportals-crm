@@ -18,7 +18,7 @@ type CommentLike = { id: string; author_id: string | null; body: string; is_inte
  *   client → always public · employee → always team-only · manager / super admin → choose.
  */
 export function CommentThread({
-  taskId, comments, names, roles, meId, myRole, table = 'task_comments', idField = 'task_id',
+  taskId, comments, names, roles, meId, myRole, table = 'task_comments', idField = 'task_id', lockedNote,
 }: {
   taskId: string
   comments: CommentLike[]
@@ -28,12 +28,14 @@ export function CommentThread({
   myRole: AppRole
   table?: 'task_comments' | 'ticket_comments'
   idField?: 'task_id' | 'ticket_id'
+  /** Shown instead of the composer when the thread takes no more replies. */
+  lockedNote?: string
 }) {
   const router = useRouter()
   const isStaff = myRole !== 'client'
   const canChoose = myRole === 'super_admin' || myRole === 'admin' || myRole === 'team_lead'
   const [body, setBody] = useState('')
-  const [isPublic, setIsPublic] = useState(!isStaff)
+  const [isPublic, setIsPublic] = useState(true)
   const [filter, setFilter] = useState<'all' | 'public' | 'team'>('all')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -103,6 +105,9 @@ export function CommentThread({
         </ul>
       )}
 
+      {lockedNote ? (
+        <p className="mt-5 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-500 ring-1 ring-inset ring-slate-200">{lockedNote}</p>
+      ) : (
       <form onSubmit={submit} className="mt-5">
         {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
         <textarea
@@ -139,6 +144,7 @@ export function CommentThread({
         </div>
         <p className="mt-1 text-right text-[11px] text-slate-400">Ctrl + Enter to send</p>
       </form>
+      )}
     </div>
   )
 }

@@ -112,7 +112,10 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
             <CardHeader title="Conversation" description="Messages with the GoPortals team" />
             <div className="p-5">
               <CommentThread taskId={ticket.id} comments={(comments ?? []) as TicketComment[]} names={names} meId={me.id} myRole="client"
-                              table="ticket_comments" idField="ticket_id" />
+                              table="ticket_comments" idField="ticket_id"
+                              lockedNote={ticket.status === 'closed'
+                                ? 'This ticket is closed. Raise a new ticket if you need anything else.'
+                                : undefined} />
             </div>
           </Card>
 

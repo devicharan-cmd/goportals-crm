@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { CheckCircle2, FileSignature, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/auth'
+import { requireSuperAdmin } from '@/lib/auth'
 import { Card, EmptyState } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { ApprovalActions } from '@/components/clients/ClientEditors'
@@ -17,7 +17,7 @@ type Row = Client & {
 }
 
 export default async function ApprovalsPage() {
-  await requireAdmin()
+  await requireSuperAdmin()
   const { data } = await createClient().from('clients')
     .select('*, ecommerce_accounts(account_name, platform:platforms(name)), client_services(custom_name, service:services(name)), agreement_acceptances(accepted_at)')
     .eq('status', 'pending')

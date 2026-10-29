@@ -35,6 +35,8 @@ export default async function DashboardPage() {
   const me = await requireStaff()
   const supabase = createClient()
   const isAdmin = ['super_admin', 'admin'].includes(me.role)
+  // Approving a client is the super admin's call alone.
+  const isSuperAdmin = me.role === 'super_admin'
   const isTeamLead = me.role === 'team_lead'
   const isEmployee = me.role === 'employee'
 
@@ -47,7 +49,7 @@ export default async function DashboardPage() {
       ? supabase.from('tickets').select(TICKET_LIST_SELECT).in('status', ['new', 'under_review']).is('assignee_id', null)
           .order('created_at', { ascending: false }).limit(6)
       : Promise.resolve({ data: [] }),
-    isAdmin
+    isSuperAdmin
       ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending')
       : Promise.resolve({ count: 0 }),
     supabase.from('profiles').select('id, full_name, email'),
@@ -130,7 +132,7 @@ export default async function DashboardPage() {
         <StatCard label="My open tasks" value={myTasks.length} icon={CheckSquare} href="/tasks" />
         <StatCard label="Due today / overdue" value={dueNow} icon={AlarmClock} tone={dueNow ? 'red' : 'lime'} href="/tasks" />
         <StatCard label="Urgent waiting" value={urgentTasks.length} icon={Flame} tone={urgentTasks.length ? 'red' : 'lime'} href="/urgent" />
-        {isAdmin
+        {isSuperAdmin
           ? <StatCard label="Clients awaiting approval" value={approvals.count ?? 0} icon={ShieldCheck} tone={approvals.count ? 'amber' : 'lime'} href="/admin/approvals" />
           : <StatCard label="New client tickets" value={clientRequests.length} icon={Inbox} tone="brand" href="/tickets" />}
       </div>

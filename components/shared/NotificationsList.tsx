@@ -25,8 +25,10 @@ export function NotificationsList({ items, taskHref, ticketHref }: { items: Noti
 
   async function open(n: Notification) {
     if (!n.is_read) await createClient().from('notifications').update({ is_read: true }).eq('id', n.id)
-    if (n.ticket_id) router.push(`${ticketHref}/${n.ticket_id}`)
-    else if (n.task_id) router.push(`${taskHref}/${n.task_id}`)
+    // A message notification should land on the message, not the top of the page.
+    const anchor = n.type === 'comment' ? '#conversation' : ''
+    if (n.ticket_id) router.push(`${ticketHref}/${n.ticket_id}${anchor}`)
+    else if (n.task_id) router.push(`${taskHref}/${n.task_id}${anchor}`)
     router.refresh()
   }
 

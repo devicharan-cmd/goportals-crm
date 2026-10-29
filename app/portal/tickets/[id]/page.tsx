@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Lock, Pencil } from 'lucide-react'
+import { ArrowDown, ArrowLeft, Lock, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
 import { getPortalNames } from '@/lib/portal'
@@ -13,6 +13,7 @@ import { CommentThread } from '@/components/tasks/CommentThread'
 import { TicketAttachmentsList } from '@/components/shared/TicketAttachmentsList'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
+import { MarkMessagesSeen } from '@/components/shared/MarkMessagesSeen'
 import { CloseTicketButton } from '@/components/portal/CloseTicketButton'
 import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
 import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS_CLIENT, TICKET_STATUS_OPTIONS, TICKET_STATUS_STYLES } from '@/lib/constants'
@@ -93,9 +94,17 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
             )}
 
             {ticket.status === 'awaiting_clarification' ? (
-              <p className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">This ticket is on hold — check the comments below, we may need something from you.</p>
+              <a href="#conversation"
+                 className="group mt-6 flex items-center justify-between gap-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-inset ring-red-100 transition hover:bg-red-100">
+                <span>This ticket is on hold — we need something from you. <span className="font-semibold underline underline-offset-2">Go to the conversation</span></span>
+                <ArrowDown className="h-4 w-4 flex-shrink-0 transition group-hover:translate-y-0.5" />
+              </a>
             ) : ticket.status === 'reopened' ? (
-              <p className="mt-6 rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700">Sent back for changes — the team has been notified and is reworking it.</p>
+              <a href="#conversation"
+                 className="group mt-6 flex items-center justify-between gap-3 rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700 ring-1 ring-inset ring-orange-100 transition hover:bg-orange-100">
+                <span>Sent back for changes — the team has been notified and is reworking it. <span className="font-semibold underline underline-offset-2">Go to the conversation</span></span>
+                <ArrowDown className="h-4 w-4 flex-shrink-0 transition group-hover:translate-y-0.5" />
+              </a>
             ) : (
               <ol className="mt-6 grid grid-cols-4 gap-2 sm:grid-cols-7">
                 {steps.map((s, i) => (
@@ -111,11 +120,14 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
             {canClose && <ReopenTicketButton ticketId={ticket.id} />}
           </Card>
 
-          <Card>
+          <MarkMessagesSeen ticketId={ticket.id}
+            hasUnseen={((comments ?? []) as TicketComment[]).some(c => c.author_id !== me.id && !c.seen_at)} />
+          <Card id="conversation" className="scroll-mt-6">
             <CardHeader title="Conversation" description="Messages with the GoPortals team" />
             <div className="p-5">
               <CommentThread taskId={ticket.id} comments={(comments ?? []) as TicketComment[]} names={names} meId={me.id} myRole="client"
                               table="ticket_comments" idField="ticket_id"
+                              showReceipts
                               lockedNote={ticket.status === 'closed'
                                 ? 'This ticket is closed. Raise a new ticket if you need anything else.'
                                 : undefined} />

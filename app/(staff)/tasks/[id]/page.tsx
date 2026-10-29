@@ -118,7 +118,7 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
             </Card>
           )}
 
-          <Card>
+          <Card id="conversation" className="scroll-mt-6">
             <CardHeader title={`Discussion (${(comments ?? []).length})`}
                         description={me.role === 'employee' ? 'Your comments are visible to the team only.' : 'Choose “Team only” or “Public” for each comment. Client messages are always public.'} />
             <div className="p-5">

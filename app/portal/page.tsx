@@ -53,6 +53,7 @@ export default async function PortalHome() {
           <CardHeader title="Recent activity" action={<Link href="/portal/tickets" className="text-xs font-semibold text-brand-600">View all</Link>} />
           <TicketTable
             tickets={tickets.slice(0, 8)}
+            audience="client"
             empty={{
               title: 'No tickets yet',
               description: 'Raise your first ticket and our team will pick it up.',

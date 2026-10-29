@@ -75,8 +75,12 @@ function Callback() {
         if (!data.session) throw new Error('This link is invalid or has expired.')
       }
 
-      // Invited users and password resets must choose a password.
-      const dest = type === 'invite' || type === 'recovery' ? '/auth/set-password' : next ?? '/'
+      // Invited users and password resets both choose a password here, but they
+      // are not the same event: an invite is a first-time setup, not a reset.
+      // Carry the link type through so set-password can tell them apart.
+      const dest = type === 'invite' || type === 'recovery'
+        ? `/auth/set-password?flow=${type}`
+        : next ?? '/'
       router.replace(dest)
       router.refresh()
     }

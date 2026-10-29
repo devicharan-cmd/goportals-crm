@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { forwardRef, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 
-export function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+export const PasswordInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+function PasswordInput(props, ref) {
   const [show, setShow] = useState(false)
   return (
     <div className="relative">
-      <input {...props} type={show ? 'text' : 'password'} className="input pr-10" />
+      <input {...props} ref={ref} type={show ? 'text' : 'password'} className="input pr-10" />
       <button
         type="button"
         onClick={() => setShow(s => !s)}
@@ -18,4 +19,4 @@ export function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>
       </button>
     </div>
   )
-}
+})

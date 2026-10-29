@@ -124,7 +124,12 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
 
           <Card>
             <CardHeader title="Activity" />
-            <div className="p-5"><ActivityTimeline activity={(activity ?? []) as TicketActivity[]} names={names} kind="ticket" /></div>
+            {/* Assignment is internal staffing. 068 keeps new rows off the
+                client's trail; rows logged before it would read "GoPortals
+                team assigned it to GoPortals team", so drop them here too. */}
+            <div className="p-5"><ActivityTimeline
+              activity={((activity ?? []) as TicketActivity[]).filter(a => a.action !== 'assignee_changed')}
+              names={names} kind="ticket" /></div>
           </Card>
         </div>
 

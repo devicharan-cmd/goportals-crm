@@ -29,44 +29,64 @@ export default async function ApprovalsPage() {
       {rows.length === 0 ? (
         <Card><EmptyState icon={ShieldCheck} title="No clients waiting" description="Clients appear here once they finish onboarding, until you approve them." /></Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {rows.map(c => {
             const accepted = c.agreement_acceptances.length > 0
+            const contact = [c.contact_name, c.contact_email, c.contact_phone].filter(Boolean)
             return (
-              <Card key={c.id} className="p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <Link href={`/clients/${c.id}`} className="text-lg font-semibold text-slate-900 hover:text-brand-700">{c.company_name}</Link>
-                    <p className="text-sm text-slate-500">
-                      {[c.contact_name, c.contact_email, c.contact_phone].filter(Boolean).join(' · ')}
+              <Card key={c.id} className="overflow-hidden p-6 sm:p-7">
+                {/* Header: who is waiting, and the decision — never crowded together */}
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <Link href={`/clients/${c.id}`} className="text-xl font-semibold tracking-tight text-slate-900 hover:text-brand-700">
+                        {c.company_name}
+                      </Link>
+                      <Badge className="bg-amber-50 text-amber-800 ring-amber-200">Awaiting approval</Badge>
+                    </div>
+                    {contact.length > 0 && (
+                      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600">
+                        {contact.map((item, i) => (
+                          <span key={i} className="inline-flex items-center gap-2">
+                            {i > 0 && <span aria-hidden className="text-slate-300">·</span>}
+                            {item}
+                          </span>
+                        ))}
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-400">
+                      Added {formatRelative(c.created_at)}{c.gstin ? ` · GSTIN ${c.gstin}` : ''}
                     </p>
-                    <p className="mt-1 text-xs text-slate-400">Added {formatRelative(c.created_at)}{c.gstin ? ` · GSTIN ${c.gstin}` : ''}</p>
                   </div>
-                  <ApprovalActions clientId={c.id} hasAgreement={accepted} />
+                  <div className="lg:shrink-0">
+                    <ApprovalActions clientId={c.id} hasAgreement={accepted} size="md" />
+                  </div>
                 </div>
-                <div className="mt-4 grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-3">
-                  <div>
-                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">E-commerce accounts</p>
-                    <div className="flex flex-wrap gap-1">
+
+                {/* What they signed up for */}
+                <div className="mt-6 grid gap-6 border-t border-slate-100 pt-6 sm:grid-cols-2 lg:grid-cols-3">
+                  <section>
+                    <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">E-commerce accounts</h3>
+                    <div className="flex flex-wrap gap-1.5">
                       {c.ecommerce_accounts.map((a, i) => <Badge key={i}>{a.platform?.name ? `${a.platform.name} · ${a.account_name}` : a.account_name}</Badge>)}
                       {c.ecommerce_accounts.length === 0 && <span className="text-sm text-slate-400">—</span>}
                     </div>
-                  </div>
-                  <div>
-                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Services</p>
-                    <div className="flex flex-wrap gap-1">
+                  </section>
+                  <section>
+                    <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Services</h3>
+                    <div className="flex flex-wrap gap-1.5">
                       {c.client_services.map((s, i) => (
                         <Badge key={i} className={s.service ? undefined : 'bg-lime-50 text-lime-800 ring-lime-200'}>{s.service?.name ?? s.custom_name}</Badge>
                       ))}
                       {c.client_services.length === 0 && <span className="text-sm text-slate-400">—</span>}
                     </div>
-                  </div>
-                  <div>
-                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Agreement</p>
+                  </section>
+                  <section>
+                    <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Agreement</h3>
                     {accepted
-                      ? <span className="inline-flex items-center gap-1 text-sm font-medium text-lime-700"><CheckCircle2 className="h-4 w-4" /> Accepted {formatRelative(c.agreement_acceptances[0].accepted_at)}</span>
-                      : <span className="inline-flex items-center gap-1 text-sm text-amber-700"><FileSignature className="h-4 w-4" /> Not yet accepted</span>}
-                  </div>
+                      ? <span className="inline-flex items-center gap-1.5 rounded-lg bg-lime-50 px-2.5 py-1.5 text-sm font-medium text-lime-800 ring-1 ring-inset ring-lime-200"><CheckCircle2 className="h-4 w-4 flex-shrink-0" /> Accepted {formatRelative(c.agreement_acceptances[0].accepted_at)}</span>
+                      : <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-sm font-medium text-amber-800 ring-1 ring-inset ring-amber-200"><FileSignature className="h-4 w-4 flex-shrink-0" /> Not yet accepted</span>}
+                  </section>
                 </div>
               </Card>
             )

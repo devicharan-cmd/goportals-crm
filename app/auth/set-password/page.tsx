@@ -1,15 +1,18 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { AuthLayout } from '@/components/layout/AuthLayout'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
 import { PasswordInput } from '@/components/auth/PasswordInput'
 
-export default function SetPasswordPage() {
+function SetPasswordForm() {
   const router = useRouter()
+  // 'invite' = first-time setup from an invitation, 'recovery' = password reset.
+  const isInvite = useSearchParams().get('flow') === 'invite'
+  const doneHref = isInvite ? '/login?password-set=1' : '/login?password-updated=1'
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -22,7 +25,7 @@ export default function SetPasswordPage() {
     try {
       const { error } = await createClient().auth.signOut({ scope: 'local' })
       if (error) throw error
-      router.replace('/login?password-updated=1')
+      router.replace(doneHref)
       router.refresh()
     } catch {
       setError('Your password was updated, but this recovery session could not be cleared. Retry before continuing.')
@@ -67,7 +70,7 @@ export default function SetPasswordPage() {
         return
       }
 
-      router.replace('/login?password-updated=1')
+      router.replace(doneHref)
       router.refresh()
     } catch {
       setError(passwordUpdated
@@ -83,7 +86,9 @@ export default function SetPasswordPage() {
       <p className="mt-1 text-sm text-slate-500">You&apos;ll use this with your email to sign in.</p>
       {success ? (
         <div className="mt-8 space-y-4">
-          <Alert tone="success">Password updated successfully. Please log in with your new password.</Alert>
+          <Alert tone="success">{isInvite
+            ? 'Password set successfully. Please log in with your new password.'
+            : 'Password updated successfully. Please log in with your new password.'}</Alert>
           {error && <Alert>{error}</Alert>}
           <Button type="button" size="lg" loading={loading} onClick={continueToLogin} className="w-full">
             Continue to sign in
@@ -103,4 +108,8 @@ export default function SetPasswordPage() {
       )}
     </AuthLayout>
   )
+}
+
+export default function SetPasswordPage() {
+  return <Suspense><SetPasswordForm /></Suspense>
 }

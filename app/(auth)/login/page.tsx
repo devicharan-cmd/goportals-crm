@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -11,13 +11,26 @@ import { PasswordInput } from '@/components/auth/PasswordInput'
 function LoginForm() {
   const router = useRouter()
   const params = useSearchParams()
-  const passwordUpdated = params.get('password-updated') === '1'
+  const passwordUpdated = params.get('password-updated') === '1'   // after a reset
+  const passwordSet = params.get('password-set') === '1'            // after accepting an invite
+  const passwordRef = useRef<HTMLInputElement>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(
     params.get('error') === 'no_profile' ? 'Your account is not set up yet. Please contact GoPortals.' : '',
   )
+
+  // Arriving straight from choosing a password, the browser offers to fill the
+  // one just set. Start from an empty box so nobody signs in on a value they
+  // did not type (the field is controlled, so an autofill never reaches state).
+  useEffect(() => {
+    if (!passwordUpdated && !passwordSet) return
+    const clear = () => { if (passwordRef.current) passwordRef.current.value = '' }
+    clear()
+    const timer = setTimeout(clear, 300)
+    return () => clearTimeout(timer)
+  }, [passwordUpdated, passwordSet])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -58,13 +71,14 @@ function LoginForm() {
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         {passwordUpdated && <Alert tone="success">Password updated successfully. Please log in with your new password.</Alert>}
+        {passwordSet && <Alert tone="success">Password set successfully. Please log in with your new password.</Alert>}
         {error && <Alert>{error}</Alert>}
         <Field label="Email">
           <input type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
                  className="input" placeholder="you@company.com" />
         </Field>
         <Field label="Password">
-          <PasswordInput required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
+          <PasswordInput ref={passwordRef} required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
         </Field>
         <div className="flex justify-end">
           <Link href="/forgot-password" className="text-sm font-medium text-brand-600 hover:text-brand-700">Forgot password?</Link>

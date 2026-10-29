@@ -257,23 +257,23 @@ export function ClientTeamEditor({
 }
 
 // ─── Approval (self-signups) ─────────────────────────────────
-export function ApprovalActions({ clientId, hasAgreement }: { clientId: string; hasAgreement: boolean }) {
+export function ApprovalActions({ clientId, hasAgreement, size = 'sm' }: { clientId: string; hasAgreement: boolean; size?: 'sm' | 'md' }) {
   const { busy, error, run } = useMutation()
   const supabase = createClient()
   return (
-    <div className="flex flex-col items-end gap-1">
-      <div className="flex gap-2">
-        <Button size="sm" variant="secondary" disabled={busy}
+    <div className="flex flex-col gap-2 sm:items-end">
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button size={size} variant="secondary" disabled={busy} className="justify-center"
                 onClick={() => run(() => supabase.rpc('approve_client', { p_client_id: clientId, p_approve: false }))}>
-          <X className="h-3.5 w-3.5" /> Reject
+          <X className="h-4 w-4" /> Reject
         </Button>
-        <Button size="sm" variant="lime" loading={busy} disabled={!hasAgreement}
+        <Button size={size} variant="lime" loading={busy} disabled={!hasAgreement} className="justify-center"
                 onClick={() => run(() => supabase.rpc('approve_client', { p_client_id: clientId, p_approve: true }))}>
-          <Check className="h-3.5 w-3.5" /> Approve
+          <Check className="h-4 w-4" /> Approve
         </Button>
       </div>
-      {!hasAgreement && <span className="text-xs text-amber-700">Waiting for the client to accept the agreement</span>}
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {!hasAgreement && <span className="text-xs text-amber-700 sm:text-right">Waiting for the client to accept the agreement</span>}
+      {error && <span className="text-xs text-red-600 sm:text-right">{error}</span>}
     </div>
   )
 }

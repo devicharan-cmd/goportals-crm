@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowDown, ArrowLeft, Lock, Pencil } from 'lucide-react'
+import { ArrowLeft, Lock, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
 import { getPortalNames } from '@/lib/portal'
@@ -8,16 +8,18 @@ import { getTicketAttachments, resolveTicketId, ticketPageTitle } from '@/lib/qu
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader } from '@/components/ui/primitives'
-import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
+import { PriorityBadge, UrgentBadge } from '@/components/ui/badges'
+import { ClientReplyBadge, ClientTicketStatusBadge } from '@/components/portal/ClientTicketStatus'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { TicketAttachmentsList } from '@/components/shared/TicketAttachmentsList'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
 import { MarkMessagesSeen } from '@/components/shared/MarkMessagesSeen'
+import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { CloseTicketButton } from '@/components/portal/CloseTicketButton'
 import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
-import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS_CLIENT, TICKET_STATUS_OPTIONS, TICKET_STATUS_STYLES } from '@/lib/constants'
-import { cn, formatDate, ticketCode } from '@/lib/utils'
+import { clientPortalTicketStatus } from '@/lib/ticket-status'
+import { formatDate, ticketCode } from '@/lib/utils'
 import type { TicketActivity, TicketComment, Ticket } from '@/types/database'
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
@@ -29,25 +31,30 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
   const supabase = createClient()
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
-  const [{ data }, { data: comments }, { data: activity }, names, attachments, { data: platforms }] = await Promise.all([
+  const [{ data }, { data: comments }, { data: activity }, names, attachments, { data: platforms }, { data: staffDirectory }] = await Promise.all([
     supabase.from('tickets').select('*, ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))').eq('id', ticketId).maybeSingle(),
     supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
     supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
     getPortalNames(me),
     getTicketAttachments(ticketId),
     supabase.from('platforms').select('id, name'),
+    supabase.rpc('staff_directory'),
   ])
   if (!data) notFound()
   const ticket = data as Ticket & { ecommerce_account: { account_name: string; platform: { name: string } | null } | null }
+  const ticketComments = (comments ?? []) as TicketComment[]
+  const portalStatus = clientPortalTicketStatus(ticket)
+  const latestPublicMessage = ticketComments.slice().reverse().find(comment => !comment.is_internal)
+  const replyAuthor = latestPublicMessage?.author_id
+    ? (staffDirectory as { id: string; full_name: string | null; role: string }[] | null)?.find(person => person.id === latestPublicMessage.author_id && ['admin', 'super_admin'].includes(person.role))
+    : undefined
+  const replyAuthorName = replyAuthor?.full_name?.trim() || (replyAuthor ? 'GoPortals team' : null)
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
-  const canEdit = ticket.status === 'new' && ticket.created_by === me.id
-  const canClose = ticket.status === 'resolved'
+  const canEdit = portalStatus === 'new' && ticket.created_by === me.id
+  const canClose = ['resolved', 'ready_for_client'].includes(portalStatus)
   // Only say work is under way while it actually is: the other statuses each
   // carry their own, more exact message further down the page.
-  const workUnderWay = ['under_review', 'assigned', 'in_progress', 'ready_for_client'].includes(ticket.status)
-
-  const steps = TICKET_STATUS_OPTIONS.filter(s => s.value !== 'awaiting_clarification' && s.value !== 'reopened')
-  const stepIndex = steps.findIndex(s => s.value === ticket.status)
+  const workUnderWay = ['under_review', 'assigned', 'in_progress', 'ready_for_review', 'ready_for_client'].includes(portalStatus)
 
   return (
     <>
@@ -66,7 +73,8 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs font-semibold text-slate-400">{ticketCode(ticket.ticket_number)}</span>
               {ticket.is_urgent && ticket.status !== 'closed' && <UrgentBadge />}
-              <StatusBadge label={TICKET_STATUS_LABELS_CLIENT[ticket.status]} className={TICKET_STATUS_STYLES[ticket.status]} dotClassName={TICKET_STATUS_DOT[ticket.status]} />
+              <ClientTicketStatusBadge status={portalStatus} />
+              <ClientReplyBadge ticketId={ticket.id} authorName={replyAuthorName} />
               {ticket.priority && <PriorityBadge priority={ticket.priority} />}
               <span className="ml-auto text-xs text-slate-400">{TICKET_CATEGORY_LABELS[ticket.category]}</span>
             </div>
@@ -93,41 +101,19 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
               </dl>
             )}
 
-            {ticket.status === 'awaiting_clarification' ? (
-              <a href="#conversation"
-                 className="group mt-6 flex items-center justify-between gap-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-inset ring-red-100 transition hover:bg-red-100">
-                <span>This ticket is on hold — we need something from you. <span className="font-semibold underline underline-offset-2">Go to the conversation</span></span>
-                <ArrowDown className="h-4 w-4 flex-shrink-0 transition group-hover:translate-y-0.5" />
-              </a>
-            ) : ticket.status === 'reopened' ? (
-              <a href="#conversation"
-                 className="group mt-6 flex items-center justify-between gap-3 rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-700 ring-1 ring-inset ring-orange-100 transition hover:bg-orange-100">
-                <span>Sent back for changes — the team has been notified and is reworking it. <span className="font-semibold underline underline-offset-2">Go to the conversation</span></span>
-                <ArrowDown className="h-4 w-4 flex-shrink-0 transition group-hover:translate-y-0.5" />
-              </a>
-            ) : (
-              <ol className="mt-6 grid grid-cols-4 gap-2 sm:grid-cols-7">
-                {steps.map((s, i) => (
-                  <li key={s.value}>
-                    <div className={cn('h-1.5 rounded-full', i <= stepIndex ? 'bg-lime-500' : 'bg-slate-200')} />
-                    <p className={cn('mt-1.5 text-xs', i === stepIndex ? 'font-semibold text-slate-900' : 'text-slate-400')}>{TICKET_STATUS_LABELS_CLIENT[s.value]}</p>
-                  </li>
-                ))}
-              </ol>
-            )}
-
             {canClose && <CloseTicketButton ticketId={ticket.id} />}
             {canClose && <ReopenTicketButton ticketId={ticket.id} />}
           </Card>
 
           <MarkMessagesSeen ticketId={ticket.id}
-            hasUnseen={((comments ?? []) as TicketComment[]).some(c => c.author_id !== me.id && !c.seen_at)} />
-          <Card id="conversation" className="scroll-mt-6">
+            hasUnseen={ticketComments.some(c => c.author_id !== me.id && !c.seen_at)} />
+          <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader title="Conversation" description="Messages with the GoPortals team" />
-            <div className="p-5">
-              <CommentThread taskId={ticket.id} comments={(comments ?? []) as TicketComment[]} names={names} meId={me.id} myRole="client"
+            <div className={CONVERSATION_CONTENT_CLASS}>
+              <CommentThread taskId={ticket.id} comments={ticketComments} names={names} meId={me.id} myRole="client"
                               table="ticket_comments" idField="ticket_id"
-                              showReceipts
+                              showReceipts bounded
+                              replyNeeded={!!replyAuthorName}
                               lockedNote={ticket.status === 'closed'
                                 ? 'This ticket is closed. Raise a new ticket if you need anything else.'
                                 : undefined} />

@@ -69,16 +69,13 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
             {/* Everyone may fix their own name; a super admin may fix anyone's.
                 Without this, accounts invited without one show as a raw email
                 across the team list, assignee pickers and activity trails. */}
-            {canEditName ? (
-              <div className="flex items-center gap-2">
-                <input defaultValue={row.full_name ?? ''} placeholder="Full name" disabled={busy}
-                       onBlur={e => e.target.value.trim() !== (row.full_name ?? '') && update({ full_name: e.target.value.trim() })}
-                       className="input h-8 w-full max-w-56 py-1 text-sm font-semibold" />
-                {isMe && <span className="text-xs text-slate-400">(you)</span>}
-              </div>
-            ) : (
-              <p className="truncate font-semibold text-slate-900">{row.full_name || '—'} {isMe && <span className="text-xs font-normal text-slate-400">(you)</span>}</p>
-            )}
+            <div className="flex items-center gap-2">
+              <input defaultValue={row.full_name ?? ''} placeholder="Full name" disabled={busy} readOnly={!canEditName}
+                     aria-label={`Full name for ${row.full_name || row.email}`}
+                     onBlur={e => canEditName && e.target.value.trim() !== (row.full_name ?? '') && update({ full_name: e.target.value.trim() })}
+                     className="input h-8 w-full max-w-56 py-1 text-sm font-semibold read-only:cursor-default" />
+              {isMe && <span className="text-xs text-slate-400">(you)</span>}
+            </div>
             <p className="truncate text-xs text-slate-500">{row.email}</p>
           </div>
         </div>

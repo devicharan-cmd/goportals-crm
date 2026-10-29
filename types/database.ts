@@ -9,7 +9,7 @@ export type ClientServiceStatus = 'requested' | 'active' | 'stopped'
 export type TaskStatus   = 'todo' | 'in_progress' | 'ready_for_review' | 'changes_requested' | 'completed' | 'cancelled'
 export type TicketStatus =
   | 'new' | 'under_review' | 'awaiting_clarification' | 'assigned'
-  | 'in_progress' | 'ready_for_client' | 'resolved' | 'reopened' | 'closed'
+  | 'in_progress' | 'ready_for_review' | 'ready_for_client' | 'resolved' | 'reopened' | 'closed'
 export type TaskPriority  = 'P1' | 'P2' | 'P3' | 'P4'
 export type TaskType      = 'task' | 'issue' | 'request' | 'grievance'
 export type TaskSource    = 'internal' | 'client'

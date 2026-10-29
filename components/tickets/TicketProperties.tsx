@@ -15,7 +15,7 @@ import type { Department, TaskPriority, Ticket, TicketStatus } from '@/types/dat
 // reachable through the dedicated close/reopen actions below (close_ticket()/reopen_ticket()
 // RPCs, which check status='resolved' and client-or-admin), never a raw status write
 // (guard_ticket_write rejects that directly).
-const SELECTABLE_STATUSES = TICKET_STATUS_OPTIONS.filter(s => s.value !== 'closed' && s.value !== 'reopened')
+const SELECTABLE_STATUSES = TICKET_STATUS_OPTIONS.filter(s => !['awaiting_clarification', 'closed', 'reopened'].includes(s.value))
 
 type DeptLead = { id: string; name: string }
 
@@ -160,7 +160,7 @@ export function TicketProperties({
         </div>
       )}
 
-      {canClose && ticket.status === 'resolved' && (
+      {canClose && ['resolved', 'ready_for_client'].includes(ticket.status) && (
         <div className="space-y-2 border-t border-slate-100 pt-3">
           <Button size="sm" variant="secondary" className="w-full" loading={saving === 'close'} onClick={closeTicket}>
             <CheckCircle2 className="h-3.5 w-3.5" /> Close ticket

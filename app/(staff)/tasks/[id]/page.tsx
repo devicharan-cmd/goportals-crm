@@ -10,6 +10,7 @@ import { Card, CardHeader } from '@/components/ui/primitives'
 import { Badge, PriorityBadge, StatusBadge, UrgentBadge, DueDate } from '@/components/ui/badges'
 import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { TaskProperties } from '@/components/tasks/TaskProperties'
+import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
 import { TimeLogPanel } from '@/components/tasks/TimeLogPanel'
@@ -118,12 +119,12 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
             </Card>
           )}
 
-          <Card id="conversation" className="scroll-mt-6">
+          <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader title={`Discussion (${(comments ?? []).length})`}
                         description={me.role === 'employee' ? 'Your comments are visible to the team only.' : 'Choose “Team only” or “Public” for each comment. Client messages are always public.'} />
-            <div className="p-5">
+            <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={task.id} comments={(comments ?? []) as TaskComment[]} names={names}
-                             roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))} meId={me.id} myRole={me.role} />
+                             roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))} meId={me.id} myRole={me.role} bounded />
             </div>
           </Card>
 

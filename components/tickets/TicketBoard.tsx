@@ -45,9 +45,9 @@ function Card({ ticket, names, overlay, linked, assignOptions }: CardProps & { o
         {ticket.assignee_id
           ? <span className="flex min-w-0 items-center gap-1.5 text-xs text-slate-600"><Avatar name={names[ticket.assignee_id]} size="xs" /><span className="truncate">{names[ticket.assignee_id] ?? '—'}</span></span>
           : <span className="text-[11px] italic text-slate-400">Unassigned</span>}
-        {assignOptions && !TICKET_TERMINAL_STATUSES.includes(ticket.status) && (
+        {assignOptions && !ticket.assignee_id && !TICKET_TERMINAL_STATUSES.includes(ticket.status) && (
           <span onPointerDown={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-            <AssignButton taskId={ticket.id} currentId={ticket.assignee_id} options={assignOptions} variant="link" table="tickets" />
+            <AssignButton taskId={ticket.id} currentId={null} options={assignOptions} variant="button" compact table="tickets" />
           </span>
         )}
       </div>

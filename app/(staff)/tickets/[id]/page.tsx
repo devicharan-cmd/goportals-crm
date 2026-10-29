@@ -13,6 +13,7 @@ import { Card, CardHeader } from '@/components/ui/primitives'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { TicketAttachmentsList } from '@/components/shared/TicketAttachmentsList'
 import { MarkMessagesSeen } from '@/components/shared/MarkMessagesSeen'
+import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { TicketProperties } from '@/components/tickets/TicketProperties'
 import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
@@ -117,13 +118,13 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
 
           <MarkMessagesSeen ticketId={ticket.id}
             hasUnseen={((comments ?? []) as TicketComment[]).some(c => c.author_id !== me.id && !c.is_internal && !c.seen_at)} />
-          <Card id="conversation" className="scroll-mt-6">
+          <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader title={`Discussion (${(comments ?? []).length})`}
-                        description={me.role === 'employee' ? 'Your comments are visible to the team only.' : 'Choose "Team only" or "Public" for each comment. Client messages are always public.'} />
-            <div className="p-5">
+                        description={['super_admin', 'admin'].includes(me.role) ? 'Choose "Team only" or "Public" for each comment. Client messages are always public.' : 'Your comments are visible to the team only.'} />
+            <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={ticket.id} comments={(comments ?? []) as TicketComment[]} names={names}
                              roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))} meId={me.id} myRole={me.role}
-                             table="ticket_comments" idField="ticket_id" showReceipts />
+                             table="ticket_comments" idField="ticket_id" showReceipts bounded />
             </div>
           </Card>
 

@@ -14,13 +14,14 @@ export type { AssigneeOption }
 
 /** "Change assignee" — pick someone from a searchable list and save straight away. */
 export function AssignButton({
-  taskId, currentId, options, variant = 'button', table = 'tasks',
+  taskId, currentId, options, variant = 'button', table = 'tasks', compact = false,
 }: {
   taskId: string
   currentId: string | null
   options: AssigneeOption[]
   variant?: 'button' | 'link'
   table?: 'tasks' | 'tickets'
+  compact?: boolean
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -54,7 +55,9 @@ export function AssignButton({
   return (
     <>
       {variant === 'button'
-        ? <Button size="sm" onClick={show}><UserCog className="h-3.5 w-3.5" /> {currentId ? 'Change assignee' : 'Assign'}</Button>
+        ? <Button size="sm" className={compact ? 'h-7 px-2 text-[11px]' : undefined} onClick={show}>
+            <UserCog className="h-3.5 w-3.5" /> {currentId ? (compact ? 'Change' : 'Change assignee') : 'Assign'}
+          </Button>
         : <button onClick={show} className="text-xs font-semibold text-brand-600 hover:text-brand-700">{currentId ? 'Change' : 'Assign'}</button>}
 
       <Modal open={open} onClose={() => setOpen(false)} title={currentId ? 'Change assignee' : 'Assign task'}

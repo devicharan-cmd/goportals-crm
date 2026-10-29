@@ -34,7 +34,7 @@ type CommentLike = { id: string; author_id: string | null; body: string; is_inte
  *   client → always public · employee → always team-only · manager / super admin → choose.
  */
 export function CommentThread({
-  taskId, comments, names, roles, meId, myRole, table = 'task_comments', idField = 'task_id', lockedNote, showReceipts = false,
+  taskId, comments, names, roles, meId, myRole, table = 'task_comments', idField = 'task_id', lockedNote, showReceipts = false, bounded = false, replyNeeded = false,
 }: {
   taskId: string
   comments: CommentLike[]
@@ -48,18 +48,25 @@ export function CommentThread({
   lockedNote?: string
   /** Ticks on your own messages: one for sent, two once the other side read it. */
   showReceipts?: boolean
+  /** Keep ticket conversations a fixed height and scroll messages inside them. */
+  bounded?: boolean
+  /** Whether this client reply is expected to clear the awaiting-client state. */
+  replyNeeded?: boolean
 }) {
   const router = useRouter()
   const isStaff = myRole !== 'client'
+  const isTicketThread = table === 'ticket_comments'
   const scrollRef = useRef<HTMLDivElement | null>(null)
-  const canChoose = myRole === 'super_admin' || myRole === 'admin' || myRole === 'team_lead'
+  const canChoose = myRole === 'super_admin' || myRole === 'admin' || (!isTicketThread && myRole === 'team_lead')
   const [body, setBody] = useState('')
   const [isPublic, setIsPublic] = useState(true)
   const [filter, setFilter] = useState<'all' | 'public' | 'team'>('all')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const willBePublic = myRole === 'client' ? true : myRole === 'employee' ? false : isPublic
+  const willBePublic = myRole === 'client' ? true
+    : myRole === 'employee' || (isTicketThread && myRole === 'team_lead') ? false
+    : isPublic
 
   // Newest message in view on open and after sending, like any chat.
   useEffect(() => {
@@ -73,17 +80,27 @@ export function CommentThread({
     if (!body.trim()) return
     setSaving(true)
     setError('')
-    const { error } = await createClient().from(table).insert({
-      [idField]: taskId, author_id: meId, body: body.trim(), is_internal: !willBePublic,
-    })
+    const client = createClient()
+    const { error } = table === 'ticket_comments'
+      ? await client.rpc('send_ticket_comment', {
+          p_ticket_id: taskId,
+          p_body: body.trim(),
+          p_is_internal: !willBePublic,
+        })
+      : await client.from(table).insert({
+          [idField]: taskId, author_id: meId, body: body.trim(), is_internal: !willBePublic,
+        })
     setSaving(false)
     if (error) return setError(errorMessage(error))
     setBody('')
+    if (table === 'ticket_comments' && myRole === 'client' && replyNeeded) {
+      window.dispatchEvent(new CustomEvent('ticket-client-replied', { detail: { ticketId: taskId } }))
+    }
     router.refresh()
   }
 
   return (
-    <div>
+    <div className={bounded ? 'flex h-full min-h-0 flex-col' : undefined}>
       {isStaff && comments.length > 0 && (
         <div className="mb-4 inline-flex rounded-lg bg-slate-100 p-1 text-xs font-medium">
           {([
@@ -100,11 +117,11 @@ export function CommentThread({
       )}
 
       {shown.length === 0 ? (
-        <p className="flex items-center gap-2 py-6 text-sm text-slate-400">
+        <p className={cn('flex items-center gap-2 py-6 text-sm text-slate-400', bounded && 'min-h-0 flex-1 justify-center')}>
           <MessageSquare className="h-4 w-4" /> {comments.length ? 'No comments in this view.' : 'No messages yet — say hello.'}
         </p>
       ) : (
-        <div ref={scrollRef} className="max-h-[26rem] space-y-1 overflow-y-auto pr-1">
+        <div ref={scrollRef} className={cn('space-y-1 overflow-y-auto overscroll-contain scroll-smooth pr-1', bounded ? 'min-h-0 flex-1' : 'max-h-[26rem]')}>
           {shown.map((c, i) => {
             const author = c.author_id ?? ''
             const role = roles?.[author]
@@ -133,7 +150,7 @@ export function CommentThread({
                         {role && <span className="text-slate-400">{ROLE_LABELS[role]}</span>}
                       </span>
                     )}
-                    <div className={cn('rounded-2xl px-3.5 py-2 text-sm shadow-sm ring-1 ring-inset',
+                    <div className={cn('rounded-2xl px-3.5 py-2 text-sm shadow-sm ring-1 ring-inset transition-shadow hover:shadow-md',
                       c.is_internal
                         ? 'bg-amber-50 text-amber-900 ring-amber-200'
                         : mine
@@ -193,15 +210,17 @@ export function CommentThread({
         </div>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           {canChoose ? (
-            <div className="inline-flex rounded-lg bg-slate-100 p-1 text-xs font-medium" role="radiogroup" aria-label="Who can see this comment">
-              <button type="button" role="radio" aria-checked={!isPublic} onClick={() => setIsPublic(false)}
-                      className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1', !isPublic ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500')}>
-                <Lock className="h-3 w-3" /> Team only
-              </button>
-              <button type="button" role="radio" aria-checked={isPublic} onClick={() => setIsPublic(true)}
-                      className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1', isPublic ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500')}>
-                <Globe className="h-3 w-3" /> Public (client can see)
-              </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-lg bg-slate-100 p-1 text-xs font-medium" role="radiogroup" aria-label="Who can see this comment">
+                <button type="button" role="radio" aria-checked={!isPublic} onClick={() => setIsPublic(false)}
+                        className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1', !isPublic ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500')}>
+                  <Lock className="h-3 w-3" /> Team only
+                </button>
+                <button type="button" role="radio" aria-checked={isPublic} onClick={() => setIsPublic(true)}
+                        className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1', isPublic ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500')}>
+                  <Globe className="h-3 w-3" /> Public (client can see)
+                </button>
+              </div>
             </div>
           ) : (
             <span className="inline-flex items-center gap-1 text-xs text-slate-500">

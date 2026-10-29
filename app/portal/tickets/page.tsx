@@ -6,6 +6,7 @@ import { ButtonLink } from '@/components/ui/button'
 import { Card } from '@/components/ui/primitives'
 import { TicketTable } from '@/components/shared/TicketTable'
 import { cn, parseTicketCode } from '@/lib/utils'
+import { clientPortalTicketStatus } from '@/lib/ticket-status'
 import type { Ticket } from '@/types/database'
 
 export const metadata = { title: 'My tickets' }
@@ -30,6 +31,11 @@ export default async function PortalTicketsPage({ searchParams }: { searchParams
     if (tab === 'done') query = query.eq('status', 'closed')
   }
   const { data } = await query
+  const tickets = (data ?? []) as Ticket[]
+  const portalTickets = tickets.map(ticket => ({
+    ...ticket,
+    status: clientPortalTicketStatus(ticket),
+  }))
 
   return (
     <>
@@ -50,7 +56,7 @@ export default async function PortalTicketsPage({ searchParams }: { searchParams
         <ButtonLink href="/portal/tickets/new" size="sm" className="ml-auto"><Plus className="h-3.5 w-3.5" /> New ticket</ButtonLink>
       </div>
       <Card className="overflow-hidden">
-        <TicketTable tickets={(data ?? []) as Ticket[]} audience="client" empty={{ title: tab === 'done' ? 'Nothing completed yet' : 'No open tickets' }} />
+        <TicketTable tickets={portalTickets} audience="client" empty={{ title: tab === 'done' ? 'Nothing completed yet' : 'No open tickets' }} />
       </Card>
     </>
   )

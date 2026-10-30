@@ -47,6 +47,14 @@ export default async function StaffTicketsPage({ searchParams }: { searchParams:
     ...ticket,
     status: normalizeTicketStatus(ticket.status),
   }))
+  // Client messages the team has not opened yet, counted the same way the
+  // portal counts ours. RLS keeps it to tickets this person may see.
+  const { data: unseen } = await supabase
+    .from('ticket_comments').select('ticket_id').is('seen_at', null).neq('author_id', me.id)
+  const unreadByTicket = (unseen ?? []).reduce<Record<string, number>>((acc, row) => {
+    acc[row.ticket_id] = (acc[row.ticket_id] ?? 0) + 1
+    return acc
+  }, {})
   const names = lookups ? nameMap(lookups.people) : {}
   const assignOptions = me.role !== 'employee' && lookups ? assigneeOptionsFor(me, lookups) : undefined
 
@@ -87,7 +95,7 @@ export default async function StaffTicketsPage({ searchParams }: { searchParams:
         <TicketBoard tickets={tickets} names={names} assignOptions={assignOptions} />
       ) : (
         <Card className="overflow-hidden">
-          <TicketTable tickets={tickets} hrefBase="/tickets" showClient
+          <TicketTable tickets={tickets} hrefBase="/tickets" showClient unreadByTicket={unreadByTicket}
                        empty={{ title: tab === 'done' ? 'Nothing completed yet' : 'No open tickets' }} />
         </Card>
       )}

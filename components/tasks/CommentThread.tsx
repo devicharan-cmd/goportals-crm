@@ -219,7 +219,10 @@ export function CommentThread({
               : willBePublic ? 'Write a reply the client will see…'
               : 'Write a note for the team (client won’t see this)…'
             }
-            className="max-h-40 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-2.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+            // An empty box scrolls nothing: without this a placeholder that wraps
+            // onto a second line puts a scrollbar in the composer.
+            className={cn('max-h-40 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-2.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0',
+              body ? 'overflow-y-auto' : 'overflow-hidden')}
           />
           <Button type="submit" size="sm" loading={saving} disabled={!body.trim()}
                   className="h-9 w-9 flex-shrink-0 rounded-full p-0" aria-label="Send message">

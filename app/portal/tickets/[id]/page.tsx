@@ -48,7 +48,12 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
   const replyAuthor = latestPublicMessage?.author_id
     ? (staffDirectory as { id: string; full_name: string | null; role: string }[] | null)?.find(person => person.id === latestPublicMessage.author_id && ['admin', 'super_admin'].includes(person.role))
     : undefined
-  const replyAuthorName = replyAuthor?.full_name?.trim() || (replyAuthor ? 'GoPortals team' : null)
+  // The client never reads a staff member's own name: getPortalNames() is the
+  // one place that decides what they are called, so the badge and the
+  // conversation say the same thing.
+  const replyAuthorName = replyAuthor && latestPublicMessage?.author_id
+    ? names[latestPublicMessage.author_id] ?? 'GoPortals team'
+    : null
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
   const canEdit = portalStatus === 'new' && ticket.created_by === me.id
   const canClose = ['resolved', 'ready_for_client'].includes(portalStatus)
@@ -74,7 +79,6 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
               <span className="font-mono text-xs font-semibold text-slate-400">{ticketCode(ticket.ticket_number)}</span>
               {ticket.is_urgent && ticket.status !== 'closed' && <UrgentBadge />}
               <ClientTicketStatusBadge status={portalStatus} />
-              <ClientReplyBadge ticketId={ticket.id} authorName={replyAuthorName} />
               {ticket.priority && <PriorityBadge priority={ticket.priority} />}
               <span className="ml-auto text-xs text-slate-400">{TICKET_CATEGORY_LABELS[ticket.category]}</span>
             </div>
@@ -99,6 +103,12 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
                   )
                 })}
               </dl>
+            )}
+
+            {replyAuthorName && (
+              <div className="mt-4">
+                <ClientReplyBadge ticketId={ticket.id} authorName={replyAuthorName} />
+              </div>
             )}
 
             {canClose && <CloseTicketButton ticketId={ticket.id} />}

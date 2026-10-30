@@ -310,10 +310,10 @@ export function AppShell({
                   type="button"
                   onClick={() => setProfileMenuOpen(v => !v)}
                   className={cn(
-                    'flex items-center gap-2.5 rounded-full border px-3 py-1.5 transition-all text-left focus:outline-none select-none',
+                    'flex items-center gap-2.5 rounded-full px-2.5 py-1.5 transition-all text-left focus:outline-none select-none',
                     profileMenuOpen
-                      ? 'border-brand-500 bg-brand-50/70 shadow-sm ring-2 ring-brand-200'
-                      : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/90 hover:shadow-xs'
+                      ? 'bg-slate-100 text-slate-900'
+                      : 'hover:bg-slate-100/70 text-slate-700'
                   )}
                   aria-expanded={profileMenuOpen}
                   aria-haspopup="true"
@@ -330,7 +330,7 @@ export function AppShell({
                   <ChevronDown
                     className={cn(
                       'h-4 w-4 text-slate-400 transition-transform duration-200 ml-0.5',
-                      profileMenuOpen && 'rotate-180 text-brand-600'
+                      profileMenuOpen && 'rotate-180 text-slate-700'
                     )}
                   />
                 </button>

@@ -135,14 +135,6 @@ export function StaffProfileSettings({
 
   return (
     <div className="space-y-6">
-      {/* Top Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Setting</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Manage your personal profile, account details, and preferences.
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
         {/* Left Sub-Navigation: ONLY Profile */}
         <aside className="lg:col-span-3">

@@ -33,6 +33,15 @@ type CommentLike = { id: string; author_id: string | null; body: string; is_inte
  * Who decides visibility (also enforced in the DB, migration 009 for tasks / 014 for tickets):
  *   client → always public · employee → always team-only · manager / super admin → choose.
  */
+/**
+ * "GoPortals team (Manager)" — the qualifier is said quieter than the name, so
+ * the eye still lands on who is speaking.
+ */
+function splitSender(name: string): [string, string | null] {
+  const m = name.match(/^(.*?)\s+\((.+)\)$/)
+  return m ? [m[1], m[2]] : [name, null]
+}
+
 export function CommentThread({
   taskId, comments, names, roles, meId, myRole, table = 'task_comments', idField = 'task_id', lockedNote, showReceipts = false, bounded = false, replyNeeded = false,
 }: {
@@ -129,6 +138,7 @@ export function CommentThread({
           {shown.map((c, i) => {
             const author = c.author_id ?? ''
             const role = roles?.[author]
+            const [senderName, senderQualifier] = splitSender(names[author] ?? '')
             const mine = author === meId
             const prev = shown[i - 1]
             // A new day, or a different person, starts a fresh block.
@@ -145,12 +155,15 @@ export function CommentThread({
                 )}
                 <div className={cn('flex items-end gap-2', mine ? 'flex-row-reverse' : 'flex-row', newBlock ? 'mt-2.5' : 'mt-0.5')}>
                   <span className={cn('w-7 flex-shrink-0', mine && 'hidden')}>
-                    {newBlock && !mine && <Avatar name={names[author] ?? '?'} size="xs" />}
+                    {newBlock && !mine && <Avatar name={senderName || '?'} size="xs" />}
                   </span>
                   <div className={cn('flex min-w-0 max-w-[78%] flex-col', mine ? 'items-end' : 'items-start')}>
                     {newBlock && !mine && (
                       <span className="mb-1 flex items-center gap-2 px-1 text-xs">
-                        <span className="font-semibold text-slate-700">{names[author] ?? 'Unknown'}</span>
+                        <span className="font-semibold text-slate-700">
+                          {senderName || 'Unknown'}
+                          {senderQualifier && <span className="ml-1 text-[11px] font-normal text-slate-500">({senderQualifier})</span>}
+                        </span>
                         {role && <span className="text-slate-400">{ROLE_LABELS[role]}</span>}
                       </span>
                     )}

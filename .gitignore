@@ -29,5 +29,9 @@ yarn-error.log*
 *.pdf
 !public/guidelines/*.pdf
 
+# Keep local Markdown notes/instructions out of GitHub; publish only README.md.
+*.md
+!README.md
+
 # TypeScript build cache
 *.tsbuildinfo

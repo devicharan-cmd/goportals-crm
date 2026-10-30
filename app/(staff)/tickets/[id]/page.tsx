@@ -12,7 +12,6 @@ import { TaskTable } from '@/components/tasks/TaskTable'
 import { Card, CardHeader } from '@/components/ui/primitives'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { TicketAttachmentsList } from '@/components/shared/TicketAttachmentsList'
-import { MarkMessagesSeen } from '@/components/shared/MarkMessagesSeen'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { TicketProperties } from '@/components/tickets/TicketProperties'
@@ -31,18 +30,15 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
 
-  const [{ data }, { data: comments }, { data: activity }, lookups, attachments, { data: linkedTasks }, { data: receiptRows }] = await Promise.all([
+  const [{ data }, { data: comments }, { data: activity }, lookups, attachments, { data: linkedTasks }] = await Promise.all([
     supabase.from('tickets').select('*, client:clients(id, company_name), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))').eq('id', ticketId).maybeSingle(),
     supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
     supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
     getStaffLookups(),
     getTicketAttachments(ticketId),
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: false }),
-    supabase.rpc('ticket_message_receipts', { p_ticket_id: ticketId }),
   ])
   if (!data) notFound()
-  const receipts = Object.fromEntries((((receiptRows ?? []) as { comment_id: string; audience: number; seen: number }[])
-    .map(r => [r.comment_id, { audience: r.audience, seen: r.seen }])))
   const ticket = data as Ticket & {
     client: { id: string; company_name: string } | null
     ecommerce_account: { account_name: string; platform: { name: string } | null } | null
@@ -119,15 +115,13 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
             </Card>
           )}
 
-          <MarkMessagesSeen ticketId={ticket.id}
-            hasUnseen={((comments ?? []) as TicketComment[]).some(c => c.author_id !== me.id && !c.is_internal)} />
           <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader title={`Discussion (${(comments ?? []).length})`}
                         description={['super_admin', 'admin'].includes(me.role) ? 'Choose "Team only" or "Public" for each comment. Client messages are always public.' : 'Your comments are visible to the team only.'} />
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={ticket.id} comments={(comments ?? []) as TicketComment[]} names={names}
                              roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))} meId={me.id} myRole={me.role}
-                             table="ticket_comments" idField="ticket_id" showReceipts receipts={receipts} bounded />
+                             table="ticket_comments" idField="ticket_id" bounded />
             </div>
           </Card>
 

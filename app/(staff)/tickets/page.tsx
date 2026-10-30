@@ -49,17 +49,10 @@ export default async function StaffTicketsPage({ searchParams }: { searchParams:
   }))
   // Counted for this reader alone: somebody else opening a ticket must not
   // clear the badge on everyone's list.
-  const { data: unseen, error: rpcErr } = await supabase.rpc('my_unread_ticket_messages')
+  const { data: unseen } = await supabase.rpc('my_unread_ticket_messages')
   let unreadByTicket: Record<string, number> = {}
-  if (!rpcErr && unseen) {
+  if (unseen) {
     unreadByTicket = Object.fromEntries(((unseen as { ticket_id: string; unread: number }[]).map(r => [r.ticket_id, r.unread])))
-  } else {
-    const { data: legacyUnseen } = await supabase
-      .from('ticket_comments').select('ticket_id').is('seen_at', null).neq('author_id', me.id).eq('is_internal', false)
-    unreadByTicket = (legacyUnseen ?? []).reduce<Record<string, number>>((acc, row) => {
-      acc[row.ticket_id] = (acc[row.ticket_id] ?? 0) + 1
-      return acc
-    }, {})
   }
   const names = lookups ? nameMap(lookups.people) : {}
   const assignOptions = me.role !== 'employee' && lookups ? assigneeOptionsFor(me, lookups) : undefined

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { StaffProfileSettings } from '@/components/settings/StaffProfileSettings'
 import type { Department, Profile } from '@/types/database'
 
-export const metadata = { title: 'Settings · Profile' }
+export const metadata = { title: 'Setting' }
 
 export default async function SettingsPage() {
   const me = await requireStaff()

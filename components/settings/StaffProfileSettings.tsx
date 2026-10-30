@@ -2,10 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import {
-  Check, CheckCircle2, Lock, ShieldCheck, User, Building2,
-  Settings2, UserPlus, FileSignature, AlertCircle, Loader2
+  Check, CheckCircle2, Lock, User, AlertCircle, Loader2
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ROLE_LABELS } from '@/lib/constants'
@@ -142,74 +140,23 @@ export function StaffProfileSettings({
     <div className="space-y-6">
       {/* Top Page Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Setting</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Manage your personal profile, account settings, and workspace preferences.
+          Manage your personal profile, account details, and preferences.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-        {/* Left Sub-Navigation Tabs */}
+        {/* Left Sub-Navigation: ONLY Profile */}
         <aside className="lg:col-span-3">
           <nav className="space-y-1.5" aria-label="Settings Tabs">
-            <Link
-              href="/settings"
-              className="flex items-center gap-3 rounded-xl bg-brand-50/80 px-4 py-3 text-sm font-semibold text-brand-900 border border-brand-200 shadow-sm"
-            >
+            <div className="flex items-center gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-900 border border-brand-200/80 shadow-xs">
               <User className="h-5 w-5 text-brand-600" />
               <div>
                 <p className="leading-tight">Profile</p>
-                <p className="text-[11px] font-normal text-brand-600">Name, photo, contact</p>
+                <p className="text-[11px] font-normal text-brand-600/80">Name, photo, contact</p>
               </div>
-            </Link>
-
-            {isSuperAdmin && (
-              <>
-                <Link
-                  href="/admin/settings"
-                  className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 transition"
-                >
-                  <Settings2 className="h-5 w-5 text-slate-400" />
-                  <div>
-                    <p className="leading-tight">Platforms & Services</p>
-                    <p className="text-[11px] font-normal text-slate-400">Marketplaces & services</p>
-                  </div>
-                </Link>
-
-                <Link
-                  href="/admin/users"
-                  className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 transition"
-                >
-                  <UserPlus className="h-5 w-5 text-slate-400" />
-                  <div>
-                    <p className="leading-tight">Users & invites</p>
-                    <p className="text-[11px] font-normal text-slate-400">Team members & roles</p>
-                  </div>
-                </Link>
-
-                <Link
-                  href="/admin/approvals"
-                  className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 transition"
-                >
-                  <ShieldCheck className="h-5 w-5 text-slate-400" />
-                  <div>
-                    <p className="leading-tight">Approvals</p>
-                    <p className="text-[11px] font-normal text-slate-400">Pending client signups</p>
-                  </div>
-                </Link>
-
-                <Link
-                  href="/admin/agreement"
-                  className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 transition"
-                >
-                  <FileSignature className="h-5 w-5 text-slate-400" />
-                  <div>
-                    <p className="leading-tight">Agreement</p>
-                    <p className="text-[11px] font-normal text-slate-400">Terms & signing policy</p>
-                  </div>
-                </Link>
-              </>
-            )}
+            </div>
           </nav>
         </aside>
 
@@ -235,27 +182,35 @@ export function StaffProfileSettings({
             <div className="p-6 sm:p-8 space-y-8">
               {/* Profile Avatar Header */}
               <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-6 pb-6 border-b border-slate-100">
-                <div className="relative">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-brand-100 font-display text-2xl font-bold text-brand-700 shadow-sm border border-brand-200">
-                    {profile.full_name
-                      ? profile.full_name
-                          .split(' ')
-                          .map(w => w[0])
-                          .slice(0, 2)
-                          .join('')
-                          .toUpperCase()
-                      : profile.email.slice(0, 2).toUpperCase()}
-                  </div>
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-brand-100 font-display text-2xl font-bold text-brand-700 shadow-sm border border-brand-200 flex-shrink-0">
+                  {profile.full_name
+                    ? profile.full_name
+                        .split(' ')
+                        .map(w => w[0])
+                        .slice(0, 2)
+                        .join('')
+                        .toUpperCase()
+                    : profile.email.slice(0, 2).toUpperCase()}
                 </div>
 
                 <div className="text-center sm:text-left flex-1 min-w-0">
                   <h3 className="text-xl font-bold text-slate-900 truncate">
                     {fullName || profile.email}
                   </h3>
-                  <p className="text-xs font-medium text-slate-500 mt-0.5">
-                    {jobTitle || ROLE_LABELS[role]} · <span className="text-brand-600 font-semibold">{ROLE_LABELS[role]}</span>
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5">{profile.email}</p>
+                  
+                  {/* Single Role Badge + Job Title */}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 justify-center sm:justify-start">
+                    <span className="inline-flex items-center rounded-md bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-700/10">
+                      {ROLE_LABELS[role]}
+                    </span>
+                    {jobTitle && (
+                      <span className="text-xs font-medium text-slate-500">
+                        · {jobTitle}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <p className="text-xs text-slate-400 mt-1">{profile.email}</p>
 
                   {/* Accent Badges */}
                   <div className="mt-3 flex items-center gap-2 justify-center sm:justify-start">

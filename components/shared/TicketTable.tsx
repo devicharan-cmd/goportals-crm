@@ -50,13 +50,13 @@ export function TicketTable({
       <table className="hidden w-full table-fixed text-sm md:table">
         <thead>
           <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            <th className={cn('px-5 py-3', showClient ? 'w-[30%]' : 'w-[38%]')}>Ticket</th>
+            <th className={cn('px-5 py-3', showClient ? 'w-[28%]' : 'w-[36%]')}>Ticket</th>
             {showMessages && <th className="w-12 px-2 py-3 text-center"><span className="sr-only">Messages</span></th>}
-            {showClient && <th className="w-[18%] px-3 py-3">Client</th>}
-            <th className={cn('px-3 py-3', showClient ? 'w-[16%]' : 'w-[22%]')}>Category</th>
-            <th className={cn('px-3 py-3', showClient ? 'w-[14%]' : 'w-[18%]')}>Status</th>
-            <th className={cn('px-3 py-3', showClient ? 'w-[11%]' : 'w-[11%]')}>Priority</th>
-            <th className={cn('px-5 py-3', showClient ? 'w-[11%]' : 'w-[11%]')}>Raised</th>
+            {showClient && <th className="w-[18%] whitespace-nowrap px-3 py-3">Client</th>}
+            <th className={cn('whitespace-nowrap px-3 py-3', showClient ? 'w-[16%]' : 'w-[22%]')}>Category</th>
+            <th className={cn('whitespace-nowrap px-3 py-3', showClient ? 'w-[14%]' : 'w-[18%]')}>Status</th>
+            <th className={cn('whitespace-nowrap px-3 py-3', showClient ? 'w-[11%]' : 'w-[11%]')}>Priority</th>
+            <th className={cn('whitespace-nowrap px-5 py-3', showClient ? 'w-[13%]' : 'w-[13%]')}>Raised</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -78,10 +78,10 @@ export function TicketTable({
                   </Link>
                 </td>
               )}
-              {showClient && <td className="truncate px-3 py-3 text-slate-600">{t.client?.company_name ?? '—'}</td>}
-              <td className="truncate px-3 py-3 text-slate-600">{TICKET_CATEGORY_LABELS[t.category]}</td>
-              <td className="px-3 py-3"><StatusBadge label={statusLabels[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} /></td>
-              <td className="px-3 py-3">{t.priority ? <PriorityBadge priority={t.priority} /> : <span className="text-xs text-slate-400">—</span>}</td>
+              {showClient && <td className="whitespace-nowrap truncate px-3 py-3 text-slate-600">{t.client?.company_name ?? '—'}</td>}
+              <td className="whitespace-nowrap truncate px-3 py-3 text-slate-600">{TICKET_CATEGORY_LABELS[t.category]}</td>
+              <td className="whitespace-nowrap px-3 py-3"><StatusBadge label={statusLabels[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} /></td>
+              <td className="whitespace-nowrap px-3 py-3">{t.priority ? <PriorityBadge priority={t.priority} /> : <span className="text-xs text-slate-400">—</span>}</td>
               <td className="whitespace-nowrap px-5 py-3 text-xs text-slate-500">{formatDate(t.created_at)}</td>
             </tr>
           ))}

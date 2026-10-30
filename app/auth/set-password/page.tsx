@@ -12,26 +12,10 @@ function SetPasswordForm() {
   const router = useRouter()
   // 'invite' = first-time setup from an invitation, 'recovery' = password reset.
   const isInvite = useSearchParams().get('flow') === 'invite'
-  const doneHref = isInvite ? '/login?password-set=1' : '/login?password-updated=1'
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
-
-  async function continueToLogin() {
-    setLoading(true)
-    setError('')
-    try {
-      const { error } = await createClient().auth.signOut({ scope: 'local' })
-      if (error) throw error
-      router.replace(doneHref)
-      router.refresh()
-    } catch {
-      setError('Your password was updated, but this recovery session could not be cleared. Retry before continuing.')
-      setLoading(false)
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -39,8 +23,6 @@ function SetPasswordForm() {
     if (password !== confirm) return setError('Passwords do not match.')
     setLoading(true)
     setError('')
-    setSuccess(false)
-    let passwordUpdated = false
     try {
       const supabase = createClient()
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
@@ -61,51 +43,60 @@ function SetPasswordForm() {
         return
       }
 
-      passwordUpdated = true
-      setSuccess(true)
-      const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' })
-      if (signOutError) {
-        setError('Your password was updated, but this recovery session could not be cleared. Retry before continuing.')
-        setLoading(false)
-        return
-      }
+      // Password set successfully and user's session is active.
+      // Redirect directly into their workspace without kicking them out to the login screen.
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .maybeSingle()
 
-      router.replace(doneHref)
-      router.refresh()
+      const targetUrl = profile?.role === 'client' ? '/portal' : '/dashboard'
+      window.location.href = targetUrl
     } catch {
-      setError(passwordUpdated
-        ? 'Your password was updated, but this recovery session could not be cleared. Retry before continuing.'
-        : 'Unable to update your password right now. Check your connection and try again.')
+      setError('Unable to set your password right now. Check your connection and try again.')
       setLoading(false)
     }
   }
 
   return (
     <AuthLayout>
-      <h2 className="text-2xl font-bold">Choose your password</h2>
-      <p className="mt-1 text-sm text-slate-500">You&apos;ll use this with your email to sign in.</p>
-      {success ? (
-        <div className="mt-8 space-y-4">
-          <Alert tone="success">{isInvite
-            ? 'Password set successfully. Please log in with your new password.'
-            : 'Password updated successfully. Please log in with your new password.'}</Alert>
-          {error && <Alert>{error}</Alert>}
-          <Button type="button" size="lg" loading={loading} onClick={continueToLogin} className="w-full">
-            Continue to sign in
-          </Button>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-          {error && <Alert>{error}</Alert>}
-          <Field label="New password" hint="At least 8 characters">
-            <PasswordInput required minLength={8} value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" />
-          </Field>
-          <Field label="Confirm password">
-            <PasswordInput required value={confirm} onChange={e => setConfirm(e.target.value)} autoComplete="new-password" />
-          </Field>
-          <Button type="submit" size="lg" loading={loading} className="w-full">Save and continue</Button>
-        </form>
-      )}
+      <h2 className="text-2xl font-bold">
+        {isInvite ? 'Set your password' : 'Reset your password'}
+      </h2>
+      <p className="mt-1 text-sm text-slate-500">
+        {isInvite
+          ? 'Welcome to GoPortals! Create a password to activate your account.'
+          : 'Enter a new password for your GoPortals account.'}
+      </p>
+
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        {error && <Alert>{error}</Alert>}
+        <Field label={isInvite ? 'Password' : 'New password'} hint="At least 8 characters">
+          <PasswordInput
+            required
+            minLength={8}
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            autoComplete="new-password"
+            placeholder={isInvite ? 'Create a password' : 'Enter new password'}
+          />
+        </Field>
+        <Field label={isInvite ? 'Confirm password' : 'Confirm new password'}>
+          <PasswordInput
+            required
+            value={confirm}
+            onChange={e => setConfirm(e.target.value)}
+            autoComplete="new-password"
+            placeholder={isInvite ? 'Confirm your password' : 'Confirm new password'}
+          />
+        </Field>
+        <Button type="submit" size="lg" loading={loading} className="w-full">
+          {loading
+            ? (isInvite ? 'Activating account…' : 'Updating password…')
+            : (isInvite ? 'Set password and continue' : 'Update password')}
+        </Button>
+      </form>
     </AuthLayout>
   )
 }

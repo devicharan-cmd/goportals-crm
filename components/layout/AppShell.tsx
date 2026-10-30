@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Bell, Briefcase, Building2, CheckSquare, ClipboardList, FileSignature, Flame, LayoutDashboard, Layers,
-  ChevronLeft, ChevronRight, Loader2, LogOut, Menu, PieChart, Settings2, ShieldCheck, UserCircle, UserPlus, Users, X,
+  Bell, Briefcase, Building2, CheckSquare, ChevronDown, ChevronLeft, ChevronRight,
+  ClipboardList, FileSignature, Flame, LayoutDashboard, Layers, Loader2, LogOut,
+  Menu, PieChart, Settings, Settings2, ShieldCheck, User, UserCircle, UserPlus, Users, X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
@@ -27,6 +28,7 @@ const STAFF_NAV: NavGroup[] = [
       { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'admin'] },
       { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'admin', 'team_lead'] },
       { href: '/reports',       label: 'Reports',     icon: PieChart, roles: ['super_admin', 'admin'] },
+      { href: '/settings',      label: 'Setting',     icon: Settings },
     ],
   },
   {
@@ -66,13 +68,30 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false) // desktop: icons-only sidebar
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const profileMenuRef = useRef<HTMLDivElement>(null)
+
   const isClient = user.role === 'client'
   const groups = (isClient ? CLIENT_NAV : STAFF_NAV)
     .map(g => ({ ...g, items: g.items.filter(i => !i.roles || i.roles.includes(user.role)) }))
     .filter(g => g.items.length > 0)
   const notificationsHref = isClient ? '/portal/notifications' : '/notifications'
 
-  useEffect(() => setOpen(false), [pathname])
+  useEffect(() => {
+    setOpen(false)
+    setProfileMenuOpen(false)
+  }, [pathname])
+
+  // Close profile dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Remember the desktop sidebar choice per browser.
   useEffect(() => {
@@ -197,11 +216,12 @@ export function AppShell({
         ))}
       </nav>
 
+      {/* Sidebar Footer: User details (not clickable as link) */}
       <div className={cn('border-t border-slate-200', compact ? 'p-2' : 'p-3')}>
         {signOutError && !compact && <p role="alert" className="mb-2 px-2 text-xs text-red-600">Could not sign out. Please try again.</p>}
         <div className={cn('flex items-center rounded-lg', compact ? 'flex-col gap-2 py-1' : 'gap-3 px-2 py-2')}>
           <span title={compact ? `${user.name || user.email} · ${user.jobTitle || ROLE_LABELS[user.role]}` : undefined}>
-            <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : undefined} size="sm" />
+            <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : undefined} size="md" />
           </span>
           {!compact && (
             <div className="min-w-0 flex-1">
@@ -261,14 +281,85 @@ export function AppShell({
             </div>
           )}
           <div className="flex-1" />
-          <Link href={notificationsHref} className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700" aria-label="Notifications">
-            <Bell className="h-5 w-5" />
-            {counts.notifications > 0 && (
-              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-bold text-brand-950">
-                {counts.notifications > 9 ? '9+' : counts.notifications}
-              </span>
+
+          {/* Right Header Navigation */}
+          <div className="flex items-center gap-2.5">
+            {/* Notification Bell */}
+            <Link
+              href={notificationsHref}
+              className="relative rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5" />
+              {counts.notifications > 0 && (
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-bold text-brand-950">
+                  {counts.notifications > 9 ? '9+' : counts.notifications}
+                </span>
+              )}
+            </Link>
+
+            {/* Profile Dropdown Trigger & Floating Menu */}
+            {!isClient && (
+              <div className="relative" ref={profileMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setProfileMenuOpen(v => !v)}
+                  className={cn(
+                    'flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1.5 transition-all text-left focus:outline-none select-none shadow-xs',
+                    profileMenuOpen
+                      ? 'border-slate-300 bg-slate-50'
+                      : 'hover:border-slate-300 hover:bg-slate-50'
+                  )}
+                  aria-expanded={profileMenuOpen}
+                  aria-haspopup="true"
+                >
+                  <Avatar name={user.name || user.email} size="sm" />
+                  <div className="hidden min-w-0 sm:flex sm:flex-col sm:justify-center text-left">
+                    <p className="max-w-[130px] truncate text-[11px] font-semibold text-slate-900 leading-[1.2]">
+                      {user.name || user.email}
+                    </p>
+                    <p className="text-[10px] font-medium text-slate-500 leading-[1.2]">
+                      {ROLE_LABELS[user.role]}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      'h-3 w-3 flex-shrink-0 text-slate-400 transition-transform duration-200',
+                      profileMenuOpen && 'rotate-180 text-slate-700'
+                    )}
+                  />
+                </button>
+
+                {/* Dropdown Menu: Clean & Minimalist */}
+                {profileMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-slate-200/80 bg-white p-1.5 shadow-pop z-50 animate-in fade-in zoom-in-95 duration-100">
+                    <Link
+                      href="/settings"
+                      onClick={() => setProfileMenuOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
+                    >
+                      <User className="h-4 w-4 text-slate-500" />
+                      Profile
+                    </Link>
+
+                    <div className="border-t border-slate-100 my-1" />
+
+                    <button
+                      onClick={() => {
+                        setProfileMenuOpen(false)
+                        signOut()
+                      }}
+                      disabled={signingOut}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition"
+                    >
+                      {signingOut ? <Loader2 className="h-4 w-4 animate-spin text-red-600" /> : <LogOut className="h-4 w-4" />}
+                      Log out
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
-          </Link>
+          </div>
         </header>
         <div className="flex-1 overflow-y-auto">
           <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>

@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 const PUBLIC_PREFIXES = ['/login', '/signup', '/forgot-password', '/auth']
 // Routes for clients who have not finished signup / are waiting for approval.
 const CLIENT_GATE_PREFIXES = ['/onboarding', '/pending']
-const STAFF_PREFIXES = ['/dashboard', '/tickets', '/tasks', '/urgent', '/clients', '/team', '/reports', '/notifications', '/admin']
+const STAFF_PREFIXES = ['/dashboard', '/tickets', '/tasks', '/urgent', '/clients', '/team', '/reports', '/notifications', '/admin', '/settings', '/profile']
 
 const startsWithAny = (path: string, prefixes: string[]) =>
   prefixes.some(p => path === p || path.startsWith(p + '/'))

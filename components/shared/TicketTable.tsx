@@ -17,7 +17,7 @@ function UnreadMessages({ count }: { count: number }) {
   return (
     <span className="relative inline-flex flex-shrink-0"
           title={count ? `${count} unread message${count === 1 ? '' : 's'}` : 'Open the conversation'}>
-      <MessageSquareText className={cn('h-5 w-5', count ? 'text-slate-700' : 'text-slate-300')} />
+      <MessageSquareText strokeWidth={2.5} className={cn('h-5 w-5', count ? 'text-slate-700' : 'text-slate-400')} />
       {count > 0 && (
         <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-bold text-brand-950">
           {count > 9 ? '9+' : count}
@@ -52,11 +52,11 @@ export function TicketTable({
           <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
             <th className="px-5 py-3">Ticket</th>
             {showClient && <th className="px-3 py-3">Client</th>}
-            {showMessages && <th className="py-3 pl-0 pr-2 text-center"><span className="sr-only">Messages</span></th>}
+            {showMessages && <th className="px-3 py-3 text-center"><span className="sr-only">Messages</span></th>}
             <th className="px-3 py-3">Category</th>
             <th className="px-3 py-3">Status</th>
             <th className="px-3 py-3">Priority</th>
-            <th className="w-full px-5 py-3">Raised</th>
+            <th className="px-5 py-3">Raised</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -73,8 +73,8 @@ export function TicketTable({
               </td>
               {showClient && <td className="px-3 py-3 text-slate-600">{t.client?.company_name ?? '—'}</td>}
               {showMessages && (
-                <td className="py-3 pl-0 pr-2 text-center">
-                  <Link href={`${hrefBase}/${t.id}#conversation`} className="inline-flex" aria-label="Go to the conversation">
+                <td className="px-3 py-3 text-center">
+                  <Link href={`${hrefBase}/${t.id}#conversation`} className="inline-flex" aria-label="Open the conversation">
                     <UnreadMessages count={unreadByTicket?.[t.id] ?? 0} />
                   </Link>
                 </td>
@@ -82,7 +82,7 @@ export function TicketTable({
               <td className="px-3 py-3 text-slate-600">{TICKET_CATEGORY_LABELS[t.category]}</td>
               <td className="px-3 py-3"><StatusBadge label={statusLabels[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} /></td>
               <td className="px-3 py-3">{t.priority ? <PriorityBadge priority={t.priority} /> : <span className="text-xs text-slate-400">—</span>}</td>
-              <td className="w-full px-5 py-3 text-xs text-slate-500">{formatDate(t.created_at)}</td>
+              <td className="px-5 py-3 text-xs text-slate-500">{formatDate(t.created_at)}</td>
             </tr>
           ))}
         </tbody>

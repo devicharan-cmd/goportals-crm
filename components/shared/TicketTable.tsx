@@ -47,22 +47,22 @@ export function TicketTable({
 
   return (
     <>
-      <table className="hidden w-full text-sm md:table">
+      <table className="hidden w-full table-fixed text-sm md:table">
         <thead>
           <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            <th className="w-full px-5 py-3">Ticket</th>
-            {showMessages && <th className="w-10 px-3 py-3 text-center"><span className="sr-only">Messages</span></th>}
-            {showClient && <th className="whitespace-nowrap px-3 py-3">Client</th>}
-            <th className="whitespace-nowrap px-3 py-3">Category</th>
-            <th className="whitespace-nowrap px-3 py-3">Status</th>
-            <th className="whitespace-nowrap px-3 py-3">Priority</th>
-            <th className="whitespace-nowrap px-5 py-3">Raised</th>
+            <th className={cn('px-5 py-3', showClient ? 'w-[30%]' : 'w-[38%]')}>Ticket</th>
+            {showMessages && <th className="w-12 px-2 py-3 text-center"><span className="sr-only">Messages</span></th>}
+            {showClient && <th className="w-[18%] px-3 py-3">Client</th>}
+            <th className={cn('px-3 py-3', showClient ? 'w-[16%]' : 'w-[22%]')}>Category</th>
+            <th className={cn('px-3 py-3', showClient ? 'w-[14%]' : 'w-[18%]')}>Status</th>
+            <th className={cn('px-3 py-3', showClient ? 'w-[11%]' : 'w-[11%]')}>Priority</th>
+            <th className={cn('px-5 py-3', showClient ? 'w-[11%]' : 'w-[11%]')}>Raised</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {tickets.map(t => (
             <tr key={t.id} className="group hover:bg-slate-50/80">
-              <td className="max-w-0 w-full px-5 py-3">
+              <td className="px-5 py-3">
                 <Link href={`${hrefBase}/${t.id}`} className="block">
                   <span className="flex items-center gap-2">
                     <span className="flex-shrink-0 font-mono text-xs font-semibold text-slate-400">{ticketCode(t.ticket_number)}</span>
@@ -72,16 +72,16 @@ export function TicketTable({
                 </Link>
               </td>
               {showMessages && (
-                <td className="w-10 px-3 py-3 text-center">
+                <td className="w-12 px-2 py-3 text-center">
                   <Link href={`${hrefBase}/${t.id}#conversation`} className="inline-flex" aria-label="Open the conversation">
                     <UnreadMessages count={unreadByTicket?.[t.id] ?? 0} />
                   </Link>
                 </td>
               )}
-              {showClient && <td className="whitespace-nowrap px-3 py-3 text-slate-600">{t.client?.company_name ?? '—'}</td>}
-              <td className="whitespace-nowrap px-3 py-3 text-slate-600">{TICKET_CATEGORY_LABELS[t.category]}</td>
-              <td className="whitespace-nowrap px-3 py-3"><StatusBadge label={statusLabels[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} /></td>
-              <td className="whitespace-nowrap px-3 py-3">{t.priority ? <PriorityBadge priority={t.priority} /> : <span className="text-xs text-slate-400">—</span>}</td>
+              {showClient && <td className="truncate px-3 py-3 text-slate-600">{t.client?.company_name ?? '—'}</td>}
+              <td className="truncate px-3 py-3 text-slate-600">{TICKET_CATEGORY_LABELS[t.category]}</td>
+              <td className="px-3 py-3"><StatusBadge label={statusLabels[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} /></td>
+              <td className="px-3 py-3">{t.priority ? <PriorityBadge priority={t.priority} /> : <span className="text-xs text-slate-400">—</span>}</td>
               <td className="whitespace-nowrap px-5 py-3 text-xs text-slate-500">{formatDate(t.created_at)}</td>
             </tr>
           ))}

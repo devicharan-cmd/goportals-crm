@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ClipboardList, MessageSquare } from 'lucide-react'
+import { ClipboardList, MessageSquareText } from 'lucide-react'
 import { EmptyState } from '@/components/ui/primitives'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_LABELS_CLIENT, TICKET_STATUS_STYLES, TICKET_TERMINAL_STATUSES } from '@/lib/constants'
@@ -9,13 +9,18 @@ import type { Ticket } from '@/types/database'
 
 export type TicketListItem = Ticket & { client?: { id: string; company_name: string } | null }
 
-/** Unread messages on a ticket, counted like a chat: nothing shown at zero. */
+/**
+ * Unread messages on a ticket: the count rides the corner of a chat icon, the
+ * way the notification bell carries its own. Nothing is shown at zero.
+ */
 function UnreadMessages({ count }: { count: number }) {
   if (!count) return null
   return (
-    <span title={`${count} unread message${count === 1 ? '' : 's'}`}
-          className="inline-flex flex-shrink-0 items-center gap-1 rounded-full bg-lime-500 px-2 py-0.5 text-[11px] font-semibold text-brand-950">
-      <MessageSquare className="h-3 w-3" />{count}
+    <span className="relative inline-flex flex-shrink-0" title={`${count} unread message${count === 1 ? '' : 's'}`}>
+      <MessageSquareText className="h-5 w-5 text-slate-700" />
+      <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-bold text-brand-950">
+        {count > 9 ? '9+' : count}
+      </span>
     </span>
   )
 }
@@ -33,6 +38,7 @@ export function TicketTable({
   unreadByTicket?: Record<string, number>
 }) {
   const statusLabels = audience === 'client' ? TICKET_STATUS_LABELS_CLIENT : TICKET_STATUS_LABELS
+  const showMessages = !!unreadByTicket
   if (tickets.length === 0) {
     return <EmptyState icon={ClipboardList} title={empty?.title ?? 'No tickets'} description={empty?.description} action={empty?.action} />
   }
@@ -44,6 +50,7 @@ export function TicketTable({
           <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
             <th className="px-5 py-3">Ticket</th>
             {showClient && <th className="px-3 py-3">Client</th>}
+            {showMessages && <th className="w-10 px-2 py-3"><span className="sr-only">Messages</span></th>}
             <th className="px-3 py-3">Category</th>
             <th className="px-3 py-3">Status</th>
             <th className="px-3 py-3">Priority</th>
@@ -63,12 +70,8 @@ export function TicketTable({
                 </Link>
               </td>
               {showClient && <td className="px-3 py-3 text-slate-600">{t.client?.company_name ?? '—'}</td>}
-              <td className="px-3 py-3 text-slate-600">
-                <span className="flex items-center gap-2">
-                  <UnreadMessages count={unreadByTicket?.[t.id] ?? 0} />
-                  {TICKET_CATEGORY_LABELS[t.category]}
-                </span>
-              </td>
+              {showMessages && <td className="w-10 px-2 py-3"><UnreadMessages count={unreadByTicket?.[t.id] ?? 0} /></td>}
+              <td className="px-3 py-3 text-slate-600">{TICKET_CATEGORY_LABELS[t.category]}</td>
               <td className="px-3 py-3"><StatusBadge label={statusLabels[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} /></td>
               <td className="px-3 py-3">{t.priority ? <PriorityBadge priority={t.priority} /> : <span className="text-xs text-slate-400">—</span>}</td>
               <td className="px-5 py-3 text-right text-xs text-slate-500">{formatDate(t.created_at)}</td>

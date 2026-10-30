@@ -221,7 +221,7 @@ export function AppShell({
         {signOutError && !compact && <p role="alert" className="mb-2 px-2 text-xs text-red-600">Could not sign out. Please try again.</p>}
         <div className={cn('flex items-center rounded-lg', compact ? 'flex-col gap-2 py-1' : 'gap-3 px-2 py-2')}>
           <span title={compact ? `${user.name || user.email} · ${user.jobTitle || ROLE_LABELS[user.role]}` : undefined}>
-            <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : undefined} size="sm" />
+            <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : undefined} size="md" />
           </span>
           {!compact && (
             <div className="min-w-0 flex-1">

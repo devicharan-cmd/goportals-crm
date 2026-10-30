@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
 import { ROLE_LABELS } from '@/lib/constants'
-import { cn, errorMessage, formatRelative } from '@/lib/utils'
+import { cn, errorMessage, formatRelative, splitTeamName } from '@/lib/utils'
 
 /** "Today" / "Yesterday" / "12 Mar" — the separator between days of chat. */
 function dayLabel(iso: string) {
@@ -129,6 +129,7 @@ export function CommentThread({
           {shown.map((c, i) => {
             const author = c.author_id ?? ''
             const role = roles?.[author]
+            const [senderName, senderQualifier] = splitTeamName(names[author] ?? '')
             const mine = author === meId
             const prev = shown[i - 1]
             // A new day, or a different person, starts a fresh block.
@@ -145,12 +146,15 @@ export function CommentThread({
                 )}
                 <div className={cn('flex items-end gap-2', mine ? 'flex-row-reverse' : 'flex-row', newBlock ? 'mt-2.5' : 'mt-0.5')}>
                   <span className={cn('w-7 flex-shrink-0', mine && 'hidden')}>
-                    {newBlock && !mine && <Avatar name={names[author] ?? '?'} size="xs" />}
+                    {newBlock && !mine && <Avatar name={senderName || '?'} size="xs" />}
                   </span>
                   <div className={cn('flex min-w-0 max-w-[78%] flex-col', mine ? 'items-end' : 'items-start')}>
                     {newBlock && !mine && (
                       <span className="mb-1 flex items-center gap-2 px-1 text-xs">
-                        <span className="font-semibold text-slate-700">{names[author] ?? 'Unknown'}</span>
+                        <span className="font-semibold text-slate-700">
+                          {senderName || 'Unknown'}
+                          {senderQualifier && <span className="ml-1 text-[11px] font-normal text-slate-500">({senderQualifier})</span>}
+                        </span>
                         {role && <span className="text-slate-400">{ROLE_LABELS[role]}</span>}
                       </span>
                     )}
@@ -206,7 +210,10 @@ export function CommentThread({
               : willBePublic ? 'Write a reply the client will see…'
               : 'Write a note for the team (client won’t see this)…'
             }
-            className="max-h-40 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-2.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+            // An empty box scrolls nothing: without this a placeholder that wraps
+            // onto a second line puts a scrollbar in the composer.
+            className={cn('max-h-40 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-2.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0',
+              body ? 'overflow-y-auto' : 'overflow-hidden')}
           />
           <Button type="submit" size="sm" loading={saving} disabled={!body.trim()}
                   className="h-9 w-9 flex-shrink-0 rounded-full p-0" aria-label="Send message">

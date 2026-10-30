@@ -131,3 +131,12 @@ export function parseTicketCode(s: string | null | undefined): number | null {
   const m = (s ?? '').trim().match(/^(?:tk-?|#)?(\d{1,9})$/i)
   return m ? Number(m[1]) : null
 }
+
+/**
+ * Splits "GoPortals team (Manager)" into the name and its qualifier, so the
+ * qualifier can be said quieter than the name wherever a client reads it.
+ */
+export function splitTeamName(name: string): [string, string | null] {
+  const m = name?.match(/^(.*?)\s+\((.+)\)$/)
+  return m ? [m[1], m[2]] : [name ?? '', null]
+}

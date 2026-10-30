@@ -19,7 +19,7 @@ import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conv
 import { CloseTicketButton } from '@/components/portal/CloseTicketButton'
 import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
 import { clientPortalTicketStatus } from '@/lib/ticket-status'
-import { formatDate, ticketCode } from '@/lib/utils'
+import { formatDate, splitTeamName, ticketCode } from '@/lib/utils'
 import type { TicketActivity, TicketComment, Ticket } from '@/types/database'
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
@@ -48,7 +48,13 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
   const replyAuthor = latestPublicMessage?.author_id
     ? (staffDirectory as { id: string; full_name: string | null; role: string }[] | null)?.find(person => person.id === latestPublicMessage.author_id && ['admin', 'super_admin'].includes(person.role))
     : undefined
-  const replyAuthorName = replyAuthor?.full_name?.trim() || (replyAuthor ? 'GoPortals team' : null)
+  // The client never reads a staff member's own name: getPortalNames() is the
+  // one place that decides what they are called, so the badge and the
+  // conversation say the same thing.
+  const replyAuthorName = replyAuthor && latestPublicMessage?.author_id
+    ? names[latestPublicMessage.author_id] ?? 'GoPortals team'
+    : null
+  const handledBy = splitTeamName(ticket.assignee_id ? names[ticket.assignee_id] ?? 'GoPortals team' : '')
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
   const canEdit = portalStatus === 'new' && ticket.created_by === me.id
   const canClose = ['resolved', 'ready_for_client'].includes(portalStatus)
@@ -74,7 +80,6 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
               <span className="font-mono text-xs font-semibold text-slate-400">{ticketCode(ticket.ticket_number)}</span>
               {ticket.is_urgent && ticket.status !== 'closed' && <UrgentBadge />}
               <ClientTicketStatusBadge status={portalStatus} />
-              <ClientReplyBadge ticketId={ticket.id} authorName={replyAuthorName} />
               {ticket.priority && <PriorityBadge priority={ticket.priority} />}
               <span className="ml-auto text-xs text-slate-400">{TICKET_CATEGORY_LABELS[ticket.category]}</span>
             </div>
@@ -98,7 +103,19 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
                     </div>
                   )
                 })}
+                {replyAuthorName && (
+                  <div className="flex items-center bg-white px-3 py-2">
+                    <ClientReplyBadge ticketId={ticket.id} authorName={replyAuthorName} />
+                  </div>
+                )}
               </dl>
+            )}
+
+            {/* A ticket with no detail fields has no grid for the badge to sit in. */}
+            {replyAuthorName && Object.keys(ticket.details ?? {}).length === 0 && (
+              <div className="mt-4">
+                <ClientReplyBadge ticketId={ticket.id} authorName={replyAuthorName} />
+              </div>
             )}
 
             {canClose && <CloseTicketButton ticketId={ticket.id} />}
@@ -138,7 +155,9 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
               <div className="flex items-center justify-between gap-3 px-5 py-2.5">
                 <dt className="text-slate-500">Handled by</dt>
                 <dd>{ticket.assignee_id
-                  ? <span className="flex items-center gap-2"><Avatar name={names[ticket.assignee_id]} size="xs" />{names[ticket.assignee_id] ?? 'GoPortals team'}</span>
+                  ? <span className="flex items-center gap-2"><Avatar name={handledBy[0]} size="xs" />
+                      <span>{handledBy[0]}{handledBy[1] && <span className="ml-1 text-[11px] font-normal text-slate-500">({handledBy[1]})</span>}</span>
+                    </span>
                   : <span className="text-slate-400">{['resolved', 'closed'].includes(ticket.status) ? 'GoPortals team' : 'Being assigned'}</span>}</dd>
               </div>
               {[

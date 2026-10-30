@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Bell, Briefcase, Building2, CheckSquare, ClipboardList, FileSignature, Flame, LayoutDashboard, Layers,
-  ChevronLeft, ChevronRight, Loader2, LogOut, Mail, Menu, PieChart, Settings, Settings2, ShieldCheck, User, UserCircle, UserPlus, Users, X,
+  Bell, Briefcase, Building2, CheckSquare, ChevronDown, ChevronLeft, ChevronRight,
+  ClipboardList, FileSignature, Flame, LayoutDashboard, Layers, Loader2, LogOut,
+  Menu, PieChart, Settings2, ShieldCheck, User, UserCircle, UserPlus, Users, X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
@@ -27,7 +28,6 @@ const STAFF_NAV: NavGroup[] = [
       { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'admin'] },
       { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'admin', 'team_lead'] },
       { href: '/reports',       label: 'Reports',     icon: PieChart, roles: ['super_admin', 'admin'] },
-      { href: '/settings',      label: 'Settings',    icon: Settings, roles: ['super_admin', 'admin', 'team_lead', 'employee'] },
     ],
   },
   {
@@ -37,6 +37,7 @@ const STAFF_NAV: NavGroup[] = [
       { href: '/admin/users',     label: 'Users & invites', icon: UserPlus, roles: ['super_admin', 'admin'] },
       { href: '/admin/settings',  label: 'Platforms & services', icon: Settings2, roles: ['super_admin'] },
       { href: '/admin/agreement', label: 'Agreement',  icon: FileSignature, roles: ['super_admin'] },
+      { href: '/settings',        label: 'My profile', icon: UserCircle, roles: ['super_admin'] },
     ],
   },
 ]
@@ -287,7 +288,7 @@ export function AppShell({
           <div className="flex-1" />
 
           {/* Right Header Navigation */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {/* Notification Bell */}
             <Link
               href={notificationsHref}
@@ -302,18 +303,6 @@ export function AppShell({
               )}
             </Link>
 
-            {/* Quick Settings Icon Button */}
-            {!isClient && (
-              <Link
-                href="/settings"
-                title="Settings"
-                className="relative rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
-                aria-label="Settings"
-              >
-                <Settings className="h-5 w-5" />
-              </Link>
-            )}
-
             {/* Profile Dropdown Trigger & Floating Menu */}
             {!isClient && (
               <div className="relative" ref={profileMenuRef}>
@@ -321,93 +310,87 @@ export function AppShell({
                   type="button"
                   onClick={() => setProfileMenuOpen(v => !v)}
                   className={cn(
-                    'flex items-center gap-2.5 rounded-xl border p-1 sm:px-2.5 sm:py-1.5 transition text-left focus:outline-none',
+                    'flex items-center gap-2.5 rounded-full border pl-1 pr-3.5 py-1 transition-all duration-200 text-left focus:outline-none select-none',
                     profileMenuOpen
-                      ? 'border-brand-300 bg-brand-50/70 shadow-sm'
-                      : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
+                      ? 'border-brand-500 bg-brand-50/80 shadow-sm ring-2 ring-brand-200'
+                      : 'border-slate-200/90 bg-white/90 hover:border-slate-300 hover:bg-slate-50 hover:shadow-xs'
                   )}
                   aria-expanded={profileMenuOpen}
                   aria-haspopup="true"
                 >
-                  <Avatar name={user.name || user.email} size="sm" />
+                  <div className="relative flex-shrink-0">
+                    <Avatar name={user.name || user.email} size="sm" className="ring-2 ring-white shadow-xs" />
+                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+                  </div>
                   <div className="hidden min-w-0 sm:block text-left">
-                    <p className="max-w-[140px] truncate text-xs font-semibold text-slate-900 leading-tight">
+                    <p className="max-w-[150px] truncate text-xs font-semibold text-slate-900 leading-snug">
                       {user.name || user.email}
                     </p>
-                    <p className="text-[11px] font-medium text-slate-500 leading-tight">
+                    <p className="text-[10px] font-medium text-slate-500 leading-none mt-0.5">
                       {ROLE_LABELS[user.role]}
                     </p>
                   </div>
+                  <ChevronDown
+                    className={cn(
+                      'h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ml-0.5',
+                      profileMenuOpen && 'rotate-180 text-brand-600'
+                    )}
+                  />
                 </button>
 
-                {/* Dropdown Menu (Styled matching design mockup) */}
+                {/* Dropdown Menu */}
                 {profileMenuOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-60 rounded-2xl border border-slate-100 bg-white p-2 shadow-pop z-50 animate-in fade-in zoom-in-95 duration-150">
-                    {/* Header info */}
-                    <div className="flex items-center gap-3 border-b border-slate-100 px-3 py-2.5 mb-1">
-                      <Avatar name={user.name || user.email} size="sm" />
+                  <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-slate-100 bg-white p-3 shadow-pop z-50 animate-in fade-in zoom-in-95 duration-150">
+                    {/* Rich Profile Details Header */}
+                    <div className="flex items-start gap-3 rounded-xl bg-slate-50/90 p-3 mb-2 border border-slate-100">
+                      <Avatar name={user.name || user.email} size="md" className="ring-2 ring-white shadow-xs mt-0.5" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-slate-900">{user.name || user.email}</p>
-                        <p className="text-[11px] font-medium text-brand-600">{ROLE_LABELS[user.role]}</p>
+                        <p className="truncate text-sm font-bold text-slate-900 leading-tight">
+                          {user.name || user.email}
+                        </p>
+                        <p className="truncate text-xs text-slate-500 mt-0.5">{user.email}</p>
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <span className="inline-flex items-center rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-800">
+                            {ROLE_LABELS[user.role]}
+                          </span>
+                          {user.jobTitle && (
+                            <span className="truncate text-[10px] text-slate-500">· {user.jobTitle}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="space-y-0.5">
+                    {/* Menu Items: Profile shortcut */}
+                    <div className="space-y-1">
                       <Link
                         href="/settings"
                         onClick={() => setProfileMenuOpen(false)}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
+                        className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-900 transition group"
                       >
-                        <User className="h-4 w-4 text-slate-400" />
-                        Account
-                      </Link>
-
-                      <Link
-                        href="/notifications"
-                        onClick={() => setProfileMenuOpen(false)}
-                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
-                      >
-                        <span className="flex items-center gap-2.5">
-                          <Mail className="h-4 w-4 text-slate-400" />
-                          Inbox
-                        </span>
-                        {counts.notifications > 0 && (
-                          <span className="rounded-full bg-lime-100 px-2 py-0.5 text-[10px] font-bold text-lime-800">
-                            {counts.notifications}
-                          </span>
-                        )}
-                      </Link>
-
-                      <Link
-                        href="/tasks"
-                        onClick={() => setProfileMenuOpen(false)}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
-                      >
-                        <CheckSquare className="h-4 w-4 text-slate-400" />
-                        Taskboard
-                      </Link>
-
-                      <Link
-                        href="/settings"
-                        onClick={() => setProfileMenuOpen(false)}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
-                      >
-                        <Settings className="h-4 w-4 text-slate-400" />
-                        Setting
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-brand-100 group-hover:text-brand-700 transition">
+                          <User className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="leading-tight">My Profile</p>
+                          <p className="text-[10px] font-normal text-slate-400 group-hover:text-brand-600">View and update your profile</p>
+                        </div>
                       </Link>
                     </div>
 
-                    <div className="border-t border-slate-100 mt-1 pt-1">
+                    {/* Logout */}
+                    <div className="border-t border-slate-100 mt-2 pt-2">
                       <button
                         onClick={() => {
                           setProfileMenuOpen(false)
                           signOut()
                         }}
                         disabled={signingOut}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition"
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition group"
                       >
-                        {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-                        Log out
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600 group-hover:bg-red-100 transition">
+                          {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
+                        </div>
+                        <span className="leading-tight">{signingOut ? 'Signing out…' : 'Log out'}</span>
                       </button>
                     </div>
                   </div>

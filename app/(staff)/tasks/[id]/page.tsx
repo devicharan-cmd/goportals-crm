@@ -121,7 +121,7 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
 
           <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader title={`Discussion (${(comments ?? []).length})`}
-                        description={me.role === 'employee' ? 'Your comments are visible to the team only.' : 'Choose “Team only” or “Public” for each comment. Client messages are always public.'} />
+                        description="Visible to the GoPortals team. Clients do not see tasks — reply on the ticket instead." />
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={task.id} comments={(comments ?? []) as TaskComment[]} names={names}
                              roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))} meId={me.id} myRole={me.role} bounded />

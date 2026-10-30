@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Check, CheckCircle2, Lock, User, AlertCircle, Loader2
+  Check, CheckCircle2, Lock, Pencil, User, AlertCircle, Loader2
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ROLE_LABELS } from '@/lib/constants'
@@ -19,14 +19,6 @@ interface StaffProfileSettingsProps {
   actorRole: AppRole
 }
 
-const COLOR_ACCENTS = [
-  { name: 'Emerald', bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-500' },
-  { name: 'Sky',     bg: 'bg-sky-100',     text: 'text-sky-800',     border: 'border-sky-500' },
-  { name: 'Violet',  bg: 'bg-violet-100',  text: 'text-violet-800',  border: 'border-violet-500' },
-  { name: 'Amber',   bg: 'bg-amber-100',   text: 'text-amber-800',   border: 'border-amber-500' },
-  { name: 'Rose',    bg: 'bg-rose-100',    text: 'text-rose-800',    border: 'border-rose-500' },
-]
-
 export function StaffProfileSettings({
   profile,
   departments,
@@ -36,7 +28,10 @@ export function StaffProfileSettings({
   const router = useRouter()
   const isSuperAdmin = actorRole === 'super_admin'
 
-  // Editable form state
+  // View vs Edit mode state (defaults to uneditable view mode)
+  const [isEditing, setIsEditing] = useState(false)
+
+  // Form state
   const [fullName, setFullName] = useState(profile.full_name || '')
   const [phone, setPhone] = useState(profile.phone || '')
   const [jobTitle, setJobTitle] = useState(profile.job_title || '')
@@ -45,7 +40,6 @@ export function StaffProfileSettings({
     profile.weekly_capacity_hours != null ? String(profile.weekly_capacity_hours) : '40'
   )
   const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>(initialDepartmentIds)
-  const [selectedColor, setSelectedColor] = useState(0)
 
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -60,10 +54,11 @@ export function StaffProfileSettings({
     setSelectedDeptIds(initialDepartmentIds)
     setError('')
     setSuccess(false)
+    setIsEditing(false)
   }
 
   function toggleDepartment(deptId: string) {
-    if (!isSuperAdmin) return
+    if (!isSuperAdmin || !isEditing) return
     setSelectedDeptIds(prev =>
       prev.includes(deptId) ? prev.filter(id => id !== deptId) : [...prev, deptId]
     )
@@ -126,6 +121,8 @@ export function StaffProfileSettings({
         }
       }
 
+      // After updating, lock fields back to uneditable mode
+      setIsEditing(false)
       setSuccess(true)
       router.refresh()
       setTimeout(() => setSuccess(false), 4000)
@@ -174,7 +171,7 @@ export function StaffProfileSettings({
               {success && (
                 <span className="flex items-center gap-1.5 rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800 ring-1 ring-lime-200 animate-in fade-in">
                   <CheckCircle2 className="h-4 w-4 text-lime-600" />
-                  All changes saved
+                  Profile updated successfully
                 </span>
               )}
             </div>
@@ -198,7 +195,7 @@ export function StaffProfileSettings({
                     {fullName || profile.email}
                   </h3>
                   
-                  {/* Single Role Badge + Job Title */}
+                  {/* Single Role Badge + Job Title (no duplicate) */}
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 justify-center sm:justify-start">
                     <span className="inline-flex items-center rounded-md bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-700/10">
                       {ROLE_LABELS[role]}
@@ -211,26 +208,6 @@ export function StaffProfileSettings({
                   </div>
                   
                   <p className="text-xs text-slate-400 mt-1">{profile.email}</p>
-
-                  {/* Accent Badges */}
-                  <div className="mt-3 flex items-center gap-2 justify-center sm:justify-start">
-                    <span className="text-xs text-slate-400">Accent:</span>
-                    {COLOR_ACCENTS.map((c, i) => (
-                      <button
-                        key={c.name}
-                        type="button"
-                        onClick={() => setSelectedColor(i)}
-                        title={c.name}
-                        className={cn(
-                          'h-6 w-6 rounded-full border-2 transition flex items-center justify-center',
-                          c.bg,
-                          selectedColor === i ? 'ring-2 ring-brand-500 ring-offset-1 ' + c.border : 'border-transparent'
-                        )}
-                      >
-                        {selectedColor === i && <Check className="h-3 w-3 text-slate-700" />}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
 
@@ -244,13 +221,19 @@ export function StaffProfileSettings({
                   <input
                     type="text"
                     value={fullName}
+                    disabled={!isEditing}
                     onChange={e => setFullName(e.target.value)}
                     placeholder="Enter your full name"
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition shadow-sm"
+                    className={cn(
+                      'w-full rounded-xl border px-3.5 py-2.5 text-sm transition shadow-sm',
+                      isEditing
+                        ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+                        : 'border-slate-200 bg-slate-50/70 text-slate-700 cursor-default'
+                    )}
                   />
                 </div>
 
-                {/* Email (Read-Only) */}
+                {/* Email (Always Read-Only) */}
                 <div>
                   <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
                     <span>Email</span>
@@ -271,13 +254,13 @@ export function StaffProfileSettings({
                 <div>
                   <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
                     <span>Role</span>
-                    {!isSuperAdmin && (
+                    {(!isSuperAdmin || !isEditing) && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
                     )}
                   </label>
-                  {isSuperAdmin ? (
+                  {isSuperAdmin && isEditing ? (
                     <select
                       value={role}
                       onChange={e => setRole(e.target.value as AppRole)}
@@ -303,9 +286,15 @@ export function StaffProfileSettings({
                   <input
                     type="tel"
                     value={phone}
+                    disabled={!isEditing}
                     onChange={e => setPhone(e.target.value)}
                     placeholder="e.g. +91 98765 43210"
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition shadow-sm"
+                    className={cn(
+                      'w-full rounded-xl border px-3.5 py-2.5 text-sm transition shadow-sm',
+                      isEditing
+                        ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+                        : 'border-slate-200 bg-slate-50/70 text-slate-700 cursor-default'
+                    )}
                   />
                 </div>
 
@@ -313,7 +302,7 @@ export function StaffProfileSettings({
                 <div>
                   <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
                     <span>Job title</span>
-                    {!isSuperAdmin && (
+                    {(!isSuperAdmin || !isEditing) && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
@@ -322,12 +311,12 @@ export function StaffProfileSettings({
                   <input
                     type="text"
                     value={jobTitle}
-                    disabled={!isSuperAdmin}
+                    disabled={!isSuperAdmin || !isEditing}
                     onChange={e => isSuperAdmin && setJobTitle(e.target.value)}
                     placeholder="e.g. Ads Executive, Senior Designer"
                     className={cn(
                       'w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm transition shadow-sm',
-                      isSuperAdmin
+                      isSuperAdmin && isEditing
                         ? 'text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
                         : 'bg-slate-50/70 text-slate-600 cursor-not-allowed'
                     )}
@@ -338,7 +327,7 @@ export function StaffProfileSettings({
                 <div>
                   <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
                     <span>Weekly capacity</span>
-                    {!isSuperAdmin && (
+                    {(!isSuperAdmin || !isEditing) && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
@@ -350,12 +339,12 @@ export function StaffProfileSettings({
                       min="1"
                       max="168"
                       value={weeklyCapacity}
-                      disabled={!isSuperAdmin}
+                      disabled={!isSuperAdmin || !isEditing}
                       onChange={e => isSuperAdmin && setWeeklyCapacity(e.target.value)}
                       placeholder="40"
                       className={cn(
                         'w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm pr-16 transition shadow-sm',
-                        isSuperAdmin
+                        isSuperAdmin && isEditing
                           ? 'text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
                           : 'bg-slate-50/70 text-slate-600 cursor-not-allowed'
                       )}
@@ -373,7 +362,7 @@ export function StaffProfileSettings({
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">
                     Departments
                   </label>
-                  {!isSuperAdmin && (
+                  {(!isSuperAdmin || !isEditing) && (
                     <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400">
                       <Lock className="h-3 w-3" /> Assigned by Super Admin
                     </span>
@@ -387,15 +376,15 @@ export function StaffProfileSettings({
                       <button
                         key={dept.id}
                         type="button"
-                        disabled={!isSuperAdmin}
+                        disabled={!isSuperAdmin || !isEditing}
                         onClick={() => toggleDepartment(dept.id)}
                         className={cn(
                           'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition',
                           isSelected
                             ? 'bg-brand-600 text-white shadow-sm ring-1 ring-brand-700'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80',
-                          !isSuperAdmin && !isSelected && 'opacity-40 cursor-not-allowed',
-                          !isSuperAdmin && isSelected && 'cursor-default'
+                          (!isSuperAdmin || !isEditing) && !isSelected && 'opacity-40 cursor-not-allowed',
+                          (!isSuperAdmin || !isEditing) && isSelected && 'cursor-default'
                         )}
                       >
                         {isSelected && <Check className="h-3.5 w-3.5" />}
@@ -423,23 +412,35 @@ export function StaffProfileSettings({
                 </div>
               )}
 
-              {/* Action Buttons */}
+              {/* Action Buttons: View mode has 'Update profile'; Edit mode has 'Discard' and 'Save changes' */}
               <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={handleDiscard}
-                  disabled={saving}
-                  className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition disabled:opacity-50"
-                >
-                  Discard
-                </button>
-                <Button
-                  onClick={handleSave}
-                  loading={saving}
-                  className="px-6 py-2.5 rounded-xl font-semibold shadow-sm"
-                >
-                  Save changes
-                </Button>
+                {!isEditing ? (
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    className="px-6 py-2.5 rounded-xl font-semibold shadow-sm inline-flex items-center gap-2"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Update profile
+                  </Button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleDiscard}
+                      disabled={saving}
+                      className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition disabled:opacity-50"
+                    >
+                      Discard
+                    </button>
+                    <Button
+                      onClick={handleSave}
+                      loading={saving}
+                      className="px-6 py-2.5 rounded-xl font-semibold shadow-sm"
+                    >
+                      Save changes
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

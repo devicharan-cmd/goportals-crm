@@ -305,7 +305,7 @@ export function AppShell({
                   type="button"
                   onClick={() => setProfileMenuOpen(v => !v)}
                   className={cn(
-                    'flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 transition-all text-left focus:outline-none select-none shadow-xs',
+                    'flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1.5 transition-all text-left focus:outline-none select-none shadow-xs',
                     profileMenuOpen
                       ? 'border-slate-300 bg-slate-50'
                       : 'hover:border-slate-300 hover:bg-slate-50'
@@ -313,18 +313,18 @@ export function AppShell({
                   aria-expanded={profileMenuOpen}
                   aria-haspopup="true"
                 >
-                  <Avatar name={user.name || user.email} size="xs" className="!h-6 !w-6 !text-[11px]" />
-                  <div className="hidden min-w-0 sm:block text-left">
-                    <p className="max-w-[130px] truncate text-[11px] font-semibold text-slate-900 leading-tight">
+                  <Avatar name={user.name || user.email} size="sm" />
+                  <div className="hidden min-w-0 sm:flex sm:flex-col sm:justify-center text-left">
+                    <p className="max-w-[130px] truncate text-[11px] font-semibold text-slate-900 leading-[1.2]">
                       {user.name || user.email}
                     </p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-tight">
+                    <p className="text-[10px] font-medium text-slate-500 leading-[1.2]">
                       {ROLE_LABELS[user.role]}
                     </p>
                   </div>
                   <ChevronDown
                     className={cn(
-                      'h-3 w-3 text-slate-400 transition-transform duration-200',
+                      'h-3 w-3 flex-shrink-0 text-slate-400 transition-transform duration-200',
                       profileMenuOpen && 'rotate-180 text-slate-700'
                     )}
                   />

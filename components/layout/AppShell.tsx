@@ -313,7 +313,7 @@ export function AppShell({
                   aria-expanded={profileMenuOpen}
                   aria-haspopup="true"
                 >
-                  <Avatar name={user.name || user.email} size="xs" />
+                  <Avatar name={user.name || user.email} size="xs" className="!h-6 !w-6 !text-[11px]" />
                   <div className="hidden min-w-0 sm:block text-left">
                     <p className="max-w-[130px] truncate text-[11px] font-semibold text-slate-900 leading-tight">
                       {user.name || user.email}

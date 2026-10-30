@@ -57,7 +57,11 @@ export function CommentThread({
   const isStaff = myRole !== 'client'
   const isTicketThread = table === 'ticket_comments'
   const scrollRef = useRef<HTMLDivElement | null>(null)
-  const canChoose = myRole === 'super_admin' || myRole === 'admin' || (!isTicketThread && myRole === 'team_lead')
+  // Only a ticket has a client reading it. task_visible() denies clients any
+  // task access, so every task comment is staff-only whatever is_internal says
+  // — offering "Public (client can see)" there promises an audience that will
+  // never read it.
+  const canChoose = isTicketThread && (myRole === 'super_admin' || myRole === 'admin')
   const [body, setBody] = useState('')
   const [isPublic, setIsPublic] = useState(true)
   const [filter, setFilter] = useState<'all' | 'public' | 'team'>('all')
@@ -101,7 +105,7 @@ export function CommentThread({
 
   return (
     <div className={bounded ? 'flex h-full min-h-0 flex-col' : undefined}>
-      {isStaff && comments.length > 0 && (
+      {isStaff && isTicketThread && comments.length > 0 && (
         <div className="mb-4 inline-flex rounded-lg bg-slate-100 p-1 text-xs font-medium">
           {([
             ['all', `All (${comments.length})`],
@@ -164,7 +168,7 @@ export function CommentThread({
                       {showReceipts && mine && !c.is_internal && (c.seen_at
                         ? <span className="inline-flex items-center gap-0.5 text-brand-600" title={`Seen ${formatRelative(c.seen_at)}`}><CheckCheck className="h-3.5 w-3.5" /> Seen</span>
                         : <span className="inline-flex items-center gap-0.5" title="Sent"><Check className="h-3.5 w-3.5" /> Sent</span>)}
-                      {isStaff && (c.is_internal
+                      {isStaff && isTicketThread && (c.is_internal
                         ? <span className="inline-flex items-center gap-0.5 font-medium text-amber-700"><Lock className="h-2.5 w-2.5" /> Team only</span>
                         : <span className="inline-flex items-center gap-0.5 font-medium text-brand-600"><Globe className="h-2.5 w-2.5" /> Public</span>)}
                     </span>
@@ -198,6 +202,7 @@ export function CommentThread({
             }}
             placeholder={
               myRole === 'client' ? 'Write a message to the GoPortals team…'
+              : !isTicketThread ? 'Write a note for the team…'
               : willBePublic ? 'Write a reply the client will see…'
               : 'Write a note for the team (client won’t see this)…'
             }

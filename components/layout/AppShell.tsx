@@ -28,6 +28,7 @@ const STAFF_NAV: NavGroup[] = [
       { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'admin'] },
       { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'admin', 'team_lead'] },
       { href: '/reports',       label: 'Reports',     icon: PieChart, roles: ['super_admin', 'admin'] },
+      { href: '/settings',      label: 'Setting',     icon: Settings },
     ],
   },
   {
@@ -37,7 +38,6 @@ const STAFF_NAV: NavGroup[] = [
       { href: '/admin/users',     label: 'Users & invites', icon: UserPlus, roles: ['super_admin', 'admin'] },
       { href: '/admin/settings',  label: 'Platforms & services', icon: Settings2, roles: ['super_admin'] },
       { href: '/admin/agreement', label: 'Agreement',  icon: FileSignature, roles: ['super_admin'] },
-      { href: '/settings',        label: 'Setting',    icon: Settings, roles: ['super_admin'] },
     ],
   },
 ]
@@ -216,23 +216,18 @@ export function AppShell({
         ))}
       </nav>
 
+      {/* Sidebar Footer: User details (not clickable as link) */}
       <div className={cn('border-t border-slate-200', compact ? 'p-2' : 'p-3')}>
         {signOutError && !compact && <p role="alert" className="mb-2 px-2 text-xs text-red-600">Could not sign out. Please try again.</p>}
         <div className={cn('flex items-center rounded-lg', compact ? 'flex-col gap-2 py-1' : 'gap-3 px-2 py-2')}>
-          <Link
-            href={isClient ? '/portal/profile' : '/settings'}
-            title={compact ? `${user.name || user.email} · ${user.jobTitle || ROLE_LABELS[user.role]}` : 'View profile'}
-            className="flex-shrink-0"
-          >
+          <span title={compact ? `${user.name || user.email} · ${user.jobTitle || ROLE_LABELS[user.role]}` : undefined}>
             <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : undefined} size="sm" />
-          </Link>
+          </span>
           {!compact && (
-            <Link href={isClient ? '/portal/profile' : '/settings'} className="min-w-0 flex-1 group">
-              <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-brand-700 transition">
-                {user.name || user.email}
-              </p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-900">{user.name || user.email}</p>
               <p className="truncate text-xs text-slate-500">{user.jobTitle || ROLE_LABELS[user.role]}</p>
-            </Link>
+            </div>
           )}
           <button
             onClick={signOut}
@@ -310,26 +305,26 @@ export function AppShell({
                   type="button"
                   onClick={() => setProfileMenuOpen(v => !v)}
                   className={cn(
-                    'flex items-center gap-2.5 rounded-full px-2.5 py-1.5 transition-all text-left focus:outline-none select-none',
+                    'flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 transition-all text-left focus:outline-none select-none shadow-xs',
                     profileMenuOpen
-                      ? 'bg-slate-100 text-slate-900'
-                      : 'hover:bg-slate-100/70 text-slate-700'
+                      ? 'border-slate-300 bg-slate-50'
+                      : 'hover:border-slate-300 hover:bg-slate-50'
                   )}
                   aria-expanded={profileMenuOpen}
                   aria-haspopup="true"
                 >
-                  <Avatar name={user.name || user.email} size="sm" />
+                  <Avatar name={user.name || user.email} size="xs" />
                   <div className="hidden min-w-0 sm:block text-left">
-                    <p className="max-w-[150px] truncate text-xs font-semibold text-slate-900 leading-tight">
+                    <p className="max-w-[130px] truncate text-[11px] font-semibold text-slate-900 leading-tight">
                       {user.name || user.email}
                     </p>
-                    <p className="text-[11px] font-medium text-slate-500 leading-tight">
+                    <p className="text-[10px] font-medium text-slate-500 leading-tight">
                       {ROLE_LABELS[user.role]}
                     </p>
                   </div>
                   <ChevronDown
                     className={cn(
-                      'h-4 w-4 text-slate-400 transition-transform duration-200 ml-0.5',
+                      'h-3 w-3 text-slate-400 transition-transform duration-200',
                       profileMenuOpen && 'rotate-180 text-slate-700'
                     )}
                   />

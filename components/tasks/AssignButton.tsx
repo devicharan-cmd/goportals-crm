@@ -60,14 +60,25 @@ export function AssignButton({
           </Button>
         : <button onClick={show} className="text-xs font-semibold text-brand-600 hover:text-brand-700">{currentId ? 'Change' : 'Assign'}</button>}
 
-      <Modal open={open} onClose={() => setOpen(false)} title={currentId ? 'Change assignee' : 'Assign task'}
-             description="They'll get a notification straight away.">
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={currentId ? 'Change assignee' : 'Assign task'}
+        description="They'll get a notification straight away."
+        size="lg"
+      >
         <div className="relative mb-3">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name or role…" className="input pl-9" />
+          <input
+            autoFocus
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Search by name or role…"
+            className="input pl-9"
+          />
         </div>
 
-        <ul className="-mx-2 max-h-80 space-y-0.5 overflow-y-auto px-2">
+        <ul className="max-h-84 space-y-1.5 overflow-y-auto p-1.5">
           {filtered.map(o => {
             const active = selected === o.id
             return (
@@ -75,23 +86,40 @@ export function AssignButton({
                 <button
                   type="button"
                   onClick={() => setSelected(o.id)}
-                  className={cn('flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition',
-                    active ? 'bg-brand-50 ring-1 ring-brand-300' : 'hover:bg-slate-50')}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-xl border p-3 text-left transition',
+                    active
+                      ? 'border-brand-500 bg-brand-50/70 shadow-sm ring-2 ring-brand-300/50'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70',
+                  )}
                 >
                   <Avatar name={o.name} size="sm" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-slate-900">
-                      {o.name} {o.isMe && <span className="font-normal text-slate-400">(me)</span>}
-                      {o.id === currentId && <span className="ml-1 text-xs font-normal text-lime-700">· current</span>}
+                    <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-slate-900">
+                      <span className="break-all">{o.name}</span>
+                      {o.isMe && (
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">
+                          (me)
+                        </span>
+                      )}
+                      {o.id === currentId && (
+                        <span className="rounded bg-lime-100 px-1.5 py-0.5 text-[11px] font-medium text-lime-800">
+                          · current
+                        </span>
+                      )}
                     </span>
-                    {o.subtitle && <span className="block truncate text-xs text-slate-500">{o.subtitle}</span>}
+                    {o.subtitle && <span className="mt-0.5 block text-xs text-slate-500">{o.subtitle}</span>}
                   </span>
-                  {active && <Check className="h-4 w-4 text-brand-600" />}
+                  {active && <Check className="h-5 w-5 flex-shrink-0 text-brand-600" />}
                 </button>
               </li>
             )
           })}
-          {filtered.length === 0 && <li className="px-3 py-6 text-center text-sm text-slate-400">No one matches “{q}”.</li>}
+          {filtered.length === 0 && (
+            <li className="px-3 py-6 text-center text-sm text-slate-400">
+              No one matches “{q}”.
+            </li>
+          )}
         </ul>
 
         {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}

@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Bell, Briefcase, Building2, CheckSquare, ClipboardList, FileSignature, Flame, LayoutDashboard, Layers,
-  ChevronLeft, ChevronRight, Loader2, LogOut, Menu, PieChart, Settings2, ShieldCheck, UserCircle, UserPlus, Users, X,
+  ChevronLeft, ChevronRight, Loader2, LogOut, Mail, Menu, PieChart, Settings, Settings2, ShieldCheck, User, UserCircle, UserPlus, Users, X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
@@ -27,6 +27,7 @@ const STAFF_NAV: NavGroup[] = [
       { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'admin'] },
       { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'admin', 'team_lead'] },
       { href: '/reports',       label: 'Reports',     icon: PieChart, roles: ['super_admin', 'admin'] },
+      { href: '/settings',      label: 'Settings',    icon: Settings, roles: ['super_admin', 'admin', 'team_lead', 'employee'] },
     ],
   },
   {
@@ -66,13 +67,30 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false) // desktop: icons-only sidebar
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const profileMenuRef = useRef<HTMLDivElement>(null)
+
   const isClient = user.role === 'client'
   const groups = (isClient ? CLIENT_NAV : STAFF_NAV)
     .map(g => ({ ...g, items: g.items.filter(i => !i.roles || i.roles.includes(user.role)) }))
     .filter(g => g.items.length > 0)
   const notificationsHref = isClient ? '/portal/notifications' : '/notifications'
 
-  useEffect(() => setOpen(false), [pathname])
+  useEffect(() => {
+    setOpen(false)
+    setProfileMenuOpen(false)
+  }, [pathname])
+
+  // Close profile dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Remember the desktop sidebar choice per browser.
   useEffect(() => {
@@ -200,14 +218,20 @@ export function AppShell({
       <div className={cn('border-t border-slate-200', compact ? 'p-2' : 'p-3')}>
         {signOutError && !compact && <p role="alert" className="mb-2 px-2 text-xs text-red-600">Could not sign out. Please try again.</p>}
         <div className={cn('flex items-center rounded-lg', compact ? 'flex-col gap-2 py-1' : 'gap-3 px-2 py-2')}>
-          <span title={compact ? `${user.name || user.email} · ${user.jobTitle || ROLE_LABELS[user.role]}` : undefined}>
+          <Link
+            href={isClient ? '/portal/profile' : '/settings'}
+            title={compact ? `${user.name || user.email} · ${user.jobTitle || ROLE_LABELS[user.role]}` : 'View profile'}
+            className="flex-shrink-0"
+          >
             <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : undefined} size="sm" />
-          </span>
+          </Link>
           {!compact && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-900">{user.name || user.email}</p>
+            <Link href={isClient ? '/portal/profile' : '/settings'} className="min-w-0 flex-1 group">
+              <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-brand-700 transition">
+                {user.name || user.email}
+              </p>
               <p className="truncate text-xs text-slate-500">{user.jobTitle || ROLE_LABELS[user.role]}</p>
-            </div>
+            </Link>
           )}
           <button
             onClick={signOut}
@@ -261,14 +285,136 @@ export function AppShell({
             </div>
           )}
           <div className="flex-1" />
-          <Link href={notificationsHref} className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700" aria-label="Notifications">
-            <Bell className="h-5 w-5" />
-            {counts.notifications > 0 && (
-              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-bold text-brand-950">
-                {counts.notifications > 9 ? '9+' : counts.notifications}
-              </span>
+
+          {/* Right Header Navigation */}
+          <div className="flex items-center gap-2">
+            {/* Notification Bell */}
+            <Link
+              href={notificationsHref}
+              className="relative rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5" />
+              {counts.notifications > 0 && (
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-bold text-brand-950">
+                  {counts.notifications > 9 ? '9+' : counts.notifications}
+                </span>
+              )}
+            </Link>
+
+            {/* Quick Settings Icon Button */}
+            {!isClient && (
+              <Link
+                href="/settings"
+                title="Settings"
+                className="relative rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+                aria-label="Settings"
+              >
+                <Settings className="h-5 w-5" />
+              </Link>
             )}
-          </Link>
+
+            {/* Profile Dropdown Trigger & Floating Menu */}
+            {!isClient && (
+              <div className="relative" ref={profileMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setProfileMenuOpen(v => !v)}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl border p-1 sm:px-2.5 sm:py-1.5 transition text-left focus:outline-none',
+                    profileMenuOpen
+                      ? 'border-brand-300 bg-brand-50/70 shadow-sm'
+                      : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
+                  )}
+                  aria-expanded={profileMenuOpen}
+                  aria-haspopup="true"
+                >
+                  <Avatar name={user.name || user.email} size="sm" />
+                  <div className="hidden min-w-0 sm:block text-left">
+                    <p className="max-w-[140px] truncate text-xs font-semibold text-slate-900 leading-tight">
+                      {user.name || user.email}
+                    </p>
+                    <p className="text-[11px] font-medium text-slate-500 leading-tight">
+                      {ROLE_LABELS[user.role]}
+                    </p>
+                  </div>
+                </button>
+
+                {/* Dropdown Menu (Styled matching design mockup) */}
+                {profileMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-60 rounded-2xl border border-slate-100 bg-white p-2 shadow-pop z-50 animate-in fade-in zoom-in-95 duration-150">
+                    {/* Header info */}
+                    <div className="flex items-center gap-3 border-b border-slate-100 px-3 py-2.5 mb-1">
+                      <Avatar name={user.name || user.email} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-slate-900">{user.name || user.email}</p>
+                        <p className="text-[11px] font-medium text-brand-600">{ROLE_LABELS[user.role]}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-0.5">
+                      <Link
+                        href="/settings"
+                        onClick={() => setProfileMenuOpen(false)}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
+                      >
+                        <User className="h-4 w-4 text-slate-400" />
+                        Account
+                      </Link>
+
+                      <Link
+                        href="/notifications"
+                        onClick={() => setProfileMenuOpen(false)}
+                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <Mail className="h-4 w-4 text-slate-400" />
+                          Inbox
+                        </span>
+                        {counts.notifications > 0 && (
+                          <span className="rounded-full bg-lime-100 px-2 py-0.5 text-[10px] font-bold text-lime-800">
+                            {counts.notifications}
+                          </span>
+                        )}
+                      </Link>
+
+                      <Link
+                        href="/tasks"
+                        onClick={() => setProfileMenuOpen(false)}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
+                      >
+                        <CheckSquare className="h-4 w-4 text-slate-400" />
+                        Taskboard
+                      </Link>
+
+                      <Link
+                        href="/settings"
+                        onClick={() => setProfileMenuOpen(false)}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
+                      >
+                        <Settings className="h-4 w-4 text-slate-400" />
+                        Setting
+                      </Link>
+                    </div>
+
+                    <div className="border-t border-slate-100 mt-1 pt-1">
+                      <button
+                        onClick={() => {
+                          setProfileMenuOpen(false)
+                          signOut()
+                        }}
+                        disabled={signingOut}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition"
+                      >
+                        {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+                        Log out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </header>
         <div className="flex-1 overflow-y-auto">
           <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>

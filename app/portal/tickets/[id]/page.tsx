@@ -19,7 +19,7 @@ import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conv
 import { CloseTicketButton } from '@/components/portal/CloseTicketButton'
 import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
 import { clientPortalTicketStatus } from '@/lib/ticket-status'
-import { formatDate, ticketCode } from '@/lib/utils'
+import { formatDate, splitTeamName, ticketCode } from '@/lib/utils'
 import type { TicketActivity, TicketComment, Ticket } from '@/types/database'
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
@@ -54,6 +54,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
   const replyAuthorName = replyAuthor && latestPublicMessage?.author_id
     ? names[latestPublicMessage.author_id] ?? 'GoPortals team'
     : null
+  const handledBy = splitTeamName(ticket.assignee_id ? names[ticket.assignee_id] ?? 'GoPortals team' : '')
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
   const canEdit = portalStatus === 'new' && ticket.created_by === me.id
   const canClose = ['resolved', 'ready_for_client'].includes(portalStatus)
@@ -102,10 +103,16 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
                     </div>
                   )
                 })}
+                {replyAuthorName && (
+                  <div className="flex items-center bg-white px-3 py-2">
+                    <ClientReplyBadge ticketId={ticket.id} authorName={replyAuthorName} />
+                  </div>
+                )}
               </dl>
             )}
 
-            {replyAuthorName && (
+            {/* A ticket with no detail fields has no grid for the badge to sit in. */}
+            {replyAuthorName && Object.keys(ticket.details ?? {}).length === 0 && (
               <div className="mt-4">
                 <ClientReplyBadge ticketId={ticket.id} authorName={replyAuthorName} />
               </div>
@@ -148,7 +155,9 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
               <div className="flex items-center justify-between gap-3 px-5 py-2.5">
                 <dt className="text-slate-500">Handled by</dt>
                 <dd>{ticket.assignee_id
-                  ? <span className="flex items-center gap-2"><Avatar name={names[ticket.assignee_id]} size="xs" />{names[ticket.assignee_id] ?? 'GoPortals team'}</span>
+                  ? <span className="flex items-center gap-2"><Avatar name={handledBy[0]} size="xs" />
+                      <span>{handledBy[0]}{handledBy[1] && <span className="ml-1 text-[11px] font-normal text-slate-500">({handledBy[1]})</span>}</span>
+                    </span>
                   : <span className="text-slate-400">{['resolved', 'closed'].includes(ticket.status) ? 'GoPortals team' : 'Being assigned'}</span>}</dd>
               </div>
               {[

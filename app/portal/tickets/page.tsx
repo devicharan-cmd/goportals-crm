@@ -18,7 +18,7 @@ const TABS = [
 ]
 
 export default async function PortalTicketsPage({ searchParams }: { searchParams: { status?: string; q?: string } }) {
-  await requireClient()
+  const me = await requireClient()
   const supabase = createClient()
   const tab = TABS.some(t => t.key === searchParams.status) ? searchParams.status! : 'open'
 
@@ -36,6 +36,15 @@ export default async function PortalTicketsPage({ searchParams }: { searchParams
     ...ticket,
     status: clientPortalTicketStatus(ticket),
   }))
+
+  // Messages from the team this client has not opened yet. RLS already limits
+  // the rows to their own tickets and hides internal notes.
+  const { data: unseen } = await supabase
+    .from('ticket_comments').select('ticket_id').is('seen_at', null).neq('author_id', me.id)
+  const unreadByTicket = (unseen ?? []).reduce<Record<string, number>>((acc, row) => {
+    acc[row.ticket_id] = (acc[row.ticket_id] ?? 0) + 1
+    return acc
+  }, {})
 
   return (
     <>
@@ -56,7 +65,7 @@ export default async function PortalTicketsPage({ searchParams }: { searchParams
         <ButtonLink href="/portal/tickets/new" size="sm" className="ml-auto"><Plus className="h-3.5 w-3.5" /> New ticket</ButtonLink>
       </div>
       <Card className="overflow-hidden">
-        <TicketTable tickets={portalTickets} audience="client" empty={{ title: tab === 'done' ? 'Nothing completed yet' : 'No open tickets' }} />
+        <TicketTable tickets={portalTickets} audience="client" unreadByTicket={unreadByTicket} empty={{ title: tab === 'done' ? 'Nothing completed yet' : 'No open tickets' }} />
       </Card>
     </>
   )

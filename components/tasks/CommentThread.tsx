@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
 import { ROLE_LABELS } from '@/lib/constants'
-import { cn, errorMessage, formatRelative } from '@/lib/utils'
+import { cn, errorMessage, formatRelative, splitTeamName } from '@/lib/utils'
 
 /** "Today" / "Yesterday" / "12 Mar" — the separator between days of chat. */
 function dayLabel(iso: string) {
@@ -33,15 +33,6 @@ type CommentLike = { id: string; author_id: string | null; body: string; is_inte
  * Who decides visibility (also enforced in the DB, migration 009 for tasks / 014 for tickets):
  *   client → always public · employee → always team-only · manager / super admin → choose.
  */
-/**
- * "GoPortals team (Manager)" — the qualifier is said quieter than the name, so
- * the eye still lands on who is speaking.
- */
-function splitSender(name: string): [string, string | null] {
-  const m = name.match(/^(.*?)\s+\((.+)\)$/)
-  return m ? [m[1], m[2]] : [name, null]
-}
-
 export function CommentThread({
   taskId, comments, names, roles, meId, myRole, table = 'task_comments', idField = 'task_id', lockedNote, showReceipts = false, bounded = false, replyNeeded = false,
 }: {
@@ -138,7 +129,7 @@ export function CommentThread({
           {shown.map((c, i) => {
             const author = c.author_id ?? ''
             const role = roles?.[author]
-            const [senderName, senderQualifier] = splitSender(names[author] ?? '')
+            const [senderName, senderQualifier] = splitTeamName(names[author] ?? '')
             const mine = author === meId
             const prev = shown[i - 1]
             // A new day, or a different person, starts a fresh block.

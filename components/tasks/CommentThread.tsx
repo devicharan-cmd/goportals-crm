@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, CheckCheck, Globe, Lock, MessageSquare, Send } from 'lucide-react'
+import { Check, CheckCheck, MoreHorizontal, Trash2, Globe, Lock, MessageSquare, Send } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
 import { ROLE_LABELS } from '@/lib/constants'
 import { cn, errorMessage, formatRelative, splitTeamName } from '@/lib/utils'
+import type { AppRole } from '@/types/database'
 
 /** "Today" / "Yesterday" / "12 Mar" — the separator between days of chat. */
 function dayLabel(iso: string) {
@@ -24,17 +25,166 @@ function dayLabel(iso: string) {
 function clockTime(iso: string) {
   return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }).format(new Date(iso))
 }
-import type { AppRole } from '@/types/database'
 
 type CommentLike = { id: string; author_id: string | null; body: string; is_internal: boolean; created_at: string; seen_at?: string | null }
 
+type Reader = { profile_id: string; full_name?: string; email?: string; role?: AppRole; read_at: string | null }
+
 /**
- * One discussion per task (or ticket — pass table="ticket_comments" idField="ticket_id").
- * Who decides visibility (also enforced in the DB, migration 009 for tasks / 014 for tickets):
- *   client → always public · employee → always team-only · manager / super admin → choose.
+ * What became of one message: who it was for, which of them have read it, and
+ * who is remaining, plus the option to delete.
  */
+function MessageMenu({ commentId, table, names, canDelete, mine, myRole }: {
+  commentId: string
+  table: 'task_comments' | 'ticket_comments'
+  names: Record<string, string>
+  canDelete: boolean
+  mine: boolean
+  myRole?: AppRole
+}) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [readers, setReaders] = useState<Reader[] | null>(null)
+  const [working, setWorking] = useState(false)
+  const [error, setError] = useState('')
+
+  async function toggle() {
+    const next = !open
+    setOpen(next)
+    if (next && readers === null && table === 'ticket_comments') {
+      const { data, error } = await createClient().rpc('ticket_message_readers', { p_comment_id: commentId })
+      if (!error && data) {
+        setReaders(data as Reader[])
+      } else {
+        // Fallback if migration 078 not yet applied: query active staff audience
+        const { data: staff } = await createClient()
+          .from('profiles')
+          .select('id, full_name, role, email')
+          .in('role', ['super_admin', 'admin'])
+          .eq('status', 'active')
+        if (staff) {
+          setReaders(staff.map(s => ({
+            profile_id: s.id,
+            full_name: s.full_name || (s.role === 'super_admin' ? 'Super Admin' : 'Manager'),
+            role: s.role as AppRole,
+            read_at: null,
+          })))
+        } else {
+          setReaders([])
+        }
+      }
+    }
+  }
+
+  async function remove() {
+    setWorking(true)
+    setError('')
+    const { error } = await createClient().from(table).delete().eq('id', commentId)
+    setWorking(false)
+    if (error) return setError(errorMessage(error))
+    setOpen(false)
+    router.refresh()
+  }
+
+  const seen = (readers ?? []).filter(r => r.read_at)
+  const waiting = (readers ?? []).filter(r => !r.read_at)
+  const who = (r: Reader) => {
+    if (r.role === 'super_admin') {
+      return r.full_name && r.full_name !== 'Super Admin' ? `${r.full_name} (Super Admin)` : 'Super Admin'
+    }
+    if (r.role === 'admin') {
+      return r.full_name && r.full_name !== 'Manager' ? `${r.full_name} (Manager)` : 'Manager'
+    }
+    return r.full_name || names[r.profile_id] || 'Team member'
+  }
+
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label="Message options"
+        title="Message options"
+        className={cn(
+          'rounded p-0.5 text-slate-400 transition hover:bg-slate-200/60 hover:text-slate-700 focus:opacity-100',
+          open ? 'opacity-100 bg-slate-200/70 text-slate-700' : 'opacity-0 group-hover/msg:opacity-100'
+        )}
+      >
+        <MoreHorizontal className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <>
+          <span className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <span className={cn(
+            'absolute bottom-full mb-1.5 z-30 block w-64 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-xl ring-1 ring-black/5',
+            mine ? 'right-0' : 'left-0'
+          )}>
+            {table === 'ticket_comments' && (
+              readers === null ? (
+                <span className="block py-2 text-center text-xs text-slate-400">Loading…</span>
+              ) : readers.length === 0 ? (
+                <span className="block py-2 text-center text-xs text-slate-400">This message has no recipients.</span>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      Seen by ({seen.length})
+                    </span>
+                    {seen.length === 0 ? (
+                      <span className="mt-1 block text-xs italic text-slate-400">Nobody yet</span>
+                    ) : (
+                      <div className="mt-1 max-h-28 divide-y divide-slate-100 overflow-y-auto">
+                        {seen.map(r => (
+                          <div key={r.profile_id} className="flex items-center justify-between gap-2 py-1 text-xs">
+                            <span className="truncate font-medium text-slate-800">{who(r)}</span>
+                            <span className="flex-shrink-0 text-[10px] text-slate-400">
+                              {r.read_at ? formatRelative(r.read_at) : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      Remaining ({waiting.length})
+                    </span>
+                    {waiting.length === 0 ? (
+                      <span className="mt-1 block text-xs font-medium text-emerald-600">Seen by everyone</span>
+                    ) : (
+                      <div className="mt-1 max-h-28 divide-y divide-slate-100 overflow-y-auto">
+                        {waiting.map(r => (
+                          <div key={r.profile_id} className="py-1 text-xs text-slate-600">
+                            <span className="truncate">{who(r)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            )}
+            {canDelete && (
+              <button
+                type="button"
+                onClick={remove}
+                disabled={working}
+                className="mt-2.5 flex w-full items-center gap-1.5 rounded-lg border-t border-slate-100 px-1 pt-2 text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> {working ? 'Deleting…' : 'Delete message'}
+              </button>
+            )}
+            {error && <span className="mt-1.5 block text-[11px] text-red-600">{error}</span>}
+          </span>
+        </>
+      )}
+    </span>
+  )
+}
+
 export function CommentThread({
-  taskId, comments, names, roles, meId, myRole, table = 'task_comments', idField = 'task_id', lockedNote, showReceipts = false, bounded = false, replyNeeded = false,
+  taskId, comments, names, roles, meId, myRole, table = 'task_comments', idField = 'task_id', lockedNote, showReceipts = false, bounded = false, replyNeeded = false, receipts,
 }: {
   taskId: string
   comments: CommentLike[]
@@ -46,8 +196,10 @@ export function CommentThread({
   idField?: 'task_id' | 'ticket_id'
   /** Shown instead of the composer when the thread takes no more replies. */
   lockedNote?: string
-  /** Ticks on your own messages: one for sent, two once the other side read it. */
+  /** Ticks on your own messages: one for sent, two once all recipients read it. */
   showReceipts?: boolean
+  /** Per message: how many people it was for, and how many have read it. */
+  receipts?: Record<string, { audience: number; seen: number }>
   /** Keep ticket conversations a fixed height and scroll messages inside them. */
   bounded?: boolean
   /** Whether this client reply is expected to clear the awaiting-client state. */
@@ -57,10 +209,6 @@ export function CommentThread({
   const isStaff = myRole !== 'client'
   const isTicketThread = table === 'ticket_comments'
   const scrollRef = useRef<HTMLDivElement | null>(null)
-  // Only a ticket has a client reading it. task_visible() denies clients any
-  // task access, so every task comment is staff-only whatever is_internal says
-  // — offering "Public (client can see)" there promises an audience that will
-  // never read it.
   const canChoose = isTicketThread && (myRole === 'super_admin' || myRole === 'admin')
   const [body, setBody] = useState('')
   const [isPublic, setIsPublic] = useState(true)
@@ -132,7 +280,6 @@ export function CommentThread({
             const [senderName, senderQualifier] = splitTeamName(names[author] ?? '')
             const mine = author === meId
             const prev = shown[i - 1]
-            // A new day, or a different person, starts a fresh block.
             const newDay = !prev || dayLabel(prev.created_at) !== dayLabel(c.created_at)
             const newBlock = newDay || prev?.author_id !== c.author_id || prev?.is_internal !== c.is_internal
             return (
@@ -148,7 +295,7 @@ export function CommentThread({
                   <span className={cn('w-7 flex-shrink-0', mine && 'hidden')}>
                     {newBlock && !mine && <Avatar name={senderName || '?'} size="xs" />}
                   </span>
-                  <div className={cn('flex min-w-0 max-w-[78%] flex-col', mine ? 'items-end' : 'items-start')}>
+                  <div className={cn('group/msg flex min-w-0 max-w-[78%] flex-col', mine ? 'items-end' : 'items-start')}>
                     {newBlock && !mine && (
                       <span className="mb-1 flex items-center gap-2 px-1 text-xs">
                         <span className="font-semibold text-slate-700">
@@ -169,9 +316,25 @@ export function CommentThread({
                     </div>
                     <span className={cn('mt-0.5 flex items-center gap-1.5 px-1 text-[11px] text-slate-400', mine && 'flex-row-reverse')}>
                       <span suppressHydrationWarning>{clockTime(c.created_at)}</span>
-                      {showReceipts && mine && !c.is_internal && (c.seen_at
-                        ? <span className="inline-flex items-center gap-0.5 text-brand-600" title={`Seen ${formatRelative(c.seen_at)}`}><CheckCheck className="h-3.5 w-3.5" /> Seen</span>
-                        : <span className="inline-flex items-center gap-0.5" title="Sent"><Check className="h-3.5 w-3.5" /> Sent</span>)}
+                      {showReceipts && mine && !c.is_internal && (() => {
+                        const r = receipts?.[c.id]
+                        // Only show double tick and "Seen" if ALL audience members (including Super Admin) have seen it
+                        if (r && r.audience > 0 && r.seen >= r.audience) {
+                          return (
+                            <span className="inline-flex items-center gap-0.5 text-brand-600" title="Seen by everyone">
+                              <CheckCheck className="h-3.5 w-3.5" /> Seen
+                            </span>
+                          )
+                        }
+                        // If Super Admin or any audience member has not seen it: show single tick "Sent"
+                        return (
+                          <span className="inline-flex items-center gap-0.5 text-slate-400" title="Sent">
+                            <Check className="h-3.5 w-3.5" /> Sent
+                          </span>
+                        )
+                      })()}
+                      <MessageMenu commentId={c.id} table={table} names={names}
+                                   mine={mine} canDelete={mine || myRole === 'super_admin'} myRole={myRole} />
                       {isStaff && isTicketThread && (c.is_internal
                         ? <span className="inline-flex items-center gap-0.5 font-medium text-amber-700"><Lock className="h-2.5 w-2.5" /> Team only</span>
                         : <span className="inline-flex items-center gap-0.5 font-medium text-brand-600"><Globe className="h-2.5 w-2.5" /> Public</span>)}
@@ -210,8 +373,6 @@ export function CommentThread({
               : willBePublic ? 'Write a reply the client will see…'
               : 'Write a note for the team (client won’t see this)…'
             }
-            // An empty box scrolls nothing: without this a placeholder that wraps
-            // onto a second line puts a scrollbar in the composer.
             className={cn('max-h-40 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-2.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0',
               body ? 'overflow-y-auto' : 'overflow-hidden')}
           />

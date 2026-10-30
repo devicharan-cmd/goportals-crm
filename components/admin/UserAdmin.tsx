@@ -73,7 +73,7 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
               <input defaultValue={row.full_name ?? ''} placeholder="Full name" disabled={busy} readOnly={!canEditName}
                      aria-label={`Full name for ${row.full_name || row.email}`}
                      onBlur={e => canEditName && e.target.value.trim() !== (row.full_name ?? '') && update({ full_name: e.target.value.trim() })}
-                     className="input h-8 w-full max-w-56 py-1 text-sm font-semibold read-only:cursor-default" />
+                     spellCheck={false} autoCorrect="off" className="input h-8 w-full max-w-56 py-1 text-sm font-semibold read-only:cursor-default" />
               {isMe && <span className="text-xs text-slate-400">(you)</span>}
             </div>
             <p className="truncate text-xs text-slate-500">{row.email}</p>
@@ -82,7 +82,7 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
         <div className="flex flex-wrap items-center gap-2">
           <input defaultValue={row.job_title ?? ''} placeholder="Job title (e.g. Team Lead)" disabled={busy || !canEditProfile}
                  onBlur={e => e.target.value !== (row.job_title ?? '') && update({ job_title: e.target.value || null })}
-                 className="input h-8 w-44 py-1 text-xs" />
+                 spellCheck={false} autoCorrect="off" className="input h-8 w-44 py-1 text-xs" />
           {canEditProfile ? (
             <select value={row.role} disabled={busy || isMe} onChange={e => update({ role: e.target.value })} className="input h-8 w-auto py-1 text-xs">
               {(['super_admin', 'admin', 'team_lead', 'employee'] as StaffRole[]).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
@@ -152,9 +152,9 @@ export function InviteStaffButton({
     <>
       <Button size="sm" onClick={() => { setOpen(true); setMsg(null) }}><UserPlus className="h-3.5 w-3.5" /> {onlyEmployees ? 'Add employee' : 'Invite team member'}</Button>
       <Modal open={open} onClose={() => setOpen(false)} title={onlyEmployees ? 'Add an employee' : 'Invite a team member'} description="They'll get an email to set their password.">
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={submit} className="space-y-4" spellCheck={false}>
           {msg && <Alert tone={msg.ok ? 'success' : 'error'}>{msg.text}</Alert>}
-          <Field label="Full name" required><input className="input" required value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></Field>
+          <Field label="Full name" required><input className="input" required value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} spellCheck={false} autoCorrect="off" autoCapitalize="words" /></Field>
           <Field label="Email" required><input className="input" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Role" required>
@@ -165,7 +165,7 @@ export function InviteStaffButton({
                 {roles.includes('super_admin') && <option value="super_admin">Super Admin</option>}
               </select>
             </Field>
-            <Field label="Job title"><input className="input" placeholder="e.g. Ads Executive" value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} /></Field>
+            <Field label="Job title"><input className="input" placeholder="e.g. Ads Executive" value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} spellCheck={false} autoCorrect="off" /></Field>
           </div>
           <Field label="Departments" hint="Team Leads see the tasks and tickets of their departments.">
             <div className="flex flex-wrap gap-1.5">
@@ -247,7 +247,7 @@ export function InviteUserButton({ departments, actorRole }: { departments: Depa
           </Field>
 
           <Field label={form.kind === 'client' ? 'Contact name' : 'Full name'} required={form.kind === 'staff'}>
-            <input className="input" required={form.kind === 'staff'} value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} />
+            <input className="input" required={form.kind === 'staff'} value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} spellCheck={false} autoCorrect="off" autoCapitalize="words" />
           </Field>
           <Field label="Email" required><input className="input" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></Field>
 
@@ -259,7 +259,7 @@ export function InviteUserButton({ departments, actorRole }: { departments: Depa
                     {staffRoleOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </Field>
-                <Field label="Job title"><input className="input" placeholder="e.g. Ads Executive" value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} /></Field>
+                <Field label="Job title"><input className="input" placeholder="e.g. Ads Executive" value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} spellCheck={false} autoCorrect="off" /></Field>
               </div>
               <Field label="Departments" hint="Team Leads see the tasks and tickets of their departments.">
                 <div className="flex flex-wrap gap-1.5">

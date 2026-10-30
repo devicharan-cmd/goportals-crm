@@ -37,14 +37,20 @@ export default async function PortalTicketsPage({ searchParams }: { searchParams
     status: clientPortalTicketStatus(ticket),
   }))
 
-  // Messages from the team this client has not opened yet. RLS already limits
-  // the rows to their own tickets and hides internal notes.
-  const { data: unseen } = await supabase
-    .from('ticket_comments').select('ticket_id').is('seen_at', null).neq('author_id', me.id)
-  const unreadByTicket = (unseen ?? []).reduce<Record<string, number>>((acc, row) => {
-    acc[row.ticket_id] = (acc[row.ticket_id] ?? 0) + 1
-    return acc
-  }, {})
+  // Counted for this reader alone: somebody else opening a ticket must not
+  // clear the badge on everyone's list.
+  const { data: unseen, error: rpcErr } = await supabase.rpc('my_unread_ticket_messages')
+  let unreadByTicket: Record<string, number> = {}
+  if (!rpcErr && unseen) {
+    unreadByTicket = Object.fromEntries(((unseen as { ticket_id: string; unread: number }[]).map(r => [r.ticket_id, r.unread])))
+  } else {
+    const { data: legacyUnseen } = await supabase
+      .from('ticket_comments').select('ticket_id').is('seen_at', null).neq('author_id', me.id).eq('is_internal', false)
+    unreadByTicket = (legacyUnseen ?? []).reduce<Record<string, number>>((acc, row) => {
+      acc[row.ticket_id] = (acc[row.ticket_id] ?? 0) + 1
+      return acc
+    }, {})
+  }
 
   return (
     <>

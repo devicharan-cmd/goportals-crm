@@ -26,6 +26,7 @@ function Callback() {
   const router = useRouter()
   const params = useSearchParams()
   const [error, setError] = useState('')
+  const [flowType, setFlowType] = useState<string | null>(null)
   const started = useRef(false)
   const errorCode = params.get('error_code')
   const errorDescription = params.get('error_description')?.replace(/\+/g, ' ')
@@ -38,6 +39,8 @@ function Callback() {
     if (started.current) return   // links are single-use; don't run twice in dev strict mode
     started.current = true
     const hash = new URLSearchParams(window.location.hash.slice(1))
+    const type = hash.get('type') ?? params.get('type')
+    setFlowType(type)
     const next = params.get('next') === '/auth/set-password' ? '/auth/set-password' : '/'
 
     // Supabase redirects expired or invalid links with an error in the URL.
@@ -55,7 +58,6 @@ function Callback() {
       { isSingleton: false, auth: { detectSessionInUrl: false } },
     )
     async function run() {
-      const type = hash.get('type') ?? params.get('type')
       const accessToken = hash.get('access_token')
       const refreshToken = hash.get('refresh_token')
       const code = params.get('code')
@@ -107,9 +109,15 @@ function Callback() {
     )
   }
 
+  const loadingLabel = flowType === 'invite'
+    ? 'Setting up your invite…'
+    : flowType === 'recovery'
+      ? 'Verifying your reset link…'
+      : 'Signing you in…'
+
   return (
     <div className="flex items-center gap-3 text-slate-600">
-      <Loader2 className="h-5 w-5 animate-spin text-brand-600" /> Signing you in…
+      <Loader2 className="h-5 w-5 animate-spin text-brand-600" /> {loadingLabel}
     </div>
   )
 }

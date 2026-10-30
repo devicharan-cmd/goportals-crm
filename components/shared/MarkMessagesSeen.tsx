@@ -1,18 +1,21 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 /**
  * Marks the other side's messages on this ticket as seen, once, when the page
- * is opened. The RPC ignores messages you wrote yourself and internal notes.
+ * is opened. The RPC records each reader's own timestamp and ignores messages
+ * written by themselves or internal notes they cannot see.
  */
-export function MarkMessagesSeen({ ticketId, hasUnseen }: { ticketId: string; hasUnseen: boolean }) {
+export function MarkMessagesSeen({ ticketId, hasUnseen = true }: { ticketId: string; hasUnseen?: boolean }) {
   const router = useRouter()
+  const calledRef = useRef(false)
 
   useEffect(() => {
-    if (!hasUnseen) return
+    if (!hasUnseen || calledRef.current) return
+    calledRef.current = true
     let cancelled = false
     createClient()
       .rpc('mark_ticket_messages_seen', { p_ticket_id: ticketId })

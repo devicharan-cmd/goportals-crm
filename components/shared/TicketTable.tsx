@@ -50,7 +50,7 @@ export function TicketTable({
           <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
             <th className="px-5 py-3">Ticket</th>
             {showClient && <th className="px-3 py-3">Client</th>}
-            {showMessages && <th className="w-10 px-2 py-3"><span className="sr-only">Messages</span></th>}
+            {showMessages && <th className="w-28 px-2 py-3 text-center"><span className="sr-only">Messages</span></th>}
             <th className="px-3 py-3">Category</th>
             <th className="px-3 py-3">Status</th>
             <th className="px-3 py-3">Priority</th>
@@ -70,7 +70,7 @@ export function TicketTable({
                 </Link>
               </td>
               {showClient && <td className="px-3 py-3 text-slate-600">{t.client?.company_name ?? '—'}</td>}
-              {showMessages && <td className="w-10 px-2 py-3"><UnreadMessages count={unreadByTicket?.[t.id] ?? 0} /></td>}
+              {showMessages && <td className="w-28 px-2 py-3 text-center"><UnreadMessages count={unreadByTicket?.[t.id] ?? 0} /></td>}
               <td className="px-3 py-3 text-slate-600">{TICKET_CATEGORY_LABELS[t.category]}</td>
               <td className="px-3 py-3"><StatusBadge label={statusLabels[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} /></td>
               <td className="px-3 py-3">{t.priority ? <PriorityBadge priority={t.priority} /> : <span className="text-xs text-slate-400">—</span>}</td>

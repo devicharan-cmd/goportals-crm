@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ClipboardList, MessageSquareText } from 'lucide-react'
 import { EmptyState } from '@/components/ui/primitives'
@@ -43,6 +44,7 @@ export function TicketTable({
   /** Unread message count per ticket id; omit to show none. */
   unreadByTicket?: Record<string, number>
 }) {
+  const router = useRouter()
   const [liveUnreadByTicket, setLiveUnreadByTicket] = useState(unreadByTicket ?? {})
   const showMessages = unreadByTicket !== undefined
 
@@ -97,9 +99,14 @@ export function TicketTable({
               </td>
               {showMessages && (
                 <td className={cn('px-3 py-3.5 text-center whitespace-nowrap', showClient ? 'w-24' : 'w-28')}>
-                  <Link href={`${hrefBase}/${t.id}#conversation`} className="inline-flex" aria-label="Open the conversation">
+                  <button
+                    type="button"
+                    onClick={() => router.push(`${hrefBase}/${t.id}`)}
+                    className="inline-flex"
+                    aria-label="Open the ticket"
+                  >
                     <UnreadMessages count={liveUnreadByTicket[t.id] ?? 0} />
-                  </Link>
+                  </button>
                 </td>
               )}
               {showClient && <td className="w-36 whitespace-nowrap truncate px-3 py-3.5 text-slate-600">{t.client?.company_name ?? '—'}</td>}

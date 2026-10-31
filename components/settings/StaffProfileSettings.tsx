@@ -173,13 +173,8 @@ export function StaffProfileSettings({
               <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-6 pb-6 border-b border-slate-100">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-brand-100 font-display text-2xl font-bold text-brand-700 shadow-sm border border-brand-200 flex-shrink-0">
                   {profile.full_name
-                    ? profile.full_name
-                        .split(' ')
-                        .map(w => w[0])
-                        .slice(0, 2)
-                        .join('')
-                        .toUpperCase()
-                    : profile.email.slice(0, 2).toUpperCase()}
+                    ? profile.full_name.trim().split(/\s+/)[0]?.[0]?.toUpperCase()
+                    : profile.email.slice(0, 1).toUpperCase()}
                 </div>
 
                 <div className="text-center sm:text-left flex-1 min-w-0">

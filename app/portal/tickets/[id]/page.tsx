@@ -14,7 +14,6 @@ import { CommentThread } from '@/components/tasks/CommentThread'
 import { TicketAttachmentsList } from '@/components/shared/TicketAttachmentsList'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
-import { MarkMessagesSeen } from '@/components/shared/MarkMessagesSeen'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { CloseTicketButton } from '@/components/portal/CloseTicketButton'
 import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
@@ -31,7 +30,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
   const supabase = createClient()
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
-  const [{ data }, { data: comments }, { data: activity }, names, attachments, { data: platforms }, { data: staffDirectory }, { data: receiptRows }] = await Promise.all([
+  const [{ data }, { data: comments }, { data: activity }, names, attachments, { data: platforms }, { data: staffDirectory }] = await Promise.all([
     supabase.from('tickets').select('*, ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))').eq('id', ticketId).maybeSingle(),
     supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
     supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
@@ -39,14 +38,10 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
     getTicketAttachments(ticketId),
     supabase.from('platforms').select('id, name'),
     supabase.rpc('staff_directory'),
-    supabase.rpc('ticket_message_receipts', { p_ticket_id: ticketId }),
   ])
   if (!data) notFound()
   const ticket = data as Ticket & { ecommerce_account: { account_name: string; platform: { name: string } | null } | null }
   const ticketComments = (comments ?? []) as TicketComment[]
-  const receipts = Object.fromEntries((((receiptRows ?? []) as { comment_id: string; audience: number; seen: number }[])
-    .map(r => [r.comment_id, { audience: r.audience, seen: r.seen }])))
-
   const portalStatus = clientPortalTicketStatus(ticket)
   const latestPublicMessage = ticketComments.slice().reverse().find(comment => !comment.is_internal)
   const replyAuthor = latestPublicMessage?.author_id
@@ -126,14 +121,12 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
             {canClose && <ReopenTicketButton ticketId={ticket.id} />}
           </Card>
 
-          <MarkMessagesSeen ticketId={ticket.id}
-            hasUnseen={ticketComments.some(c => c.author_id !== me.id)} />
           <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader title="Conversation" description="Messages with the GoPortals team" />
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={ticket.id} comments={ticketComments} names={names} meId={me.id} myRole="client"
                               table="ticket_comments" idField="ticket_id"
-                              showReceipts receipts={receipts} bounded
+                              bounded
                               replyNeeded={!!replyAuthorName}
                               lockedNote={ticket.status === 'closed'
                                 ? 'This ticket is closed. Raise a new ticket if you need anything else.'

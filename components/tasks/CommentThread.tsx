@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, CheckCheck, MoreHorizontal, Trash2, Globe, Lock, MessageSquare, Send } from 'lucide-react'
+import { MoreHorizontal, Trash2, Globe, Lock, MessageSquare, Send } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
 import { ROLE_LABELS } from '@/lib/constants'
-import { cn, errorMessage, formatRelative, splitTeamName } from '@/lib/utils'
+import { cn, errorMessage, splitTeamName } from '@/lib/utils'
 import type { AppRole } from '@/types/database'
 
 /** "Today" / "Yesterday" / "12 Mar" — the separator between days of chat. */
@@ -26,54 +26,23 @@ function clockTime(iso: string) {
   return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }).format(new Date(iso))
 }
 
-type CommentLike = { id: string; author_id: string | null; body: string; is_internal: boolean; created_at: string; seen_at?: string | null }
+type CommentLike = { id: string; author_id: string | null; body: string; is_internal: boolean; created_at: string }
 
-type Reader = { profile_id: string; full_name?: string; email?: string; role?: AppRole; read_at: string | null }
-
-/**
- * What became of one message: who it was for, which of them have read it, and
- * who is remaining, plus the option to delete.
- */
-function MessageMenu({ commentId, table, names, canDelete, mine, myRole }: {
+/** Task-comment actions. Ticket conversations intentionally have no per-message menu. */
+function MessageMenu({ commentId, table, canDelete, mine }: {
   commentId: string
-  table: 'task_comments' | 'ticket_comments'
-  names: Record<string, string>
+  table: 'task_comments'
   canDelete: boolean
   mine: boolean
-  myRole?: AppRole
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [readers, setReaders] = useState<Reader[] | null>(null)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
 
   async function toggle() {
     const next = !open
     setOpen(next)
-    if (next && readers === null && table === 'ticket_comments') {
-      const { data, error } = await createClient().rpc('ticket_message_readers', { p_comment_id: commentId })
-      if (!error && data) {
-        setReaders(data as Reader[])
-      } else {
-        // Fallback if migration 078 not yet applied: query active staff audience
-        const { data: staff } = await createClient()
-          .from('profiles')
-          .select('id, full_name, role, email')
-          .in('role', ['super_admin', 'admin'])
-          .eq('status', 'active')
-        if (staff) {
-          setReaders(staff.map(s => ({
-            profile_id: s.id,
-            full_name: s.full_name || (s.role === 'super_admin' ? 'Super Admin' : 'Manager'),
-            role: s.role as AppRole,
-            read_at: null,
-          })))
-        } else {
-          setReaders([])
-        }
-      }
-    }
   }
 
   async function remove() {
@@ -84,18 +53,6 @@ function MessageMenu({ commentId, table, names, canDelete, mine, myRole }: {
     if (error) return setError(errorMessage(error))
     setOpen(false)
     router.refresh()
-  }
-
-  const seen = (readers ?? []).filter(r => r.read_at)
-  const waiting = (readers ?? []).filter(r => !r.read_at)
-  const who = (r: Reader) => {
-    if (r.role === 'super_admin') {
-      return r.full_name && r.full_name !== 'Super Admin' ? `${r.full_name} (Super Admin)` : 'Super Admin'
-    }
-    if (r.role === 'admin') {
-      return r.full_name && r.full_name !== 'Manager' ? `${r.full_name} (Manager)` : 'Manager'
-    }
-    return r.full_name || names[r.profile_id] || 'Team member'
   }
 
   return (
@@ -119,52 +76,6 @@ function MessageMenu({ commentId, table, names, canDelete, mine, myRole }: {
             'absolute bottom-full mb-1.5 z-30 block w-64 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-xl ring-1 ring-black/5',
             mine ? 'right-0' : 'left-0'
           )}>
-            {table === 'ticket_comments' && (
-              readers === null ? (
-                <span className="block py-2 text-center text-xs text-slate-400">Loading…</span>
-              ) : readers.length === 0 ? (
-                <span className="block py-2 text-center text-xs text-slate-400">This message has no recipients.</span>
-              ) : (
-                <div className="space-y-3">
-                  <div>
-                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                      Seen by ({seen.length})
-                    </span>
-                    {seen.length === 0 ? (
-                      <span className="mt-1 block text-xs italic text-slate-400">Nobody yet</span>
-                    ) : (
-                      <div className="mt-1 max-h-28 divide-y divide-slate-100 overflow-y-auto">
-                        {seen.map(r => (
-                          <div key={r.profile_id} className="flex items-center justify-between gap-2 py-1 text-xs">
-                            <span className="truncate font-medium text-slate-800">{who(r)}</span>
-                            <span className="flex-shrink-0 text-[10px] text-slate-400">
-                              {r.read_at ? formatRelative(r.read_at) : ''}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                      Remaining ({waiting.length})
-                    </span>
-                    {waiting.length === 0 ? (
-                      <span className="mt-1 block text-xs font-medium text-emerald-600">Seen by everyone</span>
-                    ) : (
-                      <div className="mt-1 max-h-28 divide-y divide-slate-100 overflow-y-auto">
-                        {waiting.map(r => (
-                          <div key={r.profile_id} className="py-1 text-xs text-slate-600">
-                            <span className="truncate">{who(r)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            )}
             {canDelete && (
               <button
                 type="button"
@@ -184,7 +95,7 @@ function MessageMenu({ commentId, table, names, canDelete, mine, myRole }: {
 }
 
 export function CommentThread({
-  taskId, comments, names, roles, meId, myRole, table = 'task_comments', idField = 'task_id', lockedNote, showReceipts = false, bounded = false, replyNeeded = false, receipts,
+  taskId, comments, names, roles, meId, myRole, table = 'task_comments', idField = 'task_id', lockedNote, bounded = false, replyNeeded = false,
 }: {
   taskId: string
   comments: CommentLike[]
@@ -196,10 +107,6 @@ export function CommentThread({
   idField?: 'task_id' | 'ticket_id'
   /** Shown instead of the composer when the thread takes no more replies. */
   lockedNote?: string
-  /** Ticks on your own messages: one for sent, two once all recipients read it. */
-  showReceipts?: boolean
-  /** Per message: how many people it was for, and how many have read it. */
-  receipts?: Record<string, { audience: number; seen: number }>
   /** Keep ticket conversations a fixed height and scroll messages inside them. */
   bounded?: boolean
   /** Whether this client reply is expected to clear the awaiting-client state. */
@@ -209,6 +116,8 @@ export function CommentThread({
   const isStaff = myRole !== 'client'
   const isTicketThread = table === 'ticket_comments'
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const readMarkedRef = useRef(new Set<string>())
+  const readInFlightRef = useRef(new Set<string>())
   const canChoose = isTicketThread && (myRole === 'super_admin' || myRole === 'admin')
   const [body, setBody] = useState('')
   const [isPublic, setIsPublic] = useState(true)
@@ -225,6 +134,37 @@ export function CommentThread({
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [comments.length, filter])
+
+  // A message is read only when its bubble is actually visible in the
+  // conversation viewport. One reader must never clear another reader's badge.
+  useEffect(() => {
+    const root = scrollRef.current
+    if (!isTicketThread || !root) return
+    let cancelled = false
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        const commentId = (entry.target as HTMLElement).dataset.ticketCommentId
+        if (!commentId || readMarkedRef.current.has(commentId) || readInFlightRef.current.has(commentId)) continue
+        readInFlightRef.current.add(commentId)
+        void (async () => {
+          for (let attempt = 0; attempt < 3 && !cancelled; attempt += 1) {
+            const { error } = await createClient().rpc('mark_ticket_message_seen', { p_comment_id: commentId })
+            if (cancelled) break
+            if (!error) {
+              readMarkedRef.current.add(commentId)
+              break
+            }
+            if (attempt < 2) await new Promise(resolve => window.setTimeout(resolve, 750 * (attempt + 1)))
+          }
+          readInFlightRef.current.delete(commentId)
+        })()
+      }
+    }, { root, threshold: 0.2 })
+
+    root.querySelectorAll<HTMLElement>('[data-ticket-comment-id]').forEach(node => observer.observe(node))
+    return () => { cancelled = true; observer.disconnect() }
+  }, [comments, filter, isTicketThread])
   const shown = comments.filter(c => filter === 'all' || (filter === 'public' ? !c.is_internal : c.is_internal))
 
   async function submit(e?: React.FormEvent) {
@@ -305,7 +245,8 @@ export function CommentThread({
                         {role && <span className="text-slate-400">{ROLE_LABELS[role]}</span>}
                       </span>
                     )}
-                    <div className={cn('rounded-2xl px-3.5 py-2 text-sm shadow-sm ring-1 ring-inset transition-shadow hover:shadow-md',
+                    <div data-ticket-comment-id={isTicketThread && !mine && !c.is_internal ? c.id : undefined}
+                      className={cn('rounded-2xl px-3.5 py-2 text-sm shadow-sm ring-1 ring-inset transition-shadow hover:shadow-md',
                       c.is_internal
                         ? 'bg-amber-50 text-amber-900 ring-amber-200'
                         : mine
@@ -316,25 +257,10 @@ export function CommentThread({
                     </div>
                     <span className={cn('mt-0.5 flex items-center gap-1.5 px-1 text-[11px] text-slate-400', mine && 'flex-row-reverse')}>
                       <span suppressHydrationWarning>{clockTime(c.created_at)}</span>
-                      {showReceipts && mine && !c.is_internal && (() => {
-                        const r = receipts?.[c.id]
-                        // Only show double tick and "Seen" if ALL audience members (including Super Admin) have seen it
-                        if (r && r.audience > 0 && r.seen >= r.audience) {
-                          return (
-                            <span className="inline-flex items-center gap-0.5 text-brand-600" title="Seen by everyone">
-                              <CheckCheck className="h-3.5 w-3.5" /> Seen
-                            </span>
-                          )
-                        }
-                        // If Super Admin or any audience member has not seen it: show single tick "Sent"
-                        return (
-                          <span className="inline-flex items-center gap-0.5 text-slate-400" title="Sent">
-                            <Check className="h-3.5 w-3.5" /> Sent
-                          </span>
-                        )
-                      })()}
-                      <MessageMenu commentId={c.id} table={table} names={names}
-                                   mine={mine} canDelete={mine || myRole === 'super_admin'} myRole={myRole} />
+                      {!isTicketThread && (
+                        <MessageMenu commentId={c.id} table="task_comments"
+                                     mine={mine} canDelete={mine || myRole === 'super_admin'} />
+                      )}
                       {isStaff && isTicketThread && (c.is_internal
                         ? <span className="inline-flex items-center gap-0.5 font-medium text-amber-700"><Lock className="h-2.5 w-2.5" /> Team only</span>
                         : <span className="inline-flex items-center gap-0.5 font-medium text-brand-600"><Globe className="h-2.5 w-2.5" /> Public</span>)}

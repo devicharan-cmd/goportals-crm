@@ -1,10 +1,14 @@
+'use client'
+
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { ClipboardList, MessageSquareText } from 'lucide-react'
 import { EmptyState } from '@/components/ui/primitives'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_LABELS_CLIENT, TICKET_STATUS_STYLES, TICKET_TERMINAL_STATUSES } from '@/lib/constants'
 import { TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { cn, formatDate, ticketCode } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import type { Ticket } from '@/types/database'
 
 export type TicketListItem = Ticket & { client?: { id: string; company_name: string } | null }
@@ -39,8 +43,28 @@ export function TicketTable({
   /** Unread message count per ticket id; omit to show none. */
   unreadByTicket?: Record<string, number>
 }) {
+  const [liveUnreadByTicket, setLiveUnreadByTicket] = useState(unreadByTicket ?? {})
+  const showMessages = unreadByTicket !== undefined
+
+  // Keep the per-reader message badges current while this list remains open.
+  // The database RPC is the authority; polling refreshes only counts and never
+  // changes the read state, which is cleared by opening the conversation.
+  useEffect(() => {
+    if (!showMessages) return
+    const supabase = createClient()
+    let disposed = false
+    const refresh = async () => {
+      const { data, error } = await supabase.rpc('my_unread_ticket_messages')
+      if (disposed || error || !data) return
+      const next = Object.fromEntries((data as { ticket_id: string; unread: number }[]).map(row => [row.ticket_id, row.unread]))
+      setLiveUnreadByTicket(next)
+    }
+    void refresh()
+    const interval = window.setInterval(() => void refresh(), 5000)
+    return () => { disposed = true; window.clearInterval(interval) }
+  }, [showMessages])
+
   const statusLabels = audience === 'client' ? TICKET_STATUS_LABELS_CLIENT : TICKET_STATUS_LABELS
-  const showMessages = !!unreadByTicket
   if (tickets.length === 0) {
     return <EmptyState icon={ClipboardList} title={empty?.title ?? 'No tickets'} description={empty?.description} action={empty?.action} />
   }
@@ -74,7 +98,7 @@ export function TicketTable({
               {showMessages && (
                 <td className={cn('px-3 py-3.5 text-center whitespace-nowrap', showClient ? 'w-24' : 'w-28')}>
                   <Link href={`${hrefBase}/${t.id}#conversation`} className="inline-flex" aria-label="Open the conversation">
-                    <UnreadMessages count={unreadByTicket?.[t.id] ?? 0} />
+                    <UnreadMessages count={liveUnreadByTicket[t.id] ?? 0} />
                   </Link>
                 </td>
               )}
@@ -99,7 +123,7 @@ export function TicketTable({
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {t.is_urgent && !TICKET_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
                 <StatusBadge label={statusLabels[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} />
-                <UnreadMessages count={unreadByTicket?.[t.id] ?? 0} />
+                <UnreadMessages count={liveUnreadByTicket[t.id] ?? 0} />
                 <span className="text-xs text-slate-500">{TICKET_CATEGORY_LABELS[t.category]}</span>
                 {showClient && t.client && <span className="text-xs text-slate-500">{t.client.company_name}</span>}
                 <span className="ml-auto text-xs text-slate-400">{formatDate(t.created_at)}</span>

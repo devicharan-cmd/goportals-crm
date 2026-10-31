@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { requireStaff } from '@/lib/auth'
 import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getStaffLookups } from '@/lib/queries'
+import { ROLE_LABELS } from '@/lib/constants'
 import { PageHeader } from '@/components/ui/primitives'
 import { TaskForm } from '@/components/tasks/TaskForm'
 
@@ -34,7 +35,7 @@ export default async function NewTaskPage({ searchParams }: { searchParams: { cl
         defaultAssigneeId={searchParams.assignee}
         canMarkUrgent={me.role !== 'employee'}
         clients={clients}
-        assignees={assignableFor(me, lookups).map(p => ({ id: p.id, name: p.full_name || p.email }))}
+        assignees={assignableFor(me, lookups).map(p => ({ id: p.id, name: p.full_name || p.email, employeeId: p.id, role: ROLE_LABELS[p.role] }))}
         departments={lookups.departments}
         platforms={lookups.platforms}
         services={lookups.services}

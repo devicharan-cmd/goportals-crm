@@ -10,7 +10,7 @@ import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TICKET_STATUS_LABELS, TYPE_OPTIONS 
 import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
 import type { Department, DeadlineType, Platform, Service, Task, TaskPriority, TaskType, TicketStatus } from '@/types/database'
 
-type Option = { id: string; name: string }
+type Option = { id: string; name: string; employeeId?: string; role?: string }
 type TicketOption = { id: string; ticket_number: number; subject: string; status: TicketStatus }
 
 export type TaskFormProps = {
@@ -52,8 +52,10 @@ export function TaskForm(p: TaskFormProps) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [assigneeError, setAssigneeError] = useState('')
   const [tickets, setTickets] = useState<TicketOption[]>([])
   const [loadingTickets, setLoadingTickets] = useState(false)
+  const [assigneeOpen, setAssigneeOpen] = useState(false)
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(f => ({ ...f, [k]: v }))
   const canEditAssignment = p.canEditAssignment ?? true
 
@@ -71,6 +73,22 @@ export function TaskForm(p: TaskFormProps) {
       .then(({ data }) => { if (!cancelled) { setTickets((data ?? []) as TicketOption[]); setLoadingTickets(false) } })
     return () => { cancelled = true }
   }, [form.client_id])
+
+  useEffect(() => {
+    if (!assigneeOpen) return
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (event.target instanceof Element && !event.target.closest('[data-assignee-picker]')) setAssigneeOpen(false)
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setAssigneeOpen(false)
+    }
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [assigneeOpen])
 
   function pickClient(clientId: string) {
     // The previously picked ticket almost certainly belonged to the old client.
@@ -90,6 +108,10 @@ export function TaskForm(p: TaskFormProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (p.mode === 'create' && !form.assignee_id) {
+      setAssigneeError('Please select an assignee before creating the task.')
+      return
+    }
     if (!form.client_id) return setError('Choose a client.')
     setSaving(true)
     setError('')
@@ -180,12 +202,44 @@ export function TaskForm(p: TaskFormProps) {
             {activePlatforms.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
           </select>
         </Field>
-        <Field label="Assignee"
+        <Field label="Assignee" required={p.mode === 'create'}
                hint={!canEditAssignment ? 'Only managers can change the assignee.' : p.assignees.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
-          <select className="input" value={form.assignee_id} disabled={!canEditAssignment} onChange={e => set('assignee_id', e.target.value)}>
-            <option value="">Unassigned</option>
-            {p.assignees.map(a => <option key={a.id} value={a.id}>{a.id === p.meId ? `${a.name} (me)` : a.name}</option>)}
-          </select>
+          <div className="relative" data-assignee-picker>
+            <button type="button" className="input flex w-full items-center justify-between text-left"
+                    disabled={!canEditAssignment} aria-haspopup="listbox" aria-expanded={assigneeOpen}
+                    aria-required={p.mode === 'create'} aria-invalid={!!assigneeError}
+                    onClick={() => setAssigneeOpen(open => !open)}>
+              <span className="truncate">
+                {form.assignee_id
+                  ? (() => {
+                      const selected = p.assignees.find(a => a.id === form.assignee_id)
+                      return selected ? <>{selected.name}{selected.id === p.meId ? ' (me)' : ''}</> : 'Select assignee…'
+                    })()
+                  : 'Unassigned'}
+              </span>
+              <span aria-hidden="true" className="ml-2 text-slate-400">⌄</span>
+            </button>
+            {assigneeOpen && (
+              <div role="listbox" aria-label="Assignee" className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                <button type="button" role="option" aria-selected={!form.assignee_id}
+                        onClick={() => { set('assignee_id', ''); setAssigneeOpen(false) }}
+                        className={cn('w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50', !form.assignee_id && 'bg-slate-50 font-medium')}>
+                  Unassigned
+                </button>
+                {p.assignees.map(a => (
+                  <button key={a.id} type="button" role="option" aria-selected={form.assignee_id === a.id}
+                          onClick={() => { set('assignee_id', a.id); setAssigneeError(''); setAssigneeOpen(false) }}
+                          className={cn('w-full rounded-lg px-3 py-2 text-left hover:bg-slate-50', form.assignee_id === a.id && 'bg-slate-50')}>
+                    <span className="block truncate text-sm font-medium text-slate-900">
+                      {a.name}{a.employeeId ? ` – ID: ${a.employeeId}` : ''}{a.id === p.meId ? ' (me)' : ''}
+                    </span>
+                    {a.role && <span className="mt-0.5 block text-xs text-slate-500">({a.role})</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {assigneeError && <p role="alert" className="mt-1.5 text-sm text-red-600">{assigneeError}</p>}
         </Field>
         <Field label="Priority">
           <select className="input" value={form.priority} onChange={e => set('priority', e.target.value as TaskPriority)}>

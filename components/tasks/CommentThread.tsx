@@ -6,7 +6,7 @@ import { MoreHorizontal, Trash2, Globe, Lock, MessageSquare, Send } from 'lucide
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
-import { ROLE_LABELS } from '@/lib/constants'
+import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
 import { cn, errorMessage, splitTeamName } from '@/lib/utils'
 import type { AppRole } from '@/types/database'
 
@@ -233,7 +233,7 @@ export function CommentThread({
                 )}
                 <div className={cn('flex items-end gap-2', mine ? 'flex-row-reverse' : 'flex-row', newBlock ? 'mt-2.5' : 'mt-0.5')}>
                   <span className={cn('w-7 flex-shrink-0', mine && 'hidden')}>
-                    {newBlock && !mine && <Avatar name={senderName || '?'} size="xs" />}
+                    {newBlock && !mine && <Avatar name={senderName || '?'} role={role} size="xs" />}
                   </span>
                   <div className={cn('group/msg flex min-w-0 max-w-[78%] flex-col', mine ? 'items-end' : 'items-start')}>
                     {newBlock && !mine && (
@@ -242,7 +242,7 @@ export function CommentThread({
                           {senderName || 'Unknown'}
                           {senderQualifier && <span className="ml-1 text-[11px] font-normal text-slate-500">({senderQualifier})</span>}
                         </span>
-                        {role && <span className="text-slate-400">{ROLE_LABELS[role]}</span>}
+                        {role && <span className={ROLE_STYLES[role].text}>{ROLE_LABELS[role]}</span>}
                       </span>
                     )}
                     <div data-ticket-comment-id={isTicketThread && !mine && !c.is_internal ? c.id : undefined}

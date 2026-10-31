@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { KanbanSquare, List, Search, X } from 'lucide-react'
+import { ChevronDown, KanbanSquare, List, Search, X } from 'lucide-react'
+import { Avatar } from '@/components/ui/primitives'
 import { TASK_STATUS_OPTIONS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+import type { AppRole } from '@/types/database'
 
-type Option = { value: string; label: string }
+type Option = { value: string; label: string; avatarUrl?: string | null; role?: AppRole }
 
 /**
  * URL-driven filters for the task list (server page reads searchParams).
@@ -19,6 +21,7 @@ export function TaskFilters({
   const pathname = usePathname()
   const params = useSearchParams()
   const [q, setQ] = useState(params.get('q') ?? '')
+  const [assigneeOpen, setAssigneeOpen] = useState(false)
 
   function set(key: string, value: string) {
     const next = new URLSearchParams(params.toString())
@@ -34,6 +37,22 @@ export function TaskFilters({
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q])
+
+  useEffect(() => {
+    if (!assigneeOpen) return
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (event.target instanceof Element && !event.target.closest('[data-assignee-filter]')) setAssigneeOpen(false)
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setAssigneeOpen(false)
+    }
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [assigneeOpen])
 
   const view = params.get('view') ?? 'list'
   const scope = params.get('scope') ?? defaultScope
@@ -87,11 +106,29 @@ export function TaskFilters({
           {clients.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
         {showScope && scope === 'all' && (
-          <select className={select} aria-label="Assignee" value={params.get('assignee') ?? ''} onChange={e => set('assignee', e.target.value)}>
-            <option value="">Any assignee</option>
-            <option value="none">Unassigned</option>
-            {people.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
+          <div className="relative w-full sm:w-44" data-assignee-filter>
+            <button type="button" className="input flex h-9 w-full items-center justify-between gap-2 py-1.5 pr-3 text-left text-sm"
+                    aria-label="Assignee" aria-haspopup="listbox" aria-expanded={assigneeOpen}
+                    onClick={() => setAssigneeOpen(current => !current)}>
+              <span className="truncate">{params.get('assignee') === 'none' ? 'Unassigned' : people.find(p => p.value === params.get('assignee'))?.label ?? 'Any assignee'}</span>
+              <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
+            </button>
+            {assigneeOpen && (
+              <div role="listbox" aria-label="Assignee" className="absolute left-0 top-full z-30 mt-1 max-h-64 w-full min-w-56 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                {[{ value: '', label: 'Any assignee' }, { value: 'none', label: 'Unassigned' }, ...people].map(person => {
+                  const selected = (params.get('assignee') ?? '') === person.value
+                  return (
+                    <button key={person.value || 'any'} type="button" role="option" aria-selected={selected}
+                            onClick={() => { set('assignee', person.value); setAssigneeOpen(false) }}
+                            className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors', selected ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-[#f3f5f4]')}>
+                      {person.value && person.value !== 'none' && <Avatar name={person.label} src={person.avatarUrl} role={person.role} size="sm" />}
+                      <span className="truncate">{person.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         )}
         <select className={select} aria-label="Department" value={params.get('dept') ?? ''} onChange={e => set('dept', e.target.value)}>
           <option value="">All departments</option>

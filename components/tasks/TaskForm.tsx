@@ -2,16 +2,83 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Flame } from 'lucide-react'
+import { AlertCircle, ChevronDown, Flame } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Alert, Field } from '@/components/ui/primitives'
+import { Alert, Avatar, Field } from '@/components/ui/primitives'
 import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TICKET_STATUS_LABELS, TYPE_OPTIONS } from '@/lib/constants'
 import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
-import type { Department, DeadlineType, Platform, Service, Task, TaskPriority, TaskType, TicketStatus } from '@/types/database'
+import type { AppRole, Department, DeadlineType, Platform, Service, Task, TaskPriority, TaskType, TicketStatus } from '@/types/database'
 
-type Option = { id: string; name: string }
+type Option = { id: string; name: string; avatarUrl?: string | null; employeeId?: string; role?: string; avatarRole?: AppRole }
 type TicketOption = { id: string; ticket_number: number; subject: string; status: TicketStatus }
+type SelectOption = { value: string; label: string; detail?: string }
+
+function FormSelect({
+  label,
+  value,
+  options,
+  onChange,
+  disabled = false,
+  invalid = false,
+  required = false,
+  'aria-label': ariaLabel,
+}: {
+  label: string
+  value: string
+  options: SelectOption[]
+  onChange: (value: string) => void
+  disabled?: boolean
+  invalid?: boolean
+  required?: boolean
+  'aria-label'?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const selected = options.find(option => option.value === value)
+
+  useEffect(() => {
+    if (!open) return
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (event.target instanceof Element && !event.target.closest('[data-form-select]')) setOpen(false)
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
+
+  return (
+    <div className="relative" data-form-select>
+      <button type="button" className={cn('input flex w-full items-center justify-between text-left', invalid && 'border-red-400 focus:border-red-500 focus:ring-red-200')}
+              disabled={disabled} aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open}
+              aria-required={required} aria-invalid={invalid} onClick={() => setOpen(current => !current)}>
+        <span className="truncate">{selected?.label ?? label}</span>
+        <ChevronDown aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
+      </button>
+      {open && (
+        <div role="listbox" aria-label={ariaLabel ?? label} className="absolute z-30 mt-1 max-h-64 w-full space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+          {options.map(option => {
+            const isSelected = option.value === value
+            return (
+              <button key={option.value} type="button" role="option" aria-selected={isSelected}
+                      onClick={() => { onChange(option.value); setOpen(false) }}
+                      className={cn('w-full rounded-lg px-3 py-2 text-left transition-colors',
+                        isSelected ? 'bg-brand-50 font-medium text-brand-700' : 'text-slate-700 hover:bg-[#f3f5f4]')}>
+                <span className="block truncate text-sm">{option.label}</span>
+                {option.detail && <span className="mt-0.5 block text-xs text-slate-500">{option.detail}</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export type TaskFormProps = {
   mode: 'create' | 'edit'
@@ -52,8 +119,10 @@ export function TaskForm(p: TaskFormProps) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [assigneeError, setAssigneeError] = useState('')
   const [tickets, setTickets] = useState<TicketOption[]>([])
   const [loadingTickets, setLoadingTickets] = useState(false)
+  const [assigneeOpen, setAssigneeOpen] = useState(false)
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(f => ({ ...f, [k]: v }))
   const canEditAssignment = p.canEditAssignment ?? true
 
@@ -71,6 +140,22 @@ export function TaskForm(p: TaskFormProps) {
       .then(({ data }) => { if (!cancelled) { setTickets((data ?? []) as TicketOption[]); setLoadingTickets(false) } })
     return () => { cancelled = true }
   }, [form.client_id])
+
+  useEffect(() => {
+    if (!assigneeOpen) return
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (event.target instanceof Element && !event.target.closest('[data-assignee-picker]')) setAssigneeOpen(false)
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setAssigneeOpen(false)
+    }
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [assigneeOpen])
 
   function pickClient(clientId: string) {
     // The previously picked ticket almost certainly belonged to the old client.
@@ -90,6 +175,10 @@ export function TaskForm(p: TaskFormProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (p.mode === 'create' && !form.assignee_id) {
+      setAssigneeError('Please select an assignee before creating the task.')
+      return
+    }
     if (!form.client_id) return setError('Choose a client.')
     setSaving(true)
     setError('')
@@ -141,56 +230,83 @@ export function TaskForm(p: TaskFormProps) {
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Client" required>
-          <select className="input" value={form.client_id} onChange={e => pickClient(e.target.value)} required>
-            <option value="">Select client…</option>
-            {p.clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-          </select>
+          <FormSelect label="Select client…" value={form.client_id}
+            options={[{ value: '', label: 'Select client…' }, ...p.clients.map(c => ({ value: c.id, label: c.company_name }))]}
+            onChange={pickClient} required aria-label="Client" />
         </Field>
         <Field label="Ticket"
                hint={!form.client_id ? 'Pick a client first' : loadingTickets ? 'Loading…' : tickets.length === 0 ? 'No tickets for this client' : 'Links this task back to the request it\'s for'}>
-          <select className="input" value={form.ticket_id} disabled={!form.client_id || loadingTickets} onChange={e => set('ticket_id', e.target.value)}>
-            <option value="">No ticket (standalone task)</option>
-            {tickets.map(tk => (
-              <option key={tk.id} value={tk.id}>
-                {ticketCode(tk.ticket_number)} · {tk.subject}{tk.status === 'closed' ? ` (${TICKET_STATUS_LABELS[tk.status]})` : ''}
-              </option>
-            ))}
-          </select>
+          <FormSelect label="No ticket (standalone task)" value={form.ticket_id} disabled={!form.client_id || loadingTickets}
+            options={[{ value: '', label: 'No ticket (standalone task)' }, ...tickets.map(tk => ({
+              value: tk.id,
+              label: `${ticketCode(tk.ticket_number)} · ${tk.subject}${tk.status === 'closed' ? ` (${TICKET_STATUS_LABELS[tk.status]})` : ''}`,
+            }))]}
+            onChange={value => set('ticket_id', value)} aria-label="Ticket" />
         </Field>
         <Field label="Type">
-          <select className="input" value={form.type} onChange={e => set('type', e.target.value as TaskType)}>
-            {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <FormSelect label="Type" value={form.type} options={TYPE_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+            onChange={value => set('type', value as TaskType)} aria-label="Type" />
         </Field>
         <Field label="Service">
-          <select className="input" value={form.service_id} onChange={e => pickService(e.target.value)}>
-            <option value="">—</option>
-            {activeServices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+          <FormSelect label="—" value={form.service_id} options={[{ value: '', label: '—' }, ...activeServices.map(s => ({ value: s.id, label: s.name }))]}
+            onChange={pickService} aria-label="Service" />
         </Field>
         <Field label="Department">
-          <select className="input" value={form.department_id} onChange={e => set('department_id', e.target.value)}>
-            <option value="">—</option>
-            {p.departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
+          <FormSelect label="—" value={form.department_id} options={[{ value: '', label: '—' }, ...p.departments.map(d => ({ value: d.id, label: d.name }))]}
+            onChange={value => set('department_id', value)} aria-label="Department" />
         </Field>
         <Field label="Platform">
-          <select className="input" value={form.platform_id} onChange={e => set('platform_id', e.target.value)}>
-            <option value="">—</option>
-            {activePlatforms.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
-          </select>
+          <FormSelect label="—" value={form.platform_id} options={[{ value: '', label: '—' }, ...activePlatforms.map(x => ({ value: x.id, label: x.name }))]}
+            onChange={value => set('platform_id', value)} aria-label="Platform" />
         </Field>
-        <Field label="Assignee"
+        <Field label="Assignee" required={p.mode === 'create'}
                hint={!canEditAssignment ? 'Only managers can change the assignee.' : p.assignees.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
-          <select className="input" value={form.assignee_id} disabled={!canEditAssignment} onChange={e => set('assignee_id', e.target.value)}>
-            <option value="">Unassigned</option>
-            {p.assignees.map(a => <option key={a.id} value={a.id}>{a.id === p.meId ? `${a.name} (me)` : a.name}</option>)}
-          </select>
+          <div className="relative" data-assignee-picker>
+            <button type="button" className="input flex w-full items-center justify-between text-left"
+                    disabled={!canEditAssignment} aria-haspopup="listbox" aria-expanded={assigneeOpen}
+                    aria-required={p.mode === 'create'} aria-invalid={!!assigneeError}
+                    onClick={() => setAssigneeOpen(open => !open)}>
+              <span className="flex min-w-0 items-center gap-2">
+                {form.assignee_id
+                  ? (() => {
+              const selected = p.assignees.find(a => a.id === form.assignee_id)
+              return selected ? <><span className="relative h-5 w-5 shrink-0"><Avatar name={selected.name} src={selected.avatarUrl} role={selected.avatarRole} size="xs" className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 text-xs" /></span><span className="truncate">{selected.name}{selected.id === p.meId ? ' (me)' : ''}</span></> : 'Select assignee…'
+                    })()
+                  : 'Unassigned'}
+              </span>
+              <ChevronDown aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
+            </button>
+            {assigneeOpen && (
+              <div role="listbox" aria-label="Assignee" className="absolute z-30 mt-1 max-h-64 w-full space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                {[{ id: '', name: 'Unassigned' }, ...p.assignees].map(a => {
+                  const selected = form.assignee_id === a.id
+                  return (
+                    <button key={a.id || 'unassigned'} type="button" role="option" aria-selected={selected}
+                            onClick={() => { set('assignee_id', a.id); if (a.id) setAssigneeError(''); setAssigneeOpen(false) }}
+                            className={cn('w-full rounded-lg px-3 py-2 text-left transition-colors', selected ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-[#f3f5f4]')}>
+                      <span className="flex min-w-0 items-center gap-2">
+                        {a.id && <Avatar name={a.name} src={a.avatarUrl} role={a.avatarRole} size="sm" />}
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium">{a.name}{a.id === p.meId ? ' (me)' : ''}</span>
+                          {'role' in a && a.role && <span className="mt-0.5 block text-xs text-slate-500">({a.role})</span>}
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          {assigneeError && (
+            <p role="alert" className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-red-600">
+              <AlertCircle aria-hidden="true" className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>{assigneeError}</span>
+            </p>
+          )}
         </Field>
         <Field label="Priority">
-          <select className="input" value={form.priority} onChange={e => set('priority', e.target.value as TaskPriority)}>
-            {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <FormSelect label="Priority" value={form.priority} options={PRIORITY_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+            onChange={value => set('priority', value as TaskPriority)} aria-label="Priority" />
         </Field>
         <Field label="Estimated hours">
           <input className="input" type="number" min="0" step="0.5" value={form.estimated_hours} onChange={e => set('estimated_hours', e.target.value)} />

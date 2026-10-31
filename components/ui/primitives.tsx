@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { AlertCircle, CheckCircle2 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
+import type { AppRole } from '@/types/database'
+import { ROLE_STYLES } from '@/lib/constants'
 
 export function Card({ className, children, id }: { className?: string; children: React.ReactNode; id?: string }) {
   return <div id={id} className={cn('card', className)}>{children}</div>
@@ -91,14 +93,14 @@ const AVATAR_COLORS = [
   'bg-amber-100 text-amber-800', 'bg-sky-100 text-sky-700', 'bg-rose-100 text-rose-700',
 ]
 
-export function Avatar({ name, src, size = 'md', className }: { name: string | null | undefined; src?: string | null; size?: 'xs' | 'sm' | 'md' | 'lg'; className?: string }) {
+export function Avatar({ name, src, role, size = 'md', className }: { name: string | null | undefined; src?: string | null; role?: AppRole; size?: 'xs' | 'sm' | 'md' | 'lg'; className?: string }) {
   const sizes = { xs: 'h-5 w-5 text-[10px]', sm: 'h-7 w-7 text-xs', md: 'h-9 w-9 text-sm', lg: 'h-12 w-12 text-base' }
   const hash = (name ?? '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   return (
     <span
       title={name ?? undefined}
       className={cn('inline-flex flex-shrink-0 items-center justify-center rounded-full font-semibold',
-        sizes[size], AVATAR_COLORS[hash % AVATAR_COLORS.length], className)}
+        sizes[size], (role ? ROLE_STYLES[role].avatar : undefined) ?? AVATAR_COLORS[hash % AVATAR_COLORS.length], className)}
     >
       {src ? <img src={src} alt="" className="h-full w-full rounded-[inherit] object-cover" /> : getInitials(name)}
     </span>

@@ -79,7 +79,7 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
       {/* Header */}
       <Card className="mb-6 p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <Avatar name={person.full_name || person.email} size="lg" className={cn(!active && 'grayscale')} />
+          <Avatar name={person.full_name || person.email} src={person.avatar_url} role={person.role} size="lg" className={cn(!active && 'grayscale')} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold">{person.full_name || person.email}</h1>

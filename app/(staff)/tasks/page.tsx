@@ -65,7 +65,7 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
         showScope={canSeeMore}
         defaultScope={defaultScope}
         clients={lookups.clients.map(c => ({ value: c.id, label: c.company_name }))}
-        people={(['super_admin', 'admin'].includes(me.role) ? lookups.staff : assignableFor(me, lookups)).map(p => ({ value: p.id, label: p.full_name || p.email }))}
+        people={(['super_admin', 'admin'].includes(me.role) ? lookups.staff : assignableFor(me, lookups)).map(p => ({ value: p.id, label: p.full_name || p.email, avatarUrl: p.avatar_url, role: p.role }))}
         departments={lookups.departments.map(d => ({ value: d.id, label: d.name }))}
         action={<ButtonLink href="/tasks/new" size="sm"><Plus className="h-3.5 w-3.5" /> New task</ButtonLink>}
       />

@@ -4,9 +4,10 @@ import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getStaffLookups, nameMap } from '@/lib/queries'
+import { ROLE_LABELS } from '@/lib/constants'
 import { PageHeader } from '@/components/ui/primitives'
 import { TaskForm } from '@/components/tasks/TaskForm'
-import type { Task } from '@/types/database'
+import type { AppRole, Task } from '@/types/database'
 
 export const metadata = { title: 'Edit task' }
 
@@ -21,9 +22,31 @@ export default async function EditTaskPage({ params }: { params: { id: string } 
   const task = data as Task
 
   const names = nameMap(lookups.people)
-  const assignees = assignableFor(me, lookups).map(p => ({ id: p.id, name: p.full_name || p.email }))
+  const assignees: {
+    id: string
+    name: string
+    avatarUrl?: string | null
+    employeeId: string
+    role: string
+    avatarRole?: AppRole
+  }[] = assignableFor(me, lookups).map(p => ({
+    id: p.id,
+    name: p.full_name || p.email,
+    avatarUrl: p.avatar_url,
+    employeeId: p.id,
+    role: ROLE_LABELS[p.role],
+    avatarRole: p.role,
+  }))
   if (task.assignee_id && !assignees.some(a => a.id === task.assignee_id)) {
-    assignees.unshift({ id: task.assignee_id, name: names[task.assignee_id] ?? 'Current assignee' })
+    const person = lookups.people.find(p => p.id === task.assignee_id)
+    assignees.unshift({
+      id: task.assignee_id,
+      name: names[task.assignee_id] ?? 'Current assignee',
+      avatarUrl: person?.avatar_url ?? null,
+      employeeId: task.assignee_id,
+      role: person ? ROLE_LABELS[person.role] : 'Current assignee',
+      ...(person ? { avatarRole: person.role } : {}),
+    })
   }
 
   // Same team_lead scoping as the new-task form — but never drop the task's

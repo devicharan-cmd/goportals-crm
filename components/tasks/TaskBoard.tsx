@@ -42,7 +42,7 @@ function Card({ task, names, overlay, linked, assignOptions }: CardProps & { ove
         : <div className="p-3 pb-2">{body}</div>}
       <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
         {task.assignee_id
-          ? <span className="flex min-w-0 items-center gap-1.5 text-xs text-slate-600"><Avatar name={names[task.assignee_id]} size="xs" /><span className="truncate">{names[task.assignee_id] ?? '—'}</span></span>
+          ? <span className="flex min-w-0 items-center gap-1.5 text-xs text-slate-600"><Avatar name={names[task.assignee_id]} role={assignOptions?.find(option => option.id === task.assignee_id)?.avatarRole} size="xs" /><span className="truncate">{names[task.assignee_id] ?? '—'}</span></span>
           : <span className="text-[11px] italic text-slate-400">Unassigned</span>}
         {assignOptions && !TASK_TERMINAL_STATUSES.includes(task.status) && (
           // Keep clicks / drags inside the picker from starting a drag or opening the task.

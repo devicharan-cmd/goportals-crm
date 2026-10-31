@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Flame } from 'lucide-react'
+import { ChevronDown, Flame } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
@@ -217,7 +217,7 @@ export function TaskForm(p: TaskFormProps) {
                     })()
                   : 'Unassigned'}
               </span>
-              <span aria-hidden="true" className="ml-2 text-slate-400">⌄</span>
+              <ChevronDown aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
             </button>
             {assigneeOpen && (
               <div role="listbox" aria-label="Assignee" className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
@@ -231,7 +231,7 @@ export function TaskForm(p: TaskFormProps) {
                           onClick={() => { set('assignee_id', a.id); setAssigneeError(''); setAssigneeOpen(false) }}
                           className={cn('w-full rounded-lg px-3 py-2 text-left hover:bg-slate-50', form.assignee_id === a.id && 'bg-slate-50')}>
                     <span className="block truncate text-sm font-medium text-slate-900">
-                      {a.name}{a.employeeId ? ` – ID: ${a.employeeId}` : ''}{a.id === p.meId ? ' (me)' : ''}
+                      {a.name}{a.id === p.meId ? ' (me)' : ''}
                     </span>
                     {a.role && <span className="mt-0.5 block text-xs text-slate-500">({a.role})</span>}
                   </button>

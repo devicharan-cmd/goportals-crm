@@ -20,6 +20,8 @@ export function TaskTable({
   /** When set, each row gets a "Change" link to reassign (managers / super admins). */
   assignOptions?: AssigneeOption[]
 }) {
+  const assigneeRoles = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.role]))
+
   if (tasks.length === 0) {
     return <EmptyState icon={ClipboardList} title={empty?.title ?? 'No tasks'} description={empty?.description} action={empty?.action} />
   }
@@ -61,11 +63,12 @@ export function TaskTable({
                   <div className="flex items-center gap-2">
                     {t.assignee_id ? (
                       <span className="flex min-w-0 items-center gap-2 text-slate-700">
-                        <Avatar name={names[t.assignee_id]} size="xs" /> <span className="truncate">{names[t.assignee_id] ?? '—'}</span>
+                        <Avatar name={names[t.assignee_id]} size="xs" />
+                        <span className="min-w-0 truncate">{names[t.assignee_id] ?? '—'}{assigneeRoles[t.assignee_id] && <span className="ml-1 text-xs text-slate-400">({assigneeRoles[t.assignee_id]})</span>}</span>
                       </span>
                     ) : <span className="text-xs italic text-slate-400">Unassigned</span>}
                     {assignOptions && !TASK_TERMINAL_STATUSES.includes(t.status) && (
-                      <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} variant="link" />
+                      <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} compact />
                     )}
                   </div>
                 </td>
@@ -96,11 +99,11 @@ export function TaskTable({
               <div className="flex items-center justify-between gap-2 px-4 pb-3 text-xs">
                 <span className="flex min-w-0 items-center gap-1.5 text-slate-600">
                   {t.assignee_id
-                    ? <><Avatar name={names[t.assignee_id]} size="xs" /> <span className="truncate">{names[t.assignee_id] ?? '—'}</span></>
+                    ? <><Avatar name={names[t.assignee_id]} size="xs" /> <span className="truncate">{names[t.assignee_id] ?? '—'}{assigneeRoles[t.assignee_id] && <span className="ml-1 text-[10px] text-slate-400">({assigneeRoles[t.assignee_id]})</span>}</span></>
                     : <span className="italic text-slate-400">Unassigned</span>}
                 </span>
                 {assignOptions && !TASK_TERMINAL_STATUSES.includes(t.status) && (
-                  <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} variant="link" />
+                  <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} compact />
                 )}
               </div>
             )}

@@ -158,7 +158,7 @@ export function nameMap(people: { id: string; full_name: string; email?: string 
   return Object.fromEntries(people.map(p => [p.id, p.full_name || p.email || 'Unknown']))
 }
 
-export type AssigneeOption = { id: string; name: string; subtitle?: string; isMe?: boolean }
+export type AssigneeOption = { id: string; name: string; role?: string; subtitle?: string; isMe?: boolean }
 
 /** Options for the "Change assignee" picker: who I may assign to, with job title + departments. */
 export function assigneeOptionsFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): AssigneeOption[] {
@@ -166,6 +166,7 @@ export function assigneeOptionsFor(me: Pick<Profile, 'id' | 'role'>, lookups: St
   return assignableFor(me, lookups).map(p => ({
     id: p.id,
     name: p.full_name || p.email,
+    role: ROLE_LABELS[p.role],
     isMe: p.id === me.id,
     subtitle: [p.job_title || ROLE_LABELS[p.role],
                ...lookups.departmentMembers.filter(m => m.profile_id === p.id).map(m => deptName[m.department_id])]

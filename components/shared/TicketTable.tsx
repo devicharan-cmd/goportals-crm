@@ -97,7 +97,7 @@ export function TicketTable({
               </td>
               {showMessages && (
                 <td className={cn('px-3 py-3.5 text-center whitespace-nowrap', showClient ? 'w-24' : 'w-28')}>
-                  <Link href={`${hrefBase}/${t.id}#conversation`} className="inline-flex" aria-label="Open the conversation">
+                  <Link href={`${hrefBase}/${t.id}`} className="inline-flex" aria-label="Open the ticket">
                     <UnreadMessages count={liveUnreadByTicket[t.id] ?? 0} />
                   </Link>
                 </td>

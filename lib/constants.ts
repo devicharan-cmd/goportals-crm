@@ -11,6 +11,15 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   client:      'Client',
 }
 
+/** Shared role palette for avatars and role badges. */
+export const ROLE_STYLES: Record<AppRole, { avatar: string; badge: string; text: string }> = {
+  super_admin: { avatar: 'bg-red-100 text-red-700', badge: 'border-red-200 text-red-700 hover:border-red-500', text: 'text-red-700' },
+  admin:       { avatar: 'bg-amber-100 text-amber-700', badge: 'border-sky-200 text-sky-700 hover:border-sky-500', text: 'text-sky-700' },
+  team_lead:   { avatar: 'bg-violet-100 text-violet-700', badge: 'border-violet-200 text-violet-700 hover:border-violet-500', text: 'text-violet-700' },
+  employee:    { avatar: 'bg-emerald-100 text-emerald-700', badge: 'border-emerald-200 text-emerald-700 hover:border-emerald-500', text: 'text-emerald-700' },
+  client:      { avatar: 'bg-lime-100 text-lime-800', badge: 'border-lime-200 text-lime-800 hover:border-lime-500', text: 'text-lime-800' },
+}
+
 export const TASK_STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'todo',               label: 'Todo' },
   { value: 'in_progress',        label: 'In progress' },

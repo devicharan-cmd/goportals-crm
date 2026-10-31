@@ -21,7 +21,6 @@ export default async function UsersPage() {
       job_title: p.job_title, weekly_capacity_hours: p.weekly_capacity_hours,
       departmentIds: lookups.departmentMembers.filter(m => m.profile_id === p.id).map(m => m.department_id),
     }))
-    .sort((a, b) => Number(b.status === 'active') - Number(a.status === 'active') || a.full_name.localeCompare(b.full_name))
 
   return (
     <>

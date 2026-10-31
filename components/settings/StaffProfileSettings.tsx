@@ -1,16 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Check, CheckCircle2, Lock, Pencil, User, AlertCircle, Loader2
+  Camera, Check, CheckCircle2, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, User, AlertCircle, Loader2
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ROLE_LABELS } from '@/lib/constants'
-import { Avatar } from '@/components/ui/primitives'
+import { Alert, Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
-import { cn, errorMessage } from '@/lib/utils'
+import { cn, errorMessage, formatDate } from '@/lib/utils'
+import { Modal } from '@/components/ui/modal'
 import type { AppRole, Department, Profile } from '@/types/database'
+
+const PROFILE_IMAGE_BUCKET = 'staff-profile-images'
+const PROFILE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 
 interface StaffProfileSettingsProps {
   profile: Profile
@@ -44,6 +49,121 @@ export function StaffProfileSettings({
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [currentImage, setCurrentImage] = useState<string | null>(profile.avatar_url)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null)
+  const [imageBusy, setImageBusy] = useState(false)
+  const [imageError, setImageError] = useState('')
+  const [imageDialogOpen, setImageDialogOpen] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setCurrentImage(profile.avatar_url) }, [profile.avatar_url])
+
+  useEffect(() => {
+    if (!selectedImage) { setSelectedImagePreview(null); return }
+    const url = URL.createObjectURL(selectedImage)
+    setSelectedImagePreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [selectedImage])
+
+  function getStoredImagePath(url: string | null) {
+    if (!url) return null
+    try {
+      const path = new URL(url).pathname
+      const prefix = `/storage/v1/object/public/${PROFILE_IMAGE_BUCKET}/`
+      if (!path.includes(prefix)) return null
+      const storagePath = decodeURIComponent(path.slice(path.indexOf(prefix) + prefix.length))
+      return storagePath.startsWith(`${profile.id}/`) ? storagePath : null
+    } catch {
+      return null
+    }
+  }
+
+  function openImageDialog() {
+    setImageError('')
+    setSelectedImage(null)
+    setImageDialogOpen(true)
+  }
+
+  function selectImage(file?: File) {
+    setImageError('')
+    setSelectedImage(null)
+    if (!file) return
+    if (!PROFILE_IMAGE_TYPES.includes(file.type)) return setImageError('Choose a PNG, JPG, or WebP image.')
+    if (file.size > PROFILE_IMAGE_MAX_BYTES) return setImageError('Image must be 5 MB or smaller.')
+    setSelectedImage(file)
+  }
+
+  async function uploadImage() {
+    if (!selectedImage || imageBusy) return
+    setImageBusy(true)
+    setImageError('')
+    const supabase = createClient()
+    const extension = selectedImage.type === 'image/jpeg' ? 'jpg' : selectedImage.type === 'image/png' ? 'png' : 'webp'
+    const path = `${profile.id}/${crypto.randomUUID()}.${extension}`
+    const { error: uploadError } = await supabase.storage.from(PROFILE_IMAGE_BUCKET).upload(path, selectedImage, {
+      contentType: selectedImage.type, cacheControl: '0',
+    })
+    if (uploadError) {
+      setImageBusy(false)
+      return setImageError(uploadError.message.toLowerCase().includes('bucket not found')
+        ? 'Photo storage is not configured. Apply migration 083_staff_profile_images.sql, then try again.'
+        : errorMessage(uploadError))
+    }
+
+    const imageUrl = supabase.storage.from(PROFILE_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl
+    const { error: updateError } = await supabase.from('profiles').update({ avatar_url: imageUrl }).eq('id', profile.id)
+    if (updateError) {
+      const { error: cleanupError } = await supabase.storage.from(PROFILE_IMAGE_BUCKET).remove([path])
+      setImageBusy(false)
+      return setImageError(cleanupError
+        ? `${errorMessage(updateError)} The uploaded image could not be cleaned up: ${errorMessage(cleanupError)}`
+        : errorMessage(updateError))
+    }
+
+    const oldPath = getStoredImagePath(currentImage)
+    let cleanupMessage = ''
+    if (oldPath) {
+      const { error: cleanupError } = await supabase.storage.from(PROFILE_IMAGE_BUCKET).remove([oldPath])
+      if (cleanupError) cleanupMessage = `Photo updated, but the previous image could not be removed: ${errorMessage(cleanupError)}`
+    }
+    setCurrentImage(imageUrl)
+    setSelectedImage(null)
+    setImageDialogOpen(false)
+    setImageBusy(false)
+    setImageError(cleanupMessage)
+    router.refresh()
+  }
+
+  async function removeImage() {
+    if (imageBusy) return
+    setImageBusy(true)
+    setImageError('')
+    const supabase = createClient()
+    const { error: updateError } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', profile.id)
+    if (updateError) {
+      setImageBusy(false)
+      return setImageError(errorMessage(updateError))
+    }
+    const oldPath = getStoredImagePath(currentImage)
+    let cleanupMessage = ''
+    if (oldPath) {
+      const { error: cleanupError } = await supabase.storage.from(PROFILE_IMAGE_BUCKET).remove([oldPath])
+      if (cleanupError) cleanupMessage = `Photo removed, but the stored image could not be deleted: ${errorMessage(cleanupError)}`
+    }
+    setCurrentImage(null)
+    setImageDialogOpen(false)
+    setImageBusy(false)
+    setImageError(cleanupMessage)
+    router.refresh()
+  }
+
+  function cancelImageDialog() {
+    if (imageBusy) return
+    setImageDialogOpen(false)
+    setSelectedImage(null)
+    setImageError('')
+  }
 
   function handleDiscard() {
     setFullName(profile.full_name || '')
@@ -135,7 +255,7 @@ export function StaffProfileSettings({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left Sub-Navigation: ONLY Profile */}
         <aside className="lg:col-span-3">
           <nav className="space-y-1.5" aria-label="Settings Tabs">
@@ -168,38 +288,50 @@ export function StaffProfileSettings({
               )}
             </div>
 
-            <div className="p-6 sm:p-8 space-y-8">
+            <div className="space-y-6 p-6 sm:p-8">
               {/* Profile Avatar Header */}
-              <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-6 pb-6 border-b border-slate-100">
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-brand-100 font-display text-2xl font-bold text-brand-700 shadow-sm border border-brand-200 flex-shrink-0">
-                  {profile.full_name
-                    ? profile.full_name.trim().split(/\s+/)[0]?.[0]?.toUpperCase()
-                    : profile.email.slice(0, 1).toUpperCase()}
+              <div className="flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-center sm:gap-5">
+                <div className="relative self-center sm:self-auto">
+                  <Avatar name={fullName || profile.email} src={currentImage} role={role} size="lg" className="h-20 w-20 text-2xl shadow-sm" />
+                  <button
+                    type="button"
+                    onClick={openImageDialog}
+                    aria-label={currentImage ? 'Update profile photo' : 'Add profile photo'}
+                    className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-lime-500 text-white shadow-md ring-2 ring-white transition hover:bg-lime-600"
+                  >
+                    <Camera className="h-4 w-4" />
+                  </button>
                 </div>
 
-                <div className="text-center sm:text-left flex-1 min-w-0">
-                  <h3 className="text-xl font-bold text-slate-900 truncate">
+                <div className="min-w-0 flex-1 text-center sm:text-left">
+                  <h3 className="truncate text-2xl font-bold text-slate-900">
                     {fullName || profile.email}
                   </h3>
                   
-                  {/* Single Role Badge + Job Title (no duplicate) */}
+                  {/* Keep the role badge visually consistent with the existing profile style. */}
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 justify-center sm:justify-start">
-                    <span className="inline-flex items-center rounded-md bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-700/10">
+                    <span className="text-xs font-semibold text-brand-700">
                       {ROLE_LABELS[role]}
                     </span>
-                    {jobTitle && (
-                      <span className="text-xs font-medium text-slate-500">
-                        · {jobTitle}
-                      </span>
-                    )}
+                    <span className="text-xs text-slate-500">Joined {formatDate(profile.created_at)}</span>
                   </div>
-                  
-                  <p className="text-xs text-slate-400 mt-1">{profile.email}</p>
+                  <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                    <a href={`mailto:${profile.email}`} className="inline-flex max-w-full items-center gap-1.5 break-all rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-brand-300 hover:text-brand-700">
+                      <Mail className="h-3.5 w-3.5 flex-shrink-0" /> {profile.email}
+                    </a>
+                    {phone.trim() && (
+                      <a href={`tel:${phone.trim().replace(/[^+\d]/g, '')}`} className="inline-flex max-w-full items-center gap-1.5 break-all rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-brand-300 hover:text-brand-700">
+                        <Phone className="h-3.5 w-3.5 flex-shrink-0" /> {phone}
+                      </a>
+                    )}
+                    {jobTitle && <span className="text-xs font-medium text-slate-500">{jobTitle}</span>}
+                  </div>
+                  {imageError && !imageDialogOpen && <p role="alert" className="mt-2 text-xs text-red-600">{imageError}</p>}
                 </div>
               </div>
 
               {/* Form Fields Grid */}
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
                 {/* Full Name */}
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
@@ -433,6 +565,52 @@ export function StaffProfileSettings({
           </div>
         </main>
       </div>
+
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={e => { selectImage(e.target.files?.[0]); e.currentTarget.value = '' }}
+      />
+
+      <Modal
+        open={imageDialogOpen}
+        onClose={cancelImageDialog}
+        title={currentImage ? 'Update profile photo' : 'Add profile photo'}
+      >
+        <div className="space-y-5">
+          <div className="flex items-center gap-5 rounded-2xl border-2 border-dashed border-brand-200 bg-gradient-to-r from-brand-50/70 to-white p-5">
+            <Avatar
+              name={fullName || profile.email}
+              src={selectedImagePreview ?? currentImage}
+              role={role}
+              size="lg"
+              className="h-20 w-20 text-2xl shadow-sm"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="break-all text-sm font-semibold text-slate-900">{selectedImage?.name ?? (currentImage ? 'Current profile photo' : 'No photo selected')}</p>
+              <p className="mt-1 text-xs text-slate-500">{selectedImage ? `${(selectedImage.size / 1024 / 1024).toFixed(2)} MB` : 'PNG, JPG, or WebP · Max 5 MB'}</p>
+              <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={() => fileInput.current?.click()} disabled={imageBusy}>
+                <ImagePlus className="h-4 w-4" /> {selectedImage ? 'Choose another' : 'Choose image'}
+              </Button>
+            </div>
+          </div>
+          {imageError && <Alert>{imageError}</Alert>}
+          <div className="flex flex-wrap justify-end gap-2">
+            {currentImage && !selectedImage && (
+              <Button type="button" variant="ghost" className="mr-auto text-red-600 hover:bg-red-50 hover:text-red-700" onClick={removeImage} loading={imageBusy}>
+                <Trash2 className="h-4 w-4" /> Remove photo
+              </Button>
+            )}
+            <Button type="button" variant="secondary" onClick={cancelImageDialog} disabled={imageBusy}>Cancel</Button>
+            <Button type="button" onClick={uploadImage} loading={imageBusy} disabled={!selectedImage || imageBusy}>
+              {!imageBusy && <Upload className="h-4 w-4" />} Upload photo
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

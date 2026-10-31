@@ -7,7 +7,7 @@ import { ButtonLink } from '@/components/ui/button'
 import { InviteStaffButton } from '@/components/admin/UserAdmin'
 import { Avatar, Card, EmptyState } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
-import { ROLE_LABELS } from '@/lib/constants'
+import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
 import { capacityColor, capacityTextColor, cn, dueState } from '@/lib/utils'
 import type { Task } from '@/types/database'
 
@@ -54,7 +54,7 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
       pct: Math.round((hours / (p.weekly_capacity_hours || 40)) * 100),
       depts: lookups.departmentMembers.filter(m => m.profile_id === p.id).map(m => deptName[m.department_id]).filter(Boolean),
     }
-  }).sort((a, b) => Number(b.active) - Number(a.active) || b.pct - a.pct || (a.full_name || a.email).localeCompare(b.full_name || b.email))
+  })
 
   const counts = { all: everyone.length, active: everyone.filter(m => m.active).length, inactive: everyone.filter(m => !m.active).length }
   const show = TABS.some(t => t.key === searchParams.show) ? searchParams.show as keyof typeof counts : 'all'
@@ -85,7 +85,7 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
             <Link key={m.id} href={`/team/${m.id}`} className="group">
             <Card className={cn('h-full p-5 transition group-hover:shadow-pop group-hover:ring-1 group-hover:ring-brand-200', !m.active && 'bg-slate-50 opacity-80')}>
               <div className="flex items-start gap-3">
-                <Avatar name={m.full_name || m.email} className={cn(!m.active && 'grayscale')} />
+                <Avatar name={m.full_name || m.email} src={m.avatar_url} role={m.role} className={cn(!m.active && 'grayscale')} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-900 group-hover:text-brand-700">
                     {m.full_name || m.email} {m.id === me.id && <span className="text-xs font-normal text-slate-400">(you)</span>}
@@ -119,7 +119,7 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
 
               <div className="mt-4 flex items-center justify-between gap-2">
                 <div className="flex min-w-0 flex-wrap gap-1">
-                  <Badge className="bg-brand-50 text-brand-700 ring-brand-200">{ROLE_LABELS[m.role]}</Badge>
+                  <Badge className={cn('border bg-white transition-colors', ROLE_STYLES[m.role].badge)}>{ROLE_LABELS[m.role]}</Badge>
                   {m.depts.map(d => <Badge key={d}>{d}</Badge>)}
                 </div>
                 <span className="whitespace-nowrap text-xs font-semibold text-brand-600">View stats →</span>

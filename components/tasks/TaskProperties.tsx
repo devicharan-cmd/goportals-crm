@@ -39,6 +39,7 @@ export function TaskProperties({
   const row = 'grid grid-cols-[100px_1fr] items-center gap-3'
   const label = 'text-xs font-medium text-slate-500'
   const select = cn('input h-9 py-1.5 text-sm')
+  const currentAssignee = assignees.find(assignee => assignee.id === task.assignee_id)
 
   return (
     <div className="space-y-3">
@@ -79,7 +80,7 @@ export function TaskProperties({
         <span className={label}>Assignee</span>
         <div className="flex min-w-0 items-center justify-between gap-2">
           {task.assignee_id
-            ? <span className="flex min-w-0 items-center gap-2 text-sm text-slate-800"><Avatar name={assigneeName} size="xs" /><span className="truncate">{assigneeName ?? '—'}</span></span>
+            ? <span className="flex min-w-0 items-center gap-2 text-sm text-slate-800"><Avatar name={assigneeName} src={currentAssignee?.avatarUrl} role={currentAssignee?.avatarRole} size="xs" /><span className="truncate">{assigneeName ?? '—'}</span></span>
             : <span className="text-sm italic text-slate-400">Unassigned</span>}
           {canAssign && <AssignButton taskId={task.id} currentId={task.assignee_id} options={assignees} variant="link" />}
         </div>

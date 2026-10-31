@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { ROLE_LABELS } from '@/lib/constants'
 import { parseTaskCode, parseTicketCode, taskCode, ticketCode } from '@/lib/utils'
-import type { Department, Platform, Profile, Service } from '@/types/database'
+import type { AppRole, Department, Platform, Profile, Service } from '@/types/database'
 
 /** Columns + joins used by every task list / board. */
 export const TASK_LIST_SELECT =
@@ -11,7 +11,7 @@ export const TASK_LIST_SELECT =
 /** Columns + joins used by every ticket list. */
 export const TICKET_LIST_SELECT = '*, client:clients(id, company_name)'
 
-export type Person = Pick<Profile, 'id' | 'full_name' | 'email' | 'role' | 'job_title' | 'status' | 'weekly_capacity_hours'>
+export type Person = Pick<Profile, 'id' | 'full_name' | 'email' | 'avatar_url' | 'role' | 'job_title' | 'status' | 'weekly_capacity_hours' | 'created_at'>
 export type ClientOption = { id: string; company_name: string }
 export type DepartmentMember = { department_id: string; profile_id: string; is_lead: boolean }
 
@@ -25,17 +25,28 @@ export type StaffLookups = {
   departmentMembers: DepartmentMember[]
 }
 
+const STAFF_ROLE_ORDER: Record<AppRole, number> = {
+  super_admin: 0, admin: 1, team_lead: 2, employee: 3, client: 4,
+}
+
+/** Consistent staff ordering: role hierarchy, then earliest profile creation/join date. */
+export function sortPeopleByRoleAndJoiningDate<T extends Pick<Person, 'id' | 'role' | 'created_at'>>(people: T[]): T[] {
+  return [...people].sort((a, b) => STAFF_ROLE_ORDER[a.role] - STAFF_ROLE_ORDER[b.role]
+    || a.created_at.localeCompare(b.created_at)
+    || a.id.localeCompare(b.id))
+}
+
 export async function getStaffLookups(): Promise<StaffLookups> {
   const supabase = createClient()
   const [people, clients, departments, platforms, services, members] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, role, job_title, status, weekly_capacity_hours').order('full_name'),
+    supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at'),
     supabase.from('clients').select('id, company_name').order('company_name'),
     supabase.from('departments').select('*').order('sort_order'),
     supabase.from('platforms').select('*').order('sort_order'),
     supabase.from('services').select('*').order('sort_order'),
     supabase.from('department_members').select('department_id, profile_id, is_lead'),
   ])
-  const all = (people.data ?? []) as Person[]
+  const all = sortPeopleByRoleAndJoiningDate((people.data ?? []) as Person[])
   return {
     people: all,
     staff: all.filter(p => p.role !== 'client' && p.status === 'active'),
@@ -55,7 +66,7 @@ export async function getTaskPageLookups({ includePeople, includeAssignments }: 
   const supabase = createClient()
   const [people, clients, departments, members] = await Promise.all([
     includePeople
-      ? supabase.from('profiles').select('id, full_name, email, role, job_title, status, weekly_capacity_hours').order('full_name')
+      ? supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at')
       : Promise.resolve({ data: [] }),
     supabase.from('clients').select('id, company_name').order('company_name'),
     supabase.from('departments').select('*').order('sort_order'),
@@ -63,7 +74,7 @@ export async function getTaskPageLookups({ includePeople, includeAssignments }: 
       ? supabase.from('department_members').select('department_id, profile_id, is_lead')
       : Promise.resolve({ data: [] }),
   ])
-  const all = (people.data ?? []) as Person[]
+  const all = sortPeopleByRoleAndJoiningDate((people.data ?? []) as Person[])
   return {
     people: all,
     staff: all.filter(p => p.role !== 'client' && p.status === 'active'),
@@ -79,7 +90,7 @@ export async function getTaskPageLookups({ includePeople, includeAssignments }: 
 export async function getTicketBoardLookups({ includeAssignments }: { includeAssignments: boolean }): Promise<StaffLookups> {
   const supabase = createClient()
   const [people, departments, members] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, role, job_title, status, weekly_capacity_hours').order('full_name'),
+    supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at'),
     includeAssignments
       ? supabase.from('departments').select('*').order('sort_order')
       : Promise.resolve({ data: [] }),
@@ -87,7 +98,7 @@ export async function getTicketBoardLookups({ includeAssignments }: { includeAss
       ? supabase.from('department_members').select('department_id, profile_id, is_lead')
       : Promise.resolve({ data: [] }),
   ])
-  const all = (people.data ?? []) as Person[]
+  const all = sortPeopleByRoleAndJoiningDate((people.data ?? []) as Person[])
   return {
     people: all,
     staff: all.filter(p => p.role !== 'client' && p.status === 'active'),
@@ -144,12 +155,9 @@ export function profileIdsSharingDepartment(profileId: string, lookups: StaffLoo
 export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
   if (me.role === 'super_admin' || me.role === 'admin') return lookups.staff
   if (me.role === 'team_lead') {
-    // Self first, then active employees sharing a department with me (mirrors can_assign()'s team_lead branch).
+    // Active employees sharing a department and the team lead themselves, in the shared role/date order.
     const sharedIds = profileIdsSharingDepartment(me.id, lookups)
-    return [
-      ...lookups.staff.filter(p => p.id === me.id),
-      ...lookups.staff.filter(p => p.role === 'employee' && sharedIds.has(p.id)),
-    ]
+    return lookups.staff.filter(p => p.id === me.id || (p.role === 'employee' && sharedIds.has(p.id)))
   }
   return lookups.staff.filter(p => p.id === me.id)
 }
@@ -158,7 +166,7 @@ export function nameMap(people: { id: string; full_name: string; email?: string 
   return Object.fromEntries(people.map(p => [p.id, p.full_name || p.email || 'Unknown']))
 }
 
-export type AssigneeOption = { id: string; name: string; role?: string; subtitle?: string; isMe?: boolean }
+export type AssigneeOption = { id: string; name: string; avatarUrl?: string | null; role?: string; avatarRole?: AppRole; subtitle?: string; isMe?: boolean }
 
 /** Options for the "Change assignee" picker: who I may assign to, with job title + departments. */
 export function assigneeOptionsFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): AssigneeOption[] {
@@ -166,7 +174,9 @@ export function assigneeOptionsFor(me: Pick<Profile, 'id' | 'role'>, lookups: St
   return assignableFor(me, lookups).map(p => ({
     id: p.id,
     name: p.full_name || p.email,
+    avatarUrl: p.avatar_url,
     role: ROLE_LABELS[p.role],
+    avatarRole: p.role,
     isMe: p.id === me.id,
     subtitle: [p.job_title || ROLE_LABELS[p.role],
                ...lookups.departmentMembers.filter(m => m.profile_id === p.id).map(m => deptName[m.department_id])]

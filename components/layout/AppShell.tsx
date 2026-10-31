@@ -221,7 +221,7 @@ export function AppShell({
         {signOutError && !compact && <p role="alert" className="mb-2 px-2 text-xs text-red-600">Could not sign out. Please try again.</p>}
         <div className={cn('flex items-center rounded-lg', compact ? 'flex-col gap-2 py-1' : 'gap-3 px-2 py-2')}>
           <span title={compact ? `${user.name || user.email} · ${user.jobTitle || ROLE_LABELS[user.role]}` : undefined}>
-            <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : undefined} size="md" />
+            <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : undefined} role={isClient ? 'client' : user.role} size="md" />
           </span>
           {!compact && (
             <div className="min-w-0 flex-1">
@@ -251,7 +251,7 @@ export function AppShell({
   )
 
   return (
-    <div className="min-h-screen">
+    <div className="h-screen overflow-hidden">
       {/* Desktop sidebar */}
       <aside className={cn('fixed inset-y-0 left-0 z-30 hidden border-r border-slate-200 bg-white transition-[width] duration-200 lg:block',
         collapsed ? 'w-16' : 'w-64')}>
@@ -268,7 +268,7 @@ export function AppShell({
       )}
 
       {/* Only the area under the top bar scrolls, so the scrollbar never runs beside the top bar. */}
-      <div className={cn('flex h-screen flex-col transition-[padding] duration-200', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
+      <div className={cn('flex h-full min-h-0 flex-col transition-[padding] duration-200', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
         <header className="z-20 flex h-16 flex-shrink-0 items-center gap-3 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6">
           <button className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
@@ -280,7 +280,7 @@ export function AppShell({
               <p className="truncate font-display text-xl font-semibold text-slate-900">{pageTitle}</p>
             </div>
           )}
-          <div className="flex-1" />
+          <div className="min-h-0 flex-1" />
 
           {/* Right Header Navigation */}
           <div className="flex items-center gap-2.5">
@@ -313,12 +313,12 @@ export function AppShell({
                   aria-expanded={profileMenuOpen}
                   aria-haspopup="true"
                 >
-                  <Avatar name={user.name || user.email} size="sm" />
+                  <Avatar name={user.name || user.email} role={user.role} size="sm" />
                   <div className="hidden min-w-0 sm:flex sm:flex-col sm:justify-center text-left">
                     <p className="max-w-[130px] truncate text-[11px] font-semibold text-slate-900 leading-[1.2]">
                       {user.name || user.email}
                     </p>
-                    <p className="text-[10px] font-medium text-slate-500 leading-[1.2]">
+                    <p className="text-[10px] font-medium leading-[1.2] text-slate-500">
                       {ROLE_LABELS[user.role]}
                     </p>
                   </div>
@@ -361,7 +361,7 @@ export function AppShell({
             )}
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>
         </div>
       </div>

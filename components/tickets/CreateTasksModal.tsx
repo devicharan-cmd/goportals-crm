@@ -2,16 +2,62 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, Plus, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
+import { Avatar } from '@/components/ui/primitives'
 import { PRIORITY_OPTIONS } from '@/lib/constants'
 import { errorMessage } from '@/lib/utils'
 import type { AssigneeOption } from '@/lib/queries'
 import type { TaskPriority, Ticket } from '@/types/database'
 
 type Row = { title: string; assignee_id: string; due_date: string; priority: TaskPriority }
+
+function AssigneeSelect({ value, options, onChange }: {
+  value: string
+  options: AssigneeOption[]
+  onChange: (value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const selected = options.find(option => option.id === value)
+
+  return (
+    <div className="relative">
+      <button type="button" className="input flex h-9 w-full items-center justify-between gap-2 text-left text-sm"
+              aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(current => !current)}>
+        <span className="flex min-w-0 items-center gap-2">
+          {selected && <Avatar name={selected.name} src={selected.avatarUrl} role={selected.avatarRole} size="xs" />}
+          <span className="truncate">{selected?.name ?? 'Unassigned'}</span>
+        </span>
+        <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
+      </button>
+      {open && (
+        <div role="listbox" aria-label="Assignee" className="absolute left-0 top-full z-40 mt-1 max-h-56 w-64 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+          <button type="button" role="option" aria-selected={!value}
+                  onClick={() => { onChange(''); setOpen(false) }}
+                  className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${!value ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-[#f3f5f4]'}`}>
+            Unassigned
+          </button>
+          {options.map(option => {
+            const active = option.id === value
+            return (
+              <button key={option.id} type="button" role="option" aria-selected={active}
+                      onClick={() => { onChange(option.id); setOpen(false) }}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${active ? 'bg-brand-50 text-brand-700' : 'hover:bg-[#f3f5f4]'}`}>
+                <Avatar name={option.name} src={option.avatarUrl} role={option.avatarRole} size="sm" />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-slate-900">{option.name}</span>
+                  {option.role && <span className="mt-0.5 block text-xs text-slate-500">({option.role})</span>}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function emptyRow(ticket: Ticket): Row {
   return { title: ticket.subject, assignee_id: ticket.assignee_id ?? '', due_date: '', priority: ticket.priority ?? 'P3' }
@@ -75,10 +121,7 @@ export function CreateTasksModal({ ticket, assignees }: { ticket: Ticket; assign
             <div key={i} className="grid grid-cols-1 gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-[1fr_140px_130px_110px_auto]">
               <input className="input h-9 text-sm" placeholder="Task title" value={r.title}
                      onChange={e => update(i, { title: e.target.value })} />
-              <select className="input h-9 text-sm" value={r.assignee_id} onChange={e => update(i, { assignee_id: e.target.value })}>
-                <option value="">Unassigned</option>
-                {assignees.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <AssigneeSelect value={r.assignee_id} options={assignees} onChange={value => update(i, { assignee_id: value })} />
               <input className="input h-9 text-sm" type="date" value={r.due_date} onChange={e => update(i, { due_date: e.target.value })} />
               <select className="input h-9 text-sm" value={r.priority} onChange={e => update(i, { priority: e.target.value as TaskPriority })}>
                 {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.value}</option>)}

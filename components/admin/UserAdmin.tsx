@@ -8,7 +8,7 @@ import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Alert, Avatar, Field } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
-import { ROLE_LABELS } from '@/lib/constants'
+import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
 import { cn, errorMessage, formatRelative } from '@/lib/utils'
 import type { AccountStatus, AppRole, Department, Invite, StaffRole } from '@/types/database'
 
@@ -64,7 +64,7 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
     <li className={cn('px-5 py-4', row.status !== 'active' && 'bg-slate-50/70 opacity-75')}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <Avatar name={row.full_name || row.email} />
+          <Avatar name={row.full_name || row.email} role={row.role} />
           <div className="min-w-0 flex-1">
             {/* Everyone may fix their own name; a super admin may fix anyone's.
                 Without this, accounts invited without one show as a raw email
@@ -88,7 +88,7 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
               {(['super_admin', 'admin', 'team_lead', 'employee'] as StaffRole[]).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
             </select>
           ) : (
-            <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">{ROLE_LABELS[row.role]}</span>
+            <span className={cn('rounded-md border bg-white px-2 py-1 text-xs font-medium transition-colors', ROLE_STYLES[row.role].badge)}>{ROLE_LABELS[row.role]}</span>
           )}
           <label className="flex items-center gap-1 text-xs text-slate-500">
             <input type="number" min="1" max="80" defaultValue={row.weekly_capacity_hours} disabled={busy || !canEditProfile}
@@ -314,7 +314,7 @@ export function PendingInvites({ invites }: { invites: Invite[] }) {
               <p className="truncate text-sm font-medium text-slate-800">{i.full_name || i.email}</p>
               <p className="truncate text-xs text-slate-500" suppressHydrationWarning>{i.email} · sent {formatRelative(i.created_at)}</p>
             </div>
-            <Badge>{ROLE_LABELS[i.role]}</Badge>
+            <Badge className={cn('border bg-white transition-colors', ROLE_STYLES[i.role].badge)}>{ROLE_LABELS[i.role]}</Badge>
             {expired && <Badge className="bg-red-50 text-red-700 ring-red-200">Expired</Badge>}
             <button onClick={() => cancel(i.id)} disabled={busy === i.id} className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600" aria-label="Cancel invite">
               <X className="h-4 w-4" />

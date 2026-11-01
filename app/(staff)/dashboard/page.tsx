@@ -138,7 +138,7 @@ export default async function DashboardPage() {
         {!isAdmin && <ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="My open tasks" value={myOpenCount} icon={CheckSquare} href="/tasks" />
         <StatCard label="Due today" value={dueTodayCount} icon={AlarmClock} tone={dueTodayCount ? 'amber' : 'lime'} href="/tasks" />
         <StatCard label="Urgent waiting" value={urgentTasks.length} icon={Flame} tone={urgentTasks.length ? 'red' : 'lime'} href="/urgent" />

@@ -12,7 +12,7 @@ function TaskDueDisplay({ task, className }: { task: TaskListItem; className?: s
   const isOverdue = dueState(task.due_date, task.status) === 'overdue'
 
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs ${className ?? ''}`}>
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs ${className ?? ''}`}>
       <span className={task.due_date ? 'text-slate-600' : 'text-slate-400'}>
         {task.due_date ? formatDate(task.due_date) : 'No due date'}
       </span>
@@ -49,12 +49,12 @@ export function TaskTable({
       {/* Desktop table */}
       <table className="hidden w-full table-fixed text-sm md:table">
         <colgroup>
-          <col style={{ width: showClient && showAssignee ? '30%' : showClient ? '38%' : showAssignee ? '35%' : '45%' }} />
-          {showClient && <col style={{ width: showAssignee ? '16%' : '22%' }} />}
-          <col style={{ width: showClient && showAssignee ? '12%' : showClient || showAssignee ? '15%' : '17%' }} />
+          <col style={{ width: showClient && showAssignee ? '26%' : showClient ? '39%' : showAssignee ? '35%' : '45%' }} />
+          {showClient && <col style={{ width: showAssignee ? '16%' : '18%' }} />}
+          <col style={{ width: showClient && showAssignee ? '12%' : showClient ? '14%' : showAssignee ? '15%' : '17%' }} />
           <col style={{ width: showClient && showAssignee ? '10%' : showClient ? '15%' : showAssignee ? '12%' : '18%' }} />
-          {showAssignee && <col style={{ width: showClient ? '22%' : '28%' }} />}
-          <col style={{ width: showClient || showAssignee ? '10%' : '20%' }} />
+          {showAssignee && <col style={{ width: showClient ? '20%' : '28%' }} />}
+          <col style={{ width: showClient ? (showAssignee ? '16%' : '14%') : showAssignee ? '10%' : '20%' }} />
         </colgroup>
         <thead>
           <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-400">

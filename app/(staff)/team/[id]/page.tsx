@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badges'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { WeeklyDoneChart, type WeekBucket } from '@/components/team/WeeklyDoneChart'
 import { ROLE_LABELS, TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
-import { capacityColor, capacityTextColor, cn, dueState } from '@/lib/utils'
+import { capacityColor, capacityTextColor, cn, dateKeyInTimeZone, dueState } from '@/lib/utils'
 import type { Profile, TaskListItem, TaskStatus } from '@/types/database'
 
 export const metadata = { title: 'Employee stats' }
@@ -47,7 +47,7 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
   const doneWeek = done.filter(t => new Date(t.closed_at!) >= weekStart)
   const doneMonth = done.filter(t => new Date(t.closed_at!) >= monthStart)
   const withDue = done.filter(t => t.due_date)
-  const onTime = withDue.filter(t => t.closed_at!.slice(0, 10) <= t.due_date!)
+  const onTime = withDue.filter(t => dateKeyInTimeZone(new Date(t.closed_at!)) <= t.due_date!)
   const onTimePct = withDue.length ? Math.round((onTime.length / withDue.length) * 100) : null
   const durations = done.filter(t => t.assigned_at).map(t => differenceInHours(new Date(t.closed_at!), new Date(t.assigned_at!)))
   const avgDays = durations.length ? Math.round((durations.reduce((a, b) => a + b, 0) / durations.length / 24) * 10) / 10 : null

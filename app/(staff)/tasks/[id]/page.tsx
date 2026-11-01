@@ -69,7 +69,14 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
         {ticketCode(task.ticket.ticket_number)} · {task.ticket.subject}
       </Link>] as [string, React.ReactNode]] : []),
     ['Created', formatDate(task.created_at)],
-    ['Assigned', task.assigned_at ? `${formatRelative(task.assigned_at)}${task.assigned_by ? ` by ${names[task.assigned_by] ?? '—'}` : ''}` : '—'],
+    ['Assigned', task.assigned_at
+      ? <span className="block">
+          <span className="block">{formatDate(task.assigned_at)}</span>
+          <span className="block text-xs text-slate-500">
+            {formatRelative(task.assigned_at)}{task.assigned_by ? ` by ${names[task.assigned_by] ?? '—'}` : ''}
+          </span>
+        </span>
+      : '—'],
     ...(task.closed_at ? [['Closed', formatDate(task.closed_at)] as [string, React.ReactNode]] : []),
   ]
 

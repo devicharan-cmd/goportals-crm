@@ -3,12 +3,15 @@ import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/auth'
 import { brandedEmailHtml } from '@/lib/email'
+import { todayDateKey } from '@/lib/utils'
 
 const FROM = 'GoPortals <notifications@goportals.co>'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://agency-crm-gilt-sigma.vercel.app'
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
-const fmt = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+const fmt = (d: string) => new Date(d).toLocaleDateString('en-IN', {
+  day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata',
+})
 
 /**
  * POST /api/notify { type: 'overdue' | 'renewal' | 'all' }
@@ -28,7 +31,7 @@ export async function POST(req: NextRequest) {
   const { type = 'all' } = await req.json().catch(() => ({}))
   const resend = new Resend(process.env.RESEND_API_KEY)
   const db = createAdminClient()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayDateKey()
   const sent: string[] = []
 
   try {
@@ -49,7 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (type === 'renewal' || type === 'all') {
-      const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
+      const in7 = todayDateKey(new Date(Date.now() + 7 * 86400000))
       const [{ data: renewals }, { data: admins }] = await Promise.all([
         db.from('client_internal').select('client_id, contract_end, client:clients(company_name, status)')
           .gte('contract_end', today).lte('contract_end', in7),

@@ -52,6 +52,8 @@ const DUE_STYLES = {
   soon:    'text-amber-600 font-medium',
   ok:      'text-slate-500',
   none:    'text-slate-400',
+  completed: 'text-lime-700 font-medium',
+  cancelled: 'text-slate-400',
 }
 
 export function DueDate({ date, status, className }: { date: string | null; status?: TaskStatus; className?: string }) {

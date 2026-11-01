@@ -92,7 +92,7 @@ export function TaskProperties({
           <input type="date" className={select} value={task.due_date ?? ''} disabled={saving === 'due_date'}
                  onChange={e => update('due_date', e.target.value || null)} />
         ) : (
-          <span className="text-sm text-slate-800">{formatDate(task.due_date)}</span>
+          <span className="text-sm text-slate-800">{task.due_date ? formatDate(task.due_date) : 'No due date'}</span>
         )}
       </div>
 

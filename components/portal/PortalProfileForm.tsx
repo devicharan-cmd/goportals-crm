@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Calendar, Camera, ImagePlus, Loader2, MapPin, Pencil, Trash2, Upload } from 'lucide-react'
+import { Calendar, ImagePlus, MapPin, Pencil, Trash2, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
 import { Modal } from '@/components/ui/modal'
 import { AddressPicker, type AddressValue } from '@/components/shared/AddressPicker'
+import { ProfileImageControl } from '@/components/shared/ProfileImageControl'
 import { errorMessage, formatDate } from '@/lib/utils'
 import type { Client } from '@/types/database'
 
@@ -185,28 +186,16 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
         <div className="h-24 rounded-t-xl bg-gradient-to-br from-brand-500 via-brand-700 to-brand-900" />
         <div className="-mt-14 flex flex-col items-center px-5 pb-6 text-center">
             <div className="relative">
-            <button type="button" disabled={imageBusy}
-                    onClick={openImageDialog}
-                    aria-label={currentImage ? 'Change company logo' : 'Add company logo'}
-                    className="group relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-900 text-4xl font-bold text-white shadow-lg ring-4 ring-white transition focus:outline-none focus-visible:ring-brand-200">
+            <ProfileImageControl
+              busy={imageBusy}
+              onClick={openImageDialog}
+              label={currentImage ? 'Change company logo' : 'Add company logo'}
+              className="h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-900 text-4xl font-bold text-white shadow-lg ring-4 ring-white transition"
+            >
               {currentImage
                 ? <img src={currentImage} alt={`${form.company_name} logo`} className="h-full w-full object-cover" />
                 : form.company_name.trim().charAt(0).toUpperCase() || '?'}
-              <span className="absolute inset-0 flex items-center justify-center bg-slate-900/35 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
-                <Camera className="h-7 w-7 text-white" />
-              </span>
-              {imageBusy && (
-                <span className="absolute inset-0 flex items-center justify-center bg-slate-900/50">
-                  <Loader2 className="h-6 w-6 animate-spin text-white" />
-                </span>
-              )}
-            </button>
-
-            <button type="button" disabled={imageBusy} onClick={openImageDialog}
-                    aria-label={currentImage ? 'Replace company logo' : 'Upload company logo'}
-                    className="absolute bottom-0 right-0 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-lime-500 text-white shadow-md ring-2 ring-white transition hover:bg-lime-600 disabled:opacity-50">
-              <Camera className="h-4 w-4" />
-            </button>
+            </ProfileImageControl>
 
             <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1}
                    onChange={e => { selectLogo(e.target.files?.[0]); e.currentTarget.value = '' }} />
@@ -239,13 +228,13 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
         <fieldset disabled={!editing} className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Company / brand name" required className="sm:col-span-2">
-            <input className="input" required value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })} />
+            <input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" required value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })} />
           </Field>
-          <Field label="Contact name"><input className="input" value={form.contact_name} onChange={e => setForm({ ...form, contact_name: e.target.value })} /></Field>
-          <Field label="Contact email"><input className="input" type="email" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} /></Field>
-          <Field label="Phone"><input className="input" value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} /></Field>
-          <Field label="GSTIN"><input className="input uppercase" value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value })} /></Field>
-          <Field label="WhatsApp group link" className="sm:col-span-2"><input className="input" value={form.whatsapp_group_link} onChange={e => setForm({ ...form, whatsapp_group_link: e.target.value })} /></Field>
+          <Field label="Contact name"><input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.contact_name} onChange={e => setForm({ ...form, contact_name: e.target.value })} /></Field>
+          <Field label="Contact email"><input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" type="email" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} /></Field>
+          <Field label="Phone"><input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} /></Field>
+          <Field label="GSTIN"><input className="input uppercase disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value })} /></Field>
+          <Field label="WhatsApp group link" className="sm:col-span-2"><input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.whatsapp_group_link} onChange={e => setForm({ ...form, whatsapp_group_link: e.target.value })} /></Field>
         </div>
 
         <div className="border-t border-slate-100 pt-5">

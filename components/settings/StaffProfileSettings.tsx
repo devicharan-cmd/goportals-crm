@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Camera, Check, CheckCircle2, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, User, AlertCircle, Loader2
+  Check, CheckCircle2, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, User, AlertCircle, Loader2
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ROLE_LABELS } from '@/lib/constants'
@@ -11,6 +11,7 @@ import { Alert, Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
 import { cn, errorMessage, formatDate } from '@/lib/utils'
 import { Modal } from '@/components/ui/modal'
+import { ProfileImageControl } from '@/components/shared/ProfileImageControl'
 import type { AppRole, Department, Profile } from '@/types/database'
 
 const PROFILE_IMAGE_BUCKET = 'staff-profile-images'
@@ -255,9 +256,9 @@ export function StaffProfileSettings({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         {/* Left Sub-Navigation: ONLY Profile */}
-        <aside className="lg:col-span-3">
+        <aside>
           <nav className="space-y-1.5" aria-label="Settings Tabs">
             <div className="flex items-center gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-900 border border-brand-200/80 shadow-xs">
               <User className="h-5 w-5 text-brand-600" />
@@ -270,7 +271,7 @@ export function StaffProfileSettings({
         </aside>
 
         {/* Main Content Card: Your Profile */}
-        <main className="lg:col-span-9">
+        <main className="min-w-0">
           <div className="rounded-2xl border border-slate-200/80 bg-white shadow-card overflow-hidden">
             {/* Card Header */}
             <div className="border-b border-slate-100 px-6 py-5 flex items-center justify-between">
@@ -288,20 +289,17 @@ export function StaffProfileSettings({
               )}
             </div>
 
-            <div className="space-y-6 p-6 sm:p-8">
+            <div className="space-y-6 p-8 sm:p-10">
               {/* Profile Avatar Header */}
               <div className="flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-center sm:gap-5">
-                <div className="relative self-center sm:self-auto">
-                  <Avatar name={fullName || profile.email} src={currentImage} role={role} size="lg" className="h-20 w-20 text-2xl shadow-sm" />
-                  <button
-                    type="button"
-                    onClick={openImageDialog}
-                    aria-label={currentImage ? 'Update profile photo' : 'Add profile photo'}
-                    className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-lime-500 text-white shadow-md ring-2 ring-white transition hover:bg-lime-600"
-                  >
-                    <Camera className="h-4 w-4" />
-                  </button>
-                </div>
+                <ProfileImageControl
+                  busy={imageBusy}
+                  onClick={openImageDialog}
+                  label={currentImage ? 'Update profile photo' : 'Add profile photo'}
+                  className="self-center rounded-full shadow-sm sm:self-auto"
+                >
+                  <Avatar name={fullName || profile.email} src={currentImage} role={role} size="lg" className="h-20 w-20 text-2xl" />
+                </ProfileImageControl>
 
                 <div className="min-w-0 flex-1 text-center sm:text-left">
                   <h3 className="truncate text-2xl font-bold text-slate-900">
@@ -316,7 +314,12 @@ export function StaffProfileSettings({
                     <span className="text-xs text-slate-500">Joined {formatDate(profile.created_at)}</span>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                    <a href={`mailto:${profile.email}`} className="inline-flex max-w-full items-center gap-1.5 break-all rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-brand-300 hover:text-brand-700">
+                    <a
+                      href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(profile.email)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex max-w-full items-center gap-1.5 break-all rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-brand-300 hover:text-brand-700"
+                    >
                       <Mail className="h-3.5 w-3.5 flex-shrink-0" /> {profile.email}
                     </a>
                     {phone.trim() && (
@@ -331,10 +334,10 @@ export function StaffProfileSettings({
               </div>
 
               {/* Form Fields Grid */}
-              <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
                 {/* Full Name */}
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                     Full name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -354,7 +357,7 @@ export function StaffProfileSettings({
 
                 {/* Email (Always Read-Only) */}
                 <div>
-                  <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Email</span>
                     <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                       <Lock className="h-3 w-3" /> Account email
@@ -371,7 +374,7 @@ export function StaffProfileSettings({
 
                 {/* Role */}
                 <div>
-                  <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Role</span>
                     {(!isSuperAdmin || !isEditing) && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
@@ -399,7 +402,7 @@ export function StaffProfileSettings({
 
                 {/* Phone */}
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                     Phone number
                   </label>
                   <input
@@ -419,7 +422,7 @@ export function StaffProfileSettings({
 
                 {/* Job Title */}
                 <div>
-                  <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Job title</span>
                     {(!isSuperAdmin || !isEditing) && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
@@ -444,7 +447,7 @@ export function StaffProfileSettings({
 
                 {/* Weekly Capacity Hours */}
                 <div>
-                  <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Weekly capacity</span>
                     {(!isSuperAdmin || !isEditing) && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
@@ -478,7 +481,7 @@ export function StaffProfileSettings({
               {/* Department Badges Section */}
               <div className="pt-2">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                  <label className="block text-sm font-semibold text-slate-700">
                     Departments
                   </label>
                   {(!isSuperAdmin || !isEditing) && (

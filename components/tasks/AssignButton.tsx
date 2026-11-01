@@ -15,7 +15,7 @@ export type { AssigneeOption }
 
 /** "Change assignee" — pick someone from a searchable list and save straight away. */
 export function AssignButton({
-  taskId, currentId, options, variant = 'button', table = 'tasks', compact = false,
+  taskId, currentId, options, variant = 'button', table = 'tasks', compact = false, disabled = false,
 }: {
   taskId: string
   currentId: string | null
@@ -23,6 +23,7 @@ export function AssignButton({
   variant?: 'button' | 'link'
   table?: 'tasks' | 'tickets'
   compact?: boolean
+  disabled?: boolean
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -56,10 +57,10 @@ export function AssignButton({
   return (
     <>
       {variant === 'button'
-        ? <Button size="sm" className={compact ? 'h-6 px-1.5 text-[10px]' : undefined} onClick={show}>
+        ? <Button size="sm" disabled={disabled} className={compact ? 'h-6 px-1.5 text-[10px]' : undefined} onClick={show}>
             <UserCog className={cn('h-3.5 w-3.5', compact && 'h-3 w-3')} /> {currentId ? 'Reassign' : 'Assign'}
           </Button>
-        : <button onClick={show} className="text-xs font-semibold text-brand-600 hover:text-brand-700">{currentId ? 'Reassign' : 'Assign'}</button>}
+        : <button disabled={disabled} onClick={show} className="text-xs font-semibold text-brand-600 hover:text-brand-700 disabled:pointer-events-none disabled:opacity-50">{currentId ? 'Reassign' : 'Assign'}</button>}
 
       {typeof document !== 'undefined' && createPortal(<Modal
         open={open}

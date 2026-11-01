@@ -20,7 +20,7 @@ export default async function SettingsPage() {
   const initialDepartmentIds = (deptMembersRes.data ?? []).map(m => m.department_id)
 
   return (
-    <div className="mx-auto max-w-6xl pb-12">
+    <div className="mx-auto w-full max-w-7xl pb-12">
       <StaffProfileSettings
         profile={profile}
         departments={departments}

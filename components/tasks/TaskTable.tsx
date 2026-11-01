@@ -1,12 +1,29 @@
 import Link from 'next/link'
 import { ClipboardList } from 'lucide-react'
 import { Avatar, EmptyState } from '@/components/ui/primitives'
-import { taskCode } from '@/lib/utils'
-import { DueDate, PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
+import { dueState, formatDate, taskCode } from '@/lib/utils'
+import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { AssignButton } from '@/components/tasks/AssignButton'
 import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import type { AssigneeOption } from '@/lib/queries'
 import type { TaskListItem } from '@/types/database'
+
+function TaskDueDisplay({ task, className }: { task: TaskListItem; className?: string }) {
+  const isOverdue = dueState(task.due_date, task.status) === 'overdue'
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs ${className ?? ''}`}>
+      <span className={task.due_date ? 'text-slate-600' : 'text-slate-400'}>
+        {task.due_date ? formatDate(task.due_date) : 'No due date'}
+      </span>
+      {isOverdue && (
+        <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+          Overdue
+        </span>
+      )}
+    </span>
+  )
+}
 
 export function TaskTable({
   tasks, names, hrefBase = '/tasks', showClient = true, showAssignee = true, empty, assignOptions,
@@ -93,7 +110,7 @@ export function TaskTable({
                   </div>
                 </td>
               )}
-              <td className="px-3 py-3"><DueDate date={t.due_date} status={t.status} /></td>
+              <td className="px-3 py-3"><TaskDueDisplay task={t} /></td>
             </tr>
           ))}
         </tbody>
@@ -112,7 +129,7 @@ export function TaskTable({
                 {t.is_urgent && !TASK_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
                 <StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} />
                 {showClient && t.client && <span className="text-xs text-slate-500">{t.client.company_name}</span>}
-                <DueDate date={t.due_date} status={t.status} className="ml-auto" />
+                <TaskDueDisplay task={t} className="ml-auto" />
               </div>
             </Link>
             {showAssignee && (

@@ -10,7 +10,7 @@ import { TaskTable } from '@/components/tasks/TaskTable'
 import { ClaimButton } from '@/components/tasks/ClaimButton'
 import { DashboardTaskPanel } from '@/components/tasks/DashboardTaskPanel'
 import { TicketTable, type TicketListItem } from '@/components/shared/TicketTable'
-import { capacityColor, capacityTextColor, cn, dueState, formatRelative, taskCode, ticketCode } from '@/lib/utils'
+import { capacityColor, capacityTextColor, cn, formatRelative, taskCode, ticketCode, todayDateKey } from '@/lib/utils'
 import type { TaskListItem } from '@/types/database'
 
 export const metadata = { title: 'Dashboard' }
@@ -39,10 +39,18 @@ export default async function DashboardPage() {
   const isSuperAdmin = me.role === 'super_admin'
   const isTeamLead = me.role === 'team_lead'
   const isEmployee = me.role === 'employee'
+  const today = todayDateKey()
 
-  const [mine, urgent, requests, approvals, people, allWorking, allDone, myCompleted, lookups] = await Promise.all([
+  const [mine, myOpenCountResult, dueTodayCountResult, dueTodayTasksResult, urgent, requests, approvals, people, allWorking, allDone, myCompleted, lookups] = await Promise.all([
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('assignee_id', me.id).not('status', 'in', '(completed,cancelled)')
       .order('due_date', { ascending: true, nullsFirst: false }).limit(50),
+    supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assignee_id', me.id)
+      .not('status', 'in', '(completed,cancelled)'),
+    supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assignee_id', me.id)
+      .not('status', 'in', '(completed,cancelled)').eq('due_date', today),
+    supabase.from('tasks').select(TASK_LIST_SELECT).eq('assignee_id', me.id)
+      .not('status', 'in', '(completed,cancelled)').eq('due_date', today)
+      .order('priority').order('created_at', { ascending: false }).limit(50),
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
       .order('priority').order('created_at').limit(5),
     isAdmin
@@ -73,9 +81,14 @@ export default async function DashboardPage() {
 
   const myTasks = (mine.data ?? []) as TaskListItem[]
   const urgentTasks = (urgent.data ?? []) as TaskListItem[]
+  const dueTodayTasks = (dueTodayTasksResult.data ?? []) as TaskListItem[]
   const clientRequests = (requests.data ?? []) as unknown as TicketListItem[]
   const names = nameMap(people.data ?? [])
-  const dueNow = myTasks.filter(t => ['overdue', 'today'].includes(dueState(t.due_date, t.status))).length
+  if (myOpenCountResult.error) throw myOpenCountResult.error
+  if (dueTodayCountResult.error) throw dueTodayCountResult.error
+  if (dueTodayTasksResult.error) throw dueTodayTasksResult.error
+  const myOpenCount = myOpenCountResult.count ?? 0
+  const dueTodayCount = dueTodayCountResult.count ?? 0
   const workingTasks = (allWorking.data ?? []) as TaskListItem[]
   const doneTasks = (allDone.data ?? []) as TaskListItem[]
   const workingCount = allWorking.count ?? 0
@@ -83,13 +96,10 @@ export default async function DashboardPage() {
 
   // Employee branch: pure client-side slices of `myTasks`, plus the one extra "completed" query above.
   const myCompletedTasks = (myCompleted.data ?? []) as TaskListItem[]
-  const dueToday = myTasks.filter(t => dueState(t.due_date, t.status) === 'today')
   const inProgressTasks = myTasks.filter(t => t.status === 'in_progress')
   const readyForReviewTasks = myTasks.filter(t => t.status === 'ready_for_review')
 
-  // Team lead branch: department-mates (employees sharing a department with me), explicitly
-  // filtered by assignee — RLS's team_lead visibility also includes my own/urgent/client-covered
-  // rows, which don't belong in a "my team's work" widget.
+  // Team leads may only see tickets assigned to themselves.
   const deptMateIds = isTeamLead && lookups
     ? Array.from(profileIdsSharingDepartment(me.id, lookups)).filter(id => lookups.people.find(p => p.id === id)?.role === 'employee')
     : []
@@ -99,8 +109,8 @@ export default async function DashboardPage() {
       ? supabase.from('tasks').select(TASK_LIST_SELECT).in('assignee_id', deptMateIds).not('status', 'in', '(completed,cancelled)')
           .order('due_date', { ascending: true, nullsFirst: false }).limit(100)
       : Promise.resolve({ data: [] }),
-    deptMateIds.length
-      ? supabase.from('tickets').select(TICKET_LIST_SELECT).in('assignee_id', deptMateIds).neq('status', 'closed')
+    isTeamLead
+      ? supabase.from('tickets').select(TICKET_LIST_SELECT).eq('assignee_id', me.id).neq('status', 'closed')
           .order('created_at', { ascending: false }).limit(50)
       : Promise.resolve({ data: [] }),
   ])
@@ -128,9 +138,9 @@ export default async function DashboardPage() {
         {!isAdmin && <ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="My open tasks" value={myTasks.length} icon={CheckSquare} href="/tasks" />
-        <StatCard label="Due today / overdue" value={dueNow} icon={AlarmClock} tone={dueNow ? 'red' : 'lime'} href="/tasks" />
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <StatCard label="My open tasks" value={myOpenCount} icon={CheckSquare} href="/tasks" />
+        <StatCard label="Due today" value={dueTodayCount} icon={AlarmClock} tone={dueTodayCount ? 'amber' : 'lime'} href="/tasks" />
         <StatCard label="Urgent waiting" value={urgentTasks.length} icon={Flame} tone={urgentTasks.length ? 'red' : 'lime'} href="/urgent" />
         {isSuperAdmin
           ? <StatCard label="Clients awaiting approval" value={approvals.count ?? 0} icon={ShieldCheck} tone={approvals.count ? 'amber' : 'lime'} href="/admin/approvals" />
@@ -200,7 +210,7 @@ export default async function DashboardPage() {
         <div className="mt-6 grid gap-6 sm:grid-cols-2">
           <Card className="overflow-hidden">
             <CardHeader title="Due today" />
-            <TaskTable tasks={dueToday} names={names} showAssignee={false} empty={{ title: 'Nothing due today' }} />
+            <TaskTable tasks={dueTodayTasks} names={names} showAssignee={false} empty={{ title: 'Nothing due today' }} />
           </Card>
           <Card className="overflow-hidden">
             <CardHeader title="In progress" />

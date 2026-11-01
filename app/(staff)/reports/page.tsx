@@ -3,6 +3,7 @@ import { ClipboardList, CheckCircle2, Clock, Inbox, TimerOff } from 'lucide-reac
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
 import { nameMap } from '@/lib/queries'
+import { dateKeyInTimeZone } from '@/lib/utils'
 import { Card, CardHeader, PageHeader, StatCard } from '@/components/ui/primitives'
 import { PrintButton } from '@/components/shared/PrintButton'
 import type { Task } from '@/types/database'
@@ -47,7 +48,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: { mo
 
   const created = tasks.filter(t => inMonth(t.created_at))
   const closed = tasks.filter(t => inMonth(t.closed_at))
-  const closedLate = closed.filter(t => t.due_date && t.closed_at!.slice(0, 10) > t.due_date)
+  const completedAfterDue = (task: Row) => !!task.due_date && !!task.closed_at
+    && dateKeyInTimeZone(new Date(task.closed_at)) > task.due_date
+  const closedLate = closed.filter(completedAfterDue)
   const totalHours = (logs ?? []).reduce((s, l: { hours: number }) => s + Number(l.hours), 0)
 
   const byPerson = new Map<string, { done: number; late: number; hours: number }>()
@@ -55,7 +58,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { mo
     if (!t.assignee_id) return
     const r = byPerson.get(t.assignee_id) ?? { done: 0, late: 0, hours: 0 }
     r.done++
-    if (t.due_date && t.closed_at!.slice(0, 10) > t.due_date) r.late++
+    if (completedAfterDue(t)) r.late++
     byPerson.set(t.assignee_id, r)
   })
   ;(logs ?? []).forEach((l: { profile_id: string; hours: number }) => {

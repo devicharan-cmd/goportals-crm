@@ -1,9 +1,7 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { differenceInCalendarDays, endOfMonth, format, formatDistanceToNow, nextSunday, isSunday } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
 import type { DeadlineType, TaskStatus } from '@/types/database'
-import { TASK_TERMINAL_STATUSES } from '@/lib/constants'
-const TERMINAL = new Set<string>(TASK_TERMINAL_STATUSES)
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -13,6 +11,36 @@ export function cn(...inputs: ClassValue[]) {
 // the clients are in India — without a fixed zone a ticket raised at 1am IST
 // showed yesterday's date.
 const IST = 'Asia/Kolkata'
+
+export function dateKeyInTimeZone(date: Date, timeZone = IST): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric', month: '2-digit', day: '2-digit', timeZone,
+  }).formatToParts(date)
+  const get = (type: string) => parts.find(part => part.type === type)?.value
+  const year = get('year')
+  const month = get('month')
+  const day = get('day')
+  if (!year || !month || !day) throw new RangeError(`Could not determine calendar date in ${timeZone}`)
+  return `${year}-${month}-${day}`
+}
+
+export function todayDateKey(now = new Date()): string {
+  return dateKeyInTimeZone(now)
+}
+
+function calendarDayNumber(dateKey: string): number {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey)
+  if (!match) throw new RangeError(`Invalid date-only value: ${dateKey}`)
+  const dayNumber = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / 86_400_000
+  if (new Date(dayNumber * 86_400_000).toISOString().slice(0, 10) !== dateKey) {
+    throw new RangeError(`Invalid date-only value: ${dateKey}`)
+  }
+  return dayNumber
+}
+
+function dateKeyFromCalendarDay(dayNumber: number): string {
+  return new Date(dayNumber * 86_400_000).toISOString().slice(0, 10)
+}
 
 export function formatDate(date: string | null | undefined): string {
   if (!date) return '—'
@@ -35,34 +63,50 @@ export function getInitials(name: string | null | undefined): string {
   return name.trim().charAt(0).toUpperCase() || '?'
 }
 
-export type DueState = 'overdue' | 'today' | 'soon' | 'ok' | 'none'
+export type DueState = 'overdue' | 'today' | 'soon' | 'ok' | 'none' | 'completed' | 'cancelled'
 
-/** Days from today (calendar days). <0 overdue, 0 today, ≤3 soon. Done tasks are never overdue. */
-export function dueState(dueDate: string | null | undefined, status?: TaskStatus): DueState {
-  if (!dueDate || (status && TERMINAL.has(status))) return 'none'
-  const days = differenceInCalendarDays(new Date(dueDate), new Date())
+function daysUntilDue(dueDate: string, now: Date): number {
+  return calendarDayNumber(dueDate) - calendarDayNumber(todayDateKey(now))
+}
+
+/** Date-only deadlines use India calendar days; the due date remains current through its full local day. */
+export function dueState(dueDate: string | null | undefined, status?: TaskStatus, now = new Date()): DueState {
+  if (status === 'completed') return 'completed'
+  if (status === 'cancelled') return 'cancelled'
+  if (!dueDate) return 'none'
+  const days = daysUntilDue(dueDate, now)
   if (days < 0) return 'overdue'
   if (days === 0) return 'today'
   if (days <= 3) return 'soon'
   return 'ok'
 }
 
-export function dueLabel(dueDate: string | null | undefined, status?: TaskStatus): string {
-  const s = dueState(dueDate, status)
-  if (s === 'none') return dueDate ? `Due ${formatDate(dueDate)}` : 'No due date'
-  const days = differenceInCalendarDays(new Date(dueDate!), new Date())
-  if (s === 'overdue') return `${-days}d overdue`
-  if (s === 'today') return 'Due today'
-  return `Due in ${days}d`
+export function dueLabel(dueDate: string | null | undefined, status?: TaskStatus, now = new Date()): string {
+  const state = dueState(dueDate, status, now)
+  if (state === 'completed') return 'Completed'
+  if (state === 'cancelled') return 'Cancelled'
+  if (state === 'none') return 'No due date'
+  if (state === 'today') return 'Due today'
+  const days = daysUntilDue(dueDate!, now)
+  if (state === 'overdue') {
+    const overdueDays = -days
+    return `${overdueDays} ${overdueDays === 1 ? 'day' : 'days'} overdue`
+  }
+  return `Due in ${days} ${days === 1 ? 'day' : 'days'}`
 }
 
 /** Due date for a quick deadline button: today / coming Sunday / end of month (yyyy-MM-dd). */
-export function dueDateFor(type: DeadlineType): string {
-  const today = new Date()
-  const d = type === 'today' ? today
-          : type === 'this_week' ? (isSunday(today) ? today : nextSunday(today))
-          : endOfMonth(today)
-  return format(d, 'yyyy-MM-dd')
+export function dueDateFor(type: DeadlineType, now = new Date()): string {
+  const today = todayDateKey(now)
+  const todayNumber = calendarDayNumber(today)
+  if (type === 'today') return today
+  if (type === 'this_week') {
+    const weekday = new Date(todayNumber * 86_400_000).getUTCDay()
+    return dateKeyFromCalendarDay(todayNumber + (7 - weekday) % 7)
+  }
+  const [year, month] = today.split('-').map(Number)
+  const finalDay = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  return `${year}-${String(month).padStart(2, '0')}-${String(finalDay).padStart(2, '0')}`
 }
 
 export function capacityColor(pct: number): string {

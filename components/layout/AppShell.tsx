@@ -78,6 +78,17 @@ export function AppShell({
   const notificationsHref = isClient ? '/portal/notifications' : '/notifications'
 
   useEffect(() => {
+    const previousHtmlOverflow = document.documentElement.style.overflow
+    const previousBodyOverflow = document.body.style.overflow
+    document.documentElement.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow
+      document.body.style.overflow = previousBodyOverflow
+    }
+  }, [])
+
+  useEffect(() => {
     setOpen(false)
     setProfileMenuOpen(false)
   }, [pathname])
@@ -251,7 +262,7 @@ export function AppShell({
   )
 
   return (
-    <div className="h-screen overflow-hidden">
+    <div className="fixed inset-0 overflow-hidden">
       {/* Desktop sidebar */}
       <aside className={cn('fixed inset-y-0 left-0 z-30 hidden border-r border-slate-200 bg-white transition-[width] duration-200 lg:block',
         collapsed ? 'w-16' : 'w-64')}>

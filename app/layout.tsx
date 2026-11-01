@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google'
+import { Toaster } from 'sonner'
 import './globals.css'
 import 'leaflet/dist/leaflet.css'
 
@@ -14,7 +15,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${sans.variable} ${display.variable}`} suppressHydrationWarning>
-      <body className="font-sans" suppressHydrationWarning>{children}</body>
+      <body className="font-sans" suppressHydrationWarning>
+        {children}
+        <Toaster position="top-right" richColors />
+      </body>
     </html>
   )
 }

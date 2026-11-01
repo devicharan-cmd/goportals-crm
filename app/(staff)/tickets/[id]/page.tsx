@@ -6,6 +6,7 @@ import { requireStaff } from '@/lib/auth'
 import { assigneeOptionsFor, getStaffLookups, getTicketAttachments, nameMap, resolveTicketId, TASK_LIST_SELECT, ticketPageTitle } from '@/lib/queries'
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { AssignButton } from '@/components/tasks/AssignButton'
+import { DeleteButton } from '@/components/shared/DeleteButton'
 import { ClaimTicketButton } from '@/components/tickets/ClaimTicketButton'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { TaskTable } from '@/components/tasks/TaskTable'
@@ -30,15 +31,19 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
 
-  const [{ data }, { data: comments }, { data: activity }, lookups, attachments, { data: linkedTasks }] = await Promise.all([
-    supabase.from('tickets').select('*, client:clients(id, company_name), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))').eq('id', ticketId).maybeSingle(),
+  const { data } = await supabase.from('tickets')
+    .select('*, client:clients(id, company_name), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))')
+    .eq('id', ticketId)
+    .maybeSingle()
+  if (!data || (me.role === 'team_lead' && data.assignee_id !== me.id)) notFound()
+
+  const [{ data: comments }, { data: activity }, lookups, attachments, { data: linkedTasks }] = await Promise.all([
     supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
     supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
     getStaffLookups(),
     getTicketAttachments(ticketId),
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: false }),
   ])
-  if (!data) notFound()
   const ticket = data as Ticket & {
     client: { id: string; company_name: string } | null
     ecommerce_account: { account_name: string; platform: { name: string } | null } | null
@@ -58,7 +63,10 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
         <Link href="/tickets" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tickets</Link>
-        {me.role !== 'employee' && <AssignButton taskId={ticket.id} currentId={ticket.assignee_id} options={assignees} table="tickets" />}
+        <div className="flex items-center gap-2">
+          {['super_admin', 'admin'].includes(me.role) && <DeleteButton table="tickets" id={ticket.id} redirectTo="/tickets" label="Delete ticket" variant="danger" />}
+          {me.role !== 'employee' && <AssignButton taskId={ticket.id} currentId={ticket.assignee_id} options={assignees} table="tickets" disabled={ticket.status === 'closed'} />}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -121,7 +129,10 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={ticket.id} comments={(comments ?? []) as TicketComment[]} names={names}
                              roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))} meId={me.id} myRole={me.role}
-                             table="ticket_comments" idField="ticket_id" bounded />
+                             table="ticket_comments" idField="ticket_id" bounded
+                             lockedNote={ticket.status === 'closed'
+                               ? 'This ticket is closed. Messages can no longer be sent.'
+                               : undefined} />
             </div>
           </Card>
 

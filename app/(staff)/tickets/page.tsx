@@ -34,6 +34,7 @@ export default async function StaffTicketsPage({ searchParams }: { searchParams:
   const board = searchParams.view === 'board'
 
   let query = supabase.from('tickets').select('*, client:clients(id, company_name)').order('created_at', { ascending: false }).limit(200)
+  if (me.role === 'team_lead') query = query.eq('assignee_id', me.id)
   const idSearch = parseTicketCode(searchParams.q)
   if (idSearch) query = query.eq('ticket_number', idSearch)
   else if (searchParams.q) query = query.ilike('subject', `%${searchParams.q.replace(/[%_,()]/g, ' ')}%`)

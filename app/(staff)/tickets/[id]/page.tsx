@@ -2,12 +2,10 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { requireStaff } from '@/lib/auth'
+import { requireRole } from '@/lib/auth'
 import { assigneeOptionsFor, getStaffLookups, getTicketAttachments, nameMap, resolveTicketId, TASK_LIST_SELECT, ticketPageTitle } from '@/lib/queries'
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
-import { AssignButton } from '@/components/tasks/AssignButton'
 import { DeleteButton } from '@/components/shared/DeleteButton'
-import { ClaimTicketButton } from '@/components/tickets/ClaimTicketButton'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { Card, CardHeader } from '@/components/ui/primitives'
@@ -26,16 +24,16 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 }
 
 export default async function StaffTicketDetailPage({ params }: { params: { id: string } }) {
-  const me = await requireStaff()
+  const me = await requireRole(['super_admin', 'admin', 'team_lead'])
   const supabase = createClient()
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
 
   const { data } = await supabase.from('tickets')
-    .select('*, client:clients(id, company_name), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))')
+    .select('*, client:clients(id, company_name, contact_name, owner_id), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))')
     .eq('id', ticketId)
     .maybeSingle()
-  if (!data || (me.role === 'team_lead' && data.assignee_id !== me.id)) notFound()
+  if (!data) notFound()
 
   const [{ data: comments }, { data: activity }, lookups, attachments, { data: linkedTasks }] = await Promise.all([
     supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
@@ -45,27 +43,40 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: false }),
   ])
   const ticket = data as Ticket & {
-    client: { id: string; company_name: string } | null
+    client: { id: string; company_name: string; contact_name: string | null; owner_id: string | null } | null
     ecommerce_account: { account_name: string; platform: { name: string } | null } | null
   }
   const names = nameMap(lookups.people)
   const tasksFromTicket = (linkedTasks ?? []) as TaskListItem[]
+  const clientOwner = ticket.client?.owner_id
+    ? lookups.people.find(person => person.id === ticket.client?.owner_id && person.role === 'client' && person.status === 'active')
+    : undefined
+  const clientAssignee = clientOwner && ticket.client
+    ? {
+        id: clientOwner.id,
+        name: ticket.client.company_name,
+        role: 'Client',
+        avatarRole: 'client' as const,
+        subtitle: ticket.client.contact_name?.trim() || 'Ticket client',
+      }
+    : undefined
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
+  const ticketDetails = (ticket.details ?? {}) as Record<string, string>
+  const detailFields = def.fields.filter(f => ticketDetails[f.key] != null && ticketDetails[f.key] !== '')
+  const raisedByProfile = ticket.created_by
+    ? lookups.people.find(person => person.id === ticket.created_by)
+    : undefined
+  const createdByName = ticket.created_by ? names[ticket.created_by] ?? '—' : '—'
+  const raisedByName = raisedByProfile?.role === 'client'
+    ? ticket.client?.contact_name?.trim() || createdByName
+    : createdByName
   const assignees = assigneeOptionsFor(me, lookups)
-  const deptLeads = Object.fromEntries(
-    lookups.departmentMembers.filter(m => m.is_lead).map(m => [m.department_id, { id: m.profile_id, name: names[m.profile_id] ?? 'Unknown' }]),
-  )
-  const canAssign = me.role !== 'employee' || !ticket.assignee_id || ticket.assignee_id === me.id
-  const canClose = ['super_admin', 'admin'].includes(me.role)
-  const canClaim = ticket.is_urgent && !ticket.assignee_id && !TICKET_TERMINAL_STATUSES.includes(ticket.status)
-
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
         <Link href="/tickets" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tickets</Link>
         <div className="flex items-center gap-2">
           {['super_admin', 'admin'].includes(me.role) && <DeleteButton table="tickets" id={ticket.id} redirectTo="/tickets" label="Delete ticket" variant="danger" />}
-          {me.role !== 'employee' && <AssignButton taskId={ticket.id} currentId={ticket.assignee_id} options={assignees} table="tickets" disabled={ticket.status === 'closed'} />}
         </div>
       </div>
 
@@ -89,39 +100,39 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
               : <p className="mt-3 text-sm italic text-slate-400">No description.</p>}
             <TicketAttachmentsList attachments={attachments} />
 
-            {canClaim && (
-              <div className="mt-5 flex items-center justify-between gap-3 rounded-lg bg-red-50 px-4 py-3 ring-1 ring-inset ring-red-200">
-                <p className="text-sm font-medium text-red-800">This urgent ticket needs an owner.</p>
-                <ClaimTicketButton ticketId={ticket.id} />
-              </div>
-            )}
-
-            {Object.keys(ticket.details ?? {}).length > 0 && (
-              <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-slate-100 text-sm sm:grid-cols-3">
-                {def.fields.filter(f => (ticket.details as Record<string, string>)[f.key]).map(f => {
-                  const raw = (ticket.details as Record<string, string>)[f.key]
-                  const value = f.type === 'select' ? f.options?.find(o => o.value === raw)?.label ?? raw
-                              : f.type === 'platform' ? lookups.platforms.find(p => p.id === raw)?.name ?? raw
-                              : raw
-                  return (
-                    <div key={f.key} className="bg-white px-3 py-2">
-                      <dt className="text-xs text-slate-500">{f.label}</dt>
-                      <dd className="truncate font-medium text-slate-900">
-                        {f.type === 'password' ? <RevealableValue value={value} /> : value}
-                      </dd>
-                    </div>
-                  )
-                })}
-              </dl>
-            )}
+            <div className="mt-4">
+              <p className="mb-1 text-xs font-medium text-slate-500">Request details</p>
+              {detailFields.length > 0 ? (
+                <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-lg bg-slate-100 text-sm sm:grid-cols-2">
+                  {detailFields.map(f => {
+                    const raw = ticketDetails[f.key]
+                    const value = f.type === 'select' ? f.options?.find(o => o.value === raw)?.label ?? raw
+                                : f.type === 'platform' ? lookups.platforms.find(p => p.id === raw)?.name ?? raw
+                                : raw
+                    return (
+                      <div key={f.key} className="bg-white px-3 py-2">
+                        <dt className="text-xs text-slate-500">{f.label}</dt>
+                        <dd className="break-words whitespace-pre-wrap font-medium text-slate-900">
+                          {f.type === 'password' ? <RevealableValue value={value} /> : value}
+                        </dd>
+                      </div>
+                    )
+                  })}
+                </dl>
+              ) : (
+                <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">No additional request details were provided.</p>
+              )}
+            </div>
           </Card>
 
-          {tasksFromTicket.length > 0 && (
-            <Card className="overflow-hidden">
-              <CardHeader title={`Tasks from this ticket (${tasksFromTicket.length})`} />
+          <Card className="overflow-hidden">
+            <CardHeader title={`Tasks from this ticket (${tasksFromTicket.length})`} />
+            {tasksFromTicket.length > 0 ? (
               <TaskTable tasks={tasksFromTicket} names={names} empty={{ title: 'No tasks yet' }} />
-            </Card>
-          )}
+            ) : (
+              <p className="px-5 py-4 text-sm text-slate-500">No tasks have been created from this ticket yet.</p>
+            )}
+          </Card>
 
           <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader title={`Discussion (${(comments ?? []).length})`}
@@ -144,7 +155,15 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
 
         <div className="space-y-6">
           <Card className="p-5">
-            <TicketProperties ticket={ticket} departments={lookups.departments} deptLeads={deptLeads} assignees={assignees} canAssign={canAssign} canMarkUrgent={me.role !== 'employee'} canClose={canClose} />
+            <TicketProperties
+              ticket={ticket}
+              departments={lookups.departments}
+              assignees={assignees}
+              canMarkUrgent={me.role !== 'team_lead'}
+              canEdit={me.role !== 'team_lead'}
+              clientAssignee={clientAssignee}
+              meId={me.id}
+            />
           </Card>
           <Card>
             <CardHeader title="Details" />
@@ -154,7 +173,7 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
                   ? <Link href={`/clients/${ticket.client.id}`} className="font-medium text-brand-700 hover:underline">{ticket.client.company_name}</Link>
                   : '—'],
                 ['Account', ticket.ecommerce_account ? `${ticket.ecommerce_account.platform?.name ?? ''} · ${ticket.ecommerce_account.account_name}` : '—'],
-                ['Raised by', ticket.created_by ? names[ticket.created_by] ?? '—' : '—'],
+                ['Raised by', raisedByName],
                 ['Created', formatDate(ticket.created_at)],
                 ...(ticket.closed_at ? [['Closed', formatDate(ticket.closed_at)] as [string, React.ReactNode]] : []),
               ].map(([k, v]) => (

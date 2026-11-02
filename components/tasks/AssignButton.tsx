@@ -3,11 +3,12 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
-import { Check, Search, UserMinus, UserCog } from 'lucide-react'
+import { Check, UserMinus, UserCog } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/primitives'
+import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
 import { cn, errorMessage } from '@/lib/utils'
 
 import type { AssigneeOption } from '@/lib/queries'
@@ -69,16 +70,16 @@ export function AssignButton({
         description="They'll get a notification straight away."
         size="lg"
       >
-        <div className="relative mb-3">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            autoFocus
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            placeholder="Search by name or role…"
-            className="input pl-9"
-          />
-        </div>
+        <DebouncedSearchInput
+          autoFocus
+          delay={200}
+          value={q}
+          onValueChange={setQ}
+          onSearch={setQ}
+          placeholder="Search by name or role…"
+          className="mb-3"
+          ariaLabel="Search assignees"
+        />
 
         <ul className="max-h-84 space-y-1.5 overflow-y-auto p-1.5">
           {filtered.map(o => {

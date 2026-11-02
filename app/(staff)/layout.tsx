@@ -14,7 +14,9 @@ async function StaffShell({ me, children }: {
   const [notifications, urgentTasks, urgentTickets, approvals] = await Promise.all([
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_id', me.id).eq('is_read', false),
     supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)'),
-    supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null).neq('status', 'closed'),
+    ['super_admin', 'admin', 'team_lead'].includes(me.role)
+      ? supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('is_urgent', true).eq('status', 'unassigned')
+      : Promise.resolve({ count: 0 }),
     me.role === 'super_admin'
       ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending')
       : Promise.resolve({ count: 0 }),

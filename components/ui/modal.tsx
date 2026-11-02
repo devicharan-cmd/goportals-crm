@@ -6,17 +6,22 @@ import { cn } from '@/lib/utils'
 
 export function Modal({
   open, onClose, title, description, children, size = 'md', titleClassName,
-  closeButtonClassName, closeIconClassName,
+  closeButtonClassName, closeIconClassName, dialogClassName, headerClassName,
+  bodyClassName, headerIcon,
 }: {
   open: boolean
   onClose: () => void
   title: string
   description?: string
   children: React.ReactNode
-  size?: 'md' | 'lg'
+  size?: 'md' | 'lg' | 'xl'
   titleClassName?: string
   closeButtonClassName?: string
   closeIconClassName?: string
+  dialogClassName?: string
+  headerClassName?: string
+  bodyClassName?: string
+  headerIcon?: React.ReactNode
 }) {
   useEffect(() => {
     if (!open) return
@@ -34,22 +39,26 @@ export function Modal({
         aria-modal="true"
         onClick={e => e.stopPropagation()}
         className={cn('max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-pop sm:rounded-2xl',
-          size === 'md' ? 'sm:max-w-md' : 'sm:max-w-2xl')}
+          size === 'md' ? 'sm:max-w-md' : size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-5xl',
+          dialogClassName)}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-4">
-          <div>
-            <h2 className={cn('text-base font-semibold', titleClassName)}>{title}</h2>
-            {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
+        <div className={cn('flex flex-shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-6 py-4', headerClassName)}>
+          <div className="flex min-w-0 items-start gap-4">
+            {headerIcon}
+            <div className="min-w-0">
+              <h2 className={cn('text-base font-semibold', titleClassName)}>{title}</h2>
+              {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
+            </div>
           </div>
           <button
             onClick={onClose}
-            className={cn('flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-all duration-150 hover:bg-slate-100 hover:text-slate-700 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2', closeButtonClassName)}
+            className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 transition-all duration-150 hover:bg-red-50 hover:text-red-600 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2', closeButtonClassName)}
             aria-label="Close"
           >
             <X className={cn('h-5 w-5', closeIconClassName)} />
           </button>
         </div>
-        <div className="px-6 py-5">{children}</div>
+        <div className={cn('px-6 py-5', bodyClassName)}>{children}</div>
       </div>
     </div>
   )

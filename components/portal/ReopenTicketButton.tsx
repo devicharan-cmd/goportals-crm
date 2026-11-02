@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/utils'
 
-/** The client rejecting a resolved ticket and sending it back for rework (reopen_ticket RPC). */
+/** The client requests changes to a closed ticket; the RPC reopens its completed tasks. */
 export function ReopenTicketButton({ ticketId }: { ticketId: string }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -16,8 +16,7 @@ export function ReopenTicketButton({ ticketId }: { ticketId: string }) {
   const [error, setError] = useState('')
 
   async function reopen() {
-    // Without a reason the team gets a reopened ticket and no idea what to
-    // change; the RPC refuses it too (migration 063).
+    // The team needs a reason before completed tasks can be reopened.
     if (!feedback.trim()) return setError('Please tell us what needs to change.')
     setLoading(true)
     setError('')

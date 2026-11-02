@@ -10,8 +10,15 @@ import { Modal } from '@/components/ui/modal'
 import { errorMessage } from '@/lib/utils'
 
 export function DeleteButton({
-  table, id, redirectTo, label = 'Delete', variant = 'ghost',
-}: { table: 'tasks' | 'tickets' | 'clients'; id: string; redirectTo: string; label?: string; variant?: 'ghost' | 'danger' }) {
+  table, id, redirectTo, label = 'Delete', variant = 'ghost', description,
+}: {
+  table: 'tasks' | 'tickets' | 'clients'
+  id: string
+  redirectTo: string
+  label?: string
+  variant?: 'ghost' | 'danger'
+  description?: string
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -51,7 +58,7 @@ export function DeleteButton({
         open={open}
         onClose={() => { if (!loading) setOpen(false) }}
         title={`Delete ${itemName}?`}
-        description={`This ${itemName} will be permanently deleted. This action cannot be undone.`}
+        description={description ?? `This ${itemName} will be permanently deleted. This action cannot be undone.`}
       >
         {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <div className="flex justify-end gap-2">

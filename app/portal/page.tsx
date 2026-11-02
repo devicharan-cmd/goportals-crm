@@ -24,7 +24,7 @@ export default async function PortalHome() {
   const myAccounts = (accounts ?? []) as unknown as { account_name: string; platform: { name: string } | null }[]
   const myServices = (services ?? []) as unknown as { status: string; custom_name: string | null; service: { name: string } | null }[]
   const open = tickets.filter(t => t.status !== 'closed')
-  const inProgress = tickets.filter(t => (['assigned', 'in_progress'] as Ticket['status'][]).includes(t.status))
+  const assigned = tickets.filter(t => t.status === 'assigned')
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
   const doneThisMonth = tickets.filter(t => t.closed_at && new Date(t.closed_at) >= monthStart)
 
@@ -44,8 +44,8 @@ export default async function PortalHome() {
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Open tickets" value={open.length} icon={Clock} href="/portal/tickets" />
-        <StatCard label="Being worked on" value={inProgress.length} icon={Loader} tone="amber" href="/portal/tickets" />
-        <StatCard label="Completed this month" value={doneThisMonth.length} icon={CheckCircle2} tone="lime" href="/portal/tickets?status=done" />
+        <StatCard label="Assigned tickets" value={assigned.length} icon={Loader} tone="amber" href="/portal/tickets?status=assigned" />
+        <StatCard label="Closed this month" value={doneThisMonth.length} icon={CheckCircle2} tone="lime" href="/portal/tickets?status=closed" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">

@@ -2,17 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { ChevronDown, KanbanSquare, List, Search, X } from 'lucide-react'
+import { ChevronDown, KanbanSquare, List, X } from 'lucide-react'
 import { Avatar } from '@/components/ui/primitives'
 import { TASK_STATUS_OPTIONS } from '@/lib/constants'
+import { TaskSearchField, useTaskSearch } from '@/components/tasks/TaskSearch'
 import { cn } from '@/lib/utils'
 import type { AppRole } from '@/types/database'
 
 type Option = { value: string; label: string; avatarUrl?: string | null; role?: AppRole }
 
 /**
- * URL-driven filters for the task list (server page reads searchParams).
- * Row 1: scope + view switches, search. Row 2: the dropdown filters.
+ * URL-driven task filters and a transient, debounced search.
  */
 export function TaskFilters({
   clients, people, departments, showScope, defaultScope = 'mine', action,
@@ -20,23 +20,25 @@ export function TaskFilters({
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
-  const [q, setQ] = useState(params.get('q') ?? '')
+  const taskSearch = useTaskSearch()
+  const [q, setQ] = useState('')
   const [assigneeOpen, setAssigneeOpen] = useState(false)
+
+  useEffect(() => {
+    if (!params.has('q')) return
+    const next = new URLSearchParams(params.toString())
+    next.delete('q')
+    const query = next.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }, [params, pathname, router])
 
   function set(key: string, value: string) {
     const next = new URLSearchParams(params.toString())
+    next.delete('q')
     if (value) next.set(key, value)
     else next.delete(key)
     router.push(`${pathname}?${next.toString()}`)
   }
-
-  // Debounced search
-  useEffect(() => {
-    if (q === (params.get('q') ?? '')) return
-    const t = setTimeout(() => set('q', q), 350)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q])
 
   useEffect(() => {
     if (!assigneeOpen) return
@@ -56,12 +58,13 @@ export function TaskFilters({
 
   const view = params.get('view') ?? 'list'
   const scope = params.get('scope') ?? defaultScope
-  const filtered = ['q', 'status', 'client', 'assignee', 'dept'].some(k => params.get(k))
+  const filtered = Boolean(q || taskSearch.query) || ['status', 'client', 'assignee', 'dept'].some(k => params.get(k))
 
   function clearFilters() {
     const next = new URLSearchParams()
     if (params.get('scope')) next.set('scope', params.get('scope')!)
     if (params.get('view')) next.set('view', params.get('view')!)
+    taskSearch.setQuery('')
     setQ('')
     router.push(`${pathname}?${next.toString()}`)
   }
@@ -139,9 +142,8 @@ export function TaskFilters({
             <X className="h-4 w-4" /> Clear filters
           </button>
         )}
-        <div className="relative ml-auto w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search title or GP-1024…" className="input h-9 pl-9" />
+        <div className="ml-auto w-full sm:w-72">
+          <TaskSearchField value={q} onValueChange={setQ} />
         </div>
       </div>
     </div>

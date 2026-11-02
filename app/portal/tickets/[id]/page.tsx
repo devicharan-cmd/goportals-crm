@@ -7,7 +7,7 @@ import { getPortalNames } from '@/lib/portal'
 import { getTicketAttachments, resolveTicketId, ticketPageTitle } from '@/lib/queries'
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { ButtonLink } from '@/components/ui/button'
-import { Avatar, Card, CardHeader } from '@/components/ui/primitives'
+import { Card, CardHeader } from '@/components/ui/primitives'
 import { PriorityBadge, UrgentBadge } from '@/components/ui/badges'
 import { ClientReplyBadge, ClientTicketStatusBadge } from '@/components/portal/ClientTicketStatus'
 import { CommentThread } from '@/components/tasks/CommentThread'
@@ -15,10 +15,9 @@ import { TicketAttachmentsList } from '@/components/shared/TicketAttachmentsList
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
-import { CloseTicketButton } from '@/components/portal/CloseTicketButton'
 import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
-import { clientPortalTicketStatus } from '@/lib/ticket-status'
-import { formatDate, splitTeamName, ticketCode } from '@/lib/utils'
+import { DeleteButton } from '@/components/shared/DeleteButton'
+import { formatDate, ticketCode } from '@/lib/utils'
 import type { TicketActivity, TicketComment, Ticket } from '@/types/database'
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
@@ -42,7 +41,6 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
   if (!data) notFound()
   const ticket = data as Ticket & { ecommerce_account: { account_name: string; platform: { name: string } | null } | null }
   const ticketComments = (comments ?? []) as TicketComment[]
-  const portalStatus = clientPortalTicketStatus(ticket)
   const latestPublicMessage = ticketComments.slice().reverse().find(comment => !comment.is_internal)
   const replyAuthor = latestPublicMessage?.author_id
     ? (staffDirectory as { id: string; full_name: string | null; role: string }[] | null)?.find(person => person.id === latestPublicMessage.author_id && ['admin', 'super_admin'].includes(person.role))
@@ -53,23 +51,28 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
   const replyAuthorName = replyAuthor && latestPublicMessage?.author_id
     ? names[latestPublicMessage.author_id] ?? 'GoPortals team'
     : null
-  const handledBy = splitTeamName(ticket.assignee_id ? names[ticket.assignee_id] ?? 'GoPortals team' : '')
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
-  const canEdit = portalStatus === 'new' && ticket.created_by === me.id
-  const canClose = ['resolved', 'ready_for_client'].includes(portalStatus)
-  // Only say work is under way while it actually is: the other statuses each
-  // carry their own, more exact message further down the page.
-  const workUnderWay = ['under_review', 'assigned', 'in_progress', 'ready_for_review', 'ready_for_client'].includes(portalStatus)
+  const canEdit = ticket.status === 'unassigned' && ticket.created_by === me.id
+  const workUnderWay = ticket.status === 'assigned'
 
   return (
     <>
       <div className="mb-4 flex items-center justify-between">
         <Link href="/portal/tickets" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> My tickets</Link>
-        {canEdit
-          ? <ButtonLink href={`/portal/tickets/${ticket.id}/edit`} variant="secondary" size="sm"><Pencil className="h-3.5 w-3.5" /> Edit</ButtonLink>
-          : ticket.created_by === me.id && workUnderWay && (
-              <span className="inline-flex items-center gap-1 text-xs text-slate-400"><Lock className="h-3.5 w-3.5" /> Work has started — add a comment to request changes</span>
-            )}
+        <div className="flex items-center gap-2">
+          {canEdit
+            ? <ButtonLink href={`/portal/tickets/${ticket.id}/edit`} variant="secondary" size="sm"><Pencil className="h-3.5 w-3.5" /> Edit</ButtonLink>
+            : ticket.created_by === me.id && workUnderWay && (
+                <span className="inline-flex items-center gap-1 text-xs text-slate-400"><Lock className="h-3.5 w-3.5" /> Work has started — add a comment to request changes</span>
+              )}
+          <DeleteButton
+            table="tickets"
+            id={ticket.id}
+            redirectTo="/portal/tickets"
+            label="Delete ticket"
+            description="You can delete your ticket at any status, including while it is being worked on or after it is closed. This permanently removes the ticket, its comments, attachment records, and activity history. Any linked team tasks remain but are detached from this ticket."
+          />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
@@ -78,7 +81,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs font-semibold text-slate-400">{ticketCode(ticket.ticket_number)}</span>
               {ticket.is_urgent && ticket.status !== 'closed' && <UrgentBadge />}
-              <ClientTicketStatusBadge status={portalStatus} />
+              <ClientTicketStatusBadge status={ticket.status} />
               {ticket.priority && <PriorityBadge priority={ticket.priority} />}
               <span className="ml-auto text-xs text-slate-400">{TICKET_CATEGORY_LABELS[ticket.category]}</span>
             </div>
@@ -117,8 +120,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
               </div>
             )}
 
-            {canClose && <CloseTicketButton ticketId={ticket.id} />}
-            {canClose && <ReopenTicketButton ticketId={ticket.id} />}
+            {ticket.status === 'closed' && <ReopenTicketButton ticketId={ticket.id} />}
           </Card>
 
           <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
@@ -129,7 +131,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
                               bounded
                               replyNeeded={!!replyAuthorName}
                               lockedNote={ticket.status === 'closed'
-                                ? 'This ticket is closed. Raise a new ticket if you need anything else.'
+                                ? 'This ticket is closed. Request changes above to reopen its tasks.'
                                 : undefined} />
             </div>
           </Card>
@@ -149,14 +151,6 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
           <Card>
             <CardHeader title="Details" />
             <dl className="divide-y divide-slate-100 text-sm">
-              <div className="flex items-center justify-between gap-3 px-5 py-2.5">
-                <dt className="text-slate-500">Handled by</dt>
-                <dd>{ticket.assignee_id
-                  ? <span className="flex items-center gap-2"><Avatar name={handledBy[0]} size="xs" />
-                      <span>{handledBy[0]}{handledBy[1] && <span className="ml-1 text-[11px] font-normal text-slate-500">({handledBy[1]})</span>}</span>
-                    </span>
-                  : <span className="text-slate-400">{['resolved', 'closed'].includes(ticket.status) ? 'GoPortals team' : 'Being assigned'}</span>}</dd>
-              </div>
               {[
                 ['Account', ticket.ecommerce_account ? `${ticket.ecommerce_account.platform?.name ?? ''} · ${ticket.ecommerce_account.account_name}` : null],
                 ['Raised', formatDate(ticket.created_at)],

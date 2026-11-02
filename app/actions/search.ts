@@ -87,7 +87,7 @@ export async function searchPortalTickets(value: string, status: TicketStatusFil
 
 export async function searchStaffTickets(value: string, status: TicketStatusFilter): Promise<StaffTicketSearchRow[]> {
   if (!['unassigned', 'assigned', 'closed'].includes(status)) throw new Error('Invalid ticket status filter')
-  await requireRole(['super_admin', 'admin'])
+  await requireRole(['super_admin', 'admin', 'team_lead'])
   const supabase = createClient()
   const queryText = safeSearchText(value)
   let query = supabase.from('tickets')

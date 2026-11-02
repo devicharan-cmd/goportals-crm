@@ -46,8 +46,8 @@ export function Modal({
           <div className="flex min-w-0 items-start gap-4">
             {headerIcon}
             <div className="min-w-0">
-            <h2 className={cn('text-base font-semibold', titleClassName)}>{title}</h2>
-            {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
+              <h2 className={cn('text-base font-semibold', titleClassName)}>{title}</h2>
+              {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
             </div>
           </div>
           <button

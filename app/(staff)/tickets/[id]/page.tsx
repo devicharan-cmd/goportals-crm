@@ -24,13 +24,13 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 }
 
 export default async function StaffTicketDetailPage({ params }: { params: { id: string } }) {
-  const me = await requireRole(['super_admin', 'admin'])
+  const me = await requireRole(['super_admin', 'admin', 'team_lead'])
   const supabase = createClient()
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
 
   const { data } = await supabase.from('tickets')
-    .select('*, client:clients(id, company_name, contact_name), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))')
+    .select('*, client:clients(id, company_name, contact_name, owner_id), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))')
     .eq('id', ticketId)
     .maybeSingle()
   if (!data) notFound()
@@ -43,11 +43,23 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: false }),
   ])
   const ticket = data as Ticket & {
-    client: { id: string; company_name: string; contact_name: string | null } | null
+    client: { id: string; company_name: string; contact_name: string | null; owner_id: string | null } | null
     ecommerce_account: { account_name: string; platform: { name: string } | null } | null
   }
   const names = nameMap(lookups.people)
   const tasksFromTicket = (linkedTasks ?? []) as TaskListItem[]
+  const clientOwner = ticket.client?.owner_id
+    ? lookups.people.find(person => person.id === ticket.client?.owner_id && person.role === 'client' && person.status === 'active')
+    : undefined
+  const clientAssignee = clientOwner && ticket.client
+    ? {
+        id: clientOwner.id,
+      name: ticket.client.company_name,
+        role: 'Client',
+        avatarRole: 'client' as const,
+      subtitle: ticket.client.contact_name?.trim() || 'Ticket client',
+      }
+    : undefined
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
   const ticketDetails = (ticket.details ?? {}) as Record<string, string>
   const detailFields = def.fields.filter(f => ticketDetails[f.key] != null && ticketDetails[f.key] !== '')
@@ -143,7 +155,17 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
 
         <div className="space-y-6">
           <Card className="p-5">
-            <TicketProperties ticket={ticket} departments={lookups.departments} assignees={assignees} canMarkUrgent />
+            <TicketProperties
+              ticket={ticket}
+              departments={lookups.departments}
+              assignees={assignees}
+              canMarkUrgent={me.role !== 'team_lead'}
+              canEdit={me.role !== 'team_lead'}
+              clientAssignee={clientAssignee}
+              canAssignToClient={tasksFromTicket.some(task =>
+                task.assignee_id === me.id && !['completed', 'cancelled'].includes(task.status)
+              )}
+            />
           </Card>
           <Card>
             <CardHeader title="Details" />

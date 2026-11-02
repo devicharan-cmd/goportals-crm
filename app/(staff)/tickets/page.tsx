@@ -17,7 +17,7 @@ const TABS: { key: TicketStatus; label: string }[] = [
 ]
 
 export default async function StaffTicketsPage({ searchParams }: { searchParams: { status?: string } }) {
-  await requireRole(['super_admin', 'admin'])
+  const me = await requireRole(['super_admin', 'admin', 'team_lead'])
   const supabase = createClient()
   const tab = TABS.find(t => t.key === searchParams.status)?.key ?? 'unassigned'
   const { data, error } = await supabase.from('tickets')
@@ -43,7 +43,9 @@ export default async function StaffTicketsPage({ searchParams }: { searchParams:
           ))}
         </div>
         <TicketSearchField className="min-w-[220px] flex-1 sm:max-w-xs" />
-        <ButtonLink href="/tickets/new" size="sm" className="ml-auto"><Plus className="h-3.5 w-3.5" /> New ticket</ButtonLink>
+        {me.role !== 'team_lead' && (
+          <ButtonLink href="/tickets/new" size="sm" className="ml-auto"><Plus className="h-3.5 w-3.5" /> New ticket</ButtonLink>
+        )}
       </div>
       <TicketSearchResults />
     </TicketSearchProvider>

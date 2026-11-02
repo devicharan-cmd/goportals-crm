@@ -38,6 +38,7 @@ export default async function DashboardPage() {
   // Approving a client is the super admin's call alone.
   const isSuperAdmin = me.role === 'super_admin'
   const isTeamLead = me.role === 'team_lead'
+  const canSeeTickets = isAdmin || isTeamLead
   const isEmployee = me.role === 'employee'
   const today = todayDateKey()
 
@@ -53,7 +54,7 @@ export default async function DashboardPage() {
       .order('priority').order('created_at', { ascending: false }).limit(50),
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
       .order('priority').order('created_at').limit(5),
-    isAdmin
+    canSeeTickets
       ? supabase.from('tickets').select(TICKET_LIST_SELECT).eq('status', 'unassigned')
           .order('created_at', { ascending: false }).limit(6)
       : Promise.resolve({ data: [] }),
@@ -139,7 +140,9 @@ export default async function DashboardPage() {
         <StatCard label="Urgent waiting" value={urgentTasks.length} icon={Flame} tone={urgentTasks.length ? 'red' : 'lime'} href="/urgent" />
         {isSuperAdmin
           ? <StatCard label="Clients awaiting approval" value={approvals.count ?? 0} icon={ShieldCheck} tone={approvals.count ? 'amber' : 'lime'} href="/admin/approvals" />
-          : <StatCard label="New client tickets" value={clientRequests.length} icon={Inbox} tone="brand" href="/tickets" />}
+          : canSeeTickets
+            ? <StatCard label="New client tickets" value={clientRequests.length} icon={Inbox} tone="brand" href="/tickets" />
+            : null}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -176,7 +179,7 @@ export default async function DashboardPage() {
             )}
           </Card>
 
-          {isAdmin && (
+          {canSeeTickets && (
             <Card className="overflow-hidden">
               <CardHeader title="New client tickets" description="Raised from the portal, not yet assigned" />
               {clientRequests.length === 0 ? (

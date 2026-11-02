@@ -221,6 +221,17 @@ export interface TaskComment {
   created_at: string
 }
 
+export interface TaskAttachment {
+  id: string
+  task_id: string
+  uploaded_by: string | null
+  storage_path: string
+  file_name: string
+  mime_type: string | null
+  size_bytes: number | null
+  created_at: string
+}
+
 export interface TaskChecklistItem {
   id: string
   task_id: string

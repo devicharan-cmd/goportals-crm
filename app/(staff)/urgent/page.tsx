@@ -15,7 +15,7 @@ export const metadata = { title: 'Urgent pool' }
 
 export default async function UrgentPage() {
   const me = await requireStaff()
-  const canSeeTickets = ['super_admin', 'admin'].includes(me.role)
+  const canSeeTickets = ['super_admin', 'admin', 'team_lead'].includes(me.role)
   const supabase = createClient()
   const [{ data: taskData }, { data: ticketData }, { data: people }] = await Promise.all([
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).not('status', 'in', '(completed,cancelled)')

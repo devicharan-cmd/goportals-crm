@@ -22,7 +22,7 @@ const STAFF_NAV: NavGroup[] = [
   {
     items: [
       { href: '/dashboard',     label: 'Dashboard',   icon: LayoutDashboard },
-      { href: '/tickets',       label: 'Tickets',     icon: ClipboardList, roles: ['super_admin', 'admin'] },
+      { href: '/tickets',       label: 'Tickets',     icon: ClipboardList, roles: ['super_admin', 'admin', 'team_lead'] },
       { href: '/tasks',         label: 'Tasks',       icon: CheckSquare },
       { href: '/urgent',        label: 'Urgent pool', icon: Flame, badge: 'urgent' },
       { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'admin'] },
@@ -46,6 +46,7 @@ const CLIENT_NAV: NavGroup[] = [
   {
     items: [
       { href: '/portal',             label: 'Overview',    icon: LayoutDashboard },
+      { href: '/portal/tasks',       label: 'My tasks',    icon: CheckSquare },
       { href: '/portal/tickets',     label: 'My tickets', icon: ClipboardList },
       { href: '/portal/tickets/new', label: 'New ticket', icon: Briefcase },
       { href: '/portal/services',    label: 'My services', icon: Layers },

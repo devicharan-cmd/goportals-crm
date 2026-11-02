@@ -13,9 +13,10 @@ import type { Department, TaskPriority, Ticket } from '@/types/database'
 
 /** Ticket status is derived from its linked tasks; managers edit its details and create tasks here. */
 export function TicketProperties({
-  ticket, departments, assignees, canMarkUrgent,
+  ticket, departments, assignees, canMarkUrgent, canEdit, clientAssignee, canAssignToClient,
 }: {
   ticket: Ticket; departments: Department[]; assignees: AssigneeOption[]; canMarkUrgent: boolean
+  canEdit: boolean; clientAssignee?: AssigneeOption; canAssignToClient: boolean
 }) {
   const router = useRouter()
   const [saving, setSaving] = useState<string | null>(null)
@@ -52,20 +53,24 @@ export function TicketProperties({
 
       <div className={row}>
         <span className={label}>Priority</span>
-        <select className={cn(select)} value={ticket.priority ?? ''} disabled={isClosed || saving === 'priority'}
-                onChange={e => update('priority', e.target.value as TaskPriority)}>
-          <option value="" disabled>Not set</option>
-          {PRIORITY_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-        </select>
+        {canEdit
+          ? <select className={cn(select)} value={ticket.priority ?? ''} disabled={isClosed || saving === 'priority'}
+                    onChange={e => update('priority', e.target.value as TaskPriority)}>
+              <option value="" disabled>Not set</option>
+              {PRIORITY_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+          : <span className="text-sm text-slate-700">{ticket.priority ?? 'Not set'}</span>}
       </div>
 
       <div className={row}>
         <span className={label}>Department</span>
-        <select className={cn(select)} value={ticket.department_id ?? ''} disabled={isClosed || saving === 'department_id'}
-                onChange={e => update('department_id', e.target.value || null)}>
-          <option value="">Not set</option>
-          {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
+        {canEdit
+          ? <select className={cn(select)} value={ticket.department_id ?? ''} disabled={isClosed || saving === 'department_id'}
+                    onChange={e => update('department_id', e.target.value || null)}>
+              <option value="">Not set</option>
+              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          : <span className="text-sm text-slate-700">{departments.find(d => d.id === ticket.department_id)?.name ?? 'Not set'}</span>}
       </div>
 
       {canMarkUrgent && (
@@ -92,7 +97,11 @@ export function TicketProperties({
 
       {!isClosed && (
         <div className="border-t border-slate-100 pt-3">
-          <CreateTasksModal ticket={ticket} assignees={assignees} />
+          <CreateTasksModal
+            ticket={ticket}
+            assignees={assignees}
+            clientAssignee={canAssignToClient ? clientAssignee : undefined}
+          />
         </div>
       )}
     </div>

@@ -12,7 +12,7 @@ export default async function PortalNotificationsPage() {
     .eq('recipient_id', me.id).order('created_at', { ascending: false }).limit(100)
   return (
     <div className="mx-auto max-w-3xl">
-      <Card className="overflow-hidden"><NotificationsList items={(data ?? []) as Notification[]} taskHref="/portal/tickets" ticketHref="/portal/tickets" /></Card>
+      <Card className="overflow-hidden"><NotificationsList items={(data ?? []) as Notification[]} taskHref="/portal/tasks" ticketHref="/portal/tickets" /></Card>
     </div>
   )
 }

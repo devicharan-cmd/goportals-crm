@@ -19,7 +19,7 @@ export default async function EditPortalTicketPage({ params }: { params: { id: s
   if (!data) notFound()
   const ticket = data as Ticket
   // Editable only while nobody has started it (the DB enforces this too).
-  if (ticket.status !== 'new' || ticket.created_by !== me.id) redirect(`/portal/tickets/${ticket.id}`)
+  if (ticket.status !== 'unassigned' || ticket.created_by !== me.id) redirect(`/portal/tickets/${ticket.id}`)
 
   const [{ data: accounts }, { data: platforms }] = await Promise.all([
     supabase.from('ecommerce_accounts')

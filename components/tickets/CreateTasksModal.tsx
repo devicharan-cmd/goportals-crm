@@ -14,7 +14,8 @@ import type { TaskPriority, Ticket } from '@/types/database'
 
 type Row = { title: string; assignee_id: string; due_date: string; priority: TaskPriority }
 
-function AssigneeSelect({ value, options, onChange }: {
+function AssigneeSelect({ id, value, options, onChange }: {
+  id: string
   value: string
   options: AssigneeOption[]
   onChange: (value: string) => void
@@ -24,7 +25,7 @@ function AssigneeSelect({ value, options, onChange }: {
 
   return (
     <div className="relative">
-      <button type="button" className="input flex h-9 w-full items-center justify-between gap-2 text-left text-sm"
+      <button id={id} type="button" className="input flex h-9 w-full items-center justify-between gap-2 text-left text-sm"
               aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(current => !current)}>
         <span className="flex min-w-0 items-center gap-2">
           {selected && <Avatar name={selected.name} src={selected.avatarUrl} role={selected.avatarRole} size="xs" />}
@@ -60,7 +61,7 @@ function AssigneeSelect({ value, options, onChange }: {
 }
 
 function emptyRow(ticket: Ticket): Row {
-  return { title: ticket.subject, assignee_id: ticket.assignee_id ?? '', due_date: '', priority: ticket.priority ?? 'P3' }
+  return { title: ticket.subject, assignee_id: '', due_date: '', priority: ticket.priority ?? 'P3' }
 }
 
 /** "Create tasks from this ticket" — one or more tasks in a single submission, each linked via ticket_id. */
@@ -115,19 +116,34 @@ export function CreateTasksModal({ ticket, assignees }: { ticket: Ticket; assign
       </Button>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Create tasks from this ticket"
-             description="Each row becomes its own task, linked back to this ticket." size="lg">
+             description="Each row becomes its own task, linked back to this ticket. The ticket stays Unassigned until every task has an assignee." size="lg">
         <div className="space-y-3">
           {rows.map((r, i) => (
-            <div key={i} className="grid grid-cols-1 gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-[1fr_140px_130px_110px_auto]">
-              <input className="input h-9 text-sm" placeholder="Task title" value={r.title}
-                     onChange={e => update(i, { title: e.target.value })} />
-              <AssigneeSelect value={r.assignee_id} options={assignees} onChange={value => update(i, { assignee_id: value })} />
-              <input className="input h-9 text-sm" type="date" value={r.due_date} onChange={e => update(i, { due_date: e.target.value })} />
-              <select className="input h-9 text-sm" value={r.priority} onChange={e => update(i, { priority: e.target.value as TaskPriority })}>
-                {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.value}</option>)}
-              </select>
+            <div key={i} className="grid grid-cols-1 gap-3 rounded-xl border border-slate-100 bg-slate-50/80 p-3 sm:grid-cols-[minmax(0,1fr)_140px_130px_110px_auto] sm:items-end">
+              <div className="min-w-0">
+                <label htmlFor={`task-title-${i}`} className="label text-xs">Task title</label>
+                <input id={`task-title-${i}`} className="input h-9 text-sm" placeholder="Enter task title" value={r.title}
+                       onChange={e => update(i, { title: e.target.value })} />
+              </div>
+              <div className="min-w-0">
+                <label htmlFor={`task-assignee-${i}`} className="label text-xs">Assignee</label>
+                <AssigneeSelect id={`task-assignee-${i}`} value={r.assignee_id} options={assignees} onChange={value => update(i, { assignee_id: value })} />
+              </div>
+              <div className="min-w-0">
+                <label htmlFor={`task-due-date-${i}`} className="label text-xs">Due date</label>
+                <input id={`task-due-date-${i}`} className="input h-9 text-sm" type="date" value={r.due_date}
+                       onChange={e => update(i, { due_date: e.target.value })} />
+              </div>
+              <div className="min-w-0">
+                <label htmlFor={`task-priority-${i}`} className="label text-xs">Priority</label>
+                <select id={`task-priority-${i}`} className="input h-9 text-sm" value={r.priority}
+                        onChange={e => update(i, { priority: e.target.value as TaskPriority })}>
+                  {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.value}</option>)}
+                </select>
+              </div>
               <button type="button" onClick={() => setRows(rows.filter((_, idx) => idx !== i))}
-                      disabled={rows.length === 1} className="flex items-center justify-center text-slate-400 hover:text-red-600 disabled:opacity-30">
+                      disabled={rows.length === 1} aria-label={`Remove task ${i + 1}`}
+                      className="flex h-9 w-9 items-center justify-center self-end rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 sm:mb-0">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>

@@ -3,24 +3,19 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { Alert, Card } from '@/components/ui/primitives'
 import { TicketTable, type TicketListItem } from '@/components/shared/TicketTable'
-import { TicketBoard } from '@/components/tickets/TicketBoard'
 import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
 import { searchPortalTickets, searchStaffTickets } from '@/app/actions/search'
-import { clientPortalTicketStatus, normalizeTicketStatus } from '@/lib/ticket-status'
 import { errorMessage } from '@/lib/utils'
-import type { AssigneeOption } from '@/lib/queries'
-import type { Ticket } from '@/types/database'
+import type { TicketStatus } from '@/types/database'
 
 type SearchMode = 'client' | 'staff'
-type TicketStatusFilter = 'open' | 'done' | 'all'
+type TicketStatusFilter = TicketStatus
 type SearchContextValue = {
   tickets: TicketListItem[]
+  query: string
   unreadByTicket?: Record<string, number>
   audience: SearchMode
   status: TicketStatusFilter
-  board: boolean
-  names: Record<string, string>
-  assignOptions?: AssigneeOption[]
   searching: boolean
   error: string
   setQuery: (query: string) => void
@@ -33,18 +28,12 @@ export function TicketSearchProvider({
   unreadByTicket,
   audience,
   status,
-  board = false,
-  names = {},
-  assignOptions,
   children,
 }: {
   initialTickets: TicketListItem[]
   unreadByTicket?: Record<string, number>
   audience: SearchMode
   status: TicketStatusFilter
-  board?: boolean
-  names?: Record<string, string>
-  assignOptions?: AssigneeOption[]
   children: React.ReactNode
 }) {
   const [query, setQuery] = useState('')
@@ -67,12 +56,7 @@ export function TicketSearchProvider({
     void search(query, status)
       .then(rows => {
         if (!active) return
-        setTickets(rows.map(ticket => ({
-          ...ticket,
-          status: audience === 'client'
-            ? clientPortalTicketStatus(ticket as Ticket)
-            : normalizeTicketStatus(ticket.status),
-        })))
+        setTickets(rows)
       })
       .catch(searchError => {
         if (active) setError(errorMessage(searchError))
@@ -86,7 +70,7 @@ export function TicketSearchProvider({
 
   const handleSearch = useCallback((value: string) => setQuery(value), [])
   const contextValue: SearchContextValue = {
-    tickets, unreadByTicket, audience, status, board, names, assignOptions,
+    tickets, query, unreadByTicket, audience, status,
     searching, error, setQuery: handleSearch,
   }
 
@@ -115,20 +99,16 @@ export function TicketSearchResults() {
   return (
     <div className="space-y-2">
       {search.error && <Alert>{search.error}</Alert>}
-      {search.board ? (
-        <TicketBoard tickets={search.tickets} names={search.names} assignOptions={search.assignOptions} />
-      ) : (
-        <Card className="overflow-hidden">
-          <TicketTable
-            tickets={search.tickets}
-            hrefBase={search.audience === 'client' ? '/portal/tickets' : '/tickets'}
-            showClient={search.audience === 'staff'}
-            audience={search.audience}
-            unreadByTicket={search.unreadByTicket}
-            empty={{ title: search.queryEmptyTitle }}
-          />
-        </Card>
-      )}
+      <Card className="overflow-hidden">
+        <TicketTable
+          tickets={search.tickets}
+          hrefBase={search.audience === 'client' ? '/portal/tickets' : '/tickets'}
+          showClient={search.audience === 'staff'}
+          audience={search.audience}
+          unreadByTicket={search.unreadByTicket}
+          empty={{ title: search.queryEmptyTitle }}
+        />
+      </Card>
     </div>
   )
 }
@@ -138,6 +118,12 @@ function useTicketSearch() {
   if (!value) throw new Error('Ticket search components must be rendered inside TicketSearchProvider')
   return {
     ...value,
-    queryEmptyTitle: value.status === 'done' ? 'Nothing completed yet' : value.status === 'all' ? 'No tickets found' : 'No open tickets',
+    queryEmptyTitle: value.query
+      ? 'No tickets match this search'
+      : value.status === 'closed'
+        ? 'No closed tickets'
+        : value.status === 'assigned'
+          ? 'No assigned tickets'
+          : 'No unassigned tickets',
   }
 }

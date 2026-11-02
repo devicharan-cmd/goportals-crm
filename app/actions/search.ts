@@ -7,7 +7,7 @@ import { nameMap, TASK_LIST_SELECT } from '@/lib/queries'
 import { parseTaskCode, parseTicketCode } from '@/lib/utils'
 import type { Client, TaskListItem, Ticket } from '@/types/database'
 
-type TicketStatusFilter = 'open' | 'done' | 'all'
+type TicketStatusFilter = 'unassigned' | 'assigned' | 'closed'
 type ClientStatusFilter = '' | 'active' | 'pending' | 'suspended' | 'rejected'
 type ClientSearchRow = Client & { client_team: { profile_id: string }[] }
 type StaffTicketSearchRow = Ticket & { client: { id: string; company_name: string } | null }
@@ -69,7 +69,7 @@ export async function searchTasks(value: string, filters: TaskSearchFilters): Pr
 }
 
 export async function searchPortalTickets(value: string, status: TicketStatusFilter): Promise<Ticket[]> {
-  if (!['open', 'done', 'all'].includes(status)) throw new Error('Invalid ticket status filter')
+  if (!['unassigned', 'assigned', 'closed'].includes(status)) throw new Error('Invalid ticket status filter')
   await requireClient()
   const supabase = createClient()
   const queryText = safeSearchText(value)
@@ -78,8 +78,7 @@ export async function searchPortalTickets(value: string, status: TicketStatusFil
   if (ticketNumber) query = query.eq('ticket_number', ticketNumber)
   else if (queryText) query = query.ilike('subject', `%${queryText}%`)
 
-  if (status === 'open') query = query.neq('status', 'closed')
-  if (status === 'done') query = query.eq('status', 'closed')
+  query = query.eq('status', status)
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
@@ -87,21 +86,18 @@ export async function searchPortalTickets(value: string, status: TicketStatusFil
 }
 
 export async function searchStaffTickets(value: string, status: TicketStatusFilter): Promise<StaffTicketSearchRow[]> {
-  if (!['open', 'done', 'all'].includes(status)) throw new Error('Invalid ticket status filter')
-  const me = await requireStaff()
+  if (!['unassigned', 'assigned', 'closed'].includes(status)) throw new Error('Invalid ticket status filter')
+  await requireRole(['super_admin', 'admin'])
   const supabase = createClient()
   const queryText = safeSearchText(value)
   let query = supabase.from('tickets')
     .select('*, client:clients(id, company_name)')
     .order('created_at', { ascending: false })
     .limit(200)
-  if (me.role === 'team_lead') query = query.eq('assignee_id', me.id)
-
   const ticketNumber = parseTicketCode(queryText)
   if (ticketNumber) query = query.eq('ticket_number', ticketNumber)
   else if (queryText) query = query.ilike('subject', `%${queryText}%`)
-  if (status === 'open') query = query.neq('status', 'closed')
-  if (status === 'done') query = query.eq('status', 'closed')
+  query = query.eq('status', status)
 
   const { data, error } = await query
   if (error) throw new Error(error.message)

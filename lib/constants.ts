@@ -51,64 +51,23 @@ export const TASK_STATUS_DOT: Record<TaskStatus, string> = {
 export const TASK_TERMINAL_STATUSES: TaskStatus[] = ['completed', 'cancelled']
 
 export const TICKET_STATUS_OPTIONS: { value: TicketStatus; label: string }[] = [
-  { value: 'new',                    label: 'New' },
-  { value: 'under_review',           label: 'Under review' },
-  { value: 'assigned',               label: 'Assigned' },
-  { value: 'in_progress',            label: 'In progress' },
-  { value: 'ready_for_review',       label: 'Ready for review' },
-  { value: 'resolved',               label: 'Resolved' },
-  { value: 'ready_for_client',       label: 'Client review' },
-  { value: 'reopened',               label: 'Reopened' },
-  { value: 'closed',                 label: 'Closed' },
+  { value: 'unassigned', label: 'Unassigned' },
+  { value: 'assigned',   label: 'Assigned' },
+  { value: 'closed',     label: 'Closed' },
 ]
-export const TICKET_STATUS_LABELS = {
-  ...Object.fromEntries(TICKET_STATUS_OPTIONS.map(s => [s.value, s.label])),
-  awaiting_clarification: 'Under review', // legacy storage value; reply requests now come from conversation messages
-} as Record<TicketStatus, string>
-
-/**
- * The same stages said to the client whose ticket it is, and the only wording
- * they should ever read. It must match ticket_status_label_client() in the
- * database, which words their notifications — the two drifted apart once and
- * the same stage reached the client under two different names.
- *
- * Two stages are easy to get backwards. ready_for_review is our own team
- * checking the work, so it must not sound like the client's turn; resolved
- * and ready_for_client both are their turn, since the portal offers approve
- * and request-changes on either.
- */
-export const TICKET_STATUS_LABELS_CLIENT: Record<TicketStatus, string> = {
-  ...TICKET_STATUS_LABELS,
-  awaiting_clarification: 'Under review',
-  ready_for_review:       'Team review',
-  resolved:               'Ready for your approval',
-  ready_for_client:       'Ready for your approval',
-}
+export const TICKET_STATUS_LABELS = Object.fromEntries(TICKET_STATUS_OPTIONS.map(s => [s.value, s.label])) as Record<TicketStatus, string>
+export const TICKET_STATUS_LABELS_CLIENT: Record<TicketStatus, string> = TICKET_STATUS_LABELS
 
 export const TICKET_STATUS_STYLES: Record<TicketStatus, string> = {
-  new:                    'bg-slate-100 text-slate-700 ring-slate-200',
-  under_review:           'bg-violet-50 text-violet-700 ring-violet-200',
-  awaiting_clarification: 'bg-violet-50 text-violet-700 ring-violet-200',
-  assigned:               'bg-sky-50 text-sky-700 ring-sky-200',
-  in_progress:            'bg-brand-50 text-brand-700 ring-brand-200',
-  ready_for_review:       'bg-violet-50 text-violet-700 ring-violet-200',
-  ready_for_client:       'bg-teal-50 text-teal-700 ring-teal-200',
-  resolved:               'bg-amber-50 text-amber-700 ring-amber-200',
-  reopened:               'bg-orange-50 text-orange-700 ring-orange-200',
-  closed:                 'bg-slate-100 text-slate-600 ring-slate-300',
+  unassigned: 'bg-slate-100 text-slate-700 ring-slate-200',
+  assigned:   'bg-sky-50 text-sky-700 ring-sky-200',
+  closed:     'bg-slate-100 text-slate-600 ring-slate-300',
 }
 
 export const TICKET_STATUS_DOT: Record<TicketStatus, string> = {
-  new:                    'bg-slate-400',
-  under_review:           'bg-violet-500',
-  awaiting_clarification: 'bg-violet-500',
-  assigned:               'bg-sky-500',
-  in_progress:            'bg-brand-500',
-  ready_for_review:       'bg-violet-500',
-  ready_for_client:       'bg-teal-500',
-  resolved:               'bg-amber-500',
-  reopened:               'bg-orange-500',
-  closed:                 'bg-slate-500',
+  unassigned: 'bg-slate-400',
+  assigned:   'bg-sky-500',
+  closed:     'bg-slate-500',
 }
 
 export const TICKET_TERMINAL_STATUSES: TicketStatus[] = ['closed']

@@ -9,7 +9,7 @@ import { DueDate, PriorityBadge } from '@/components/ui/badges'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { ClaimButton } from '@/components/tasks/ClaimButton'
 import { DashboardTaskPanel } from '@/components/tasks/DashboardTaskPanel'
-import { TicketTable, type TicketListItem } from '@/components/shared/TicketTable'
+import type { TicketListItem } from '@/components/shared/TicketTable'
 import { capacityColor, capacityTextColor, cn, formatRelative, taskCode, ticketCode, todayDateKey } from '@/lib/utils'
 import type { TaskListItem } from '@/types/database'
 
@@ -54,7 +54,7 @@ export default async function DashboardPage() {
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
       .order('priority').order('created_at').limit(5),
     isAdmin
-      ? supabase.from('tickets').select(TICKET_LIST_SELECT).in('status', ['new', 'under_review']).is('assignee_id', null)
+      ? supabase.from('tickets').select(TICKET_LIST_SELECT).eq('status', 'unassigned')
           .order('created_at', { ascending: false }).limit(6)
       : Promise.resolve({ data: [] }),
     isSuperAdmin
@@ -99,25 +99,20 @@ export default async function DashboardPage() {
   const inProgressTasks = myTasks.filter(t => t.status === 'in_progress')
   const readyForReviewTasks = myTasks.filter(t => t.status === 'ready_for_review')
 
-  // Team leads may only see tickets assigned to themselves.
+  // Team leads only see tasks assigned to their department.
   const deptMateIds = isTeamLead && lookups
     ? Array.from(profileIdsSharingDepartment(me.id, lookups)).filter(id => lookups.people.find(p => p.id === id)?.role === 'employee')
     : []
 
-  const [deptTasksRes, deptTicketsRes] = await Promise.all([
+  const [deptTasksRes] = await Promise.all([
     deptMateIds.length
       ? supabase.from('tasks').select(TASK_LIST_SELECT).in('assignee_id', deptMateIds).not('status', 'in', '(completed,cancelled)')
           .order('due_date', { ascending: true, nullsFirst: false }).limit(100)
-      : Promise.resolve({ data: [] }),
-    isTeamLead
-      ? supabase.from('tickets').select(TICKET_LIST_SELECT).eq('assignee_id', me.id).neq('status', 'closed')
-          .order('created_at', { ascending: false }).limit(50)
       : Promise.resolve({ data: [] }),
   ])
 
   const teamTasks = (deptTasksRes.data ?? []) as TaskListItem[]
   const pendingReviews = teamTasks.filter(t => t.status === 'ready_for_review')
-  const teamTickets = (deptTicketsRes.data ?? []) as TicketListItem[]
   const workload = isTeamLead && lookups
     ? deptMateIds.map(id => {
         const person = lookups.people.find(p => p.id === id)!
@@ -266,10 +261,6 @@ export default async function DashboardPage() {
               </Card>
             </div>
 
-            <Card className="overflow-hidden">
-              <CardHeader title="Team tickets" description="Raised against your department" />
-              <TicketTable tickets={teamTickets} showClient hrefBase="/tickets" empty={{ title: 'No open tickets for your team' }} />
-            </Card>
           </div>
         )
       )}

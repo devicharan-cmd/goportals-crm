@@ -22,7 +22,7 @@ const STAFF_NAV: NavGroup[] = [
   {
     items: [
       { href: '/dashboard',     label: 'Dashboard',   icon: LayoutDashboard },
-      { href: '/tickets',       label: 'Tickets',     icon: ClipboardList },
+      { href: '/tickets',       label: 'Tickets',     icon: ClipboardList, roles: ['super_admin', 'admin'] },
       { href: '/tasks',         label: 'Tasks',       icon: CheckSquare },
       { href: '/urgent',        label: 'Urgent pool', icon: Flame, badge: 'urgent' },
       { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'admin'] },

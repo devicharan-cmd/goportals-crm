@@ -86,30 +86,6 @@ export async function getTaskPageLookups({ includePeople, includeAssignments }: 
   }
 }
 
-/** Lookups used by the ticket board; list view needs no lookup queries. */
-export async function getTicketBoardLookups({ includeAssignments }: { includeAssignments: boolean }): Promise<StaffLookups> {
-  const supabase = createClient()
-  const [people, departments, members] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at'),
-    includeAssignments
-      ? supabase.from('departments').select('*').order('sort_order')
-      : Promise.resolve({ data: [] }),
-    includeAssignments
-      ? supabase.from('department_members').select('department_id, profile_id, is_lead')
-      : Promise.resolve({ data: [] }),
-  ])
-  const all = sortPeopleByRoleAndJoiningDate((people.data ?? []) as Person[])
-  return {
-    people: all,
-    staff: all.filter(p => p.role !== 'client' && p.status === 'active'),
-    clients: [],
-    departments: (departments.data ?? []) as Department[],
-    platforms: [],
-    services: [],
-    departmentMembers: (members.data ?? []) as DepartmentMember[],
-  }
-}
-
 /** Department IDs a profile belongs to. */
 export function departmentIdsFor(profileId: string, lookups: StaffLookups): Set<string> {
   return new Set(lookups.departmentMembers.filter(m => m.profile_id === profileId).map(m => m.department_id))
@@ -121,7 +97,6 @@ export function departmentIdsFor(profileId: string, lookups: StaffLookups): Set<
  *  - client_team coverage (personally, or through one of their departments —
  *    the same table manager_covers_client() (DB) uses for visibility)
  *  - tasks assigned to them or their department
- *  - tickets assigned to them or their department
  * Used to scope the "Client" picker on the new/edit task form, which
  * otherwise lists every company client (unlike /clients, admin/super_admin only).
  */
@@ -133,12 +108,11 @@ export async function clientIdsForTeamLead(profileId: string, departmentIds: str
     parts.push(`department_id.in.(${departmentIds.join(',')})`)
     scopeParts.push(`department_id.in.(${departmentIds.join(',')})`)
   }
-  const [{ data: team }, { data: tasks }, { data: tickets }] = await Promise.all([
+  const [{ data: team }, { data: tasks }] = await Promise.all([
     supabase.from('client_team').select('client_id').or(parts.join(',')),
     supabase.from('tasks').select('client_id').or(scopeParts.join(',')),
-    supabase.from('tickets').select('client_id').or(scopeParts.join(',')),
   ])
-  return new Set([...(team ?? []), ...(tasks ?? []), ...(tickets ?? [])].map(r => r.client_id))
+  return new Set([...(team ?? []), ...(tasks ?? [])].map(r => r.client_id))
 }
 
 /** All profile IDs (excluding profileId itself) sharing at least one department with profileId. */

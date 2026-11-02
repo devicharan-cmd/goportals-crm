@@ -1,0 +1,146 @@
+'use client'
+
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { searchTasks } from '@/app/actions/search'
+import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
+import { TaskBoard } from '@/components/tasks/TaskBoard'
+import { TaskTable } from '@/components/tasks/TaskTable'
+import { ButtonLink } from '@/components/ui/button'
+import { Alert, Card } from '@/components/ui/primitives'
+import type { AssigneeOption } from '@/lib/queries'
+import type { TaskListItem } from '@/types/database'
+import { errorMessage } from '@/lib/utils'
+
+type TaskSearchContextValue = {
+  tasks: TaskListItem[]
+  names: Record<string, string>
+  assignOptions?: AssigneeOption[]
+  query: string
+  scope: string
+  status: string
+  board: boolean
+  searching: boolean
+  error: string
+  setQuery: (query: string) => void
+}
+
+const TaskSearchContext = createContext<TaskSearchContextValue | null>(null)
+
+export function TaskSearchProvider({
+  initialTasks,
+  initialNames,
+  assignOptions,
+  scope,
+  status,
+  client,
+  assignee,
+  department,
+  board,
+  children,
+}: {
+  initialTasks: TaskListItem[]
+  initialNames: Record<string, string>
+  assignOptions?: AssigneeOption[]
+  scope: 'mine' | 'all'
+  status: string
+  client: string
+  assignee: string
+  department: string
+  board: boolean
+  children: React.ReactNode
+}) {
+  const [query, setQuery] = useState('')
+  const [tasks, setTasks] = useState(initialTasks)
+  const [names, setNames] = useState(initialNames)
+  const [searching, setSearching] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    if (!query) {
+      setTasks(initialTasks)
+      setNames(initialNames)
+      setSearching(false)
+      setError('')
+      return () => { active = false }
+    }
+
+    setSearching(true)
+    setError('')
+    void searchTasks(query, { scope, status, client, assignee, department, board })
+      .then(result => {
+        if (!active) return
+        setTasks(result.tasks)
+        setNames({ ...initialNames, ...result.names })
+      })
+      .catch(searchError => {
+        if (active) setError(errorMessage(searchError))
+      })
+      .finally(() => {
+        if (active) setSearching(false)
+      })
+
+    return () => { active = false }
+  }, [assignee, board, client, department, initialNames, initialTasks, query, scope, status])
+
+  const handleSearch = useCallback((value: string) => setQuery(value), [])
+  const value: TaskSearchContextValue = {
+    tasks, names, assignOptions, query, scope, status, board, searching, error, setQuery: handleSearch,
+  }
+
+  return <TaskSearchContext.Provider value={value}>{children}</TaskSearchContext.Provider>
+}
+
+export function TaskSearchField({
+  value,
+  onValueChange,
+}: {
+  value: string
+  onValueChange: (value: string) => void
+}) {
+  const search = useTaskSearch()
+  return (
+    <DebouncedSearchInput
+      placeholder="Search title or GP-1024…"
+      className="w-full"
+      ariaLabel="Search tasks"
+      value={value}
+      onValueChange={onValueChange}
+      onSearch={search.setQuery}
+    />
+  )
+}
+
+export function TaskSearchResults() {
+  const search = useTaskSearch()
+  return (
+    <div className="space-y-2">
+      {search.error && <Alert>{search.error}</Alert>}
+      {search.searching && <span className="sr-only" role="status">Searching tasks</span>}
+      {search.board ? (
+        <TaskBoard tasks={search.tasks} names={search.names} assignOptions={search.assignOptions} />
+      ) : (
+        <Card className="overflow-hidden">
+          <TaskTable
+            tasks={search.tasks}
+            names={search.names}
+            assignOptions={search.assignOptions}
+            empty={{
+              title: search.query ? 'No tasks match this search' : search.scope === 'mine' ? 'Nothing assigned to you' : search.status === 'active' ? 'No open tasks' : 'No tasks match these filters',
+              description: search.query ? 'Try another search.' : search.scope === 'mine' ? 'Check the urgent pool or create a task.'
+                : search.status === 'active' ? 'Finished tasks are hidden. Choose “Status: all” to see them.'
+                : 'Try clearing the filters.',
+              action: search.scope === 'mine' && !search.query ? <ButtonLink href="/urgent" variant="secondary">Open urgent pool</ButtonLink> : undefined,
+            }}
+          />
+        </Card>
+      )}
+    </div>
+  )
+}
+
+export function useTaskSearch() {
+  const value = useContext(TaskSearchContext)
+  if (!value) throw new Error('Task search components must be rendered inside TaskSearchProvider')
+  return value
+}

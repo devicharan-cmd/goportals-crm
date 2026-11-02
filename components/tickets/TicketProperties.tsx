@@ -13,10 +13,10 @@ import type { Department, TaskPriority, Ticket } from '@/types/database'
 
 /** Ticket status is derived from its linked tasks; managers edit its details and create tasks here. */
 export function TicketProperties({
-  ticket, departments, assignees, canMarkUrgent, canEdit, clientAssignee, canAssignToClient,
+  ticket, departments, assignees, canMarkUrgent, canEdit, clientAssignee, meId,
 }: {
   ticket: Ticket; departments: Department[]; assignees: AssigneeOption[]; canMarkUrgent: boolean
-  canEdit: boolean; clientAssignee?: AssigneeOption; canAssignToClient: boolean
+  canEdit: boolean; clientAssignee?: AssigneeOption; meId: string
 }) {
   const router = useRouter()
   const [saving, setSaving] = useState<string | null>(null)
@@ -100,7 +100,8 @@ export function TicketProperties({
           <CreateTasksModal
             ticket={ticket}
             assignees={assignees}
-            clientAssignee={canAssignToClient ? clientAssignee : undefined}
+            clientAssignee={clientAssignee}
+            meId={meId}
           />
         </div>
       )}

@@ -9,7 +9,7 @@ import { errorMessage } from '@/lib/utils'
 import type { TicketStatus } from '@/types/database'
 
 type SearchMode = 'client' | 'staff'
-type TicketStatusFilter = TicketStatus
+type TicketStatusFilter = TicketStatus | 'open' | 'done' | null
 type SearchContextValue = {
   tickets: TicketListItem[]
   query: string
@@ -52,8 +52,12 @@ export function TicketSearchProvider({
 
     setSearching(true)
     setError('')
-    const search = audience === 'client' ? searchPortalTickets : searchStaffTickets
-    void search(query, status)
+    const request = audience === 'client'
+      ? searchPortalTickets(query, status === 'done' ? 'done' : 'open')
+      : status && status !== 'done' && status !== 'open'
+        ? searchStaffTickets(query, status)
+        : Promise.reject(new Error('A staff status filter is required'))
+    void request
       .then(rows => {
         if (!active) return
         setTickets(rows)
@@ -120,10 +124,12 @@ function useTicketSearch() {
     ...value,
     queryEmptyTitle: value.query
       ? 'No tickets match this search'
-      : value.status === 'closed'
+      : value.status === 'done' || value.status === 'closed'
         ? 'No closed tickets'
         : value.status === 'assigned'
-          ? 'No assigned tickets'
-          : 'No unassigned tickets',
+        ? 'No assigned tickets'
+        : value.status === 'unassigned'
+          ? 'No unassigned tickets'
+          : 'No open tickets',
   }
 }

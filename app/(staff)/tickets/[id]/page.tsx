@@ -54,10 +54,10 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
   const clientAssignee = clientOwner && ticket.client
     ? {
         id: clientOwner.id,
-      name: ticket.client.company_name,
+        name: ticket.client.company_name,
         role: 'Client',
         avatarRole: 'client' as const,
-      subtitle: ticket.client.contact_name?.trim() || 'Ticket client',
+        subtitle: ticket.client.contact_name?.trim() || 'Ticket client',
       }
     : undefined
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
@@ -162,9 +162,7 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
               canMarkUrgent={me.role !== 'team_lead'}
               canEdit={me.role !== 'team_lead'}
               clientAssignee={clientAssignee}
-              canAssignToClient={tasksFromTicket.some(task =>
-                task.assignee_id === me.id && !['completed', 'cancelled'].includes(task.status)
-              )}
+              meId={me.id}
             />
           </Card>
           <Card>

@@ -16,6 +16,7 @@ import { RevealableValue } from '@/components/shared/RevealableValue'
 import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
+import { DeleteButton } from '@/components/shared/DeleteButton'
 import { formatDate, ticketCode } from '@/lib/utils'
 import type { TicketActivity, TicketComment, Ticket } from '@/types/database'
 
@@ -58,11 +59,20 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
     <>
       <div className="mb-4 flex items-center justify-between">
         <Link href="/portal/tickets" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> My tickets</Link>
-        {canEdit
-          ? <ButtonLink href={`/portal/tickets/${ticket.id}/edit`} variant="secondary" size="sm"><Pencil className="h-3.5 w-3.5" /> Edit</ButtonLink>
-          : ticket.created_by === me.id && workUnderWay && (
-              <span className="inline-flex items-center gap-1 text-xs text-slate-400"><Lock className="h-3.5 w-3.5" /> Work has started — add a comment to request changes</span>
-            )}
+        <div className="flex items-center gap-2">
+          {canEdit
+            ? <ButtonLink href={`/portal/tickets/${ticket.id}/edit`} variant="secondary" size="sm"><Pencil className="h-3.5 w-3.5" /> Edit</ButtonLink>
+            : ticket.created_by === me.id && workUnderWay && (
+                <span className="inline-flex items-center gap-1 text-xs text-slate-400"><Lock className="h-3.5 w-3.5" /> Work has started — add a comment to request changes</span>
+              )}
+          <DeleteButton
+            table="tickets"
+            id={ticket.id}
+            redirectTo="/portal/tickets"
+            label="Delete ticket"
+            description="You can delete your ticket at any status, including while it is being worked on or after it is closed. This permanently removes the ticket, its comments, attachment records, and activity history. Any linked team tasks remain but are detached from this ticket."
+          />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">

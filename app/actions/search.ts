@@ -68,8 +68,8 @@ export async function searchTasks(value: string, filters: TaskSearchFilters): Pr
   return { tasks, names: nameMap(people ?? []) }
 }
 
-export async function searchPortalTickets(value: string, status: TicketStatusFilter): Promise<Ticket[]> {
-  if (!['unassigned', 'assigned', 'closed'].includes(status)) throw new Error('Invalid ticket status filter')
+export async function searchPortalTickets(value: string, status: 'open' | 'done'): Promise<Ticket[]> {
+  if (!['open', 'done'].includes(status)) throw new Error('Invalid ticket status filter')
   await requireClient()
   const supabase = createClient()
   const queryText = safeSearchText(value)
@@ -78,7 +78,8 @@ export async function searchPortalTickets(value: string, status: TicketStatusFil
   if (ticketNumber) query = query.eq('ticket_number', ticketNumber)
   else if (queryText) query = query.ilike('subject', `%${queryText}%`)
 
-  query = query.eq('status', status)
+  if (status === 'open') query = query.neq('status', 'closed')
+  else query = query.eq('status', 'closed')
 
   const { data, error } = await query
   if (error) throw new Error(error.message)

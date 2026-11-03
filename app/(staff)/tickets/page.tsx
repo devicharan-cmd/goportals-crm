@@ -44,7 +44,7 @@ export default async function StaffTicketsPage({ searchParams }: { searchParams:
       status={tab}
     >
       <div className="mb-4 flex min-w-0 flex-wrap items-center gap-3">
-        <div className="grid h-9 min-w-0 grid-cols-3 gap-px rounded-xl border border-slate-200 bg-slate-200 p-0.5 shadow-card">
+        <div className="grid h-9 min-w-0 grid-cols-3 gap-px rounded-xl border border-slate-200 bg-white p-0.5 shadow-card">
           {TABS.map(t => (
             <Link key={t.key} href={t.key === 'unassigned' ? '/tickets' : `/tickets?status=${t.key}`}
               className={cn(

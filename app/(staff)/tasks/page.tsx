@@ -15,11 +15,10 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
   const me = await requireStaff()
   const supabase = createClient()
 
-  // Employees only ever see their own + urgent tasks (RLS), so "My tasks" vs "All" matters for managers/admins.
+  // RLS limits each role to the tasks they are allowed to see.
   const canSeeMore = me.role !== 'employee'
-  // Super admins/admins start on all tasks (nothing is usually assigned to them); others on their own.
-  const defaultScope = ['super_admin', 'admin'].includes(me.role) ? 'all' : 'mine'
-  const scope = canSeeMore ? searchParams.scope ?? defaultScope : 'mine'
+  const defaultScope = 'all'
+  const scope = searchParams.scope ?? defaultScope
   const board = searchParams.view === 'board'
 
   let query = supabase.from('tasks').select(TASK_LIST_SELECT)
@@ -40,14 +39,19 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
   if (searchParams.client) query = query.eq('client_id', searchParams.client)
   if (searchParams.dept) query = query.eq('department_id', searchParams.dept)
 
-  const [{ data }, lookups] = await Promise.all([
+  const [taskResult, lookups, myTaskCountResult, allTaskCountResult] = await Promise.all([
     query,
     getTaskPageLookups({
       includePeople: me.role !== 'employee',
       includeAssignments: me.role !== 'employee',
     }),
+    supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assignee_id', me.id),
+    supabase.from('tasks').select('id', { count: 'exact', head: true }),
   ])
-  const tasks = (data ?? []) as TaskListItem[]
+  if (taskResult.error) throw taskResult.error
+  if (myTaskCountResult.error) throw myTaskCountResult.error
+  if (allTaskCountResult.error) throw allTaskCountResult.error
+  const tasks = (taskResult.data ?? []) as TaskListItem[]
   const names = me.role === 'employee'
     ? { [me.id]: me.full_name || me.email }
     : nameMap(lookups.people)
@@ -66,8 +70,10 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
       board={board}
     >
       <TaskFilters
-        showScope={canSeeMore}
+        showScope
+        showAssigneeFilter={canSeeMore}
         defaultScope={defaultScope}
+        scopeCounts={{ mine: myTaskCountResult.count ?? 0, all: allTaskCountResult.count ?? 0 }}
         clients={lookups.clients.map(c => ({ value: c.id, label: c.company_name }))}
         people={(['super_admin', 'admin'].includes(me.role) ? lookups.staff : assignableFor(me, lookups)).map(p => ({ value: p.id, label: p.full_name || p.email, avatarUrl: p.avatar_url, role: p.role }))}
         departments={lookups.departments.map(d => ({ value: d.id, label: d.name }))}

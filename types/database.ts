@@ -207,7 +207,7 @@ export interface Task {
 
 /** Task with the joins most list views select (see lib/queries.ts TASK_LIST_SELECT). */
 export interface TaskListItem extends Task {
-  client: { id: string; company_name: string } | null
+  client: { id: string; company_name: string; company_profile_image_path: string | null } | null
   platform: { id: string; name: string } | null
   department: { id: string; name: string } | null
 }

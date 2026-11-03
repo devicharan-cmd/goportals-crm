@@ -8,13 +8,13 @@ import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-c
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { TaskTable } from '@/components/tasks/TaskTable'
-import { Card, CardHeader } from '@/components/ui/primitives'
+import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { TicketAttachmentsList } from '@/components/shared/TicketAttachmentsList'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { TicketProperties } from '@/components/tickets/TicketProperties'
-import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
+import { ActivityPanel } from '@/components/tasks/ActivityPanel'
 import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_STYLES, TICKET_TERMINAL_STATUSES } from '@/lib/constants'
 import { formatDate, ticketCode } from '@/lib/utils'
 import type { TaskListItem, Ticket, TicketActivity, TicketComment } from '@/types/database'
@@ -29,11 +29,18 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
 
-  const { data } = await supabase.from('tickets')
-    .select('*, client:clients(id, company_name, contact_name, owner_id), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))')
+  const { data, error: ticketError } = await supabase.from('tickets')
+    .select('*, client:clients(id, company_name, contact_name, owner_id, company_profile_image_path), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))')
     .eq('id', ticketId)
     .maybeSingle()
+  if (ticketError) throw ticketError
   if (!data) notFound()
+
+  const clientImagePath = data.client?.company_profile_image_path
+  const { data: clientImage, error: clientImageError } = clientImagePath
+    ? await supabase.storage.from('client-profile-images').createSignedUrl(clientImagePath, 3600)
+    : { data: null, error: null }
+  if (clientImageError) throw clientImageError
 
   const [{ data: comments }, { data: activity }, lookups, attachments, { data: linkedTasks }] = await Promise.all([
     supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
@@ -43,7 +50,7 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: false }),
   ])
   const ticket = data as Ticket & {
-    client: { id: string; company_name: string; contact_name: string | null; owner_id: string | null } | null
+    client: { id: string; company_name: string; contact_name: string | null; owner_id: string | null; company_profile_image_path: string | null } | null
     ecommerce_account: { account_name: string; platform: { name: string } | null } | null
   }
   const names = nameMap(lookups.people)
@@ -76,7 +83,7 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
       <div className="mb-4 flex items-center justify-between gap-3">
         <Link href="/tickets" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tickets</Link>
         <div className="flex items-center gap-2">
-          {['super_admin', 'admin'].includes(me.role) && <DeleteButton table="tickets" id={ticket.id} redirectTo="/tickets" label="Delete ticket" variant="danger" />}
+          {me.role === 'super_admin' && <DeleteButton table="tickets" id={ticket.id} redirectTo="/tickets" label="Delete ticket" variant="danger" />}
         </div>
       </div>
 
@@ -91,7 +98,7 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
               <span className="ml-auto text-xs text-slate-500">{TICKET_CATEGORY_LABELS[ticket.category]}</span>
             </div>
             <h1 className="text-xl font-bold sm:text-2xl">{ticket.subject}</h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 truncate text-sm text-slate-500">
               {[ticket.client?.company_name, ticket.ecommerce_account ? `${ticket.ecommerce_account.platform?.name ?? ''} · ${ticket.ecommerce_account.account_name}` : null]
                 .filter(Boolean).join(' · ') || '—'}
             </p>
@@ -147,10 +154,7 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
             </div>
           </Card>
 
-          <Card>
-            <CardHeader title="Activity" />
-            <div className="p-5"><ActivityTimeline activity={(activity ?? []) as TicketActivity[]} names={names} kind="ticket" /></div>
-          </Card>
+          <ActivityPanel activity={(activity ?? []) as TicketActivity[]} names={names} kind="ticket" />
         </div>
 
         <div className="space-y-6">
@@ -158,11 +162,13 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
             <TicketProperties
               ticket={ticket}
               departments={lookups.departments}
+              platforms={lookups.platforms}
+              services={lookups.services}
               assignees={assignees}
               canMarkUrgent={me.role !== 'team_lead'}
-              canEdit={me.role !== 'team_lead'}
               clientAssignee={clientAssignee}
               meId={me.id}
+              hasLinkedTasks={tasksFromTicket.length > 0}
             />
           </Card>
           <Card>
@@ -170,7 +176,10 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
             <dl className="divide-y divide-slate-100 text-sm">
               {[
                 ['Client', ticket.client
-                  ? <Link href={`/clients/${ticket.client.id}`} className="font-medium text-brand-700 hover:underline">{ticket.client.company_name}</Link>
+                  ? <span className="inline-flex items-center justify-end gap-2">
+                      <CompanyAvatar name={ticket.client.company_name} src={clientImage?.signedUrl} size="xs" />
+                      <Link href={`/clients/${ticket.client.id}`} className="font-medium text-brand-700 hover:underline">{ticket.client.company_name}</Link>
+                    </span>
                   : '—'],
                 ['Account', ticket.ecommerce_account ? `${ticket.ecommerce_account.platform?.name ?? ''} · ${ticket.ecommerce_account.account_name}` : '—'],
                 ['Raised by', raisedByName],

@@ -107,13 +107,13 @@ export function Avatar({ name, src, role, size = 'md', className }: { name: stri
   )
 }
 
-export function CompanyAvatar({ name, src, size = 'md', className }: { name: string; src?: string | null; size?: 'sm' | 'md' | 'lg'; className?: string }) {
-  const sizes = { sm: 'h-10 w-10 text-sm', md: 'h-14 w-14 text-lg', lg: 'h-20 w-20 text-2xl' }
+export function CompanyAvatar({ name, src, size = 'md', className }: { name: string; src?: string | null; size?: 'xs' | 'sm' | 'md' | 'lg'; className?: string }) {
+  const sizes = { xs: 'h-5 w-5 text-[8px]', sm: 'h-10 w-10 text-sm', md: 'h-14 w-14 text-lg', lg: 'h-20 w-20 text-2xl' }
   return (
     <div aria-label={`${name} company image`} role="img" className={cn(
       'flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-800 font-display font-bold text-white',
       sizes[size], className,
-    )}>
+    )} style={size === 'xs' ? { width: 20, height: 20, minWidth: 20, minHeight: 20 } : undefined}>
       {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : getInitials(name)}
     </div>
   )

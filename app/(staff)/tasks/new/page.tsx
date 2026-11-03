@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { requireStaff } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/server'
 import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getStaffLookups } from '@/lib/queries'
 import { ROLE_LABELS } from '@/lib/constants'
-import { PageHeader } from '@/components/ui/primitives'
 import { TaskForm } from '@/components/tasks/TaskForm'
 
-export const metadata = { title: 'New task' }
+export const metadata = { title: 'Create New Task' }
 
 export default async function NewTaskPage({ searchParams }: { searchParams: { client_id?: string; assignee?: string } }) {
   const me = await requireStaff()
@@ -22,12 +22,18 @@ export default async function NewTaskPage({ searchParams }: { searchParams: { cl
     clients = lookups.clients.filter(c => clientIds.has(c.id))
   }
 
+  const { data: activeTickets, error: ticketsError } = clients.length > 0
+    ? await createClient().from('tickets').select('client_id').in('client_id', clients.map(client => client.id)).neq('status', 'closed')
+    : { data: [], error: null }
+  if (ticketsError) throw ticketsError
+  const clientsWithActiveTickets = new Set((activeTickets ?? []).map(ticket => ticket.client_id))
+  clients = clients.filter(client => clientsWithActiveTickets.has(client.id))
+
   return (
-    <div className="mx-auto max-w-3xl">
-      <PageHeader
-        title="New task"
-        back={<Link href="/tasks" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>}
-      />
+    <div>
+      <div className="mb-4">
+        <Link href="/tasks" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
+      </div>
       <TaskForm
         mode="create"
         meId={me.id}

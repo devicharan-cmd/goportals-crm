@@ -6,7 +6,7 @@ import type { AppRole, Department, Platform, Profile, Service } from '@/types/da
 
 /** Columns + joins used by every task list / board. */
 export const TASK_LIST_SELECT =
-  '*, client:clients(id, company_name), platform:platforms(id, name), department:departments(id, name)'
+  '*, client:clients(id, company_name, company_profile_image_path), platform:platforms(id, name), department:departments(id, name)'
 
 /** Columns + joins used by every ticket list. */
 export const TICKET_LIST_SELECT = '*, client:clients(id, company_name)'

@@ -7,18 +7,18 @@ import { getPortalNames } from '@/lib/portal'
 import { getTicketAttachments, resolveTicketId, ticketPageTitle } from '@/lib/queries'
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { ButtonLink } from '@/components/ui/button'
-import { Card, CardHeader } from '@/components/ui/primitives'
+import { Avatar, Card, CardHeader } from '@/components/ui/primitives'
 import { PriorityBadge, UrgentBadge } from '@/components/ui/badges'
 import { ClientReplyBadge, ClientTicketStatusBadge } from '@/components/portal/ClientTicketStatus'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { TicketAttachmentsList } from '@/components/shared/TicketAttachmentsList'
 import { RevealableValue } from '@/components/shared/RevealableValue'
-import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
+import { ActivityPanel } from '@/components/tasks/ActivityPanel'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
 import { DeleteButton } from '@/components/shared/DeleteButton'
-import { formatDate, ticketCode } from '@/lib/utils'
-import type { TicketActivity, TicketComment, Ticket } from '@/types/database'
+import { formatDate, splitTeamName, ticketCode } from '@/lib/utils'
+import type { AppRole, TicketActivity, TicketComment, Ticket, TicketStatus } from '@/types/database'
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
   return { title: await ticketPageTitle(params.id) }
@@ -29,7 +29,16 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
   const supabase = createClient()
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
-  const [{ data }, { data: comments }, { data: activity }, names, attachments, { data: platforms }, { data: staffDirectory }] = await Promise.all([
+  const [
+    { data },
+    { data: comments },
+    { data: activity },
+    names,
+    attachments,
+    { data: platforms },
+    { data: staffDirectory },
+    { data: assignmentSummary, error: assignmentSummaryError },
+  ] = await Promise.all([
     supabase.from('tickets').select('*, ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))').eq('id', ticketId).maybeSingle(),
     supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
     supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
@@ -37,13 +46,19 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
     getTicketAttachments(ticketId),
     supabase.from('platforms').select('id, name'),
     supabase.rpc('staff_directory'),
+    supabase.rpc('client_ticket_assignment_summary', { p_ticket_id: ticketId }),
   ])
   if (!data) notFound()
+  if (assignmentSummaryError) throw assignmentSummaryError
   const ticket = data as Ticket & { ecommerce_account: { account_name: string; platform: { name: string } | null } | null }
+  const summary = (assignmentSummary as { status: TicketStatus; staff_assignee_ids: string[] }[] | null)?.[0]
+  if (!summary) throw new Error('Could not load ticket assignment details')
+  const ticketStatus = summary.status
   const ticketComments = (comments ?? []) as TicketComment[]
+  const staff = (staffDirectory ?? []) as { id: string; full_name: string | null; avatar_url: string | null; role: AppRole }[]
   const latestPublicMessage = ticketComments.slice().reverse().find(comment => !comment.is_internal)
   const replyAuthor = latestPublicMessage?.author_id
-    ? (staffDirectory as { id: string; full_name: string | null; role: string }[] | null)?.find(person => person.id === latestPublicMessage.author_id && ['admin', 'super_admin'].includes(person.role))
+    ? staff.find(person => person.id === latestPublicMessage.author_id && ['admin', 'super_admin'].includes(person.role))
     : undefined
   // The client never reads a staff member's own name: getPortalNames() is the
   // one place that decides what they are called, so the badge and the
@@ -51,9 +66,15 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
   const replyAuthorName = replyAuthor && latestPublicMessage?.author_id
     ? names[latestPublicMessage.author_id] ?? 'GoPortals team'
     : null
+  const handledBy = summary.staff_assignee_ids.flatMap(id => {
+    const person = staff.find(entry => entry.id === id)
+    if (!person) return []
+    const [name, role] = splitTeamName(names[id] ?? 'GoPortals team')
+    return [{ id, name, role, avatarUrl: person.avatar_url, avatarRole: person.role }]
+  })
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
-  const canEdit = ticket.status === 'unassigned' && ticket.created_by === me.id
-  const workUnderWay = ticket.status === 'assigned'
+  const canEdit = ticketStatus === 'unassigned' && ticket.created_by === me.id
+  const workUnderWay = ticketStatus === 'assigned'
 
   return (
     <>
@@ -80,8 +101,8 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
           <Card className="p-6">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs font-semibold text-slate-400">{ticketCode(ticket.ticket_number)}</span>
-              {ticket.is_urgent && ticket.status !== 'closed' && <UrgentBadge />}
-              <ClientTicketStatusBadge status={ticket.status} />
+              {ticket.is_urgent && ticketStatus !== 'closed' && <UrgentBadge />}
+              <ClientTicketStatusBadge status={ticketStatus} />
               {ticket.priority && <PriorityBadge priority={ticket.priority} />}
               <span className="ml-auto text-xs text-slate-400">{TICKET_CATEGORY_LABELS[ticket.category]}</span>
             </div>
@@ -120,7 +141,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
               </div>
             )}
 
-            {ticket.status === 'closed' && <ReopenTicketButton ticketId={ticket.id} />}
+            {ticketStatus === 'closed' && <ReopenTicketButton ticketId={ticket.id} />}
           </Card>
 
           <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
@@ -130,31 +151,46 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
                               table="ticket_comments" idField="ticket_id"
                               bounded
                               replyNeeded={!!replyAuthorName}
-                              lockedNote={ticket.status === 'closed'
+                              lockedNote={ticketStatus === 'closed'
                                 ? 'This ticket is closed. Request changes above to reopen its tasks.'
                                 : undefined} />
             </div>
           </Card>
 
-          <Card>
-            <CardHeader title="Activity" />
-            {/* Assignment is internal staffing. 068 keeps new rows off the
-                client's trail; rows logged before it would read "GoPortals
-                team assigned it to GoPortals team", so drop them here too. */}
-            <div className="p-5"><ActivityTimeline
-              activity={((activity ?? []) as TicketActivity[]).filter(a => a.action !== 'assignee_changed')}
-              names={names} kind="ticket" audience="client" /></div>
-          </Card>
+          {/* Assignment is internal staffing. 068 keeps new rows off the
+              client's trail; rows logged before it would read "GoPortals
+              team assigned it to GoPortals team", so drop them here too. */}
+          <ActivityPanel
+            activity={((activity ?? []) as TicketActivity[]).filter(a => a.action !== 'assignee_changed')}
+            names={names} kind="ticket" audience="client" />
         </div>
 
         <div className="space-y-6">
           <Card>
             <CardHeader title="Details" />
             <dl className="divide-y divide-slate-100 text-sm">
+              <div className="flex items-center justify-between gap-3 px-5 py-2.5">
+                <dt className="text-slate-500">Handled by</dt>
+                <dd>
+                  {handledBy.length > 0
+                    ? <span className="flex flex-col items-end gap-1">
+                        {handledBy.map(person => (
+                          <span key={person.id} className="inline-flex items-center gap-2">
+                            <Avatar name={person.name} src={person.avatarUrl} role={person.avatarRole} size="xs" />
+                            <span>
+                              {person.name}
+                              {person.role && <span className="ml-1 text-[11px] font-normal text-slate-500">({person.role})</span>}
+                            </span>
+                          </span>
+                        ))}
+                      </span>
+                    : <span className="text-slate-400">{ticketStatus === 'unassigned' ? 'Being assigned' : 'GoPortals team'}</span>}
+                </dd>
+              </div>
               {[
                 ['Account', ticket.ecommerce_account ? `${ticket.ecommerce_account.platform?.name ?? ''} · ${ticket.ecommerce_account.account_name}` : null],
                 ['Raised', formatDate(ticket.created_at)],
-                ['Completed', ticket.closed_at ? formatDate(ticket.closed_at) : null],
+                ['Closed', ticket.closed_at ? formatDate(ticket.closed_at) : null],
               ].filter(([, v]) => v).map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3 px-5 py-2.5"><dt className="text-slate-500">{k}</dt><dd className="text-right text-slate-800">{v}</dd></div>
               ))}

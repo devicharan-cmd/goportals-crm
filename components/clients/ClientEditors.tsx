@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { Modal } from '@/components/ui/modal'
+import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import { BILLING_LABELS, SERVICE_STATUS_STYLES } from '@/lib/constants'
 import { cn, errorMessage, formatINR } from '@/lib/utils'
 import type { BillingType, ClientServiceStatus, Department, EcommerceAccountStatus, Platform, Service } from '@/types/database'
@@ -54,7 +55,12 @@ export function EcommerceAccountsEditor({
           <li key={r.id} className="flex items-center gap-3 px-5 py-2.5">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-slate-800">{r.account_name}</p>
-              <p className="text-xs text-slate-400">{byId[r.platform_id]?.name ?? '—'}{r.seller_id ? ` · ${r.seller_id}` : ''}</p>
+              <p className="inline-flex items-center gap-1 text-xs text-slate-400">
+                {byId[r.platform_id]?.name
+                  ? <MarketplacePlatformLabel name={byId[r.platform_id].name} />
+                  : '—'}
+                {r.seller_id && <> · {r.seller_id}</>}
+              </p>
             </div>
             {editable ? (
               <select value={r.status} disabled={busy}

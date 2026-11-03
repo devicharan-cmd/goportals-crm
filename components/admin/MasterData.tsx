@@ -6,6 +6,7 @@ import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { PLATFORM_CATEGORY_LABELS } from '@/lib/constants'
+import { MarketplaceLogo } from '@/components/shared/Marketplace'
 import { cn, errorMessage } from '@/lib/utils'
 import type { Department, Platform, PlatformCategory, Service } from '@/types/database'
 
@@ -48,6 +49,7 @@ export function PlatformsEditor({ platforms }: { platforms: Platform[] }) {
       <ul className="divide-y divide-slate-100">
         {platforms.map(p => (
           <li key={p.id} className={cn('flex items-center gap-2 px-5 py-2.5', !p.is_active && 'opacity-60')}>
+            <MarketplaceLogo name={p.name} />
             <input defaultValue={p.name} className={cn(inlineInput, 'flex-1')}
                    onBlur={e => e.target.value.trim() && e.target.value !== p.name && save('platforms', p.id, { name: e.target.value.trim() })} />
             <select defaultValue={p.category} className={cn(inlineInput, 'w-40')} onChange={e => save('platforms', p.id, { category: e.target.value })}>

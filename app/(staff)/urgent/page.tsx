@@ -7,6 +7,7 @@ import { TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { Avatar, Card, CardHeader, EmptyState } from '@/components/ui/primitives'
 import { DueDate, PriorityBadge, StatusBadge } from '@/components/ui/badges'
 import { ClaimButton } from '@/components/tasks/ClaimButton'
+import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_STYLES } from '@/lib/constants'
 import { formatRelative, taskCode, ticketCode } from '@/lib/utils'
 import type { TaskListItem, Ticket } from '@/types/database'
@@ -97,8 +98,11 @@ export default async function UrgentPage() {
                     <PriorityBadge priority={t.priority} />
                     <p className="truncate font-semibold text-slate-900 hover:text-brand-700">{t.title}</p>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {[t.client?.company_name, t.department?.name, t.platform?.name].filter(Boolean).join(' · ')} · raised {formatRelative(t.created_at)}
+                  <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-slate-500">
+                    {[t.client?.company_name, t.department?.name].filter(Boolean).join(' · ')}
+                    {(t.client?.company_name || t.department?.name) && t.platform?.name && <span aria-hidden="true">·</span>}
+                    {t.platform?.name && <MarketplacePlatformLabel name={t.platform.name} />}
+                    <span aria-hidden="true">·</span> raised {formatRelative(t.created_at)}
                   </p>
                 </Link>
                 <div className="flex items-center gap-4">

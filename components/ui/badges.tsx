@@ -32,8 +32,8 @@ export function PriorityBadge({ priority }: { priority: TaskPriority }) {
 
 export function UrgentBadge() {
   return (
-    <Badge className="bg-red-600 text-white ring-red-600">
-      <Flame className="h-3 w-3" /> Urgent
+    <Badge className="rounded-full bg-gradient-to-r from-red-600 to-rose-500 px-1.5 py-0.5 text-[10px] text-white ring-red-600">
+      <Flame className="h-2.5 w-2.5" /> Urgent
     </Badge>
   )
 }

@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/primitives'
+import { MarketplacePlatformSelect } from '@/components/shared/Marketplace'
 import { TaskBasicInformation } from '@/components/tasks/TaskBasicInformation'
 import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } from '@/components/tasks/TaskFormSections'
 import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TYPE_OPTIONS } from '@/lib/constants'
@@ -460,13 +461,14 @@ export function CreateTasksModal({
                 </label>
                 <label className="min-w-0">
                   <span className="label text-sm">Platform</span>
-                  <select className="input h-9 rounded-xl text-sm" value={r.platform_id} disabled={!!createdTaskIds}
-                          onChange={e => update(i, { platform_id: e.target.value })}>
-                    <option value="">—</option>
-                    {platforms.filter(platform => platform.is_active || platform.id === r.platform_id).map(platform => (
-                      <option key={platform.id} value={platform.id}>{platform.name}</option>
-                    ))}
-                  </select>
+                  <MarketplacePlatformSelect
+                    className="input flex h-9 w-full items-center justify-between gap-2 rounded-xl text-sm"
+                    platforms={platforms.filter(platform => platform.is_active || platform.id === r.platform_id)}
+                    value={r.platform_id}
+                    placeholder="—"
+                    disabled={!!createdTaskIds}
+                    onChange={value => update(i, { platform_id: value })}
+                  />
                 </label>
               </TaskFieldsGrid>
               <TaskFieldsGrid columns="three">

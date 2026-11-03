@@ -6,6 +6,7 @@ import { Card, EmptyState } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { ApprovalActions } from '@/components/clients/ClientEditors'
 import { formatRelative } from '@/lib/utils'
+import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
 import type { Client } from '@/types/database'
 
 export const metadata = { title: 'Approvals' }
@@ -68,7 +69,7 @@ export default async function ApprovalsPage() {
                   <section>
                     <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">E-commerce accounts</h3>
                     <div className="flex flex-wrap gap-1.5">
-                      {c.ecommerce_accounts.map((a, i) => <Badge key={i}>{a.platform?.name ? `${a.platform.name} · ${a.account_name}` : a.account_name}</Badge>)}
+                      {c.ecommerce_accounts.map((a, i) => <Badge key={i}><MarketplaceAccountLabel platformName={a.platform?.name ?? null} accountName={a.account_name} /></Badge>)}
                       {c.ecommerce_accounts.length === 0 && <span className="text-sm text-slate-400">—</span>}
                     </div>
                   </section>

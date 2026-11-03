@@ -4,6 +4,7 @@ import { Avatar, EmptyState } from '@/components/ui/primitives'
 import { dueState, formatDate, taskCode } from '@/lib/utils'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { AssignButton } from '@/components/tasks/AssignButton'
+import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import type { AssigneeOption } from '@/lib/queries'
 import type { TaskListItem } from '@/types/database'
@@ -77,8 +78,13 @@ export function TaskTable({
                       {t.is_urgent && !TASK_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
                       <span className="truncate font-medium text-slate-900 group-hover:text-brand-700">{t.title}</span>
                     </span>
-                    <span className="col-start-2 min-w-0 truncate text-xs text-slate-400">
-                      {[t.department?.name, t.platform?.name, t.source === 'client' ? 'Client request' : null].filter(Boolean).join(' · ') || '—'}
+                    <span className="col-start-2 flex min-w-0 items-center gap-1 truncate text-xs text-slate-400">
+                      {t.department?.name}
+                      {t.department?.name && t.platform?.name && <span aria-hidden="true">·</span>}
+                      {t.platform?.name && <MarketplacePlatformLabel name={t.platform.name} />}
+                      {(t.department?.name || t.platform?.name) && t.source === 'client' && <span aria-hidden="true">·</span>}
+                      {t.source === 'client' ? 'Client request' : ''}
+                      {!t.department?.name && !t.platform?.name && t.source !== 'client' && '—'}
                     </span>
                   </span>
                 </Link>

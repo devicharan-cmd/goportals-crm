@@ -6,6 +6,7 @@ import { ButtonLink } from '@/components/ui/button'
 import { Card, CardHeader, StatCard } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { TicketTable } from '@/components/shared/TicketTable'
+import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
 import type { Ticket } from '@/types/database'
 
 export const metadata = { title: 'Overview' }
@@ -66,7 +67,7 @@ export default async function PortalHome() {
           <Card>
             <CardHeader title="Your accounts" />
             <div className="flex flex-wrap gap-1.5 p-5">
-              {myAccounts.map((a, i) => <Badge key={i}>{a.platform?.name ? `${a.platform.name} · ${a.account_name}` : a.account_name}</Badge>)}
+              {myAccounts.map((a, i) => <Badge key={i}><MarketplaceAccountLabel platformName={a.platform?.name ?? null} accountName={a.account_name} /></Badge>)}
               {!accounts?.length && <span className="text-sm text-slate-400">None yet</span>}
             </div>
           </Card>

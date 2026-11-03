@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
 import { AssignButton } from '@/components/tasks/AssignButton'
+import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import type { AssigneeOption } from '@/lib/queries'
 import { DueDate, PriorityBadge } from '@/components/ui/badges'
 import { TASK_STATUS_DOT, TASK_STATUS_OPTIONS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
@@ -26,7 +27,7 @@ function Card({ task, names, overlay, linked, assignOptions }: CardProps & { ove
           <span className="font-mono text-[11px] font-semibold text-slate-400">{taskCode(task.task_number)}</span>
           <PriorityBadge priority={task.priority} />
         </span>
-        <span className="truncate text-[11px] text-slate-400">{task.platform?.name}</span>
+        {task.platform?.name && <span className="truncate text-[11px] text-slate-400"><MarketplacePlatformLabel name={task.platform.name} /></span>}
       </div>
       <p className="text-sm font-medium leading-snug text-slate-900">{task.title}</p>
       <p className="mt-1 truncate text-xs text-slate-500">{task.client?.company_name}</p>

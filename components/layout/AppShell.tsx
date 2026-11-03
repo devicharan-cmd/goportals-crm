@@ -216,9 +216,11 @@ export function AppShell({
                       <item.icon className={cn('h-[18px] w-[18px] flex-shrink-0', active ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-500')} />
                       {!compact && <span className="flex-1">{item.label}</span>}
                       {!!count && (compact
-                        ? <span className={cn('absolute right-1 top-1 h-2 w-2 rounded-full', item.badge === 'urgent' ? 'bg-red-600' : 'bg-lime-500')} />
-                        : <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-bold',
-                            item.badge === 'urgent' ? 'bg-red-600 text-white' : 'bg-lime-500 text-brand-950')}>{count}</span>)}
+                        ? <span className={cn('absolute right-1 top-1 h-2 w-2 rounded-full', item.badge === 'urgent' ? 'bg-gradient-to-r from-red-600 to-rose-500' : 'bg-lime-500')} />
+                        : <span className={cn('flex items-center justify-center rounded-full text-[10px] font-bold leading-none',
+                            item.badge === 'urgent'
+                              ? 'h-5 w-5 shrink-0 bg-gradient-to-r from-red-600 to-rose-500 text-white'
+                              : 'px-2 py-0.5 bg-lime-500 text-brand-950')}>{count}</span>)}
                     </Link>
                   </li>
                 )
@@ -304,7 +306,7 @@ export function AppShell({
             >
               <Bell className="h-5 w-5" />
               {counts.notifications > 0 && (
-                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-bold text-brand-950">
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-bold text-white">
                   {counts.notifications > 9 ? '9+' : counts.notifications}
                 </span>
               )}

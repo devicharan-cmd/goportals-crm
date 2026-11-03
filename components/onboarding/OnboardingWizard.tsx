@@ -8,6 +8,7 @@ import { Logo } from '@/components/layout/Logo'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
 import { Markdown } from '@/components/shared/Markdown'
+import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import { AddressPicker, EMPTY_ADDRESS, type AddressValue } from '@/components/shared/AddressPicker'
 import { PLATFORM_CATEGORY_LABELS } from '@/lib/constants'
 import { cn, errorMessage } from '@/lib/utils'
@@ -230,7 +231,7 @@ export function OnboardingWizard(props: Props) {
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {list.map(p => (
                       <ChoiceTile key={p.id} selected={platformIds.includes(p.id)} onClick={() => toggle(platformIds, setPlatformIds, p.id)}>
-                        {p.name}
+                        <MarketplacePlatformLabel name={p.name} />
                       </ChoiceTile>
                     ))}
                   </div>

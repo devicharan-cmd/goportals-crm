@@ -2,16 +2,27 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertCircle, ChevronDown, Flame } from 'lucide-react'
+import { AlertCircle, Check, ChevronDown, Flame, Info } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Alert, Avatar, Field } from '@/components/ui/primitives'
+import { TaskBasicInformation } from '@/components/tasks/TaskBasicInformation'
+import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } from '@/components/tasks/TaskFormSections'
 import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TICKET_STATUS_LABELS, TYPE_OPTIONS } from '@/lib/constants'
+import { TICKET_CATEGORY_BY_VALUE } from '@/lib/ticket-categories'
 import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
 import type { AppRole, Department, DeadlineType, Platform, Service, Task, TaskPriority, TaskType, TicketStatus } from '@/types/database'
 
 type Option = { id: string; name: string; avatarUrl?: string | null; employeeId?: string; role?: string; avatarRole?: AppRole }
-type TicketOption = { id: string; ticket_number: number; subject: string; status: TicketStatus }
+type TicketOption = {
+  id: string
+  ticket_number: number
+  subject: string
+  status: TicketStatus
+  category: keyof typeof TICKET_CATEGORY_BY_VALUE
+  description: string | null
+  details: Record<string, unknown> | null
+}
 type SelectOption = { value: string; label: string; detail?: string }
 
 function FormSelect({
@@ -23,6 +34,8 @@ function FormSelect({
   invalid = false,
   required = false,
   'aria-label': ariaLabel,
+  className,
+  native = false,
 }: {
   label: string
   value: string
@@ -32,12 +45,14 @@ function FormSelect({
   invalid?: boolean
   required?: boolean
   'aria-label'?: string
+  className?: string
+  native?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const selected = options.find(option => option.value === value)
 
   useEffect(() => {
-    if (!open) return
+    if (!open || native) return
     function closeOnOutsideClick(event: MouseEvent) {
       if (event.target instanceof Element && !event.target.closest('[data-form-select]')) setOpen(false)
     }
@@ -50,11 +65,21 @@ function FormSelect({
       document.removeEventListener('mousedown', closeOnOutsideClick)
       document.removeEventListener('keydown', closeOnEscape)
     }
-  }, [open])
+  }, [open, native])
+
+  if (native) {
+    return (
+      <select className={cn('input h-9 text-sm', className, invalid && 'border-red-400 focus:border-red-500 focus:ring-red-200')}
+              value={value} disabled={disabled} required={required} aria-label={ariaLabel}
+              aria-required={required} aria-invalid={invalid} onChange={event => onChange(event.target.value)}>
+        {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+    )
+  }
 
   return (
     <div className="relative" data-form-select>
-      <button type="button" className={cn('input flex w-full items-center justify-between text-left', invalid && 'border-red-400 focus:border-red-500 focus:ring-red-200')}
+      <button type="button" className={cn('input flex w-full items-center justify-between text-left', className, invalid && 'border-red-400 focus:border-red-500 focus:ring-red-200')}
               disabled={disabled} aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open}
               aria-required={required} aria-invalid={invalid} onClick={() => setOpen(current => !current)}>
         <span className="truncate">{selected?.label ?? label}</span>
@@ -94,11 +119,31 @@ export type TaskFormProps = {
   platforms: Platform[]
   services: Service[]
   meId: string
+  onCancel?: () => void
+  onSaved?: () => void
+  modalLayout?: boolean
+}
+
+function ticketRequestSummary(ticket: TicketOption, platforms: Platform[]) {
+  const category = TICKET_CATEGORY_BY_VALUE[ticket.category]
+  const details = Object.entries(ticket.details ?? {}).flatMap(([key, rawValue]) => {
+    const field = category.fields.find(item => item.key === key)
+    if (!field || field.type === 'password' || rawValue == null || String(rawValue).trim() === '') return []
+    const raw = String(rawValue)
+    const value = field.type === 'select'
+      ? field.options?.find(option => option.value === raw)?.label ?? raw
+      : field.type === 'platform'
+        ? platforms.find(platform => platform.id === raw)?.name ?? raw
+        : raw
+    return [`${field.label}: ${value}`]
+  })
+  return [category.label, ticket.description, ...details].filter(Boolean).join(' · ')
 }
 
 export function TaskForm(p: TaskFormProps) {
   const router = useRouter()
   const t = p.task
+  const currentTicketId = t?.ticket_id ?? null
   const [form, setForm] = useState({
     title:           t?.title ?? '',
     description:     t?.description ?? '',
@@ -115,14 +160,16 @@ export function TaskForm(p: TaskFormProps) {
     ticket_id:       t?.ticket_id ?? '',
     due_date:        t?.due_date ?? '',
     deadline_type:   (t?.deadline_type ?? '') as DeadlineType | '',
-    estimated_hours: String(t?.estimated_hours ?? 3),
+    estimated_hours: t?.estimated_hours == null ? (p.mode === 'create' ? '3' : '') : String(t.estimated_hours),
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [assigneeError, setAssigneeError] = useState('')
   const [tickets, setTickets] = useState<TicketOption[]>([])
   const [loadingTickets, setLoadingTickets] = useState(false)
+  const [ticketLoadError, setTicketLoadError] = useState('')
   const [assigneeOpen, setAssigneeOpen] = useState(false)
+  const [files, setFiles] = useState<File[]>([])
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(f => ({ ...f, [k]: v }))
   const canEditAssignment = p.canEditAssignment ?? true
 
@@ -132,14 +179,40 @@ export function TaskForm(p: TaskFormProps) {
   // A client can have several tickets — load that client's tickets so a task
   // can be traced back to the specific one it's for, instead of only the client.
   useEffect(() => {
-    if (!form.client_id) { setTickets([]); return }
+    if (p.modalLayout) {
+      setTickets([])
+      setTicketLoadError('')
+      setLoadingTickets(false)
+      return
+    }
+    if (!form.client_id) {
+      setTickets([])
+      setTicketLoadError('')
+      setLoadingTickets(false)
+      return
+    }
     let cancelled = false
     setLoadingTickets(true)
-    createClient().from('tickets').select('id, ticket_number, subject, status').eq('client_id', form.client_id)
+    setTicketLoadError('')
+    createClient().from('tickets').select('id, ticket_number, subject, status, category, description, details')
+      .eq('client_id', form.client_id)
       .order('created_at', { ascending: false })
-      .then(({ data }) => { if (!cancelled) { setTickets((data ?? []) as TicketOption[]); setLoadingTickets(false) } })
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          setTicketLoadError(errorMessage(error))
+          setTickets([])
+        } else {
+          setTickets(((data ?? []) as TicketOption[]).filter(ticket =>
+            ticket.status === 'unassigned' || ticket.id === currentTicketId,
+          ))
+        }
+        setLoadingTickets(false)
+      })
     return () => { cancelled = true }
-  }, [form.client_id])
+  }, [form.client_id, currentTicketId, p.modalLayout])
+
+  const selectedTicket = tickets.find(ticket => ticket.id === form.ticket_id)
 
   useEffect(() => {
     if (!assigneeOpen) return
@@ -210,59 +283,135 @@ export function TaskForm(p: TaskFormProps) {
       setSaving(false)
       return
     }
+    if (files.length > 0) {
+      let uploadedCount = 0
+      for (const file of files) {
+        const safeName = file.name.replace(/[\\/]/g, '_')
+        const path = `${data.id}/${crypto.randomUUID()}-${safeName}`
+        const { error: storageError } = await supabase.storage.from('task-files').upload(path, file)
+        if (storageError) {
+          setFiles(files.slice(uploadedCount))
+          setError(`Task saved, but "${file.name}" could not be uploaded: ${errorMessage(storageError)}`)
+          setSaving(false)
+          return
+        }
+        const { error: attachmentError } = await supabase.from('task_attachments').insert({
+          task_id: data.id,
+          uploaded_by: p.meId,
+          storage_path: path,
+          file_name: file.name,
+          mime_type: file.type || null,
+          size_bytes: file.size,
+        })
+        if (attachmentError) {
+          const { error: cleanupError } = await supabase.storage.from('task-files').remove([path])
+          setFiles(files.slice(uploadedCount))
+          setError(cleanupError
+            ? `Task saved, but "${file.name}" could not be attached: ${errorMessage(attachmentError)} The uploaded file could not be cleaned up.`
+            : `Task saved, but "${file.name}" could not be attached: ${errorMessage(attachmentError)}`)
+          setSaving(false)
+          return
+        }
+        uploadedCount += 1
+      }
+    }
+    if (p.onSaved) {
+      setSaving(false)
+      p.onSaved()
+      router.refresh()
+      return
+    }
     router.push(`/tasks/${data.id}`)
     router.refresh()
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card space-y-6 p-6">
+    <form onSubmit={handleSubmit} className={p.modalLayout ? 'flex min-h-0 flex-1 flex-col' : 'card space-y-6 p-6'}>
+      <div data-modal-content={p.modalLayout ? '' : undefined} className={p.modalLayout ? 'min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-7' : 'space-y-6'}>
+      <TaskFormCard enabled={!!p.modalLayout}>
+      {p.modalLayout && <TaskFormCardTitle />}
+      {p.mode === 'create' && <h1 className="text-2xl font-bold text-slate-900">Create New Task</h1>}
       {error && <Alert>{error}</Alert>}
 
-      <Field label="Title" required>
-        <input className="input" required value={form.title} onChange={e => set('title', e.target.value)}
-               placeholder="e.g. Launch Diwali sponsored ads on Amazon" autoFocus={p.mode === 'create'} />
-      </Field>
+      {p.modalLayout ? (
+        <TaskBasicInformation
+          idPrefix="edit-task"
+          title={form.title}
+          description={form.description}
+          onTitleChange={title => set('title', title)}
+          onDescriptionChange={description => set('description', description)}
+          files={files}
+          onFilesChange={setFiles}
+          onRemoveFile={index => setFiles(current => current.filter((_, fileIndex) => fileIndex !== index))}
+          titlePlaceholder="Enter task title"
+        />
+      ) : (
+        <>
+          <Field label="Title" required>
+            <input className="input" required value={form.title} onChange={e => set('title', e.target.value)}
+                   placeholder="e.g. Launch Diwali sponsored ads on Amazon" autoFocus={p.mode === 'create'} />
+          </Field>
+          <Field label="Description">
+            <textarea className="input min-h-[110px]" value={form.description} onChange={e => set('description', e.target.value)}
+                      placeholder="Details, links, marketplace case IDs…" />
+          </Field>
+        </>
+      )}
 
-      <Field label="Description">
-        <textarea className="input min-h-[110px]" value={form.description} onChange={e => set('description', e.target.value)}
-                  placeholder="Details, links, marketplace case IDs…" />
-      </Field>
-
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Client" required>
+      {p.modalLayout && <TaskSectionHeader section="configuration" />}
+      {!p.modalLayout && <div className={cn('grid gap-5 sm:grid-cols-2', p.mode === 'create' && 'lg:grid-cols-3')}>
+        <Field label="Client" required hint={p.clients.length === 0 ? 'No clients have active tickets' : undefined}>
           <FormSelect label="Select client…" value={form.client_id}
+            className={p.modalLayout ? 'h-9 rounded-xl text-sm' : undefined}
             options={[{ value: '', label: 'Select client…' }, ...p.clients.map(c => ({ value: c.id, label: c.company_name }))]}
             onChange={pickClient} required aria-label="Client" />
         </Field>
         <Field label="Ticket"
-               hint={!form.client_id ? 'Pick a client first' : loadingTickets ? 'Loading…' : tickets.length === 0 ? 'No tickets for this client' : 'Links this task back to the request it\'s for'}>
+               hint={!form.client_id ? 'Pick a client first' : loadingTickets ? 'Loading…' : ticketLoadError || (selectedTicket ? ticketRequestSummary(selectedTicket, p.platforms) : tickets.length === 0 ? 'No unassigned tickets for this client' : 'Links this task back to the request it\'s for')}>
           <FormSelect label="No ticket (standalone task)" value={form.ticket_id} disabled={!form.client_id || loadingTickets}
+            className={p.modalLayout ? 'h-9 rounded-xl text-sm' : undefined}
             options={[{ value: '', label: 'No ticket (standalone task)' }, ...tickets.map(tk => ({
               value: tk.id,
               label: `${ticketCode(tk.ticket_number)} · ${tk.subject}${tk.status === 'closed' ? ` (${TICKET_STATUS_LABELS[tk.status]})` : ''}`,
+              detail: ticketRequestSummary(tk, p.platforms).slice(0, 180),
             }))]}
             onChange={value => set('ticket_id', value)} aria-label="Ticket" />
         </Field>
+      </div>
+      }
+
+      <TaskFieldsGrid columns="four" modal={!!p.modalLayout}>
         <Field label="Type">
           <FormSelect label="Type" value={form.type} options={TYPE_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+            className={p.modalLayout ? 'h-9 rounded-xl text-sm' : undefined}
+            native={p.modalLayout}
             onChange={value => set('type', value as TaskType)} aria-label="Type" />
         </Field>
         <Field label="Service">
           <FormSelect label="—" value={form.service_id} options={[{ value: '', label: '—' }, ...activeServices.map(s => ({ value: s.id, label: s.name }))]}
+            className={p.modalLayout ? 'h-9 rounded-xl text-sm' : undefined}
+            native={p.modalLayout}
             onChange={pickService} aria-label="Service" />
         </Field>
         <Field label="Department">
           <FormSelect label="—" value={form.department_id} options={[{ value: '', label: '—' }, ...p.departments.map(d => ({ value: d.id, label: d.name }))]}
+            className={p.modalLayout ? 'h-9 text-sm' : undefined}
+            native={p.modalLayout}
             onChange={value => set('department_id', value)} aria-label="Department" />
         </Field>
         <Field label="Platform">
           <FormSelect label="—" value={form.platform_id} options={[{ value: '', label: '—' }, ...activePlatforms.map(x => ({ value: x.id, label: x.name }))]}
+            className={p.modalLayout ? 'h-9 text-sm' : undefined}
+            native={p.modalLayout}
             onChange={value => set('platform_id', value)} aria-label="Platform" />
         </Field>
+      </TaskFieldsGrid>
+
+      <TaskFieldsGrid columns="three" modal={!!p.modalLayout}>
         <Field label="Assignee" required={p.mode === 'create'}
                hint={!canEditAssignment ? 'Only managers can change the assignee.' : p.assignees.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
           <div className="relative" data-assignee-picker>
-            <button type="button" className="input flex w-full items-center justify-between text-left"
+            <button type="button" className={cn('input flex w-full items-center justify-between text-left', p.modalLayout && 'h-9 rounded-xl text-sm')}
                     disabled={!canEditAssignment} aria-haspopup="listbox" aria-expanded={assigneeOpen}
                     aria-required={p.mode === 'create'} aria-invalid={!!assigneeError}
                     onClick={() => setAssigneeOpen(open => !open)}>
@@ -306,43 +455,57 @@ export function TaskForm(p: TaskFormProps) {
         </Field>
         <Field label="Priority">
           <FormSelect label="Priority" value={form.priority} options={PRIORITY_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+            className={p.modalLayout ? 'h-9 rounded-xl text-sm' : undefined}
+            native={p.modalLayout}
             onChange={value => set('priority', value as TaskPriority)} aria-label="Priority" />
         </Field>
         <Field label="Estimated hours">
-          <input className="input" type="number" min="0" step="0.5" value={form.estimated_hours} onChange={e => set('estimated_hours', e.target.value)} />
+          <input className={cn('input', p.modalLayout && 'h-9 rounded-xl text-sm')} type="number" min="0" step="0.5" value={form.estimated_hours} placeholder="Enter hours" onChange={e => set('estimated_hours', e.target.value)} />
         </Field>
-      </div>
+      </TaskFieldsGrid>
 
-      <Field label="Deadline" hint={!canEditAssignment ? 'Only managers can change the due date.' : undefined}>
+      {p.modalLayout && <TaskSectionHeader section="deadline" />}
+      <div>
+        {!p.modalLayout && <label className="label">Deadline</label>}
+        {!canEditAssignment && <p className="mb-1 text-xs text-slate-500">Only managers can change the due date.</p>}
         <div className="flex flex-wrap items-center gap-2">
           {DEADLINE_OPTIONS.map(d => (
             <button key={d.value} type="button" disabled={!canEditAssignment} onClick={() => pickDeadline(d.value)}
                     className={cn('rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition disabled:cursor-not-allowed disabled:opacity-50',
+                      p.modalLayout && 'inline-flex h-7 items-center rounded-full px-3 text-xs',
                       form.deadline_type === d.value ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50')}>
               {d.label}
             </button>
           ))}
-          <input type="date" className="input w-auto" value={form.due_date} disabled={!canEditAssignment}
+          <input type="date" className={cn('input w-auto', p.modalLayout && 'h-7 rounded-full px-3 py-1 text-xs leading-4')} value={form.due_date} disabled={!canEditAssignment}
                  onChange={e => setForm(f => ({ ...f, due_date: e.target.value, deadline_type: '' }))} />
         </div>
-      </Field>
+      </div>
 
       {p.canMarkUrgent && (
         <label className={cn('flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition',
+          p.modalLayout && 'mt-3 border-0 p-0',
           form.is_urgent ? 'border-red-300 bg-red-50' : 'border-slate-200 hover:bg-slate-50')}>
           <input type="checkbox" checked={form.is_urgent} onChange={e => set('is_urgent', e.target.checked)}
                  className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500" />
           <Flame className={cn('h-5 w-5', form.is_urgent ? 'text-red-600' : 'text-slate-400')} />
           <span className="text-sm">
             <span className="font-semibold text-slate-900">Mark as urgent</span>
-            <span className="block text-slate-500">Everyone on the team will see it in the urgent pool and can pick it up.</span>
+            {!p.modalLayout && <span className="block text-slate-500">Everyone on the team will see it in the urgent pool and can pick it up.</span>}
           </span>
         </label>
       )}
+      </TaskFormCard>
+      </div>
 
-      <div className="flex justify-end gap-2 border-t border-slate-100 pt-5">
-        <Button type="button" variant="secondary" onClick={() => router.back()}>Cancel</Button>
-        <Button type="submit" loading={saving}>{p.mode === 'create' ? 'Create task' : 'Save changes'}</Button>
+      <div data-modal-footer={p.modalLayout ? '' : undefined} className={cn('flex items-center justify-between gap-3 border-t border-slate-100 pt-5', p.modalLayout && 'flex-shrink-0 border-slate-200 bg-white px-6 py-4 sm:px-7')}>
+        {p.modalLayout && <p className="hidden items-center gap-2 text-xs text-slate-500 sm:flex"><Info aria-hidden="true" className="h-4 w-4 shrink-0" />This task stays linked to its current ticket.</p>}
+        <div className="ml-auto flex items-center gap-2">
+          <Button type="button" variant="secondary" size={p.modalLayout ? 'lg' : 'md'} className={p.modalLayout ? 'rounded-xl' : undefined}
+                  onClick={() => p.onCancel ? p.onCancel() : router.back()}>Cancel</Button>
+          <Button type="submit" size={p.modalLayout ? 'lg' : 'md'} className={p.modalLayout ? 'rounded-xl bg-brand-600 shadow-md hover:bg-brand-700' : undefined}
+                  loading={saving}>{p.modalLayout && !saving && <Check className="h-4 w-4" />}{p.mode === 'create' ? 'Create task' : 'Save changes'}</Button>
+        </div>
       </div>
     </form>
   )

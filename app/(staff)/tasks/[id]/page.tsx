@@ -1,25 +1,25 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeOptionsFor, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskPageTitle } from '@/lib/queries'
+import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskPageTitle } from '@/lib/queries'
 import { TaskCode } from '@/components/tasks/TaskCode'
-import { ButtonLink } from '@/components/ui/button'
-import { Card, CardHeader } from '@/components/ui/primitives'
+import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { Badge, PriorityBadge, StatusBadge, UrgentBadge, DueDate } from '@/components/ui/badges'
 import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { TaskProperties } from '@/components/tasks/TaskProperties'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { CommentThread } from '@/components/tasks/CommentThread'
-import { ActivityTimeline } from '@/components/tasks/ActivityTimeline'
+import { ActivityPanel } from '@/components/tasks/ActivityPanel'
 import { TimeLogPanel } from '@/components/tasks/TimeLogPanel'
 import { ChecklistPanel } from '@/components/tasks/ChecklistPanel'
 import { ClaimButton } from '@/components/tasks/ClaimButton'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { AssignButton } from '@/components/tasks/AssignButton'
-import { TYPE_LABELS } from '@/lib/constants'
-import { formatDate, formatRelative, taskCode, ticketCode } from '@/lib/utils'
+import { TaskEditModal } from '@/components/tasks/TaskEditModal'
+import { ROLE_LABELS, TYPE_LABELS } from '@/lib/constants'
+import { formatDate, formatRelative, taskCode } from '@/lib/utils'
 import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TimeLog } from '@/types/database'
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
@@ -45,35 +45,57 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
     service: { id: string; name: string } | null
     ticket: { id: string; ticket_number: number; subject: string } | null
   }
+  const clientImagePath = task.client?.company_profile_image_path
+  const { data: clientImage, error: clientImageError } = clientImagePath
+    ? await supabase.storage.from('client-profile-images').createSignedUrl(clientImagePath, 3600)
+    : { data: null, error: null }
+  if (clientImageError) throw clientImageError
   const names = nameMap(lookups.people)
 
   const assignees = assigneeOptionsFor(me, lookups)
-  // Employees may still claim an unassigned task, but once a task has an assignee
-  // (even themselves), only managers/admins can change who it's assigned to.
-  const canAssign = me.role !== 'employee' || !task.assignee_id
-  const canEditDueDate = me.role !== 'employee'
-  const canReview = me.role !== 'employee'
+  const editAssignees = [...assignees]
+  if (task.assignee_id && !editAssignees.some(person => person.id === task.assignee_id)) {
+    const person = lookups.people.find(candidate => candidate.id === task.assignee_id)
+    editAssignees.unshift({
+      id: task.assignee_id,
+      name: names[task.assignee_id] ?? 'Current assignee',
+      avatarUrl: person?.avatar_url ?? null,
+      role: person ? ROLE_LABELS[person.role] : 'Current assignee',
+      ...(person ? { avatarRole: person.role } : {}),
+    })
+  }
+  let editClients = lookups.clients
+  if (me.role === 'team_lead') {
+    const deptIds = Array.from(departmentIdsFor(me.id, lookups))
+    const clientIds = await clientIdsForTeamLead(me.id, deptIds)
+    editClients = lookups.clients.filter(client => clientIds.has(client.id) || client.id === task.client_id)
+  }
   const canClaim = task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
   const canEditChecklist = me.role !== 'employee' || task.assignee_id === me.id
 
   const details: [string, React.ReactNode][] = [
     ['Task ID', <span key="id" className="font-mono font-semibold">{taskCode(task.task_number)}</span>],
-    ['Client', !task.client ? '—' : me.role === 'employee' ? task.client.company_name
-      : <Link href={`/clients/${task.client.id}`} className="font-medium text-brand-700 hover:underline">{task.client.company_name}</Link>],
+    ['Client', !task.client ? '—' : (
+      <span className="inline-flex items-center justify-end gap-2">
+        <CompanyAvatar name={task.client.company_name} src={clientImage?.signedUrl} size="xs" />
+        {me.role === 'employee'
+          ? <span>{task.client.company_name}</span>
+          : <Link href={`/clients/${task.client.id}`} className="font-medium text-brand-700 hover:underline">{task.client.company_name}</Link>}
+      </span>
+    )],
     ['Type', TYPE_LABELS[task.type]],
     ['Service', task.service?.name ?? '—'],
     ['Department', task.department?.name ?? '—'],
     ['Platform', task.platform?.name ?? '—'],
-    ['Raised by', task.created_by ? `${names[task.created_by] ?? '—'}${task.source === 'client' ? ' (client)' : ''}` : '—'],
-    ...(task.ticket ? [['From ticket', <Link key="ticket" href={`/tickets/${task.ticket.id}`} className="font-medium text-brand-700 hover:underline">
-        {ticketCode(task.ticket.ticket_number)} · {task.ticket.subject}
+    ...(task.ticket ? [['Ticket', <Link key="ticket" href={`/tickets/${task.ticket.id}`} className="font-medium text-brand-700 hover:underline">
+        {task.ticket.subject}
       </Link>] as [string, React.ReactNode]] : []),
     ['Created', formatDate(task.created_at)],
     ['Assigned', task.assigned_at
       ? <span className="block">
           <span className="block">{formatDate(task.assigned_at)}</span>
           <span className="block text-xs text-slate-500">
-            {formatRelative(task.assigned_at)}{task.assigned_by ? ` by ${names[task.assigned_by] ?? '—'}` : ''}
+            {formatRelative(task.assigned_at)}
           </span>
         </span>
       : '—'],
@@ -87,7 +109,17 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
         <div className="flex items-center gap-2">
           {me.role === 'super_admin' && <DeleteButton table="tasks" id={task.id} redirectTo="/tasks" />}
           {me.role !== 'employee' && <AssignButton taskId={task.id} currentId={task.assignee_id} options={assignees} />}
-          <ButtonLink href={`/tasks/${task.id}/edit`} variant="secondary" size="sm"><Pencil className="h-3.5 w-3.5" /> Edit</ButtonLink>
+          <TaskEditModal
+            task={task}
+            meId={me.id}
+            canMarkUrgent={me.role !== 'employee'}
+            canEditAssignment={me.role !== 'employee'}
+            clients={editClients}
+            assignees={editAssignees}
+            departments={lookups.departments}
+            platforms={lookups.platforms}
+            services={lookups.services}
+          />
         </div>
       </div>
 
@@ -100,7 +132,7 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
               <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={TASK_STATUS_STYLES[task.status]} dotClassName={TASK_STATUS_DOT[task.status]} />
               <PriorityBadge priority={task.priority} />
               {task.source === 'client' && <Badge className="bg-lime-50 text-lime-800 ring-lime-200">Client request</Badge>}
-              <DueDate date={task.due_date} status={task.status} className="ml-auto" />
+              <DueDate date={task.due_date} status={task.status} className="ml-auto !text-red-600" />
             </div>
             <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
             <p className="mt-1 text-sm text-slate-500">
@@ -135,22 +167,15 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
             </div>
           </Card>
 
-          <Card>
-            <CardHeader title="Activity" />
-            <div className="p-5"><ActivityTimeline activity={(activity ?? []) as TaskActivity[]} names={names} /></div>
-          </Card>
+          <ActivityPanel activity={(activity ?? []) as TaskActivity[]} names={names} />
         </div>
 
         <div className="space-y-6">
           <Card className="p-5">
             <TaskProperties
               task={task}
-              assignees={assignees}
+              assignees={editAssignees}
               assigneeName={task.assignee_id ? names[task.assignee_id] ?? null : null}
-              canMarkUrgent={me.role !== 'employee'}
-              canAssign={canAssign}
-              canEditDueDate={canEditDueDate}
-              canReview={canReview}
             />
           </Card>
           <Card>

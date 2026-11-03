@@ -3,22 +3,31 @@
 import { createPortal } from 'react-dom'
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, Layers3, Plus, Search, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, Flame, Info, Layers3, Plus, Search, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/primitives'
-import { PRIORITY_OPTIONS } from '@/lib/constants'
-import { errorMessage } from '@/lib/utils'
+import { TaskBasicInformation } from '@/components/tasks/TaskBasicInformation'
+import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } from '@/components/tasks/TaskFormSections'
+import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TYPE_OPTIONS } from '@/lib/constants'
+import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
 import type { AssigneeOption } from '@/lib/queries'
-import type { TaskPriority, Ticket } from '@/types/database'
+import type { DeadlineType, Department, Platform, Service, TaskPriority, TaskType, Ticket } from '@/types/database'
 
 type Row = {
   title: string
   description: string
+  type: TaskType
+  service_id: string
+  department_id: string
+  platform_id: string
   assignee_id: string
   due_date: string
+  deadline_type: DeadlineType | ''
   priority: TaskPriority
+  estimated_hours: string
+  is_urgent: boolean
   files: File[]
 }
 type DropdownPosition = { left: number; top: number; width: number; maxHeight: number }
@@ -132,7 +141,7 @@ function AssigneeSelect({ id, value, options, onChange, onOpenChange, invalid, d
     <div>
       <button ref={buttonRef} id={id} type="button"
               disabled={disabled}
-              className={`input flex h-9 w-full items-center justify-between gap-2 text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-50 ${invalid ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
+              className={`input flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-50 ${invalid ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
               aria-required="true" aria-invalid={invalid}
               aria-haspopup="listbox" aria-expanded={open} aria-controls={`${id}-options`}
               onClick={() => {
@@ -190,13 +199,37 @@ function AssigneeSelect({ id, value, options, onChange, onOpenChange, invalid, d
 }
 
 function emptyRow(ticket: Ticket): Row {
-  return { title: ticket.subject, description: '', assignee_id: '', due_date: '', priority: ticket.priority ?? 'P3', files: [] }
+  return {
+    title: ticket.subject,
+    description: '',
+    type: 'task',
+    service_id: '',
+    department_id: ticket.department_id ?? '',
+    platform_id: '',
+    assignee_id: '',
+    due_date: '',
+    deadline_type: '',
+    priority: ticket.priority ?? 'P3',
+    estimated_hours: '',
+    is_urgent: false,
+    files: [],
+  }
 }
 
 /** "Create tasks from this ticket" — one or more tasks in a single submission, each linked via ticket_id. */
 export function CreateTasksModal({
-  ticket, assignees, clientAssignee, meId,
-}: { ticket: Ticket; assignees: AssigneeOption[]; clientAssignee?: AssigneeOption; meId: string }) {
+  ticket, assignees, clientAssignee, meId, canMarkUrgent, departments, platforms, services, hasLinkedTasks,
+}: {
+  ticket: Ticket
+  assignees: AssigneeOption[]
+  clientAssignee?: AssigneeOption
+  meId: string
+  canMarkUrgent: boolean
+  departments: Department[]
+  platforms: Platform[]
+  services: Service[]
+  hasLinkedTasks: boolean
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<Row[]>([emptyRow(ticket)])
@@ -248,7 +281,7 @@ export function CreateTasksModal({
 
   function label(index: number, field: RowField, text: string) {
     return (
-      <label htmlFor={`task-${field}-${index}`} className="label text-xs">
+      <label htmlFor={`task-${field}-${index}`} className="label text-sm">
         {text} <span className="text-red-600" aria-hidden="true">*</span>
       </label>
     )
@@ -287,10 +320,15 @@ export function CreateTasksModal({
           title: r.title.trim(),
           description: r.description.trim(),
           priority: r.priority,
-          department_id: ticket.department_id,
-          platform_id: null,
+          type: r.type,
+          service_id: r.service_id || null,
+          department_id: r.department_id || null,
+          platform_id: r.platform_id || null,
           assignee_id: r.assignee_id,
           due_date: r.due_date,
+          deadline_type: r.deadline_type || null,
+          estimated_hours: r.estimated_hours ? Number(r.estimated_hours) : null,
+          is_urgent: r.is_urgent,
         })),
       )
       if (insertError) {
@@ -351,39 +389,87 @@ export function CreateTasksModal({
 
   return (
     <>
-      <Button size="sm" variant="secondary" className="w-full" onClick={show}>
-        <Plus className="h-3.5 w-3.5" /> Create tasks from this
+      <Button size="sm" variant="primary" className="w-full" onClick={show} disabled={!hasLinkedTasks}>
+        <Plus className="h-3.5 w-3.5" /> Create tasks for {ticketCode(ticket.ticket_number)}
       </Button>
+      {!hasLinkedTasks && <p className="mt-2 text-center text-xs text-slate-500">Create the first task from the New Task form.</p>}
 
-      <Modal open={open} onClose={closeModal} title="Create tasks from this ticket"
-             description="Each row becomes a task linked to this ticket. Assign tasks to one or more people; the ticket automatically becomes Assigned once every active task has an assignee."
+      <Modal open={open} onClose={closeModal} title="Add tasks"
+             description="Create and assign tasks for this ticket."
              size="xl"
              dialogClassName="flex min-h-[min(560px,88vh)] max-h-[92vh] flex-col overflow-hidden rounded-2xl sm:max-w-4xl"
-             headerClassName="border-slate-100 bg-white px-6 py-5 sm:px-7"
-             bodyClassName="flex min-h-0 flex-1 flex-col overflow-y-auto p-0"
-             titleClassName="text-xl font-bold text-slate-900 sm:text-2xl"
+             headerClassName="border-slate-100 bg-white px-6 py-3 sm:px-7"
+             bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-0"
+             titleClassName="text-lg font-bold text-slate-900"
              closeButtonClassName="bg-slate-100 text-slate-600 shadow-sm ring-1 ring-inset ring-slate-200 transition-all hover:rotate-90 hover:bg-red-50 hover:text-red-600 hover:ring-red-200 focus-visible:ring-red-300"
-             headerIcon={<span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-brand-700"><Layers3 className="h-6 w-6" /></span>}>
-        <div data-modal-content className="flex-1 space-y-3 px-6 py-5 sm:px-7">
+             headerIcon={<span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700"><Layers3 className="h-5 w-5" /></span>}>
+        <div data-modal-content className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-5 sm:px-7">
           {rows.map((r, i) => (
-            <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-800">Task {i + 1}</p>
+            <TaskFormCard key={i} enabled>
+              <TaskFormCardTitle title={`Task ${i + 1}`} action={
                 <button type="button" onClick={() => setRows(rows.filter((_, idx) => idx !== i))}
                         disabled={rows.length === 1 || !!createdTaskIds} aria-label={`Remove task ${i + 1}`}
                         className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40">
                   <Trash2 className="h-4 w-4" />
                 </button>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1.35fr)_minmax(130px,1fr)_minmax(90px,0.7fr)]">
-                <div className="min-w-0">
-                  {label(i, 'title', 'Task title')}
-                  <input id={`task-title-${i}`} aria-invalid={!!fieldError(i, 'title')} required disabled={!!createdTaskIds}
-                         className={`input h-9 text-sm ${fieldError(i, 'title') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
-                         placeholder="Enter task title" value={r.title}
-                         onChange={e => update(i, { title: e.target.value })} />
-                  {fieldErrorText(i, 'title')}
-                </div>
+              } />
+              <TaskBasicInformation
+                idPrefix={`task-${i}`}
+                title={r.title}
+                description={r.description}
+                onTitleChange={title => update(i, { title })}
+                onDescriptionChange={description => update(i, { description })}
+                files={r.files}
+                onFilesChange={files => update(i, { files })}
+                onRemoveFile={fileIndex => update(i, { files: r.files.filter((_, n) => n !== fileIndex) })}
+                disabled={!!createdTaskIds}
+                titleError={fieldError(i, 'title')}
+                descriptionError={fieldError(i, 'description')}
+                descriptionRequired
+              />
+              <TaskSectionHeader section="configuration" />
+              <TaskFieldsGrid columns="four">
+                <label className="min-w-0">
+                  <span className="label text-sm">Type</span>
+                  <select className="input h-9 rounded-xl text-sm" value={r.type} disabled={!!createdTaskIds}
+                          onChange={e => update(i, { type: e.target.value as TaskType })}>
+                    {TYPE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+                <label className="min-w-0">
+                  <span className="label text-sm">Service</span>
+                  <select className="input h-9 rounded-xl text-sm" value={r.service_id} disabled={!!createdTaskIds}
+                          onChange={e => {
+                            const serviceId = e.target.value
+                            const service = services.find(item => item.id === serviceId)
+                            update(i, { service_id: serviceId, ...(service?.department_id ? { department_id: service.department_id } : {}) })
+                          }}>
+                    <option value="">—</option>
+                    {services.filter(service => service.is_active || service.id === r.service_id).map(service => (
+                      <option key={service.id} value={service.id}>{service.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="min-w-0">
+                  <span className="label text-sm">Department</span>
+                  <select className="input h-9 rounded-xl text-sm" value={r.department_id} disabled={!!createdTaskIds}
+                          onChange={e => update(i, { department_id: e.target.value })}>
+                    <option value="">—</option>
+                    {departments.map(department => <option key={department.id} value={department.id}>{department.name}</option>)}
+                  </select>
+                </label>
+                <label className="min-w-0">
+                  <span className="label text-sm">Platform</span>
+                  <select className="input h-9 rounded-xl text-sm" value={r.platform_id} disabled={!!createdTaskIds}
+                          onChange={e => update(i, { platform_id: e.target.value })}>
+                    <option value="">—</option>
+                    {platforms.filter(platform => platform.is_active || platform.id === r.platform_id).map(platform => (
+                      <option key={platform.id} value={platform.id}>{platform.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </TaskFieldsGrid>
+              <TaskFieldsGrid columns="three">
                 <div className="min-w-0">
                   {label(i, 'assignee_id', 'Assignee')}
                   <AssigneeSelect id={`task-assignee_id-${i}`} value={r.assignee_id} options={assigneeOptions}
@@ -393,68 +479,57 @@ export function CreateTasksModal({
                   {fieldErrorText(i, 'assignee_id')}
                 </div>
                 <div className="min-w-0">
-                  {label(i, 'due_date', 'Due date')}
-                  <input id={`task-due_date-${i}`} aria-invalid={!!fieldError(i, 'due_date')} required disabled={!!createdTaskIds}
-                         className={`input h-9 text-sm ${fieldError(i, 'due_date') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
-                         type="date" value={r.due_date}
-                         onChange={e => update(i, { due_date: e.target.value })} />
-                  {fieldErrorText(i, 'due_date')}
-                </div>
-                <div className="min-w-0">
                   {label(i, 'priority', 'Priority')}
                   <select id={`task-priority-${i}`} aria-invalid={!!fieldError(i, 'priority')} required disabled={!!createdTaskIds}
-                          className={`input h-9 text-sm ${fieldError(i, 'priority') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
+                          className={`input h-9 rounded-xl text-sm ${fieldError(i, 'priority') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
                           value={r.priority}
                           onChange={e => update(i, { priority: e.target.value as TaskPriority })}>
                     {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                   {fieldErrorText(i, 'priority')}
                 </div>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div className="min-w-0">
-                  {label(i, 'description', 'Description')}
-                  <textarea id={`task-description-${i}`} aria-invalid={!!fieldError(i, 'description')} required disabled={!!createdTaskIds}
-                            className={`input min-h-[76px] resize-y text-sm ${fieldError(i, 'description') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
-                            placeholder="Describe what needs to be done or provided"
-                            value={r.description}
-                            onChange={e => update(i, { description: e.target.value })} />
-                  {fieldErrorText(i, 'description')}
+                  <label htmlFor={`task-estimated-hours-${i}`} className="label text-sm">Estimated hours</label>
+                  <input id={`task-estimated-hours-${i}`} className="input h-9 rounded-xl text-sm" type="number" min="0" step="0.5"
+                         value={r.estimated_hours} placeholder="Enter hours" disabled={!!createdTaskIds}
+                         onChange={e => update(i, { estimated_hours: e.target.value })} />
                 </div>
-                <div className="min-w-0">
-                  <label htmlFor={`task-files-${i}`} className="label text-xs">Attach files</label>
-                  <input id={`task-files-${i}`} type="file" multiple disabled={!!createdTaskIds}
-                         className="sr-only"
-                         onChange={e => {
-                           const selectedFiles = Array.from(e.target.files ?? [])
-                           if (selectedFiles.length) update(i, { files: [...r.files, ...selectedFiles] })
-                           e.currentTarget.value = ''
-                         }} />
-                  <div>
-                    <label htmlFor={`task-files-${i}`}
-                           className={`inline-flex h-9 w-fit max-w-full cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 ${createdTaskIds ? 'pointer-events-none opacity-50' : ''}`}>
-                      Choose files
-                    </label>
-                  </div>
-                  {r.files.length > 0 && (
-                    <ul className="mt-2 space-y-1">
-                      {r.files.map((file, fileIndex) => (
-                        <li key={`${file.name}-${fileIndex}`} className="flex min-w-0 items-center justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
-                          <span className="min-w-0 truncate" title={file.name}>{file.name}</span>
-                          {!createdTaskIds && (
-                            <button type="button" aria-label={`Remove ${file.name}`}
-                                    className="shrink-0 rounded px-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                                    onClick={() => update(i, { files: r.files.filter((_, n) => n !== fileIndex) })}>
-                              ×
-                            </button>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+              </TaskFieldsGrid>
+              <TaskSectionHeader section="deadline" />
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {DEADLINE_OPTIONS.map(deadline => (
+                    <button key={deadline.value} type="button" disabled={!!createdTaskIds}
+                            onClick={() => update(i, r.deadline_type === deadline.value
+                              ? { deadline_type: '', due_date: '' }
+                              : { deadline_type: deadline.value, due_date: dueDateFor(deadline.value) })}
+                            className={cn('inline-flex h-7 items-center rounded-full px-3 text-xs font-medium ring-1 ring-inset transition disabled:opacity-50',
+                              r.deadline_type === deadline.value
+                                ? 'bg-brand-600 text-white ring-brand-600'
+                                : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50')}>
+                      {deadline.label}
+                    </button>
+                  ))}
+                  <input id={`task-due_date-${i}`} type="date"
+                         aria-invalid={!!fieldError(i, 'due_date')} required disabled={!!createdTaskIds}
+                         className={`input h-7 w-auto rounded-full px-3 py-1 text-xs leading-4 ${fieldError(i, 'due_date') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
+                         value={r.due_date}
+                         onChange={e => update(i, { due_date: e.target.value, deadline_type: '' })} />
                 </div>
+                {fieldErrorText(i, 'due_date')}
               </div>
-            </div>
+              {canMarkUrgent && (
+                <label className={cn('mt-3 inline-flex w-fit cursor-pointer items-center gap-2 text-sm',
+                  r.is_urgent ? 'font-medium text-red-700' : 'text-slate-600',
+                  createdTaskIds && 'cursor-not-allowed opacity-50')}>
+                  <input type="checkbox" checked={r.is_urgent} disabled={!!createdTaskIds}
+                         onChange={e => update(i, { is_urgent: e.target.checked })}
+                         className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500" />
+                  <Flame aria-hidden="true" className="h-4 w-4" />
+                  <span>Mark as urgent</span>
+                </label>
+              )}
+            </TaskFormCard>
           ))}
           <button type="button" disabled={!!createdTaskIds} onClick={() => setRows([...rows, emptyRow(ticket)])}
                   className="inline-flex h-9 items-center gap-2 rounded-lg border border-brand-200 bg-transparent px-3 text-sm font-semibold text-brand-700 transition-colors hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50">
@@ -467,7 +542,10 @@ export function CreateTasksModal({
           )}
         </div>
         <div data-modal-footer className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-slate-200 bg-white px-6 py-4 sm:px-7">
-          <p className="hidden text-xs text-slate-500 sm:block">The ticket becomes Assigned when every active task has an assignee.</p>
+          <p className="hidden items-center gap-2 text-xs text-slate-500 sm:flex">
+            <Info aria-hidden="true" className="h-4 w-4 shrink-0" />
+            Tasks will be linked to this ticket.
+          </p>
           <div className="ml-auto flex items-center gap-2">
             <Button variant="secondary" size="lg" className="rounded-xl" disabled={saving} onClick={closeModal}>Cancel</Button>
             <Button loading={saving} size="lg" className="rounded-xl bg-brand-600 shadow-md hover:bg-brand-700" onClick={submit}>

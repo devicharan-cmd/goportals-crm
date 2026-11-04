@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/primitives'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { MarketplacePlatformSelect } from '@/components/shared/Marketplace'
 import { TaskBasicInformation } from '@/components/tasks/TaskBasicInformation'
 import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } from '@/components/tasks/TaskFormSections'
@@ -432,14 +433,14 @@ export function CreateTasksModal({
               <TaskFieldsGrid columns="four">
                 <label className="min-w-0">
                   <span className="label text-sm">Type</span>
-                  <select className="input h-9 rounded-xl text-sm" value={r.type} disabled={!!createdTaskIds}
+                  <SearchableSelect className="input h-9 rounded-xl text-sm" value={r.type} disabled={!!createdTaskIds}
                           onChange={e => update(i, { type: e.target.value as TaskType })}>
                     {TYPE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label className="min-w-0">
                   <span className="label text-sm">Service</span>
-                  <select className="input h-9 rounded-xl text-sm" value={r.service_id} disabled={!!createdTaskIds}
+                  <SearchableSelect className="input h-9 rounded-xl text-sm" value={r.service_id} disabled={!!createdTaskIds}
                           onChange={e => {
                             const serviceId = e.target.value
                             const service = services.find(item => item.id === serviceId)
@@ -449,15 +450,15 @@ export function CreateTasksModal({
                     {services.filter(service => service.is_active || service.id === r.service_id).map(service => (
                       <option key={service.id} value={service.id}>{service.name}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label className="min-w-0">
                   <span className="label text-sm">Department</span>
-                  <select className="input h-9 rounded-xl text-sm" value={r.department_id} disabled={!!createdTaskIds}
+                  <SearchableSelect className="input h-9 rounded-xl text-sm" value={r.department_id} disabled={!!createdTaskIds}
                           onChange={e => update(i, { department_id: e.target.value })}>
                     <option value="">—</option>
                     {departments.map(department => <option key={department.id} value={department.id}>{department.name}</option>)}
-                  </select>
+                  </SearchableSelect>
                 </label>
                 <label className="min-w-0">
                   <span className="label text-sm">Platform</span>
@@ -482,12 +483,12 @@ export function CreateTasksModal({
                 </div>
                 <div className="min-w-0">
                   {label(i, 'priority', 'Priority')}
-                  <select id={`task-priority-${i}`} aria-invalid={!!fieldError(i, 'priority')} required disabled={!!createdTaskIds}
+                  <SearchableSelect id={`task-priority-${i}`} aria-invalid={!!fieldError(i, 'priority')} required disabled={!!createdTaskIds}
                           className={`input h-9 rounded-xl text-sm ${fieldError(i, 'priority') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
                           value={r.priority}
                           onChange={e => update(i, { priority: e.target.value as TaskPriority })}>
                     {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  </SearchableSelect>
                   {fieldErrorText(i, 'priority')}
                 </div>
                 <div className="min-w-0">

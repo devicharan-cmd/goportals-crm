@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
 import { MarketplaceAccountSelect, MarketplacePlatformSelect } from '@/components/shared/Marketplace'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { GUIDELINE_PDFS_PUBLISHED, TICKET_CATEGORIES, TICKET_CATEGORY_BY_VALUE, type TicketFieldDef, type TicketFieldShowIf } from '@/lib/ticket-categories'
 import { cn, errorMessage } from '@/lib/utils'
 import type { TaskPriority, Ticket, TicketCategory } from '@/types/database'
@@ -64,10 +65,10 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
           <textarea className="input min-h-[90px]" required={isRequired} value={details[f.key] ?? ''} placeholder={f.placeholder}
                     onChange={e => setField(f.key, e.target.value)} />
         ) : f.type === 'select' ? (
-          <select className="input" required={isRequired} value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)}>
+          <SearchableSelect className="input" required={isRequired} value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)} placeholder="Select…">
             <option value="">Select…</option>
             {f.options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          </SearchableSelect>
         ) : f.type === 'platform' ? (
           <MarketplacePlatformSelect
             platforms={platforms}
@@ -163,10 +164,10 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
           <Field label="Client"><p className="text-sm font-medium text-slate-800">{clients.find(c => c.id === clientId)?.company_name ?? '—'}</p></Field>
         ) : (
           <Field label="Client" required>
-            <select className="input" value={clientId} onChange={e => { setClientId(e.target.value); setAccountId('') }}>
+            <SearchableSelect className="input" value={clientId} onChange={e => { setClientId(e.target.value); setAccountId('') }} placeholder="Select client…" searchable searchPlaceholder="Search clients...">
               <option value="">Select client…</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-            </select>
+            </SearchableSelect>
           </Field>
         )
       )}

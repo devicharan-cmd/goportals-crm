@@ -4,7 +4,7 @@ import { addWeeks, differenceInHours, format, startOfMonth, startOfWeek } from '
 import { AlarmClock, ArrowLeft, CheckCircle2, Clock, Gauge, ListTodo, Mail, Plus, Target, Timer } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { assigneeOptionsFor, getStaffLookups, nameMap, profileIdsSharingDepartment, TASK_LIST_SELECT } from '@/lib/queries'
+import { assigneeOptionsFor, getStaffLookups, nameMap, profileIdsReportingTo, TASK_LIST_SELECT } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader, StatCard } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
@@ -29,10 +29,10 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
   if (!personData) notFound()
   const person = personData as Profile
   if (person.role === 'client') notFound()
-  // Team leads only look at employees in a department they share, or themselves.
-  if (me.role === 'team_lead') {
-    const shared = profileIdsSharingDepartment(me.id, lookups).has(person.id)
-    if (person.id !== me.id && (person.role !== 'employee' || !shared)) redirect('/team')
+  // Managers and team leads only look at people in their reporting hierarchy, or themselves.
+  if (me.role !== 'super_admin') {
+    const reporting = profileIdsReportingTo(me.id, lookups).has(person.id)
+    if (person.id !== me.id && !reporting) redirect('/team')
   }
 
   const tasks = (taskData ?? []) as TaskListItem[]
@@ -74,7 +74,7 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
 
   return (
     <>
-      <Link href="/team" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Team</Link>
+      <Link href="/team" className="mb-4 -ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Team</Link>
 
       {/* Header */}
       <Card className="mb-6 p-6">

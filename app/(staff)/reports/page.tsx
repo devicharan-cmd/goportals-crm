@@ -6,6 +6,7 @@ import { nameMap } from '@/lib/queries'
 import { dateKeyInTimeZone } from '@/lib/utils'
 import { Card, CardHeader, PageHeader, StatCard } from '@/components/ui/primitives'
 import { PrintButton } from '@/components/shared/PrintButton'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import type { Task } from '@/types/database'
 
 export const metadata = { title: 'Reports' }
@@ -93,9 +94,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: { mo
         actions={
           <>
             <form className="no-print">
-              <select name="month" defaultValue={month} className="input h-9 w-auto py-1.5">
+              <SearchableSelect name="month" defaultValue={month} className="input h-9 w-auto py-1.5" aria-label="Report month" searchPlaceholder="Search months...">
                 {monthOptions.map(m => <option key={m} value={m}>{format(parse(m, 'yyyy-MM', new Date()), 'MMMM yyyy')}</option>)}
-              </select>
+              </SearchableSelect>
               <button className="ml-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200">Show</button>
             </form>
             <PrintButton />

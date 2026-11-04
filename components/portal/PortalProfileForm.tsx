@@ -11,6 +11,9 @@ import { AddressPicker, type AddressValue } from '@/components/shared/AddressPic
 import { ProfileImageControl } from '@/components/shared/ProfileImageControl'
 import { errorMessage, formatDate } from '@/lib/utils'
 import type { Client } from '@/types/database'
+import { InternationalPhoneField } from '@/components/shared/InternationalPhoneField'
+import { TimezoneSelect } from '@/components/shared/TimezoneSelect'
+import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
 
 /**
  * Client edits their own basic details + address only. Platform/service/price are
@@ -29,6 +32,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
     contact_name:         client.contact_name ?? '',
     contact_email:        client.contact_email ?? '',
     contact_phone:        client.contact_phone ?? '',
+    timezone:             client.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'Asia/Kolkata',
     whatsapp_group_link:  client.whatsapp_group_link ?? '',
   })
   const savedAddress = (): AddressValue => ({
@@ -139,6 +143,15 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
     setSaving(true)
     setError('')
     setSaved(false)
+    const phoneError = validateMobilePhone(form.contact_phone)
+    if (phoneError) {
+      setSaving(false)
+      return setError(phoneError)
+    }
+    if (!isValidTimeZone(form.timezone)) {
+      setSaving(false)
+      return setError('Select a valid timezone.')
+    }
     const supabase = createClient()
     const updates: Partial<Client> = {
       company_name:        form.company_name.trim(),
@@ -146,6 +159,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
       contact_name:         form.contact_name.trim() || null,
       contact_email:        form.contact_email.trim() || null,
       contact_phone:        form.contact_phone.trim() || null,
+      timezone:             form.timezone,
       whatsapp_group_link:  form.whatsapp_group_link.trim() || null,
       address_line: address.address_line.trim() || null,
       city: address.city.trim() || null,
@@ -232,7 +246,12 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
           </Field>
           <Field label="Contact name"><input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.contact_name} onChange={e => setForm({ ...form, contact_name: e.target.value })} /></Field>
           <Field label="Contact email"><input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" type="email" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} /></Field>
-          <Field label="Phone"><input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.contact_phone} onChange={e => setForm({ ...form, contact_phone: e.target.value })} /></Field>
+          <Field label="Mobile number" required>
+            <InternationalPhoneField value={form.contact_phone} disabled={!editing} onChange={value => setForm({ ...form, contact_phone: value })} />
+          </Field>
+          <Field label="Timezone" required>
+            <TimezoneSelect value={form.timezone} onChange={value => setForm({ ...form, timezone: value })} disabled={!editing} />
+          </Field>
           <Field label="GSTIN"><input className="input uppercase disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value })} /></Field>
           <Field label="WhatsApp group link" className="sm:col-span-2"><input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.whatsapp_group_link} onChange={e => setForm({ ...form, whatsapp_group_link: e.target.value })} /></Field>
         </div>

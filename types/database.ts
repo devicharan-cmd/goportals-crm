@@ -26,6 +26,7 @@ export interface Profile {
   email: string
   full_name: string
   phone: string | null
+  timezone: string | null
   role: AppRole
   status: AccountStatus
   reporting_to: string | null
@@ -35,6 +36,12 @@ export interface Profile {
   avatar_url: string | null
   created_at: string
   updated_at: string
+}
+
+export interface StaffProfileDetails {
+  profile_id: string
+  current_address: string | null
+  permanent_address: string | null
 }
 
 export interface StaffDirectoryEntry {
@@ -78,6 +85,7 @@ export interface Client {
   contact_name: string | null
   contact_email: string | null
   contact_phone: string | null
+  timezone: string | null
   whatsapp_group_link: string | null
   company_profile_image_path: string | null
   owner_id: string | null

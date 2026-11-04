@@ -49,7 +49,7 @@ export default async function UrgentPage() {
                   <li key={t.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
                     <Link href={`/tickets/${t.id}`} className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-semibold text-slate-400">{ticketCode(t.ticket_number)}</span>
+                        <span className="font-mono text-xs font-semibold text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>
                         {t.priority && <PriorityBadge priority={t.priority} />}
                         <p className="truncate font-semibold text-slate-900 hover:text-brand-700">{t.subject}</p>
                       </div>
@@ -71,7 +71,7 @@ export default async function UrgentPage() {
                   <li key={t.id}>
                     <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-slate-400">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
+                        <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                         <p className="text-xs text-slate-500">{t.client?.company_name}</p>
                       </div>
                       <StatusBadge label={TICKET_STATUS_LABELS[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} />

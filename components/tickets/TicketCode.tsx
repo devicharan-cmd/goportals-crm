@@ -20,7 +20,7 @@ export function TicketCode({ code }: { code: string }) {
 
   return (
     <span className="inline-flex items-center gap-1">
-      <span className="text-sm font-normal leading-4 text-[#0F172A]">{code}</span>
+      <span className="text-sm font-normal leading-4 text-[#7DAA24]">{code}</span>
       <button
         type="button"
         onClick={copyTicketCode}

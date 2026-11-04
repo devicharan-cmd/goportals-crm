@@ -23,7 +23,7 @@ export default async function NewPortalTicketPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader
-        back={<Link href="/portal/tickets" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> My tickets</Link>}
+        back={<Link href="/portal/tickets" className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> My tickets</Link>}
       />
       <PortalTicketForm accounts={options} platforms={platforms ?? []} meId={me.id} />
     </div>

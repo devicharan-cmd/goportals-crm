@@ -125,6 +125,25 @@ export function profileIdsSharingDepartment(profileId: string, lookups: StaffLoo
   )
 }
 
+/** Direct and nested staff reporting descendants for a profile. */
+export function profileIdsReportingTo(profileId: string, lookups: StaffLookups): Set<string> {
+  const descendants = new Set<string>()
+  const pending = [profileId]
+
+  while (pending.length > 0) {
+    const parentId = pending.pop()!
+    for (const person of lookups.people) {
+      if (person.reporting_to === parentId && !descendants.has(person.id)) {
+        descendants.add(person.id)
+        pending.push(person.id)
+      }
+    }
+  }
+
+  descendants.delete(profileId)
+  return descendants
+}
+
 /** People a user may assign to — mirrors can_assign() in the DB. */
 export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
   if (me.role === 'super_admin' || me.role === 'admin') return lookups.staff

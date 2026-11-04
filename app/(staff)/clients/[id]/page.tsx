@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, FileSignature, Mail, MessageCircle, Phone, Plus } from 'lucide-react'
+import { ArrowLeft, FileSignature, Mail, MapPin, MessageCircle, Phone, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
 import { assigneeOptionsFor, getStaffLookups, nameMap, TASK_LIST_SELECT } from '@/lib/queries'
@@ -37,6 +37,10 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     ])
   if (!clientData) notFound()
   const client = clientData as Client
+  const companyAddressParts = [client.address_line, client.city, client.state, client.postal_code, client.country]
+    .filter((part): part is string => !!part?.trim())
+    .filter((part, index, parts) => !parts.slice(0, index).some(previous => previous.toLowerCase().includes(part.toLowerCase())))
+  const companyAddress = companyAddressParts.join(', ')
   const { data: companyImage } = client.company_profile_image_path
     ? await supabase.storage.from('client-profile-images').createSignedUrl(client.company_profile_image_path, 3600)
     : { data: null }
@@ -63,7 +67,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   return (
     <>
-      <Link href="/clients" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Clients</Link>
+      <Link href="/clients" className="mb-4 -ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Clients</Link>
 
       {/* Header */}
       <Card className="mb-6 p-6">
@@ -82,6 +86,10 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               {client.whatsapp_group_link && <a href={client.whatsapp_group_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-lime-700 hover:text-lime-800"><MessageCircle className="h-3.5 w-3.5" />WhatsApp group</a>}
               {client.gstin && <span>GSTIN {client.gstin}</span>}
             </div>
+            <p className="mt-2 flex items-start gap-1.5 text-sm text-slate-500">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{companyAddress || 'Company address not provided'}</span>
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isSuperAdmin && client.status === 'pending' && (

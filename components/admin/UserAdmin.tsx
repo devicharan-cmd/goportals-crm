@@ -1,26 +1,108 @@
 'use client'
 
 import { createPortal } from 'react-dom'
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Check, ChevronDown, Mail, Search, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
+import Link from 'next/link'
+import { Building2, Check, ChevronDown, Layers3, Mail, MoreHorizontal, Phone, Search, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
-import { Alert, Avatar, Field } from '@/components/ui/primitives'
+import { Alert, Avatar, EmptyState, Field } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
 import { cn, errorMessage, formatRelative } from '@/lib/utils'
 import type { AccountStatus, AppRole, Department, Invite, StaffRole } from '@/types/database'
 
 export type StaffRow = {
   id: string; full_name: string; email: string; role: StaffRole; status: AccountStatus
-  job_title: string | null; weekly_capacity_hours: number; departmentIds: string[]
+  job_title: string | null; weekly_capacity_hours: number; created_at: string; departmentIds: string[]
+  reporting_to: string | null; reporting_to_name: string | null; avatar_url: string | null; phone: string | null
+  current_address: string | null; permanent_address: string | null
 }
 
 export type ReportingPerson = { id: string; full_name: string; email: string; avatar_url: string | null; role: StaffRole; status: AccountStatus }
-type ReportingDropdownPosition = { left: number; top: number; width: number; maxHeight: number }
+type ReportingDropdownPosition = { left: number; top: number; width: number; maxHeight: number; openBelow: boolean }
+
+export function StaffDirectory({ rows, departments, canEdit, inviteButton }: {
+  rows: StaffRow[]; departments: Department[]; canEdit: boolean; inviteButton: ReactNode
+}) {
+  const [query, setQuery] = useState('')
+  const [role, setRole] = useState('')
+  const [departmentId, setDepartmentId] = useState('')
+  const departmentNames = useMemo(() => new Map(departments.map(department => [department.id, department.name])), [departments])
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+    return rows.filter(row => {
+      if (role && row.role !== role) return false
+      if (departmentId && !row.departmentIds.includes(departmentId)) return false
+      if (!normalizedQuery) return true
+      const searchableText = [
+        row.full_name, row.email, row.job_title ?? '', ROLE_LABELS[row.role],
+        ...row.departmentIds.map(id => departmentNames.get(id) ?? ''),
+      ].join(' ').toLowerCase()
+      return searchableText.includes(normalizedQuery)
+    })
+  }, [departmentId, departmentNames, query, role, rows])
+
+  return (
+    <>
+      <div className="flex flex-col gap-1 border-b border-slate-100 px-5 py-4">
+        <h2 className="text-base font-semibold text-slate-900">Team management ({rows.length})</h2>
+        <p className="text-xs text-slate-500">
+          Manage team roles, departments, and capacity. Managers can see every department; Team Leads can see and assign within their own.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 items-center gap-2 border-b border-slate-100 p-4 sm:grid-cols-[minmax(0,1fr)_130px_150px_auto]">
+        <label className="relative min-w-0 flex-1">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            placeholder="Search team members..."
+            aria-label="Search team members"
+            className="input h-9 w-full min-w-0 rounded-xl pl-9 text-sm focus:border-brand-600 focus:outline-none focus:ring-0 focus:shadow-none"
+          />
+        </label>
+        <SearchableSelect
+          className="input h-9 w-[130px] shrink-0 rounded-xl py-1.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-0 focus:shadow-none"
+          aria-label="Filter by role"
+          value={role}
+          onChange={event => setRole(event.target.value)}
+        >
+          <option value="">All roles</option>
+          {(['super_admin', 'admin', 'team_lead', 'employee'] as StaffRole[]).map(value => (
+            <option key={value} value={value}>{ROLE_LABELS[value]}</option>
+          ))}
+        </SearchableSelect>
+        <SearchableSelect
+          className="input h-9 w-[150px] shrink-0 rounded-xl py-1.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-0 focus:shadow-none"
+          aria-label="Filter by department"
+          searchable
+          searchPlaceholder="Search departments..."
+          value={departmentId}
+          onChange={event => setDepartmentId(event.target.value)}
+        >
+          <option value="">All departments</option>
+          {departments.map(department => <option key={department.id} value={department.id}>{department.name}</option>)}
+        </SearchableSelect>
+        <div className="shrink-0">{inviteButton}</div>
+      </div>
+      {filteredRows.length ? (
+        <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredRows.map(row => (
+            <StaffProfileCard key={row.id} row={row} departments={departments} canEdit={canEdit} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState title="No team members found" description="Try changing your search or filters." />
+      )}
+    </>
+  )
+}
 
 function reportingRoleFor(role: StaffRole | ''): StaffRole | null {
   if (role === 'admin') return 'super_admin'
@@ -93,7 +175,7 @@ function ReportingToField({
       const availableAbove = Math.max(0, buttonRect.top - boundsTop - 8)
       const openBelow = availableBelow >= availableAbove
       const maxHeight = Math.min(320, openBelow ? availableBelow : availableAbove)
-      setPosition({ left, top: openBelow ? buttonRect.bottom + 8 : buttonRect.top - maxHeight - 8, width, maxHeight })
+      setPosition({ left, top: openBelow ? buttonRect.bottom + 8 : buttonRect.top - maxHeight - 8, width, maxHeight, openBelow })
     }
 
     updatePosition()
@@ -106,6 +188,15 @@ function ReportingToField({
       window.removeEventListener('scroll', updatePosition, true)
     }
   }, [open])
+
+  useLayoutEffect(() => {
+    if (!open || !position || position.openBelow) return
+    const button = buttonRef.current
+    const dropdown = dropdownRef.current
+    if (!button || !dropdown) return
+    const top = button.getBoundingClientRect().top - dropdown.getBoundingClientRect().height - 8
+    setPosition(current => current && current.top !== top ? { ...current, top } : current)
+  }, [open, position])
 
   useLayoutEffect(() => {
     if (!open) return
@@ -139,8 +230,8 @@ function ReportingToField({
         type="button"
         disabled={disabled || options.length === 0}
         className={cn(
-          'input flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-50',
-          error && 'border-red-500 focus:border-red-500',
+          'input flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm focus:!shadow-none focus:!ring-0 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50',
+          error && 'border-red-500 focus:border-red-500 focus:!shadow-none',
         )}
         aria-invalid={!!error}
         aria-describedby={error ? `${idPrefix}-error` : undefined}
@@ -160,7 +251,7 @@ function ReportingToField({
       {open && position && typeof document !== 'undefined' && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed z-[1200] overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl ring-1 ring-black/5"
+          className="fixed z-[1200] overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
           style={{ left: position.left, top: position.top, width: position.width, maxHeight: position.maxHeight }}
         >
           <div className="relative mb-2">
@@ -172,7 +263,7 @@ function ReportingToField({
               onChange={event => setSearch(event.target.value)}
               placeholder="Search people..."
               aria-label="Search reporting people"
-              className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-100"
+              className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-brand-500 focus:bg-white focus:shadow-none focus:ring-0"
             />
           </div>
           <div
@@ -294,9 +385,10 @@ function emptyInviteUserForm() {
   return { kind: 'client' as 'client' | 'staff', full_name: '', email: '', role: '' as StaffRole | '', reporting_to: '', job_title: '', department_ids: [] as string[] }
 }
 
-type StaffInviteErrors = Partial<Record<'full_name' | 'email' | 'role' | 'reporting_to' | 'job_title', string>>
-type StaffInviteField = keyof StaffInviteErrors
-type StaffInviteValues = { full_name: string; email: string; role: StaffRole | ''; reporting_to: string; job_title: string }
+type StaffInviteErrors = Partial<Record<'full_name' | 'email' | 'role' | 'reporting_to' | 'job_title' | 'departments', string>>
+type StaffInviteField = Exclude<keyof StaffInviteErrors, 'departments'>
+type StaffInviteTouched = Partial<Record<StaffInviteField | 'departments', boolean>>
+type StaffInviteValues = { full_name: string; email: string; role: StaffRole | ''; reporting_to: string; job_title: string; department_ids: string[] }
 
 function validateStaffInviteField(field: StaffInviteField, value: string | StaffRole) {
   const trimmedValue = value.trim()
@@ -324,13 +416,99 @@ function validateStaffInvite(form: StaffInviteValues, people: ReportingPerson[])
       ? 'Select an eligible Reporting To person.'
       : 'No eligible Reporting To person is available.'
   }
+  if (form.department_ids.length === 0) {
+    errors.departments = 'Select at least one department.'
+  }
   return errors
 }
 
 function inviteInputClass(invalid: boolean) {
   return cn(
-    'input focus:outline-none focus:ring-0 focus:shadow-none',
+    'input rounded-xl focus:outline-none focus:ring-0 focus:shadow-none',
     invalid ? 'border-red-500 focus:border-red-500' : 'focus:border-brand-600',
+  )
+}
+
+export function StaffProfileCard({ row, departments, canEdit }: {
+  row: StaffRow; departments: Department[]; canEdit: boolean
+}) {
+  const departmentsById = new Map(departments.map(department => [department.id, department.name]))
+
+  return (
+    <article
+      className="relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card"
+    >
+        <div className="pointer-events-none relative z-30 h-32 overflow-hidden rounded-t-2xl bg-gradient-to-br from-sky-400 via-sky-300 to-blue-400">
+          <div aria-hidden="true" className="pointer-events-none absolute -bottom-8 left-[-10%] h-24 w-[120%] rounded-[50%] bg-white" />
+          <Badge className={cn('absolute left-3 top-3 z-10', row.status === 'active'
+            ? 'bg-lime-50 text-lime-700 ring-lime-200'
+            : 'bg-slate-100 text-slate-600 ring-slate-200')}>
+            <span className={cn('h-1.5 w-1.5 rounded-full', row.status === 'active' ? 'bg-lime-500' : 'bg-slate-400')} />
+            {row.status === 'active' ? 'Active' : 'Suspended'}
+          </Badge>
+          {canEdit && (
+            <span aria-hidden="true"
+                  onClick={event => event.stopPropagation()}
+                  className="pointer-events-auto absolute right-3 top-3 z-30 inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-sky-100 text-brand-800 shadow-sm">
+              <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+            </span>
+          )}
+          <Avatar name={row.full_name || row.email} src={row.avatar_url} role={row.role} size="lg"
+            className={cn('absolute left-1/2 top-8 z-10 h-20 w-20 -translate-x-1/2 border-4 border-white text-2xl shadow-sm', row.status !== 'active' && 'grayscale')} />
+        </div>
+        <div className="pointer-events-none relative z-30 flex flex-1 flex-col bg-white px-3.5 pb-4 pt-2">
+          <div className="text-center">
+            <p title={row.full_name || row.email} className="truncate text-base font-bold leading-6 text-slate-900">
+              {row.full_name.trim() || '--'}
+            </p>
+            <p title={row.job_title || undefined} className="mt-0.5 truncate text-sm leading-5 text-slate-500">{row.job_title?.trim() || '--'}</p>
+            <Badge className="mt-2 bg-sky-100 text-blue-700 ring-sky-200">{ROLE_LABELS[row.role]}</Badge>
+          </div>
+
+          <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3 text-xs">
+            <div className="flex min-w-0 items-center gap-2">
+              <Mail aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-700" />
+              {row.email.trim()
+                ? <a href={`mailto:${row.email}`} title={row.email} onClick={event => event.stopPropagation()} className="pointer-events-auto block min-w-0 flex-1 truncate whitespace-nowrap text-slate-900 hover:text-brand-700">{row.email}</a>
+                : <span className="text-slate-800">--</span>}
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <Phone aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-700" />
+              {row.phone?.trim()
+                ? <a href={`tel:${row.phone.trim().replace(/[^+\d]/g, '')}`} onClick={event => event.stopPropagation()} className="pointer-events-auto truncate whitespace-nowrap text-slate-900 hover:text-brand-700">{row.phone}</a>
+                : <span className="text-slate-900">--</span>}
+            </div>
+          </div>
+
+          <div className="mt-3 space-y-2.5 border-t border-slate-100 pt-3 text-xs">
+            <div className="flex min-w-0 items-start gap-2">
+              <UsersRound aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-700" />
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">Reporting To</p>
+                <p className="break-words font-medium text-slate-900">{row.reporting_to_name?.trim() || '--'}</p>
+              </div>
+            </div>
+            <div className="flex min-w-0 items-start gap-2">
+              <Layers3 aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-700" />
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">Departments</p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {row.departmentIds.map(id => departmentsById.get(id)).filter((name): name is string => !!name).length
+                    ? row.departmentIds.map(id => departmentsById.get(id)).filter((name): name is string => !!name).map(name => (
+                      <span key={name} className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-900">{name}</span>
+                    ))
+                    : <span className="text-slate-900">--</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      <Link
+        href={`/admin/users/${row.id}`}
+        aria-label={`View ${row.full_name || row.email} staff profile`}
+        className="absolute inset-0 z-20 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600"
+      />
+    </article>
   )
 }
 
@@ -397,9 +575,9 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
                  onBlur={e => e.target.value !== (row.job_title ?? '') && update({ job_title: e.target.value || null })}
                  spellCheck={false} autoCorrect="off" className="input h-8 w-44 py-1 text-xs" />
           {canEditProfile ? (
-            <select value={row.role} disabled={busy || isMe} onChange={e => update({ role: e.target.value })} className="input h-8 w-auto py-1 text-xs">
+            <SearchableSelect value={row.role} disabled={busy || isMe} onChange={e => update({ role: e.target.value })} className="h-8 w-auto py-1 text-xs">
               {(['super_admin', 'admin', 'team_lead', 'employee'] as StaffRole[]).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
-            </select>
+            </SearchableSelect>
           ) : (
             <span className={cn('rounded-md border bg-white px-2 py-1 text-xs font-medium transition-colors', ROLE_STYLES[row.role].badge)}>{ROLE_LABELS[row.role]}</span>
           )}
@@ -409,11 +587,11 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
                    className="input h-8 w-16 py-1 text-xs" /> h/wk
           </label>
           {canEditProfile ? (
-            <select value={row.status} disabled={busy || isMe} onChange={e => update({ status: e.target.value })}
+            <SearchableSelect value={row.status} disabled={busy || isMe} onChange={e => update({ status: e.target.value })}
                     className={cn('input h-8 w-auto py-1 text-xs', row.status !== 'active' && 'text-red-700')}>
               <option value="active">Active</option>
               <option value="suspended">Suspended</option>
-            </select>
+            </SearchableSelect>
           ) : (
             <span className={cn('rounded-md bg-slate-100 px-2 py-1 text-xs font-medium', row.status !== 'active' ? 'text-red-700' : 'text-slate-600')}>
               {row.status === 'active' ? 'Active' : 'Suspended'}
@@ -448,14 +626,14 @@ export function InviteStaffButton({
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [errors, setErrors] = useState<StaffInviteErrors>({})
-  const [touched, setTouched] = useState<Partial<Record<StaffInviteField, boolean>>>({})
+  const [touched, setTouched] = useState<StaffInviteTouched>({})
   const empty = { full_name: '', email: '', role: onlyEmployees ? 'employee' as StaffRole : '' as StaffRole | '', reporting_to: '', job_title: '', department_ids: [] as string[] }
   const [form, setForm] = useState(empty)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     const validationErrors = validateStaffInvite(form, reportingPeople)
-    setTouched({ full_name: true, email: true, role: true, reporting_to: true, job_title: true })
+    setTouched({ full_name: true, email: true, role: true, reporting_to: true, job_title: true, departments: true })
     setErrors(validationErrors)
     if (Object.keys(validationErrors).length) return
     setBusy(true); setMsg(null)
@@ -494,9 +672,8 @@ export function InviteStaffButton({
                    />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-4">
             <Field label="Role" required error={errors.role} errorId="staff-invite-role-error">
-              <select className={inviteInputClass(!!errors.role)} aria-invalid={!!errors.role} aria-describedby={errors.role ? 'staff-invite-role-error' : undefined} value={form.role || ''} disabled={onlyEmployees}
+              <SearchableSelect className={inviteInputClass(!!errors.role)} aria-invalid={!!errors.role} aria-describedby={errors.role ? 'staff-invite-role-error' : undefined} value={form.role || ''} disabled={onlyEmployees}
                       onChange={e => {
                         const value = e.currentTarget.value as StaffRole | ''
                         const options = reportingOptionsFor(value, reportingPeople)
@@ -515,20 +692,8 @@ export function InviteStaffButton({
                 {roles.includes('team_lead') && <option value="team_lead">Team Lead</option>}
                 {roles.includes('admin') && <option value="admin">Manager</option>}
                 {roles.includes('super_admin') && <option value="super_admin">Super Admin</option>}
-              </select>
+              </SearchableSelect>
             </Field>
-            <ReportingToField
-              role={form.role}
-              people={reportingPeople}
-              value={form.reporting_to}
-              error={errors.reporting_to}
-              idPrefix="staff-invite-reporting"
-              onChange={value => {
-                setForm(current => ({ ...current, reporting_to: value }))
-                setErrors(current => ({ ...current, reporting_to: touched.reporting_to ? validateStaffInviteField('reporting_to', value) : undefined }))
-              }}
-            />
-            </div>
             <Field label="Job title" required error={errors.job_title} errorId="staff-invite-title-error">
               <input className={inviteInputClass(!!errors.job_title)} aria-invalid={!!errors.job_title} aria-describedby={errors.job_title ? 'staff-invite-title-error' : undefined} value={form.job_title}
                      onChange={e => {
@@ -539,13 +704,31 @@ export function InviteStaffButton({
                      placeholder="e.g. Ads Executive" spellCheck={false} autoCorrect="off" />
             </Field>
           </div>
-          <Field label="Departments" hint="Team Leads see the tasks and tickets of their departments.">
+          <ReportingToField
+            role={form.role}
+            people={reportingPeople}
+            value={form.reporting_to}
+            error={errors.reporting_to}
+            idPrefix="staff-invite-reporting"
+            onChange={value => {
+              setForm(current => ({ ...current, reporting_to: value }))
+              setErrors(current => ({ ...current, reporting_to: touched.reporting_to ? validateStaffInviteField('reporting_to', value) : undefined }))
+            }}
+          />
+          <Field label="Departments" required error={errors.departments} errorId="staff-invite-departments-error" hint="Team Leads see the tasks and tickets of their departments.">
             <div className="flex flex-wrap gap-1.5">
               {departments.map(d => {
                 const on = form.department_ids.includes(d.id)
                 return (
                   <button type="button" key={d.id}
-                          onClick={() => setForm({ ...form, department_ids: on ? form.department_ids.filter(x => x !== d.id) : [...form.department_ids, d.id] })}
+                          aria-pressed={on}
+                          onClick={() => {
+                            const departmentIds = on ? form.department_ids.filter(x => x !== d.id) : [...form.department_ids, d.id]
+                            setForm(current => ({ ...current, department_ids: departmentIds }))
+                            if (touched.departments) {
+                              setErrors(current => ({ ...current, departments: departmentIds.length ? undefined : 'Select at least one department.' }))
+                            }
+                          }}
                           className={cn('rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset',
                             on ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-300')}>
                     {d.name}
@@ -580,7 +763,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [errors, setErrors] = useState<StaffInviteErrors>({})
-  const [touched, setTouched] = useState<Partial<Record<StaffInviteField, boolean>>>({})
+  const [touched, setTouched] = useState<StaffInviteTouched>({})
   const [form, setForm] = useState(emptyInviteUserForm)
 
   function closeModal() {
@@ -594,7 +777,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setTouched(form.kind === 'staff'
-      ? { full_name: true, email: true, role: true, reporting_to: true, job_title: true }
+      ? { full_name: true, email: true, role: true, reporting_to: true, job_title: true, departments: true }
       : { email: true })
     if (form.kind === 'staff') {
       const validationErrors = validateStaffInvite(form, reportingPeople)
@@ -678,9 +861,8 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
           {form.kind === 'staff' ? (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-4">
-                  <Field label="Role" required error={errors.role} errorId="add-user-role-error">
-                  <select className={inviteInputClass(!!errors.role)} aria-invalid={!!errors.role} aria-describedby={errors.role ? 'add-user-role-error' : undefined} value={form.role || ''}
+                <Field label="Role" required error={errors.role} errorId="add-user-role-error">
+                  <SearchableSelect className={inviteInputClass(!!errors.role)} aria-invalid={!!errors.role} aria-describedby={errors.role ? 'add-user-role-error' : undefined} value={form.role || ''}
                           onChange={e => {
                             const value = e.currentTarget.value as StaffRole | ''
                             const options = reportingOptionsFor(value, reportingPeople)
@@ -696,20 +878,8 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
                           >
                     <option value="">Select role</option>
                     {staffRoleOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                  </Field>
-                  <ReportingToField
-                    role={form.role}
-                    people={reportingPeople}
-                    value={form.reporting_to}
-                    error={errors.reporting_to}
-                    idPrefix="add-user-reporting"
-                    onChange={value => {
-                      setForm(current => ({ ...current, reporting_to: value }))
-                      setErrors(current => ({ ...current, reporting_to: touched.reporting_to ? validateStaffInviteField('reporting_to', value) : undefined }))
-                    }}
-                  />
-                </div>
+                  </SearchableSelect>
+                </Field>
                 <Field label="Job title" required error={errors.job_title} errorId="add-user-title-error">
                   <input className={inviteInputClass(!!errors.job_title)} aria-invalid={!!errors.job_title} aria-describedby={errors.job_title ? 'add-user-title-error' : undefined} value={form.job_title}
                          onChange={e => {
@@ -720,13 +890,31 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
                          placeholder="e.g. Ads Executive" spellCheck={false} autoCorrect="off" />
                 </Field>
               </div>
-              <Field label="Departments" hint="Team Leads see the tasks and tickets of their departments.">
+              <ReportingToField
+                role={form.role}
+                people={reportingPeople}
+                value={form.reporting_to}
+                error={errors.reporting_to}
+                idPrefix="add-user-reporting"
+                onChange={value => {
+                  setForm(current => ({ ...current, reporting_to: value }))
+                  setErrors(current => ({ ...current, reporting_to: touched.reporting_to ? validateStaffInviteField('reporting_to', value) : undefined }))
+                }}
+              />
+              <Field label="Departments" required error={errors.departments} errorId="add-user-departments-error" hint="Team Leads see the tasks and tickets of their departments.">
                 <div className="flex flex-wrap gap-1.5">
                   {departments.map(d => {
                     const on = form.department_ids.includes(d.id)
                     return (
                       <button type="button" key={d.id}
-                              onClick={() => setForm({ ...form, department_ids: on ? form.department_ids.filter(x => x !== d.id) : [...form.department_ids, d.id] })}
+                              aria-pressed={on}
+                              onClick={() => {
+                                const departmentIds = on ? form.department_ids.filter(x => x !== d.id) : [...form.department_ids, d.id]
+                                setForm(current => ({ ...current, department_ids: departmentIds }))
+                                if (touched.departments) {
+                                  setErrors(current => ({ ...current, departments: departmentIds.length ? undefined : 'Select at least one department.' }))
+                                }
+                              }}
                               className={cn('rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset',
                                 on ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-300')}>
                         {d.name}

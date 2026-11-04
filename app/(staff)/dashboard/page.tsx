@@ -191,7 +191,7 @@ export default async function DashboardPage() {
                       <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                         {t.priority ? <PriorityBadge priority={t.priority} /> : <span className="w-7 text-center text-xs text-slate-300">—</span>}
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-slate-400">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
+                          <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                           <p className="truncate text-xs text-slate-500">{t.client?.company_name} · {formatRelative(t.created_at)}</p>
                         </div>
                       </Link>

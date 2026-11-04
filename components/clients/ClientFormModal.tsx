@@ -9,8 +9,13 @@ import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
 import { HealthBar } from '@/components/clients/HealthBar'
 import { MarketplacePlatformSelect } from '@/components/shared/Marketplace'
+import { AddressPicker, EMPTY_ADDRESS, type AddressValue } from '@/components/shared/AddressPicker'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { errorMessage } from '@/lib/utils'
 import type { BillingType, Client, ClientInternal, Platform, Service } from '@/types/database'
+import { InternationalPhoneField } from '@/components/shared/InternationalPhoneField'
+import { TimezoneSelect } from '@/components/shared/TimezoneSelect'
+import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
 
 let draftKeySeq = 0
 const newDraftKey = () => `d${++draftKeySeq}`
@@ -38,6 +43,7 @@ export function ClientFormModal({
     contact_name:        client?.contact_name ?? '',
     contact_email:       client?.contact_email ?? '',
     contact_phone:       client?.contact_phone ?? '',
+    timezone:            client?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'Asia/Kolkata',
     whatsapp_group_link: client?.whatsapp_group_link ?? '',
     health_score:        String(internal?.health_score ?? 70),
     contract_start:      internal?.contract_start ?? '',
@@ -48,6 +54,17 @@ export function ClientFormModal({
   })
   const [accountDrafts, setAccountDrafts] = useState<AccountDraft[]>([])
   const [serviceDrafts, setServiceDrafts] = useState<ServiceDraft[]>([])
+  const [address, setAddress] = useState<AddressValue>({
+    address_line: client?.address_line ?? '',
+    city: client?.city ?? '',
+    state: client?.state ?? '',
+    postal_code: client?.postal_code ?? '',
+    country: client?.country ?? EMPTY_ADDRESS.country,
+    latitude: client?.latitude ?? null,
+    longitude: client?.longitude ?? null,
+    place_id: client?.place_id ?? null,
+    address_source: client?.address_source ?? null,
+  })
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(f => ({ ...f, [k]: v }))
 
   const addAccount = () => setAccountDrafts(d => [...d, { key: newDraftKey(), platform_id: '', account_name: '', seller_id: '' }])
@@ -64,6 +81,9 @@ export function ClientFormModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    const phoneError = validateMobilePhone(form.contact_phone)
+    if (phoneError) return setError(phoneError)
+    if (!isValidTimeZone(form.timezone)) return setError('Select a valid timezone.')
 
     if (!isEdit) {
       const seen = new Set<string>()
@@ -87,7 +107,17 @@ export function ClientFormModal({
       contact_name:        form.contact_name.trim() || null,
       contact_email:       form.contact_email.trim() || null,
       contact_phone:       form.contact_phone.trim() || null,
+      timezone:            form.timezone,
       whatsapp_group_link: form.whatsapp_group_link.trim() || null,
+      address_line:        address.address_line.trim() || null,
+      city:                address.city.trim() || null,
+      state:               address.state.trim() || null,
+      postal_code:         address.postal_code.trim() || null,
+      country:             address.country.trim() || null,
+      latitude:            address.latitude,
+      longitude:           address.longitude,
+      place_id:            address.place_id,
+      address_source:      address.address_source,
     }
 
     let clientId = client?.id
@@ -183,10 +213,18 @@ export function ClientFormModal({
             <Field label="Contact email" required={!isEdit && form.send_invite}>
               <input className="input" type="email" required={!isEdit && form.send_invite} value={form.contact_email} onChange={e => set('contact_email', e.target.value)} />
             </Field>
-            <Field label="Phone"><input className="input" value={form.contact_phone} onChange={e => set('contact_phone', e.target.value)} /></Field>
+            <Field label="Mobile number" required>
+              <InternationalPhoneField value={form.contact_phone} onChange={value => set('contact_phone', value)} />
+            </Field>
+            <Field label="Timezone" required>
+              <TimezoneSelect value={form.timezone} onChange={value => set('timezone', value)} />
+            </Field>
             <Field label="GSTIN"><input className="input uppercase" value={form.gstin} onChange={e => set('gstin', e.target.value)} /></Field>
             <Field label="WhatsApp group link"><input className="input" value={form.whatsapp_group_link} onChange={e => set('whatsapp_group_link', e.target.value)} /></Field>
           </div>
+          <Field label="Company location">
+            <AddressPicker value={address} onChange={setAddress} />
+          </Field>
 
           {!isEdit && (
             <div className="rounded-xl bg-slate-50 p-4">
@@ -219,23 +257,23 @@ export function ClientFormModal({
               <p className="mb-3 text-xs text-slate-500">The client sees this price in the agreement — it won't change if the service's default price changes later.</p>
               {serviceDrafts.map(s => (
                 <div key={s.key} className="mb-2 flex flex-wrap items-center gap-2">
-                  <select className="input h-9 w-40 py-1.5" value={s.service_id} onChange={e => updateService(s.key, { service_id: e.target.value })}>
+                  <SearchableSelect className="input h-9 w-40 py-1.5" searchable searchPlaceholder="Search services..." value={s.service_id} onChange={e => updateService(s.key, { service_id: e.target.value })}>
                     <option value="">Service…</option>
                     {services.filter(sv => sv.is_active).map(sv => <option key={sv.id} value={sv.id}>{sv.name}</option>)}
-                  </select>
+                  </SearchableSelect>
                   {!s.service_id && (
                     <input className="input h-9 w-40" placeholder="…or custom name" value={s.custom_name} onChange={e => updateService(s.key, { custom_name: e.target.value })} />
                   )}
-                  <select className="input h-9 w-36 py-1.5" value={s.account_key} onChange={e => updateService(s.key, { account_key: e.target.value })}>
+                  <SearchableSelect className="input h-9 w-36 py-1.5" searchable searchPlaceholder="Search accounts..." value={s.account_key} onChange={e => updateService(s.key, { account_key: e.target.value })}>
                     <option value="">Whole client</option>
                     {accountDrafts.filter(a => a.account_name.trim()).map(a => <option key={a.key} value={a.key}>{a.account_name}</option>)}
-                  </select>
+                  </SearchableSelect>
                   <input className="input h-9 w-24" type="number" min="0" placeholder="Price ₹" value={s.price} onChange={e => updateService(s.key, { price: e.target.value })} />
-                  <select className="input h-9 w-28 py-1.5" value={s.billing_type} onChange={e => updateService(s.key, { billing_type: e.target.value as BillingType })}>
+                  <SearchableSelect className="input h-9 w-28 py-1.5" value={s.billing_type} onChange={e => updateService(s.key, { billing_type: e.target.value as BillingType })}>
                     <option value="monthly">Monthly</option>
                     <option value="one_time">One-time</option>
                     <option value="per_task">Per task</option>
-                  </select>
+                  </SearchableSelect>
                   <button type="button" onClick={() => removeService(s.key)} className="rounded p-1.5 text-slate-300 hover:bg-red-50 hover:text-red-600" aria-label="Remove service">
                     <Trash2 className="h-4 w-4" />
                   </button>

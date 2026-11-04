@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Check, CheckCircle2, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, User, AlertCircle, Loader2
+  Check, CheckCircle2, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, AlertCircle, Loader2
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ROLE_LABELS } from '@/lib/constants'
@@ -12,6 +12,10 @@ import { Button } from '@/components/ui/button'
 import { cn, errorMessage, formatDate } from '@/lib/utils'
 import { Modal } from '@/components/ui/modal'
 import { ProfileImageControl } from '@/components/shared/ProfileImageControl'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
+import { InternationalPhoneField } from '@/components/shared/InternationalPhoneField'
+import { TimezoneSelect } from '@/components/shared/TimezoneSelect'
+import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
 import type { AppRole, Department, Profile } from '@/types/database'
 
 const PROFILE_IMAGE_BUCKET = 'staff-profile-images'
@@ -20,19 +24,30 @@ const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 
 interface StaffProfileSettingsProps {
   profile: Profile
+  initialAddress: { current_address: string | null; permanent_address: string | null }
   departments: Department[]
   initialDepartmentIds: string[]
   actorRole: AppRole
+  actorId?: string
+  isOwnProfile?: boolean
+  reportingPeople?: { id: string; full_name: string; email: string; role: AppRole; status: string }[]
 }
 
 export function StaffProfileSettings({
   profile,
+  initialAddress,
   departments,
   initialDepartmentIds,
   actorRole,
+  actorId,
+  isOwnProfile = true,
+  reportingPeople = [],
 }: StaffProfileSettingsProps) {
   const router = useRouter()
   const isSuperAdmin = actorRole === 'super_admin'
+  const canEditProfile = isOwnProfile || isSuperAdmin
+  const canChangeRole = isSuperAdmin && (isOwnProfile || actorId !== profile.id)
+  const canChangeStatus = isSuperAdmin && !isOwnProfile && actorId !== profile.id
 
   // View vs Edit mode state (defaults to uneditable view mode)
   const [isEditing, setIsEditing] = useState(false)
@@ -40,8 +55,13 @@ export function StaffProfileSettings({
   // Form state
   const [fullName, setFullName] = useState(profile.full_name || '')
   const [phone, setPhone] = useState(profile.phone || '')
+  const [timezone, setTimezone] = useState(profile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata')
+  const [currentAddress, setCurrentAddress] = useState(initialAddress.current_address || '')
+  const [permanentAddress, setPermanentAddress] = useState(initialAddress.permanent_address || '')
   const [jobTitle, setJobTitle] = useState(profile.job_title || '')
   const [role, setRole] = useState<AppRole>(profile.role)
+  const [employmentStatus, setEmploymentStatus] = useState<'active' | 'suspended'>(profile.status === 'active' ? 'active' : 'suspended')
+  const [reportingTo, setReportingTo] = useState(profile.reporting_to || '')
   const [weeklyCapacity, setWeeklyCapacity] = useState<string>(
     profile.weekly_capacity_hours != null ? String(profile.weekly_capacity_hours) : '40'
   )
@@ -99,6 +119,25 @@ export function StaffProfileSettings({
     if (!selectedImage || imageBusy) return
     setImageBusy(true)
     setImageError('')
+    if (!isOwnProfile) {
+      try {
+        const payload = new FormData()
+        payload.set('file', selectedImage)
+        const response = await fetch(`/api/admin/users/${profile.id}/photo`, { method: 'POST', body: payload })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || 'Could not update the profile photo.')
+        setCurrentImage(result.avatar_url)
+        setSelectedImage(null)
+        setImageDialogOpen(false)
+        setImageError(result.warning || '')
+        router.refresh()
+      } catch (uploadError) {
+        setImageError(errorMessage(uploadError))
+      } finally {
+        setImageBusy(false)
+      }
+      return
+    }
     const supabase = createClient()
     const extension = selectedImage.type === 'image/jpeg' ? 'jpg' : selectedImage.type === 'image/png' ? 'png' : 'webp'
     const path = `${profile.id}/${crypto.randomUUID()}.${extension}`
@@ -140,6 +179,22 @@ export function StaffProfileSettings({
     if (imageBusy) return
     setImageBusy(true)
     setImageError('')
+    if (!isOwnProfile) {
+      try {
+        const response = await fetch(`/api/admin/users/${profile.id}/photo`, { method: 'DELETE' })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || 'Could not remove the profile photo.')
+        setCurrentImage(null)
+        setImageDialogOpen(false)
+        setImageError(result.warning || '')
+        router.refresh()
+      } catch (removeError) {
+        setImageError(errorMessage(removeError))
+      } finally {
+        setImageBusy(false)
+      }
+      return
+    }
     const supabase = createClient()
     const { error: updateError } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', profile.id)
     if (updateError) {
@@ -169,8 +224,13 @@ export function StaffProfileSettings({
   function handleDiscard() {
     setFullName(profile.full_name || '')
     setPhone(profile.phone || '')
+    setTimezone(profile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata')
+    setCurrentAddress(initialAddress.current_address || '')
+    setPermanentAddress(initialAddress.permanent_address || '')
     setJobTitle(profile.job_title || '')
     setRole(profile.role)
+    setEmploymentStatus(profile.status === 'active' ? 'active' : 'suspended')
+    setReportingTo(profile.reporting_to || '')
     setWeeklyCapacity(profile.weekly_capacity_hours != null ? String(profile.weekly_capacity_hours) : '40')
     setSelectedDeptIds(initialDepartmentIds)
     setError('')
@@ -189,14 +249,51 @@ export function StaffProfileSettings({
     setSaving(true)
     setError('')
     setSuccess(false)
+    const phoneError = validateMobilePhone(phone)
+    if (phoneError) {
+      setSaving(false)
+      return setError(phoneError)
+    }
+    if (!isValidTimeZone(timezone)) {
+      setSaving(false)
+      return setError('Select a valid timezone.')
+    }
 
     try {
+      if (!isOwnProfile) {
+        const response = await fetch(`/api/admin/users/${profile.id}/profile`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            full_name: fullName.trim(),
+            phone: phone.trim() || null,
+            timezone,
+            current_address: currentAddress.trim() || null,
+            permanent_address: permanentAddress.trim() || null,
+            job_title: jobTitle.trim() || null,
+            role,
+            reporting_to: role === 'super_admin' ? null : reportingTo,
+            weekly_capacity_hours: Number(weeklyCapacity),
+            status: employmentStatus,
+            department_ids: selectedDeptIds,
+          }),
+        })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || 'Could not update the staff profile.')
+        setIsEditing(false)
+        setSuccess(true)
+        router.refresh()
+        setTimeout(() => setSuccess(false), 4000)
+        return
+      }
+
       const supabase = createClient()
 
       // Base fields any staff can update on their own row
       const updates: Record<string, unknown> = {
         full_name: fullName.trim(),
         phone: phone.trim() || null,
+        timezone,
         updated_at: new Date().toISOString(),
       }
 
@@ -213,6 +310,13 @@ export function StaffProfileSettings({
         .eq('id', profile.id)
 
       if (profileError) throw profileError
+
+      const { error: detailsError } = await supabase.from('staff_profile_details').upsert({
+        profile_id: profile.id,
+        current_address: currentAddress.trim() || null,
+        permanent_address: permanentAddress.trim() || null,
+      })
+      if (detailsError) throw detailsError
 
       // Update departments if actor is super admin
       if (isSuperAdmin) {
@@ -256,19 +360,19 @@ export function StaffProfileSettings({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        {/* Left Sub-Navigation: ONLY Profile */}
-        <aside>
-          <nav className="space-y-1.5" aria-label="Settings Tabs">
-            <div className="flex items-center gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-900 border border-brand-200/80 shadow-xs">
-              <User className="h-5 w-5 text-brand-600" />
-              <div>
-                <p className="leading-tight">Profile</p>
-                <p className="text-[11px] font-normal text-brand-600/80">Name, photo, contact</p>
+      <div className={cn('grid grid-cols-1 gap-6', isOwnProfile && 'lg:grid-cols-[220px_minmax(0,1fr)]')}>
+        {isOwnProfile && (
+          <aside>
+            <nav className="space-y-1.5" aria-label="Settings Tabs">
+              <div className="flex items-center gap-3 rounded-xl border border-brand-200/80 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-900 shadow-xs">
+                <div>
+                  <p className="leading-tight">Profile</p>
+                  <p className="text-[11px] font-normal text-brand-600/80">Name, photo, contact</p>
+                </div>
               </div>
-            </div>
-          </nav>
-        </aside>
+            </nav>
+          </aside>
+        )}
 
         {/* Main Content Card: Your Profile */}
         <main className="min-w-0">
@@ -276,7 +380,11 @@ export function StaffProfileSettings({
             {/* Card Header */}
             <div className="border-b border-slate-100 px-6 py-5 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Your profile</h2>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {isOwnProfile
+                    ? 'Your profile'
+                    : `${profile.role === 'employee' ? 'Employee' : profile.role === 'team_lead' ? 'Team Lead' : profile.role === 'admin' ? 'Manager' : 'Super Admin'} Profile`}
+                </h2>
                 <p className="mt-0.5 text-xs text-slate-500">
                   How you appear to your team and on tickets, tasks, and communications.
                 </p>
@@ -291,46 +399,61 @@ export function StaffProfileSettings({
 
             <div className="space-y-6 p-8 sm:p-10">
               {/* Profile Avatar Header */}
-              <div className="flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-center sm:gap-5">
-                <ProfileImageControl
-                  busy={imageBusy}
-                  onClick={openImageDialog}
-                  label={currentImage ? 'Update profile photo' : 'Add profile photo'}
-                  className="self-center rounded-full shadow-sm sm:self-auto"
-                >
-                  <Avatar name={fullName || profile.email} src={currentImage} role={role} size="lg" className="h-20 w-20 text-2xl" />
-                </ProfileImageControl>
-
-                <div className="min-w-0 flex-1 text-center sm:text-left">
-                  <h3 className="truncate text-2xl font-bold text-slate-900">
-                    {fullName || profile.email}
-                  </h3>
-                  
-                  {/* Keep the role badge visually consistent with the existing profile style. */}
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2 justify-center sm:justify-start">
-                    <span className="text-xs font-semibold text-brand-700">
-                      {ROLE_LABELS[role]}
-                    </span>
-                    <span className="text-xs text-slate-500">Joined {formatDate(profile.created_at)}</span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                    <a
-                      href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(profile.email)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex max-w-full items-center gap-1.5 break-all rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-brand-300 hover:text-brand-700"
-                    >
-                      <Mail className="h-3.5 w-3.5 flex-shrink-0" /> {profile.email}
-                    </a>
-                    {phone.trim() && (
-                      <a href={`tel:${phone.trim().replace(/[^+\d]/g, '')}`} className="inline-flex max-w-full items-center gap-1.5 break-all rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-brand-300 hover:text-brand-700">
-                        <Phone className="h-3.5 w-3.5 flex-shrink-0" /> {phone}
-                      </a>
+              <div className="flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-start sm:gap-5">
+                <div className="flex min-w-0 flex-1 flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-5">
+                  <div className="h-20 w-20 shrink-0 rounded-full ring-2 ring-brand-200">
+                    {canEditProfile ? (
+                      <ProfileImageControl
+                        busy={imageBusy}
+                        onClick={openImageDialog}
+                        label={currentImage ? 'Update profile photo' : 'Add profile photo'}
+                        className="flex h-20 w-20 items-center justify-center rounded-full shadow-sm"
+                      >
+                        <Avatar name={fullName || profile.email} src={currentImage} role={role} size="lg" className="h-20 w-20 border-4 border-white text-2xl" />
+                      </ProfileImageControl>
+                    ) : (
+                      <Avatar name={fullName || profile.email} src={currentImage} role={role} size="lg" className="h-20 w-20 border-4 border-white text-2xl" />
                     )}
-                    {jobTitle && <span className="text-xs font-medium text-slate-500">{jobTitle}</span>}
                   </div>
-                  {imageError && !imageDialogOpen && <p role="alert" className="mt-2 text-xs text-red-600">{imageError}</p>}
+
+                  <div className="min-w-0 flex-1 text-center sm:text-left">
+                    <h3 className="truncate text-2xl font-bold text-slate-900">
+                      {fullName || profile.email}
+                    </h3>
+                    <div className="mt-1.5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                      <span className="text-xs font-semibold text-brand-700">{ROLE_LABELS[role]}</span>
+                      <span className="text-xs text-slate-500">Joined {formatDate(profile.created_at)}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                      <a
+                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(profile.email)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex max-w-full items-center gap-1.5 break-all rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-brand-300 hover:text-brand-700"
+                      >
+                        <Mail className="h-3.5 w-3.5 flex-shrink-0" /> {profile.email}
+                      </a>
+                      {phone.trim() ? (
+                        <a href={`tel:${phone.trim().replace(/[^+\d]/g, '')}`} className="inline-flex max-w-full items-center gap-1.5 break-all rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-brand-300 hover:text-brand-700">
+                          <Phone className="h-3.5 w-3.5 flex-shrink-0" /> {phone}
+                        </a>
+                      ) : (
+                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600">
+                          <Phone className="h-3.5 w-3.5 flex-shrink-0" /> --
+                        </span>
+                      )}
+                    </div>
+                    {jobTitle && <p className="mt-2 text-xs font-medium text-slate-500">{jobTitle}</p>}
+                    {imageError && !imageDialogOpen && <p role="alert" className="mt-2 text-xs text-red-600">{imageError}</p>}
+                  </div>
                 </div>
+                <span className={cn(
+                  'inline-flex shrink-0 items-center gap-1.5 self-center rounded-full px-2.5 py-1 text-xs font-medium sm:self-start',
+                  employmentStatus === 'active' ? 'bg-lime-50 text-lime-700' : 'bg-slate-100 text-slate-600',
+                )}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full', employmentStatus === 'active' ? 'bg-lime-500' : 'bg-slate-400')} />
+                  {employmentStatus === 'active' ? 'Active' : 'Suspended'}
+                </span>
               </div>
 
               {/* Form Fields Grid */}
@@ -343,12 +466,12 @@ export function StaffProfileSettings({
                   <input
                     type="text"
                     value={fullName}
-                    disabled={!isEditing}
+                    disabled={!isEditing || (!isOwnProfile && !isSuperAdmin)}
                     onChange={e => setFullName(e.target.value)}
                     placeholder="Enter your full name"
                     className={cn(
                       'w-full rounded-xl border px-3.5 py-2.5 text-sm transition shadow-sm',
-                      isEditing
+                      isEditing && (isOwnProfile || isSuperAdmin)
                         ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
                         : 'border-slate-200 bg-slate-50/70 text-slate-700 cursor-default'
                     )}
@@ -376,23 +499,32 @@ export function StaffProfileSettings({
                 <div>
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Role</span>
-                    {(!isSuperAdmin || !isEditing) && (
+                    {(!canChangeRole || !isEditing) && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
                     )}
                   </label>
-                  {isSuperAdmin && isEditing ? (
-                    <select
+                  {canChangeRole && isEditing ? (
+                    <SearchableSelect
                       value={role}
-                      onChange={e => setRole(e.target.value as AppRole)}
+                      onChange={e => {
+                        const nextRole = e.target.value as AppRole
+                        setRole(nextRole)
+                        const reportingRole = nextRole === 'admin' ? 'super_admin'
+                          : nextRole === 'team_lead' ? 'admin'
+                            : nextRole === 'employee' ? 'team_lead' : null
+                        if (!reportingPeople.some(person => person.id === reportingTo && person.role === reportingRole && person.status === 'active')) {
+                          setReportingTo('')
+                        }
+                      }}
                       className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition shadow-sm"
                     >
                       <option value="super_admin">Super Admin</option>
                       <option value="admin">Manager (Admin)</option>
                       <option value="team_lead">Team Lead</option>
                       <option value="employee">Employee</option>
-                    </select>
+                    </SearchableSelect>
                   ) : (
                     <div className="flex h-[42px] items-center rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 text-sm font-medium text-slate-700">
                       {ROLE_LABELS[role]}
@@ -400,20 +532,110 @@ export function StaffProfileSettings({
                   )}
                 </div>
 
+                <div>
+                  <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
+                    <span>Reporting To (POC)</span>
+                    {(!canChangeRole || !isEditing) && (
+                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                        <Lock className="h-3 w-3" /> Managed by Super Admin
+                      </span>
+                    )}
+                  </label>
+                  {canChangeRole && isEditing && role !== 'super_admin' ? (
+                    <SearchableSelect
+                      value={reportingTo}
+                      onChange={event => setReportingTo(event.target.value)}
+                      searchable
+                      searchPlaceholder="Search team members..."
+                      placeholder="Select Reporting To"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    >
+                      <option value="">Select Reporting To</option>
+                      {reportingPeople
+                        .filter(person => person.id !== profile.id && person.status === 'active' && person.role === (
+                          role === 'admin' ? 'super_admin' : role === 'team_lead' ? 'admin' : 'team_lead'
+                        ))
+                        .map(person => (
+                          <option key={person.id} value={person.id}>{person.full_name || person.email}</option>
+                        ))}
+                    </SearchableSelect>
+                  ) : (
+                    <div className="flex h-[42px] items-center rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 text-sm font-medium text-slate-700">
+                      {reportingPeople.find(person => person.id === reportingTo)?.full_name || '--'}
+                    </div>
+                  )}
+                </div>
+
+                {!isOwnProfile && (
+                  <div>
+                    <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
+                      <span>Employment status</span>
+                      {(!canChangeStatus || !isEditing) && (
+                        <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                          <Lock className="h-3 w-3" /> Managed by Super Admin
+                        </span>
+                      )}
+                    </label>
+                    <SearchableSelect
+                      value={employmentStatus}
+                      disabled={!canChangeStatus || !isEditing}
+                      onChange={event => setEmploymentStatus(event.target.value as 'active' | 'suspended')}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900"
+                    >
+                      <option value="active">Active</option>
+                      <option value="suspended">Suspended</option>
+                    </SearchableSelect>
+                  </div>
+                )}
+
                 {/* Phone */}
                 <div>
                   <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                    Phone number
+                    Mobile number <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="tel"
+                  <InternationalPhoneField
                     value={phone}
-                    disabled={!isEditing}
-                    onChange={e => setPhone(e.target.value)}
-                    placeholder="e.g. +91 98765 43210"
+                    disabled={!isEditing || (!isOwnProfile && !isSuperAdmin)}
+                    onChange={setPhone}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                    Timezone <span className="text-red-500">*</span>
+                  </label>
+                  <TimezoneSelect
+                    value={timezone}
+                    onChange={setTimezone}
+                    disabled={!isEditing || (!isOwnProfile && !isSuperAdmin)}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">Current address</label>
+                  <textarea
+                    value={currentAddress}
+                    disabled={!isEditing || (!isOwnProfile && !isSuperAdmin)}
+                    onChange={e => setCurrentAddress(e.target.value)}
+                    placeholder="Enter your current address"
                     className={cn(
                       'w-full rounded-xl border px-3.5 py-2.5 text-sm transition shadow-sm',
-                      isEditing
+                      isEditing && (isOwnProfile || isSuperAdmin)
+                        ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+                        : 'border-slate-200 bg-slate-50/70 text-slate-700 cursor-default'
+                    )}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">Permanent address</label>
+                  <textarea
+                    value={permanentAddress}
+                    disabled={!isEditing || (!isOwnProfile && !isSuperAdmin)}
+                    onChange={e => setPermanentAddress(e.target.value)}
+                    placeholder="Enter your permanent address"
+                    className={cn(
+                      'w-full rounded-xl border px-3.5 py-2.5 text-sm transition shadow-sm',
+                      isEditing && (isOwnProfile || isSuperAdmin)
                         ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
                         : 'border-slate-200 bg-slate-50/70 text-slate-700 cursor-default'
                     )}
@@ -536,7 +758,7 @@ export function StaffProfileSettings({
 
               {/* Action Buttons: View mode has 'Update profile'; Edit mode has 'Discard' and 'Save changes' */}
               <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
-                {!isEditing ? (
+                {!isEditing ? canEditProfile ? (
                   <Button
                     onClick={() => setIsEditing(true)}
                     className="px-6 py-2.5 rounded-xl font-semibold shadow-sm inline-flex items-center gap-2"
@@ -544,7 +766,7 @@ export function StaffProfileSettings({
                     <Pencil className="h-4 w-4" />
                     Update profile
                   </Button>
-                ) : (
+                ) : null : (
                   <>
                     <button
                       type="button"

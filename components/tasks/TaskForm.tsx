@@ -9,6 +9,7 @@ import { Alert, Avatar, Field } from '@/components/ui/primitives'
 import { TaskBasicInformation } from '@/components/tasks/TaskBasicInformation'
 import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } from '@/components/tasks/TaskFormSections'
 import { MarketplacePlatformSelect } from '@/components/shared/Marketplace'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TICKET_STATUS_LABELS, TYPE_OPTIONS } from '@/lib/constants'
 import { TICKET_CATEGORY_BY_VALUE } from '@/lib/ticket-categories'
 import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
@@ -70,11 +71,10 @@ function FormSelect({
 
   if (native) {
     return (
-      <select className={cn('input h-9 text-sm', className, invalid && 'border-red-400 focus:border-red-500 focus:ring-red-200')}
-              value={value} disabled={disabled} required={required} aria-label={ariaLabel}
-              aria-required={required} aria-invalid={invalid} onChange={event => onChange(event.target.value)}>
+      <SearchableSelect className={cn('input h-9 text-sm', className)} value={value} disabled={disabled} required={required} aria-label={ariaLabel}
+                        aria-required={required} aria-invalid={invalid} onChange={event => onChange(event.target.value)}>
         {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
+      </SearchableSelect>
     )
   }
 

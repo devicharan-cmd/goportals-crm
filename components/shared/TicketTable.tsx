@@ -91,7 +91,7 @@ export function TicketTable({
               <td className="max-w-md px-5 py-3.5">
                 <Link href={`${hrefBase}/${t.id}`} className="block">
                   <span className="flex items-center gap-2">
-                    <span className="flex-shrink-0 font-mono text-xs font-semibold text-slate-400">{ticketCode(t.ticket_number)}</span>
+                    <span className="flex-shrink-0 font-mono text-xs font-semibold text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>
                     {t.is_urgent && !TICKET_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
                     <span className="truncate font-medium text-slate-900 group-hover:text-brand-700">{t.subject}</span>
                   </span>
@@ -124,7 +124,7 @@ export function TicketTable({
           <li key={t.id}>
             <Link href={`${hrefBase}/${t.id}`} className="block px-4 py-3 active:bg-slate-50">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-slate-400">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
+                <p className="font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                 {t.priority && <PriorityBadge priority={t.priority} />}
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">

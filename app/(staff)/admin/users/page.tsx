@@ -23,7 +23,7 @@ export default async function UsersPage() {
     }))
   const reportingPeople = lookups.people
     .filter(p => p.role !== 'client')
-    .map(({ id, full_name, email, role, status }) => ({ id, full_name, email, role: role as StaffRole, status }))
+    .map(({ id, full_name, email, avatar_url, role, status }) => ({ id, full_name, email, avatar_url, role: role as StaffRole, status }))
 
   let unlinkedClientAccounts: UnlinkedClientAccount[] = []
   if (me.role === 'super_admin') {

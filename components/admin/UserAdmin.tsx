@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Mail, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
+import { Building2, Check, ChevronDown, Mail, Search, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Modal } from '@/components/ui/modal'
@@ -18,7 +19,8 @@ export type StaffRow = {
   job_title: string | null; weekly_capacity_hours: number; departmentIds: string[]
 }
 
-export type ReportingPerson = { id: string; full_name: string; email: string; role: StaffRole; status: AccountStatus }
+export type ReportingPerson = { id: string; full_name: string; email: string; avatar_url: string | null; role: StaffRole; status: AccountStatus }
+type ReportingDropdownPosition = { left: number; top: number; width: number; maxHeight: number }
 
 function reportingRoleFor(role: StaffRole | ''): StaffRole | null {
   if (role === 'admin') return 'super_admin'
@@ -43,31 +45,173 @@ function ReportingToField({
   disabled?: boolean
   idPrefix: string
 }) {
-  if (!role || role === 'super_admin') return null
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [position, setPosition] = useState<ReportingDropdownPosition | null>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
   const options = reportingOptionsFor(role, people)
+  const selected = options.find(person => person.id === value)
+  const filteredOptions = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    if (!query) return options
+    return options.filter(person =>
+      `${person.full_name} ${person.email} ${ROLE_LABELS[person.role]}`.toLowerCase().includes(query))
+  }, [options, search])
   const noOptionsText = role === 'admin'
     ? 'No active Super Admin is available.'
     : role === 'team_lead'
       ? 'No active Managers are available.'
       : 'No active Team Leads are available.'
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPosition(null)
+      setSearch('')
+      return
+    }
+
+    const updatePosition = () => {
+      const button = buttonRef.current
+      const dialog = button?.closest<HTMLElement>('[role="dialog"]')
+      if (!button || !dialog) return
+
+      const dialogRect = dialog.getBoundingClientRect()
+      const content = dialog.querySelector<HTMLElement>('[data-modal-content]')
+      const buttonRect = button.getBoundingClientRect()
+      const contentRect = content?.getBoundingClientRect()
+      const boundsTop = Math.max(dialogRect.top, contentRect?.top ?? dialogRect.top) + 8
+      const footer = dialog.querySelector<HTMLElement>('[data-modal-footer]')
+      const boundsBottom = Math.max(
+        boundsTop,
+        Math.min(contentRect?.bottom ?? dialogRect.bottom, footer?.getBoundingClientRect().top ?? dialogRect.bottom) - 8,
+      )
+      const width = Math.min(buttonRect.width, Math.max(0, dialogRect.width - 24))
+      const left = Math.min(Math.max(buttonRect.left, dialogRect.left + 12), dialogRect.right - width - 12)
+      const availableBelow = Math.max(0, boundsBottom - buttonRect.bottom - 8)
+      const availableAbove = Math.max(0, buttonRect.top - boundsTop - 8)
+      const openBelow = availableBelow >= availableAbove
+      const maxHeight = Math.min(320, openBelow ? availableBelow : availableAbove)
+      setPosition({ left, top: openBelow ? buttonRect.bottom + 8 : buttonRect.top - maxHeight - 8, width, maxHeight })
+    }
+
+    updatePosition()
+    const frame = window.requestAnimationFrame(() => searchRef.current?.focus())
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [open])
+
+  useLayoutEffect(() => {
+    if (!open) return
+    function closeOnOutsideClick(event: MouseEvent) {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (buttonRef.current?.contains(target) || dropdownRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.stopPropagation()
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
+
+  if (!role || role === 'super_admin') return null
+
   return (
     <Field label="Reporting To (POC)" required error={error} errorId={`${idPrefix}-error`}
            hint={options.length ? 'Select the direct person this team member reports to.' : noOptionsText}>
-      <select
-        className={inviteInputClass(!!error)}
+      <button
+        ref={buttonRef}
+        type="button"
+        disabled={disabled || options.length === 0}
+        className={cn(
+          'input flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-50',
+          error && 'border-red-500 focus:border-red-500',
+        )}
         aria-invalid={!!error}
         aria-describedby={error ? `${idPrefix}-error` : undefined}
-        value={value}
-        disabled={disabled || options.length === 0}
-        onChange={event => onChange(event.currentTarget.value)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen(current => !current)}
       >
-        <option value="">{options.length ? 'Select reporting person' : 'No eligible reporting person'}</option>
-        {options.map(person => (
-          <option key={person.id} value={person.id}>
-            {person.full_name || person.email} · {ROLE_LABELS[person.role]} · ID {person.id}
-          </option>
-        ))}
-      </select>
+        <span className="flex min-w-0 items-center gap-2">
+          {selected && <Avatar name={selected.full_name || selected.email} src={selected.avatar_url} role={selected.role} size="sm" />}
+          <span className="min-w-0 truncate">
+            {selected ? selected.full_name || selected.email : options.length ? 'Select reporting person' : 'No eligible reporting person'}
+          </span>
+          {selected && <span className="shrink-0 text-xs text-slate-500">{ROLE_LABELS[selected.role]}</span>}
+        </span>
+        <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
+      </button>
+      {open && position && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed z-[1200] overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl ring-1 ring-black/5"
+          style={{ left: position.left, top: position.top, width: position.width, maxHeight: position.maxHeight }}
+        >
+          <div className="relative mb-2">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              ref={searchRef}
+              type="search"
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              placeholder="Search people..."
+              aria-label="Search reporting people"
+              className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-100"
+            />
+          </div>
+          <div
+            role="listbox"
+            aria-label="Reporting person"
+            className="space-y-1 overflow-y-auto"
+            style={{ maxHeight: Math.max(0, position.maxHeight - 60) }}
+          >
+            {filteredOptions.map(person => {
+              const active = person.id === value
+              return (
+                <button
+                  key={person.id}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    onChange(person.id)
+                    setOpen(false)
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors',
+                    active ? 'bg-brand-50' : 'hover:bg-slate-50',
+                  )}
+                >
+                  <Avatar name={person.full_name || person.email} src={person.avatar_url} role={person.role} size="md" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-slate-900">{person.full_name || person.email}</span>
+                    <span className="mt-0.5 block truncate text-xs text-slate-500">{ROLE_LABELS[person.role]}</span>
+                  </span>
+                  {active && <Check className="h-4 w-4 shrink-0 text-brand-600" />}
+                </button>
+              )
+            })}
+            {filteredOptions.length === 0 && <p className="px-3 py-4 text-center text-sm text-slate-500">No people found.</p>}
+          </div>
+        </div>,
+        document.body,
+      )}
     </Field>
   )
 }

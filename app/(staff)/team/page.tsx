@@ -75,7 +75,7 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
           {['super_admin', 'admin'].includes(me.role) && <ButtonLink href="/admin/users" variant="secondary" size="sm">Manage users & invites</ButtonLink>}
           {me.role !== 'team_lead' && <InviteStaffButton departments={lookups.departments} roles={['employee']} reportingPeople={lookups.people
             .filter(p => p.role !== 'client')
-            .map(({ id, full_name, email, role, status }) => ({ id, full_name, email, role: role as StaffRole, status }))} />}
+            .map(({ id, full_name, email, avatar_url, role, status }) => ({ id, full_name, email, avatar_url, role: role as StaffRole, status }))} />}
         </div>
       </div>
 

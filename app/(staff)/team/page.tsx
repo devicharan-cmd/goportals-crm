@@ -9,7 +9,7 @@ import { Avatar, Card, EmptyState } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
 import { capacityColor, capacityTextColor, cn, dueState } from '@/lib/utils'
-import type { Task } from '@/types/database'
+import type { StaffRole, Task } from '@/types/database'
 
 export const metadata = { title: 'Team' }
 
@@ -73,7 +73,9 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {['super_admin', 'admin'].includes(me.role) && <ButtonLink href="/admin/users" variant="secondary" size="sm">Manage users & invites</ButtonLink>}
-          {me.role !== 'team_lead' && <InviteStaffButton departments={lookups.departments} roles={['employee']} />}
+          {me.role !== 'team_lead' && <InviteStaffButton departments={lookups.departments} roles={['employee']} reportingPeople={lookups.people
+            .filter(p => p.role !== 'client')
+            .map(({ id, full_name, email, role, status }) => ({ id, full_name, email, role: role as StaffRole, status }))} />}
         </div>
       </div>
 

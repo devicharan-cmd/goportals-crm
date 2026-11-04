@@ -18,6 +18,60 @@ export type StaffRow = {
   job_title: string | null; weekly_capacity_hours: number; departmentIds: string[]
 }
 
+export type ReportingPerson = { id: string; full_name: string; email: string; role: StaffRole; status: AccountStatus }
+
+function reportingRoleFor(role: StaffRole | ''): StaffRole | null {
+  if (role === 'admin') return 'super_admin'
+  if (role === 'team_lead') return 'admin'
+  if (role === 'employee') return 'team_lead'
+  return null
+}
+
+function reportingOptionsFor(role: StaffRole | '', people: ReportingPerson[]) {
+  const expectedRole = reportingRoleFor(role)
+  return expectedRole ? people.filter(person => person.role === expectedRole && person.status === 'active') : []
+}
+
+function ReportingToField({
+  role, people, value, onChange, error, disabled = false, idPrefix,
+}: {
+  role: StaffRole | ''
+  people: ReportingPerson[]
+  value: string
+  onChange: (value: string) => void
+  error?: string
+  disabled?: boolean
+  idPrefix: string
+}) {
+  if (!role || role === 'super_admin') return null
+  const options = reportingOptionsFor(role, people)
+  const noOptionsText = role === 'admin'
+    ? 'No active Super Admin is available.'
+    : role === 'team_lead'
+      ? 'No active Managers are available.'
+      : 'No active Team Leads are available.'
+  return (
+    <Field label="Reporting To (POC)" required error={error} errorId={`${idPrefix}-error`}
+           hint={options.length ? 'Select the direct person this team member reports to.' : noOptionsText}>
+      <select
+        className={inviteInputClass(!!error)}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${idPrefix}-error` : undefined}
+        value={value}
+        disabled={disabled || options.length === 0}
+        onChange={event => onChange(event.currentTarget.value)}
+      >
+        <option value="">{options.length ? 'Select reporting person' : 'No eligible reporting person'}</option>
+        {options.map(person => (
+          <option key={person.id} value={person.id}>
+            {person.full_name || person.email} · {ROLE_LABELS[person.role]} · ID {person.id}
+          </option>
+        ))}
+      </select>
+    </Field>
+  )
+}
+
 export type UnlinkedClientAccount = { id: string; email: string; full_name: string }
 
 export function UnlinkedClientAccounts({ accounts }: { accounts: UnlinkedClientAccount[] }) {
@@ -93,12 +147,12 @@ function UnlinkedClientAccountRow({ account }: { account: UnlinkedClientAccount 
 }
 
 function emptyInviteUserForm() {
-  return { kind: 'client' as 'client' | 'staff', full_name: '', email: '', role: '' as StaffRole | '', job_title: '', department_ids: [] as string[] }
+  return { kind: 'client' as 'client' | 'staff', full_name: '', email: '', role: '' as StaffRole | '', reporting_to: '', job_title: '', department_ids: [] as string[] }
 }
 
-type StaffInviteErrors = Partial<Record<'full_name' | 'email' | 'role' | 'job_title', string>>
+type StaffInviteErrors = Partial<Record<'full_name' | 'email' | 'role' | 'reporting_to' | 'job_title', string>>
 type StaffInviteField = keyof StaffInviteErrors
-type StaffInviteValues = { full_name: string; email: string; role: StaffRole | ''; job_title: string }
+type StaffInviteValues = { full_name: string; email: string; role: StaffRole | ''; reporting_to: string; job_title: string }
 
 function validateStaffInviteField(field: StaffInviteField, value: string | StaffRole) {
   const trimmedValue = value.trim()
@@ -108,16 +162,25 @@ function validateStaffInviteField(field: StaffInviteField, value: string | Staff
     if (!/^\S+@\S+\.\S+$/.test(trimmedValue)) return 'Enter a valid email address.'
   }
   if (field === 'role' && !value) return 'Select a role.'
+  if (field === 'reporting_to' && !value) return 'Select a Reporting To person.'
   if (field === 'job_title' && !trimmedValue) return 'Enter a job title.'
   return undefined
 }
 
-function validateStaffInvite(form: StaffInviteValues): StaffInviteErrors {
+function validateStaffInvite(form: StaffInviteValues, people: ReportingPerson[]): StaffInviteErrors {
   const fields: StaffInviteField[] = ['full_name', 'email', 'role', 'job_title']
-  return Object.fromEntries(fields.flatMap(field => {
+  if (form.role && form.role !== 'super_admin') fields.push('reporting_to')
+  const errors = Object.fromEntries(fields.flatMap(field => {
     const error = validateStaffInviteField(field, form[field])
     return error ? [[field, error]] : []
-  }))
+  })) as StaffInviteErrors
+  if (form.role && form.role !== 'super_admin'
+      && !reportingOptionsFor(form.role, people).some(person => person.id === form.reporting_to)) {
+    errors.reporting_to = reportingOptionsFor(form.role, people).length
+      ? 'Select an eligible Reporting To person.'
+      : 'No eligible Reporting To person is available.'
+  }
+  return errors
 }
 
 function inviteInputClass(invalid: boolean) {
@@ -233,8 +296,8 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
 
 // ─── Invite staff ────────────────────────────────────────────
 export function InviteStaffButton({
-  departments, roles = ['employee', 'team_lead', 'admin', 'super_admin'],
-}: { departments: Department[]; roles?: StaffRole[] }) {
+  departments, roles = ['employee', 'team_lead', 'admin', 'super_admin'], reportingPeople,
+}: { departments: Department[]; roles?: StaffRole[]; reportingPeople: ReportingPerson[] }) {
   const onlyEmployees = roles.length === 1 && roles[0] === 'employee'
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -242,13 +305,13 @@ export function InviteStaffButton({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [errors, setErrors] = useState<StaffInviteErrors>({})
   const [touched, setTouched] = useState<Partial<Record<StaffInviteField, boolean>>>({})
-  const empty = { full_name: '', email: '', role: onlyEmployees ? 'employee' as StaffRole : '' as StaffRole | '', job_title: '', department_ids: [] as string[] }
+  const empty = { full_name: '', email: '', role: onlyEmployees ? 'employee' as StaffRole : '' as StaffRole | '', reporting_to: '', job_title: '', department_ids: [] as string[] }
   const [form, setForm] = useState(empty)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    const validationErrors = validateStaffInvite(form)
-    setTouched({ full_name: true, email: true, role: true, job_title: true })
+    const validationErrors = validateStaffInvite(form, reportingPeople)
+    setTouched({ full_name: true, email: true, role: true, reporting_to: true, job_title: true })
     setErrors(validationErrors)
     if (Object.keys(validationErrors).length) return
     setBusy(true); setMsg(null)
@@ -287,12 +350,20 @@ export function InviteStaffButton({
                    />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-4">
             <Field label="Role" required error={errors.role} errorId="staff-invite-role-error">
               <select className={inviteInputClass(!!errors.role)} aria-invalid={!!errors.role} aria-describedby={errors.role ? 'staff-invite-role-error' : undefined} value={form.role || ''} disabled={onlyEmployees}
                       onChange={e => {
                         const value = e.currentTarget.value as StaffRole | ''
-                        setForm(current => ({ ...current, role: value }))
-                        setErrors(current => ({ ...current, role: touched.role ? validateStaffInviteField('role', value) : undefined }))
+                        const options = reportingOptionsFor(value, reportingPeople)
+                        const reportingTo = value === 'admin' && options.length === 1 ? options[0].id : ''
+                        setForm(current => ({ ...current, role: value, reporting_to: reportingTo }))
+                        setErrors(current => ({
+                          ...current,
+                          role: touched.role ? validateStaffInviteField('role', value) : undefined,
+                          reporting_to: touched.reporting_to && value && value !== 'super_admin' && !reportingTo
+                            ? 'Select a Reporting To person.' : undefined,
+                        }))
                       }}
                       >
                 {!onlyEmployees && <option value="">Select role</option>}
@@ -302,6 +373,18 @@ export function InviteStaffButton({
                 {roles.includes('super_admin') && <option value="super_admin">Super Admin</option>}
               </select>
             </Field>
+            <ReportingToField
+              role={form.role}
+              people={reportingPeople}
+              value={form.reporting_to}
+              error={errors.reporting_to}
+              idPrefix="staff-invite-reporting"
+              onChange={value => {
+                setForm(current => ({ ...current, reporting_to: value }))
+                setErrors(current => ({ ...current, reporting_to: touched.reporting_to ? validateStaffInviteField('reporting_to', value) : undefined }))
+              }}
+            />
+            </div>
             <Field label="Job title" required error={errors.job_title} errorId="staff-invite-title-error">
               <input className={inviteInputClass(!!errors.job_title)} aria-invalid={!!errors.job_title} aria-describedby={errors.job_title ? 'staff-invite-title-error' : undefined} value={form.job_title}
                      onChange={e => {
@@ -341,7 +424,9 @@ export function InviteStaffButton({
 // Same modal, same "set a password by email" mechanics either way — only the
 // fields shown differ, because a client and a staff member genuinely need
 // different data (role/department vs nothing), not because the process differs.
-export function InviteUserButton({ departments, actorRole }: { departments: Department[]; actorRole: AppRole }) {
+export function InviteUserButton({ departments, actorRole, reportingPeople }: {
+  departments: Department[]; actorRole: AppRole; reportingPeople: ReportingPerson[]
+}) {
   const staffRoleOptions: { value: StaffRole; label: string }[] = actorRole === 'super_admin'
     ? [{ value: 'employee', label: 'Employee' }, { value: 'team_lead', label: 'Team Lead' },
        { value: 'admin', label: 'Manager' }, { value: 'super_admin', label: 'Super Admin' }]
@@ -365,10 +450,10 @@ export function InviteUserButton({ departments, actorRole }: { departments: Depa
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setTouched(form.kind === 'staff'
-      ? { full_name: true, email: true, role: true, job_title: true }
+      ? { full_name: true, email: true, role: true, reporting_to: true, job_title: true }
       : { email: true })
     if (form.kind === 'staff') {
-      const validationErrors = validateStaffInvite(form)
+      const validationErrors = validateStaffInvite(form, reportingPeople)
       setErrors(validationErrors)
       if (Object.keys(validationErrors).length) return
     } else {
@@ -379,7 +464,7 @@ export function InviteUserButton({ departments, actorRole }: { departments: Depa
     setBusy(true); setMsg(null)
     const body = form.kind === 'client'
       ? { kind: 'client', full_name: form.full_name.trim(), email: form.email.trim() }
-      : { kind: 'staff', full_name: form.full_name.trim(), email: form.email.trim(), role: form.role, job_title: form.job_title.trim(), department_ids: form.department_ids }
+      : { kind: 'staff', full_name: form.full_name.trim(), email: form.email.trim(), role: form.role, reporting_to: form.reporting_to || null, job_title: form.job_title.trim(), department_ids: form.department_ids }
     const err = await postInvite(body)
     setBusy(false)
     if (err) return setMsg({ ok: false, text: err })
@@ -410,7 +495,7 @@ export function InviteUserButton({ departments, actorRole }: { departments: Depa
                 ['client', 'Client', Building2],
                 ['staff', 'Team member', UsersRound],
               ] as const).map(([v, l, Icon]) => (
-                <button key={v} type="button" onClick={() => { setForm(current => ({ ...current, kind: v, role: v === 'staff' ? '' : current.role })); setErrors({}); setTouched({}) }}
+                <button key={v} type="button" onClick={() => { setForm(current => ({ ...current, kind: v, role: v === 'staff' ? '' : current.role, reporting_to: '' })); setErrors({}); setTouched({}) }}
                         className={cn(
                           'inline-flex h-full flex-none items-center gap-2 whitespace-nowrap rounded-lg px-2.5 py-1 text-sm transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none',
                           form.kind === v
@@ -449,18 +534,38 @@ export function InviteUserButton({ departments, actorRole }: { departments: Depa
           {form.kind === 'staff' ? (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Role" required error={errors.role} errorId="add-user-role-error">
+                <div className="space-y-4">
+                  <Field label="Role" required error={errors.role} errorId="add-user-role-error">
                   <select className={inviteInputClass(!!errors.role)} aria-invalid={!!errors.role} aria-describedby={errors.role ? 'add-user-role-error' : undefined} value={form.role || ''}
                           onChange={e => {
                             const value = e.currentTarget.value as StaffRole | ''
-                            setForm(current => ({ ...current, role: value }))
-                            setErrors(current => ({ ...current, role: touched.role ? validateStaffInviteField('role', value) : undefined }))
+                            const options = reportingOptionsFor(value, reportingPeople)
+                            const reportingTo = value === 'admin' && options.length === 1 ? options[0].id : ''
+                            setForm(current => ({ ...current, role: value, reporting_to: reportingTo }))
+                            setErrors(current => ({
+                              ...current,
+                              role: touched.role ? validateStaffInviteField('role', value) : undefined,
+                              reporting_to: touched.reporting_to && value && value !== 'super_admin' && !reportingTo
+                                ? 'Select a Reporting To person.' : undefined,
+                            }))
                           }}
                           >
                     <option value="">Select role</option>
                     {staffRoleOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
-                </Field>
+                  </Field>
+                  <ReportingToField
+                    role={form.role}
+                    people={reportingPeople}
+                    value={form.reporting_to}
+                    error={errors.reporting_to}
+                    idPrefix="add-user-reporting"
+                    onChange={value => {
+                      setForm(current => ({ ...current, reporting_to: value }))
+                      setErrors(current => ({ ...current, reporting_to: touched.reporting_to ? validateStaffInviteField('reporting_to', value) : undefined }))
+                    }}
+                  />
+                </div>
                 <Field label="Job title" required error={errors.job_title} errorId="add-user-title-error">
                   <input className={inviteInputClass(!!errors.job_title)} aria-invalid={!!errors.job_title} aria-describedby={errors.job_title ? 'add-user-title-error' : undefined} value={form.job_title}
                          onChange={e => {

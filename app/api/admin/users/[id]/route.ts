@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getProfile } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 
 async function uploadedPaths(table: 'task_attachments' | 'ticket_attachments', profileId: string) {
   const admin = createAdminClient()
@@ -41,15 +41,42 @@ async function removeStorageFiles(bucket: string, paths: string[]) {
 }
 
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
-  const me = await getProfile()
-  if (!me || me.status !== 'active' || me.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Only an active super admin can delete an account' }, { status: 403 })
-  }
-  if (params.id === me.id) {
-    return NextResponse.json({ error: 'You cannot delete your own account.' }, { status: 409 })
+  const supabase = createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Your session could not be verified. Sign in again, then retry.' }, { status: 401 })
   }
 
   const admin = createAdminClient()
+  const { data: actor, error: actorError } = await admin
+    .from('profiles')
+    .select('id, role, status')
+    .eq('id', user.id)
+    .maybeSingle()
+  if (actorError) {
+    console.error('[user-delete] Could not load the signed-in profile:', actorError.message)
+    return NextResponse.json({ error: 'Could not verify your account permissions.' }, { status: 500 })
+  }
+  if (!actor || actor.status !== 'active' || actor.role !== 'super_admin') {
+    console.error('[user-delete] Account deletion denied:', {
+      userId: user.id,
+      profileFound: !!actor,
+      role: actor?.role ?? null,
+      status: actor?.status ?? null,
+    })
+    const reason = !actor
+      ? 'No profile row was found for your signed-in account.'
+      : actor.status !== 'active'
+        ? `Your profile status is "${actor.status}", not active.`
+        : `Your profile role is "${actor.role}", not super admin.`
+    return NextResponse.json({
+      error: `Account deletion was denied. ${reason} The request was authenticated as user ${user.id}.`,
+    }, { status: 403 })
+  }
+  if (params.id === actor.id) {
+    return NextResponse.json({ error: 'You cannot delete your own account.' }, { status: 409 })
+  }
+
   const { data: target, error: targetError } = await admin
     .from('profiles')
     .select('id, email, full_name, role')
@@ -105,7 +132,7 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
 
   const { error: purgeError } = await admin.rpc('purge_orphan_client_profile', {
     p_profile_id: target.id,
-    p_actor_id: me.id,
+    p_actor_id: actor.id,
   })
   if (purgeError) {
     console.error('[user-delete] Could not remove account-linked data:', purgeError.message)

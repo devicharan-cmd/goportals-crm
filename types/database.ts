@@ -28,6 +28,7 @@ export interface Profile {
   phone: string | null
   role: AppRole
   status: AccountStatus
+  reporting_to: string | null
   signup_source: SignupSource | null
   job_title: string | null
   weekly_capacity_hours: number
@@ -166,6 +167,7 @@ export interface Invite {
   id: string
   email: string
   role: AppRole
+  reporting_to: string | null
   full_name: string | null
   job_title: string | null
   department_ids: string[]

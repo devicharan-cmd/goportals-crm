@@ -11,7 +11,7 @@ export const TASK_LIST_SELECT =
 /** Columns + joins used by every ticket list. */
 export const TICKET_LIST_SELECT = '*, client:clients(id, company_name)'
 
-export type Person = Pick<Profile, 'id' | 'full_name' | 'email' | 'avatar_url' | 'role' | 'job_title' | 'status' | 'weekly_capacity_hours' | 'created_at'>
+export type Person = Pick<Profile, 'id' | 'full_name' | 'email' | 'avatar_url' | 'role' | 'job_title' | 'status' | 'weekly_capacity_hours' | 'created_at' | 'reporting_to'>
 export type ClientOption = { id: string; company_name: string }
 export type DepartmentMember = { department_id: string; profile_id: string; is_lead: boolean }
 
@@ -39,7 +39,7 @@ export function sortPeopleByRoleAndJoiningDate<T extends Pick<Person, 'id' | 'ro
 export async function getStaffLookups(): Promise<StaffLookups> {
   const supabase = createClient()
   const [people, clients, departments, platforms, services, members] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at'),
+    supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to'),
     supabase.from('clients').select('id, company_name').order('company_name'),
     supabase.from('departments').select('*').order('sort_order'),
     supabase.from('platforms').select('*').order('sort_order'),
@@ -66,7 +66,7 @@ export async function getTaskPageLookups({ includePeople, includeAssignments }: 
   const supabase = createClient()
   const [people, clients, departments, members] = await Promise.all([
     includePeople
-      ? supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at')
+      ? supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to')
       : Promise.resolve({ data: [] }),
     supabase.from('clients').select('id, company_name').order('company_name'),
     supabase.from('departments').select('*').order('sort_order'),

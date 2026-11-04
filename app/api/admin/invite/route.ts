@@ -5,7 +5,7 @@ import type { AppRole } from '@/types/database'
 
 /**
  * POST /api/admin/invite — super admin (any role), or admin (team_lead/employee only).
- *   Staff:  { kind: 'staff',  email, full_name, role, job_title?, department_ids? }
+ *   Staff:  { kind: 'staff',  email, full_name, role, reporting_to, job_title?, department_ids? }
  *   Client: { kind: 'client', email, full_name?, client_id? }
  *           client_id set  → login for an existing (admin-created) client
  *           no client_id   → invite link; the client fills in the onboarding wizard
@@ -19,6 +19,12 @@ import type { AppRole } from '@/types/database'
 const ROLES_INVITABLE_BY: Partial<Record<AppRole, AppRole[]>> = {
   super_admin: ['super_admin', 'admin', 'team_lead', 'employee'],
   admin:       ['team_lead', 'employee'],
+}
+
+const REPORTING_ROLE_FOR: Partial<Record<AppRole, AppRole>> = {
+  admin: 'super_admin',
+  team_lead: 'admin',
+  employee: 'team_lead',
 }
 
 function inviteApiError(message: string) {
@@ -69,6 +75,34 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
 
+  let reportingTo: string | null = null
+  if (body.kind === 'staff' && role !== 'super_admin') {
+    if (typeof body.reporting_to !== 'string' || !body.reporting_to) {
+      return NextResponse.json({ error: 'Select a Reporting To person' }, { status: 400 })
+    }
+
+    const { data: reportingPerson, error: reportingPersonError } = await admin
+      .from('profiles')
+      .select('id, email, role, status')
+      .eq('id', body.reporting_to)
+      .maybeSingle()
+    if (reportingPersonError) {
+      console.error('[invite] Could not validate the Reporting To person:', reportingPersonError.message)
+      return NextResponse.json({ error: 'Could not validate the Reporting To person.' }, { status: 500 })
+    }
+    if (!reportingPerson
+        || reportingPerson.role !== REPORTING_ROLE_FOR[role]
+        || reportingPerson.status !== 'active') {
+      return NextResponse.json({ error: 'Select an active Reporting To person with the required role.' }, { status: 400 })
+    }
+    if (reportingPerson.email.toLowerCase() === email) {
+      return NextResponse.json({ error: 'A person cannot report to themselves.' }, { status: 400 })
+    }
+    reportingTo = reportingPerson.id
+  } else if (body.kind === 'staff' && body.reporting_to) {
+    return NextResponse.json({ error: 'Super Admin invitations cannot have a Reporting To person.' }, { status: 400 })
+  }
+
   if (body.client_id) {
     const { data: client } = await admin.from('clients').select('id, owner_id').eq('id', body.client_id).single()
     if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
@@ -90,6 +124,7 @@ export async function POST(req: NextRequest) {
   const { data: invite, error: inviteErr } = await admin.from('invites').insert({
     email,
     role,
+    reporting_to: body.kind === 'staff' ? reportingTo : null,
     full_name:      fullName || null,
     job_title:      body.kind === 'staff' ? jobTitle : null,
     department_ids: body.kind === 'staff' ? body.department_ids ?? [] : [],

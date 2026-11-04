@@ -21,6 +21,9 @@ export default async function UsersPage() {
       job_title: p.job_title, weekly_capacity_hours: p.weekly_capacity_hours,
       departmentIds: lookups.departmentMembers.filter(m => m.profile_id === p.id).map(m => m.department_id),
     }))
+  const reportingPeople = lookups.people
+    .filter(p => p.role !== 'client')
+    .map(({ id, full_name, email, role, status }) => ({ id, full_name, email, role: role as StaffRole, status }))
 
   let unlinkedClientAccounts: UnlinkedClientAccount[] = []
   if (me.role === 'super_admin') {
@@ -38,17 +41,8 @@ export default async function UsersPage() {
     <>
       <PageHeader
         description="Roles, departments and capacity for your team. Managers see every department; Team Leads see and assign within their own."
-        actions={<InviteUserButton departments={lookups.departments} actorRole={me.role} />}
+        actions={<InviteUserButton departments={lookups.departments} actorRole={me.role} reportingPeople={reportingPeople} />}
       />
-      {me.role === 'super_admin' && unlinkedClientAccounts.length > 0 && (
-        <Card className="mb-6 overflow-hidden">
-          <CardHeader
-            title={`Unlinked client accounts (${unlinkedClientAccounts.length})`}
-            description="These logins have no client company. Super admins can permanently remove an account and its personal data here."
-          />
-          <UnlinkedClientAccounts accounts={unlinkedClientAccounts} />
-        </Card>
-      )}
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <Card className="overflow-hidden">
           <CardHeader title={`Team (${rows.length})`} description="Click a department chip to add or remove someone." />
@@ -56,10 +50,21 @@ export default async function UsersPage() {
             {rows.map(r => <StaffRowEditor key={r.id} row={r} departments={lookups.departments} isMe={r.id === me.id} actorRole={me.role} />)}
           </ul>
         </Card>
-        <Card className="h-fit overflow-hidden">
-          <CardHeader title="Pending invites" />
-          <PendingInvites invites={(invites ?? []) as Invite[]} />
-        </Card>
+        <div className="space-y-6">
+          <Card className="h-fit overflow-hidden">
+            <CardHeader title="Pending invites" />
+            <PendingInvites invites={(invites ?? []) as Invite[]} />
+          </Card>
+          {me.role === 'super_admin' && unlinkedClientAccounts.length > 0 && (
+            <Card className="h-fit overflow-hidden">
+              <CardHeader
+                title={`Unlinked client accounts (${unlinkedClientAccounts.length})`}
+                description="These logins have no client company. Super admins can permanently remove an account and its personal data here."
+              />
+              <UnlinkedClientAccounts accounts={unlinkedClientAccounts} />
+            </Card>
+          )}
+        </div>
       </div>
     </>
   )

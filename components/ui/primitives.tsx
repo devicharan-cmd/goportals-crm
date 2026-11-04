@@ -72,8 +72,8 @@ export function Alert({ tone = 'error', children }: { tone?: 'error' | 'success'
 }
 
 export function Field({
-  label, hint, error, required, className, children,
-}: { label?: string; hint?: string; error?: string; required?: boolean; className?: string; children: React.ReactNode }) {
+  label, hint, error, errorId, required, className, children,
+}: { label?: string; hint?: string; error?: string; errorId?: string; required?: boolean; className?: string; children: React.ReactNode }) {
   return (
     <div className={className}>
       {label && (
@@ -83,7 +83,7 @@ export function Field({
       )}
       {children}
       {hint && !error && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p id={errorId} className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   )
 }

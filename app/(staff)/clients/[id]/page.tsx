@@ -165,7 +165,20 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                 <dd className="text-right">{accepted.length ? accepted.map(a => `${a.agreement?.version ?? '?'} · ${formatDate(a.accepted_at)}`).join(', ') : <span className="text-amber-700">Not accepted</span>}</dd>
               </div>
             </dl>
-            {isSuperAdmin && <div className="border-t border-slate-100 px-5 py-3"><DeleteButton table="clients" id={client.id} redirectTo="/clients" label="Delete client" /></div>}
+            {isSuperAdmin && (
+              <div className="border-t border-slate-100 px-5 py-3">
+                <DeleteButton
+                  table="clients"
+                  id={client.id}
+                  redirectTo="/clients"
+                  label="Delete client"
+                  variant="danger"
+                  confirmationTitle={`Permanently delete ${client.company_name}?`}
+                  confirmLabel="Permanently delete client"
+                  description="Review the consequences below before confirming."
+                />
+              </div>
+            )}
           </Card>
         </div>
       </div>

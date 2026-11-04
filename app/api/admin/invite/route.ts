@@ -38,8 +38,15 @@ export async function POST(req: NextRequest) {
   const email = String(body.email ?? '').trim().toLowerCase()
   if (!/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ error: 'Enter a valid email' }, { status: 400 })
 
+  const fullName = typeof body.full_name === 'string' ? body.full_name.trim() : ''
+  const jobTitle = typeof body.job_title === 'string' ? body.job_title.trim() : ''
   let role: AppRole
   if (body.kind === 'staff') {
+    if (!fullName) return NextResponse.json({ error: 'Enter the team member’s full name' }, { status: 400 })
+    if (!jobTitle) return NextResponse.json({ error: 'Enter a job title' }, { status: 400 })
+    if (!['super_admin', 'admin', 'team_lead', 'employee'].includes(body.role)) {
+      return NextResponse.json({ error: 'Select a valid role' }, { status: 400 })
+    }
     role = body.role
     if (!ROLES_INVITABLE_BY[me.role]!.includes(role)) {
       return NextResponse.json({ error: 'You are not allowed to invite someone with that role' }, { status: 403 })
@@ -68,11 +75,23 @@ export async function POST(req: NextRequest) {
     if (client.owner_id) return NextResponse.json({ error: 'This client already has a login' }, { status: 409 })
   }
 
+  // Check profiles before creating an invite row or calling Auth. Supabase Auth's
+  // duplicate-email response varies by configuration; profiles are created for every
+  // registered account by handle_new_user(). Escape ILIKE wildcards in valid emails.
+  const emailPattern = email.replace(/[\\%_]/g, '\\$&')
+  const { data: existingProfile, error: profileLookupError } = await admin
+    .from('profiles').select('id').ilike('email', emailPattern).limit(1).maybeSingle()
+  if (profileLookupError) {
+    console.error('[invite] Could not check for an existing profile:', profileLookupError.message)
+    return NextResponse.json({ error: 'Could not check whether this email already has an account.' }, { status: 500 })
+  }
+  if (existingProfile) return NextResponse.json({ error: 'Someone with this email address already has an account.' }, { status: 409 })
+
   const { data: invite, error: inviteErr } = await admin.from('invites').insert({
     email,
     role,
-    full_name:      body.full_name?.trim() || null,
-    job_title:      body.kind === 'staff' ? body.job_title?.trim() || null : null,
+    full_name:      fullName || null,
+    job_title:      body.kind === 'staff' ? jobTitle : null,
     department_ids: body.kind === 'staff' ? body.department_ids ?? [] : [],
     client_id:      body.kind === 'client' ? body.client_id ?? null : null,
     invited_by:     me.id,
@@ -81,7 +100,7 @@ export async function POST(req: NextRequest) {
 
   const origin = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { full_name: body.full_name?.trim() || '' },
+    data: { full_name: fullName },
     redirectTo: `${origin}/auth/callback`,
   })
 

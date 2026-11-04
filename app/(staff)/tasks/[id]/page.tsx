@@ -12,6 +12,7 @@ import { TaskProperties } from '@/components/tasks/TaskProperties'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { ActivityPanel } from '@/components/tasks/ActivityPanel'
+import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import { TimeLogPanel } from '@/components/tasks/TimeLogPanel'
 import { ChecklistPanel } from '@/components/tasks/ChecklistPanel'
 import { ClaimButton } from '@/components/tasks/ClaimButton'
@@ -86,7 +87,7 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
     ['Type', TYPE_LABELS[task.type]],
     ['Service', task.service?.name ?? '—'],
     ['Department', task.department?.name ?? '—'],
-    ['Platform', task.platform?.name ?? '—'],
+    ['Platform', task.platform?.name ? <MarketplacePlatformLabel name={task.platform.name} /> : '—'],
     ...(task.ticket ? [['Ticket', <Link key="ticket" href={`/tickets/${task.ticket.id}`} className="font-medium text-brand-700 hover:underline">
         {task.ticket.subject}
       </Link>] as [string, React.ReactNode]] : []),
@@ -136,7 +137,12 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
             </div>
             <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
             <p className="mt-1 text-sm text-slate-500">
-              {[task.client?.company_name, task.service?.name, task.platform?.name, task.department?.name].filter(Boolean).join(' · ') || '—'}
+              {[task.client?.company_name, task.service?.name].filter(Boolean).join(' · ')}
+              {(task.client?.company_name || task.service?.name) && task.platform?.name && ' · '}
+              {task.platform?.name && <MarketplacePlatformLabel name={task.platform.name} />}
+              {task.platform?.name && task.department?.name && ' · '}
+              {task.department?.name}
+              {!task.client?.company_name && !task.service?.name && !task.platform?.name && !task.department?.name && '—'}
             </p>
             {task.description
               ? <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{task.description}</p>

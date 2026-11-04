@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, Avatar, Field } from '@/components/ui/primitives'
 import { TaskBasicInformation } from '@/components/tasks/TaskBasicInformation'
 import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } from '@/components/tasks/TaskFormSections'
+import { MarketplacePlatformSelect } from '@/components/shared/Marketplace'
 import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TICKET_STATUS_LABELS, TYPE_OPTIONS } from '@/lib/constants'
 import { TICKET_CATEGORY_BY_VALUE } from '@/lib/ticket-categories'
 import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
@@ -400,10 +401,15 @@ export function TaskForm(p: TaskFormProps) {
             onChange={value => set('department_id', value)} aria-label="Department" />
         </Field>
         <Field label="Platform">
-          <FormSelect label="—" value={form.platform_id} options={[{ value: '', label: '—' }, ...activePlatforms.map(x => ({ value: x.id, label: x.name }))]}
-            className={p.modalLayout ? 'h-9 text-sm' : undefined}
-            native={p.modalLayout}
-            onChange={value => set('platform_id', value)} aria-label="Platform" />
+          <MarketplacePlatformSelect
+            platforms={activePlatforms}
+            value={form.platform_id}
+            placeholder="—"
+            className={p.modalLayout
+              ? 'input flex h-9 w-full items-center justify-between gap-2 text-sm'
+              : undefined}
+            onChange={value => set('platform_id', value)}
+          />
         </Field>
       </TaskFieldsGrid>
 

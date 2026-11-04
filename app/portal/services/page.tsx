@@ -6,6 +6,7 @@ import { BILLING_LABELS } from '@/lib/constants'
 import { Card, CardHeader, EmptyState } from '@/components/ui/primitives'
 import { ClientServiceStatusBadge } from '@/components/ui/badges'
 import { formatINR } from '@/lib/utils'
+import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
 import type { BillingType, ClientServiceStatus } from '@/types/database'
 
 export const metadata = { title: 'My services' }
@@ -22,16 +23,13 @@ type Row = {
   ecommerce_account: { id: string; account_name: string; platform: { name: string } | null } | null
 }
 
-type Group = { key: string; title: string; rows: Row[] }
+type Group = { key: string; account: Row['ecommerce_account']; rows: Row[] }
 
 function groupByAccount(rows: Row[]): Group[] {
   const groups = new Map<string, Group>()
   for (const r of rows) {
     const key = r.ecommerce_account?.id ?? 'whole-client'
-    const title = r.ecommerce_account
-      ? `${r.ecommerce_account.platform?.name ?? 'Unknown platform'} · ${r.ecommerce_account.account_name}`
-      : 'All accounts'
-    if (!groups.has(key)) groups.set(key, { key, title, rows: [] })
+    if (!groups.has(key)) groups.set(key, { key, account: r.ecommerce_account, rows: [] })
     groups.get(key)!.rows.push(r)
   }
   return Array.from(groups.values()).sort((a, b) => (a.key === 'whole-client' ? 1 : b.key === 'whole-client' ? -1 : 0))
@@ -62,7 +60,9 @@ export default async function PortalServicesPage() {
         <div className="space-y-6">
           {groups.map(g => (
             <Card key={g.key} className="overflow-hidden">
-              <CardHeader title={g.title} />
+              <CardHeader title={g.account
+                ? <MarketplaceAccountLabel platformName={g.account.platform?.name ?? 'Unknown platform'} accountName={g.account.account_name} />
+                : 'All accounts'} />
               <ul className="divide-y divide-slate-100">
                 {g.rows.map(r => (
                   <li key={r.id} className="flex items-center justify-between gap-3 px-5 py-3">

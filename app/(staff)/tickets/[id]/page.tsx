@@ -9,15 +9,14 @@ import { DeleteButton } from '@/components/shared/DeleteButton'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
-import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
-import { TicketAttachmentsList } from '@/components/shared/TicketAttachmentsList'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { RevealableValue } from '@/components/shared/RevealableValue'
+import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
 import { TicketProperties } from '@/components/tickets/TicketProperties'
 import { ActivityPanel } from '@/components/tasks/ActivityPanel'
-import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_STYLES, TICKET_TERMINAL_STATUSES } from '@/lib/constants'
 import { formatDate, ticketCode } from '@/lib/utils'
 import type { TaskListItem, Ticket, TicketActivity, TicketComment } from '@/types/database'
+import { TicketOverviewCard } from '@/components/tickets/TicketOverviewCard'
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
   return { title: await ticketPageTitle(params.id) }
@@ -89,48 +88,31 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0 space-y-6">
-          <Card className="p-6">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs font-semibold text-slate-400">{ticketCode(ticket.ticket_number)}</span>
-              {ticket.is_urgent && !TICKET_TERMINAL_STATUSES.includes(ticket.status) && <UrgentBadge />}
-              <StatusBadge label={TICKET_STATUS_LABELS[ticket.status]} className={TICKET_STATUS_STYLES[ticket.status]} dotClassName={TICKET_STATUS_DOT[ticket.status]} />
-              {ticket.priority && <PriorityBadge priority={ticket.priority} />}
-              <span className="ml-auto text-xs text-slate-500">{TICKET_CATEGORY_LABELS[ticket.category]}</span>
-            </div>
-            <h1 className="text-xl font-bold sm:text-2xl">{ticket.subject}</h1>
-            <p className="mt-1 truncate text-sm text-slate-500">
-              {[ticket.client?.company_name, ticket.ecommerce_account ? `${ticket.ecommerce_account.platform?.name ?? ''} · ${ticket.ecommerce_account.account_name}` : null]
-                .filter(Boolean).join(' · ') || '—'}
-            </p>
-            {ticket.description
-              ? <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{ticket.description}</p>
-              : <p className="mt-3 text-sm italic text-slate-400">No description.</p>}
-            <TicketAttachmentsList attachments={attachments} />
-
-            <div className="mt-4">
-              <p className="mb-1 text-xs font-medium text-slate-500">Request details</p>
-              {detailFields.length > 0 ? (
-                <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-lg bg-slate-100 text-sm sm:grid-cols-2">
-                  {detailFields.map(f => {
-                    const raw = ticketDetails[f.key]
-                    const value = f.type === 'select' ? f.options?.find(o => o.value === raw)?.label ?? raw
-                                : f.type === 'platform' ? lookups.platforms.find(p => p.id === raw)?.name ?? raw
-                                : raw
-                    return (
-                      <div key={f.key} className="bg-white px-3 py-2">
-                        <dt className="text-xs text-slate-500">{f.label}</dt>
-                        <dd className="break-words whitespace-pre-wrap font-medium text-slate-900">
-                          {f.type === 'password' ? <RevealableValue value={value} /> : value}
-                        </dd>
-                      </div>
-                    )
-                  })}
-                </dl>
-              ) : (
-                <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">No additional request details were provided.</p>
-              )}
-            </div>
-          </Card>
+          <TicketOverviewCard
+            ticketNumber={ticketCode(ticket.ticket_number)}
+            subject={ticket.subject}
+            clientName={ticket.client?.company_name ?? null}
+            platformName={ticket.ecommerce_account?.platform?.name ?? null}
+            accountName={ticket.ecommerce_account?.account_name ?? null}
+            category={TICKET_CATEGORY_LABELS[ticket.category]}
+            urgent={ticket.is_urgent}
+            status={ticket.status}
+            priority={ticket.priority}
+            requestFields={detailFields.map(field => {
+              const raw = ticketDetails[field.key]
+              const value = field.type === 'select' ? field.options?.find(option => option.value === raw)?.label ?? raw
+                          : field.type === 'platform' ? lookups.platforms.find(platform => platform.id === raw)?.name ?? raw
+                          : raw
+              return {
+                key: field.key,
+                label: field.label,
+                value: field.type === 'password' ? <RevealableValue value={value} /> : value,
+              }
+            })}
+            emptyRequestMessage="No additional request details were provided."
+            description={ticket.description}
+            attachments={attachments}
+          />
 
           <Card className="overflow-hidden">
             <CardHeader title={`Tasks from this ticket (${tasksFromTicket.length})`} />
@@ -181,7 +163,9 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
                       <Link href={`/clients/${ticket.client.id}`} className="font-medium text-brand-700 hover:underline">{ticket.client.company_name}</Link>
                     </span>
                   : '—'],
-                ['Account', ticket.ecommerce_account ? `${ticket.ecommerce_account.platform?.name ?? ''} · ${ticket.ecommerce_account.account_name}` : '—'],
+                ['Account', ticket.ecommerce_account
+                  ? <MarketplaceAccountLabel platformName={ticket.ecommerce_account.platform?.name ?? null} accountName={ticket.ecommerce_account.account_name} size="sm" />
+                  : '—'],
                 ['Raised by', raisedByName],
                 ['Created', formatDate(ticket.created_at)],
                 ...(ticket.closed_at ? [['Closed', formatDate(ticket.closed_at)] as [string, React.ReactNode]] : []),

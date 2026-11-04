@@ -8,17 +8,17 @@ import { getTicketAttachments, resolveTicketId, ticketPageTitle } from '@/lib/qu
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader } from '@/components/ui/primitives'
-import { PriorityBadge, UrgentBadge } from '@/components/ui/badges'
-import { ClientReplyBadge, ClientTicketStatusBadge } from '@/components/portal/ClientTicketStatus'
+import { ClientReplyBadge } from '@/components/portal/ClientTicketStatus'
 import { CommentThread } from '@/components/tasks/CommentThread'
-import { TicketAttachmentsList } from '@/components/shared/TicketAttachmentsList'
 import { RevealableValue } from '@/components/shared/RevealableValue'
+import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
 import { ActivityPanel } from '@/components/tasks/ActivityPanel'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
 import { DeleteButton } from '@/components/shared/DeleteButton'
-import { formatDate, splitTeamName, ticketCode } from '@/lib/utils'
+import { formatDate, formatDateTime, splitTeamName, ticketCode } from '@/lib/utils'
 import type { AppRole, TicketActivity, TicketComment, Ticket, TicketStatus } from '@/types/database'
+import { TicketOverviewCard } from '@/components/tickets/TicketOverviewCard'
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
   return { title: await ticketPageTitle(params.id) }
@@ -39,7 +39,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
     { data: staffDirectory },
     { data: assignmentSummary, error: assignmentSummaryError },
   ] = await Promise.all([
-    supabase.from('tickets').select('*, ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))').eq('id', ticketId).maybeSingle(),
+    supabase.from('tickets').select('*, client:clients(company_name), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))').eq('id', ticketId).maybeSingle(),
     supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
     supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
     getPortalNames(me),
@@ -50,7 +50,10 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
   ])
   if (!data) notFound()
   if (assignmentSummaryError) throw assignmentSummaryError
-  const ticket = data as Ticket & { ecommerce_account: { account_name: string; platform: { name: string } | null } | null }
+  const ticket = data as Ticket & {
+    client: { company_name: string } | null
+    ecommerce_account: { account_name: string; platform: { name: string } | null } | null
+  }
   const summary = (assignmentSummary as { status: TicketStatus; staff_assignee_ids: string[] }[] | null)?.[0]
   if (!summary) throw new Error('Could not load ticket assignment details')
   const ticketStatus = summary.status
@@ -73,6 +76,19 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
     return [{ id, name, role, avatarUrl: person.avatar_url, avatarRole: person.role }]
   })
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
+  const requestFields = def.fields
+    .filter(field => (ticket.details as Record<string, string> | null)?.[field.key])
+    .map(field => {
+      const raw = String((ticket.details as Record<string, string>)[field.key])
+      const value = field.type === 'select' ? field.options?.find(option => option.value === raw)?.label ?? raw
+                  : field.type === 'platform' ? (platforms ?? []).find(platform => platform.id === raw)?.name ?? raw
+                  : raw
+      return {
+        key: field.key,
+        label: field.label,
+        value: field.type === 'password' ? <RevealableValue value={value} /> : value,
+      }
+    })
   const canEdit = ticketStatus === 'unassigned' && ticket.created_by === me.id
   const workUnderWay = ticketStatus === 'assigned'
 
@@ -98,51 +114,31 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="min-w-0 space-y-6">
-          <Card className="p-6">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs font-semibold text-slate-400">{ticketCode(ticket.ticket_number)}</span>
-              {ticket.is_urgent && ticketStatus !== 'closed' && <UrgentBadge />}
-              <ClientTicketStatusBadge status={ticketStatus} />
-              {ticket.priority && <PriorityBadge priority={ticket.priority} />}
-              <span className="ml-auto text-xs text-slate-400">{TICKET_CATEGORY_LABELS[ticket.category]}</span>
-            </div>
-            <h1 className="text-xl font-bold sm:text-2xl">{ticket.subject}</h1>
-            {ticket.description && <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{ticket.description}</p>}
-            <TicketAttachmentsList attachments={attachments} />
-
-            {Object.keys(ticket.details ?? {}).length > 0 && (
-              <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-slate-100 text-sm sm:grid-cols-3">
-                {def.fields.filter(f => (ticket.details as Record<string, string>)[f.key]).map(f => {
-                  const raw = String((ticket.details as Record<string, string>)[f.key])
-                  const value = f.type === 'select' ? f.options?.find(o => o.value === raw)?.label ?? raw
-                              : f.type === 'platform' ? (platforms ?? []).find(p => p.id === raw)?.name ?? raw
-                              : raw
-                  return (
-                    <div key={f.key} className="bg-white px-3 py-2">
-                      <dt className="text-xs text-slate-500">{f.label}</dt>
-                      <dd className="truncate font-medium text-slate-900">
-                        {f.type === 'password' ? <RevealableValue value={value} /> : value}
-                      </dd>
-                    </div>
-                  )
-                })}
-                {replyAuthorName && (
-                  <div className="flex items-center bg-white px-3 py-2">
-                    <ClientReplyBadge ticketId={ticket.id} authorName={replyAuthorName} />
-                  </div>
-                )}
-              </dl>
-            )}
-
-            {/* A ticket with no detail fields has no grid for the badge to sit in. */}
-            {replyAuthorName && Object.keys(ticket.details ?? {}).length === 0 && (
+          <TicketOverviewCard
+            ticketNumber={ticketCode(ticket.ticket_number)}
+            subject={ticket.subject}
+            clientName={ticket.client?.company_name ?? null}
+            platformName={ticket.ecommerce_account?.platform?.name ?? null}
+            accountName={ticket.ecommerce_account?.account_name ?? null}
+            category={TICKET_CATEGORY_LABELS[ticket.category]}
+            urgent={ticket.is_urgent}
+            status={ticketStatus}
+            priority={ticket.priority}
+            requestFields={requestFields}
+            description={ticket.description}
+            attachments={attachments}
+          >
+            {replyAuthorName && (
               <div className="mt-4">
                 <ClientReplyBadge ticketId={ticket.id} authorName={replyAuthorName} />
               </div>
             )}
-
-            {ticketStatus === 'closed' && <ReopenTicketButton ticketId={ticket.id} />}
-          </Card>
+            {ticketStatus === 'closed' && (
+              <div className="mt-4">
+                <ReopenTicketButton ticketId={ticket.id} />
+              </div>
+            )}
+          </TicketOverviewCard>
 
           <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader title="Conversation" description="Messages with the GoPortals team" />
@@ -188,11 +184,13 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
                 </dd>
               </div>
               {[
-                ['Account', ticket.ecommerce_account ? `${ticket.ecommerce_account.platform?.name ?? ''} · ${ticket.ecommerce_account.account_name}` : null],
-                ['Raised', formatDate(ticket.created_at)],
+                ['Account', ticket.ecommerce_account
+                  ? <MarketplaceAccountLabel platformName={ticket.ecommerce_account.platform?.name ?? null} accountName={ticket.ecommerce_account.account_name} size="sm" />
+                  : null],
+                ['Raised', formatDateTime(ticket.created_at)],
                 ['Closed', ticket.closed_at ? formatDate(ticket.closed_at) : null],
-              ].filter(([, v]) => v).map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-3 px-5 py-2.5"><dt className="text-slate-500">{k}</dt><dd className="text-right text-slate-800">{v}</dd></div>
+              ].filter(([, v]) => v).map(([k, v], index) => (
+                <div key={index} className="flex justify-between gap-3 px-5 py-2.5"><dt className="text-slate-500">{k}</dt><dd className="text-right text-slate-800">{v}</dd></div>
               ))}
             </dl>
           </Card>

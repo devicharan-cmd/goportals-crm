@@ -48,6 +48,19 @@ export function formatDate(date: string | null | undefined): string {
     .format(new Date(date))
 }
 
+export function formatDateTime(date: string | null | undefined): string {
+  if (!date) return '—'
+  const value = new Date(date)
+  const formattedDate = formatDate(date)
+  const formattedTime = new Intl.DateTimeFormat('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: IST,
+  }).format(value)
+  return `${formattedDate} · ${formattedTime}`
+}
+
 export function formatRelative(date: string | null | undefined): string {
   if (!date) return '—'
   return formatDistanceToNow(new Date(date), { addSuffix: true })

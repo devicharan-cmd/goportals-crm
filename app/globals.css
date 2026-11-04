@@ -6,12 +6,12 @@
   html { -webkit-font-smoothing: antialiased; }
   body { background-color: #f8fafc; color: #1e293b; }
   h1, h2 {
-    font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+    font-family: var(--font-sans), system-ui, sans-serif;
     letter-spacing: -0.025em;
     color: #0f172a;
   }
   h3 {
-    font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+    font-family: var(--font-sans), system-ui, sans-serif;
     color: #0f172a;
   }
   ::selection { background-color: #d3e896; color: #022b3b; }

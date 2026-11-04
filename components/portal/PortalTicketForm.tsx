@@ -6,6 +6,7 @@ import { FileText, Flame, HelpCircle, Paperclip, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
+import { MarketplaceAccountSelect, MarketplacePlatformSelect } from '@/components/shared/Marketplace'
 import { GUIDELINE_PDFS_PUBLISHED, TICKET_CATEGORIES, TICKET_CATEGORY_BY_VALUE, type TicketFieldDef, type TicketFieldShowIf } from '@/lib/ticket-categories'
 import { cn, errorMessage } from '@/lib/utils'
 import type { TaskPriority, Ticket, TicketCategory } from '@/types/database'
@@ -68,10 +69,12 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
             {f.options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         ) : f.type === 'platform' ? (
-          <select className="input" required={isRequired} value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)}>
-            <option value="">Select a platform…</option>
-            {platforms.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          <MarketplacePlatformSelect
+            platforms={platforms}
+            value={details[f.key] ?? ''}
+            placeholder="Select a platform…"
+            onChange={value => setField(f.key, value)}
+          />
         ) : (
           <input className="input" required={isRequired}
                  type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
@@ -194,10 +197,12 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
 
           {scopedAccounts.length > 0 && accountMode !== 'hidden' && (
             <Field label="E-commerce account" required={accountMode === 'required'}>
-              <select className="input" value={accountId} onChange={e => setAccountId(e.target.value)}>
-                <option value="">{accountMode === 'required' ? 'Select account…' : 'Not specific'}</option>
-                {scopedAccounts.map(a => <option key={a.id} value={a.id}>{a.platform_name} · {a.account_name}</option>)}
-              </select>
+              <MarketplaceAccountSelect
+                accounts={scopedAccounts}
+                value={accountId}
+                onChange={setAccountId}
+                placeholder={accountMode === 'required' ? 'Select account…' : 'Not specific'}
+              />
             </Field>
           )}
 
@@ -242,10 +247,10 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
                        onChange={e => setFiles(fs => [...fs, ...Array.from(e.target.files ?? []).map(file => ({ file, label: ff.label }))])} />
               </label>
               {files.some(f => f.label === ff.label) && (
-                <ul className="mt-2 space-y-1">
+                <ul className="mt-2 flex flex-wrap gap-1">
                   {files.map((f, i) => f.label === ff.label && (
-                    <li key={i} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-1.5 text-xs text-slate-600">
-                      <span className="truncate">{f.file.name}</span>
+                    <li key={i} className="inline-flex w-fit max-w-full items-center gap-2 rounded-md border border-brand-200 bg-white px-2.5 py-1.5 text-xs text-slate-700">
+                      <span className="min-w-0 truncate font-medium text-brand-700">{f.file.name}</span>
                       <button type="button" onClick={() => setFiles(fs => fs.filter((_, j) => j !== i))} aria-label={`Remove ${f.file.name}`}>
                         <X className="h-3.5 w-3.5 text-slate-400 hover:text-red-600" />
                       </button>
@@ -265,10 +270,10 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
                        onChange={e => setFiles(fs => [...fs, ...Array.from(e.target.files ?? []).map(file => ({ file }))])} />
               </label>
               {files.some(f => !f.label) && (
-                <ul className="mt-2 space-y-1">
+                <ul className="mt-2 flex flex-wrap gap-1">
                   {files.map((f, i) => !f.label && (
-                    <li key={i} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-1.5 text-xs text-slate-600">
-                      <span className="truncate">{f.file.name}</span>
+                    <li key={i} className="inline-flex w-fit max-w-full items-center gap-2 rounded-md border border-brand-200 bg-white px-2.5 py-1.5 text-xs text-slate-700">
+                      <span className="min-w-0 truncate font-medium text-brand-700">{f.file.name}</span>
                       <button type="button" onClick={() => setFiles(fs => fs.filter((_, j) => j !== i))} aria-label={`Remove ${f.file.name}`}>
                         <X className="h-3.5 w-3.5 text-slate-400 hover:text-red-600" />
                       </button>

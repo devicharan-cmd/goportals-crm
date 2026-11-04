@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
 import { HealthBar } from '@/components/clients/HealthBar'
+import { MarketplacePlatformSelect } from '@/components/shared/Marketplace'
 import { errorMessage } from '@/lib/utils'
 import type { BillingType, Client, ClientInternal, Platform, Service } from '@/types/database'
 
@@ -193,10 +194,13 @@ export function ClientFormModal({
               <p className="mb-3 text-xs text-slate-500">Shown to the client as read-only, once they accept the agreement.</p>
               {accountDrafts.map(a => (
                 <div key={a.key} className="mb-2 flex flex-wrap items-center gap-2">
-                  <select className="input h-9 w-32 py-1.5" value={a.platform_id} onChange={e => updateAccount(a.key, { platform_id: e.target.value })}>
-                    <option value="">Platform…</option>
-                    {platforms.filter(p => p.is_active).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
+                  <MarketplacePlatformSelect
+                    className="input flex h-9 w-32 items-center justify-between gap-2 py-1.5 text-sm"
+                    platforms={platforms.filter(p => p.is_active)}
+                    value={a.platform_id}
+                    placeholder="Platform…"
+                    onChange={value => updateAccount(a.key, { platform_id: value })}
+                  />
                   <input className="input h-9 flex-1" placeholder="Account name (e.g. ABC Amazon Seller)" value={a.account_name}
                          onChange={e => updateAccount(a.key, { account_name: e.target.value })} />
                   <input className="input h-9 w-28" placeholder="Seller ID" value={a.seller_id} onChange={e => updateAccount(a.key, { seller_id: e.target.value })} />

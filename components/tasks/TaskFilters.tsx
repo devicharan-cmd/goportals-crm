@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { ChevronDown, KanbanSquare, List, X } from 'lucide-react'
+import { ChevronDown, KanbanSquare, List, UserRound, UsersRound, X } from 'lucide-react'
 import { Avatar } from '@/components/ui/primitives'
 import { TASK_STATUS_OPTIONS } from '@/lib/constants'
 import { TaskSearchField, useTaskSearch } from '@/components/tasks/TaskSearch'
@@ -15,8 +15,8 @@ type Option = { value: string; label: string; avatarUrl?: string | null; role?: 
  * URL-driven task filters and a transient, debounced search.
  */
 export function TaskFilters({
-  clients, people, departments, showScope, defaultScope = 'mine', action,
-}: { clients: Option[]; people: Option[]; departments: Option[]; showScope: boolean; defaultScope?: 'mine' | 'all'; action?: React.ReactNode }) {
+  clients, people, departments, showScope, showAssigneeFilter, defaultScope = 'mine', scopeCounts, assigners, action,
+}: { clients: Option[]; people: Option[]; departments: Option[]; showScope: boolean; showAssigneeFilter: boolean; defaultScope?: 'mine' | 'all'; scopeCounts: { mine: number; all: number }; assigners: Option[]; action?: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -58,7 +58,7 @@ export function TaskFilters({
 
   const view = params.get('view') ?? 'list'
   const scope = params.get('scope') ?? defaultScope
-  const filtered = Boolean(q || taskSearch.query) || ['status', 'client', 'assignee', 'dept'].some(k => params.get(k))
+  const filtered = Boolean(q || taskSearch.query) || ['status', 'client', 'assignee', 'assigned_by', 'dept'].some(k => params.get(k))
 
   function clearFilters() {
     const next = new URLSearchParams()
@@ -69,18 +69,44 @@ export function TaskFilters({
     router.push(`${pathname}?${next.toString()}`)
   }
 
+  function setScope(value: 'mine' | 'all') {
+    const next = new URLSearchParams(params.toString())
+    next.delete('q')
+    next.delete(value === 'mine' ? 'assignee' : 'assigned_by')
+    if (value === defaultScope) next.delete('scope')
+    else next.set('scope', value)
+    router.push(`${pathname}?${next.toString()}`)
+  }
+
   const toggle = 'inline-flex h-9 items-center rounded-lg bg-slate-100 p-1'
+  const scopeToggle = 'inline-grid h-9 grid-cols-2 gap-px rounded-xl border border-slate-200 bg-white p-0.5 shadow-card'
   const select = 'input h-9 w-full py-1.5 pr-8 text-sm sm:w-44'
+  const scopeOptions = [
+    { v: 'mine', l: 'My tasks', i: UserRound },
+    { v: 'all', l: 'All tasks', i: UsersRound },
+  ] as const
 
   return (
     <div className="mb-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         {showScope && (
-          <div className={cn(toggle, 'text-sm')}>
-            {[{ v: 'mine', l: 'My tasks' }, { v: 'all', l: 'All tasks' }].map(o => (
-              <button key={o.v} onClick={() => set('scope', o.v === defaultScope ? '' : o.v)}
-                      className={cn('h-7 rounded-md px-3 font-medium transition', scope === o.v ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
-                {o.l}
+          <div className={scopeToggle}>
+            {scopeOptions.map(o => (
+              <button key={o.v} onClick={() => setScope(o.v)}
+                      className={cn(
+                        'relative flex h-full min-w-0 items-center gap-2 rounded-lg px-3 pr-7 text-xs transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none',
+                        scope === o.v
+                          ? 'bg-brand-700 font-semibold text-white shadow-[0_2px_5px_rgba(2,43,59,0.2)]'
+                          : 'bg-white font-medium text-slate-800',
+                      )}>
+                <o.i aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', scope === o.v ? 'text-white' : 'text-slate-800')} />
+                <span className="min-w-0 truncate">{o.l}</span>
+                <span className={cn(
+                  'absolute right-1 top-1/2 inline-flex h-4 min-w-4 -translate-y-1/2 items-center justify-center rounded-full px-0.5 text-[9px] font-bold leading-none shadow-sm',
+                  scopeCounts[o.v] > 0 ? 'bg-lime-500 text-white' : 'bg-slate-200 text-[#0F172A]',
+                )}>
+                  {scopeCounts[o.v] > 99 ? '99+' : scopeCounts[o.v]}
+                </span>
               </button>
             ))}
           </div>
@@ -108,21 +134,34 @@ export function TaskFilters({
           <option value="">All clients</option>
           {clients.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
-        {showScope && scope === 'all' && (
+        {(scope === 'mine' || (showAssigneeFilter && scope === 'all')) && (
           <div className="relative w-full sm:w-44" data-assignee-filter>
             <button type="button" className="input flex h-9 w-full items-center justify-between gap-2 py-1.5 pr-3 text-left text-sm"
-                    aria-label="Assignee" aria-haspopup="listbox" aria-expanded={assigneeOpen}
+                    aria-label={scope === 'mine' ? 'Assigned by' : 'Assignee'} aria-haspopup="listbox" aria-expanded={assigneeOpen}
                     onClick={() => setAssigneeOpen(current => !current)}>
-              <span className="truncate">{params.get('assignee') === 'none' ? 'Unassigned' : people.find(p => p.value === params.get('assignee'))?.label ?? 'Any assignee'}</span>
+              <span className="truncate">
+                {scope === 'mine'
+                  ? params.get('assigned_by') === 'none'
+                    ? 'Unknown assigner'
+                    : assigners.find(person => person.value === params.get('assigned_by'))?.label ?? 'Assigned by'
+                  : params.get('assignee') === 'none'
+                    ? 'Unassigned'
+                    : people.find(person => person.value === params.get('assignee'))?.label ?? 'Any assignee'}
+              </span>
               <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
             </button>
             {assigneeOpen && (
-              <div role="listbox" aria-label="Assignee" className="absolute left-0 top-full z-30 mt-1 max-h-64 w-full min-w-56 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
-                {[{ value: '', label: 'Any assignee' }, { value: 'none', label: 'Unassigned' }, ...people].map(person => {
-                  const selected = (params.get('assignee') ?? '') === person.value
+              <div role="listbox" aria-label={scope === 'mine' ? 'Assigned by' : 'Assignee'} className="absolute left-0 top-full z-30 mt-1 max-h-64 w-full min-w-56 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                {[
+                  { value: '', label: scope === 'mine' ? 'Assigned by' : 'Any assignee' },
+                  { value: 'none', label: scope === 'mine' ? 'Unknown assigner' : 'Unassigned' },
+                  ...(scope === 'mine' ? assigners : people),
+                ].map(person => {
+                  const filterKey = scope === 'mine' ? 'assigned_by' : 'assignee'
+                  const selected = (params.get(filterKey) ?? '') === person.value
                   return (
                     <button key={person.value || 'any'} type="button" role="option" aria-selected={selected}
-                            onClick={() => { set('assignee', person.value); setAssigneeOpen(false) }}
+                            onClick={() => { set(filterKey, person.value); setAssigneeOpen(false) }}
                             className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors', selected ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-[#f3f5f4]')}>
                       {person.value && person.value !== 'none' && <Avatar name={person.label} src={person.avatarUrl} role={person.role} size="sm" />}
                       <span className="truncate">{person.label}</span>

@@ -1,11 +1,10 @@
 import type { Metadata } from 'next'
-import { Inter, Plus_Jakarta_Sans } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import { Toaster } from 'sonner'
 import './globals.css'
 import 'leaflet/dist/leaflet.css'
 
-const sans    = Inter({ subsets: ['latin'], variable: '--font-sans' })
-const display = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-display', weight: ['600', '700', '800'] })
+const sans = Inter({ subsets: ['latin'], variable: '--font-sans' })
 
 export const metadata: Metadata = {
   title: { default: 'GoPortals', template: '%s · GoPortals' },
@@ -14,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${display.variable}`} suppressHydrationWarning>
+    <html lang="en" className={sans.variable} suppressHydrationWarning>
       <body className="font-sans" suppressHydrationWarning>
         {children}
         <Toaster position="top-right" richColors />

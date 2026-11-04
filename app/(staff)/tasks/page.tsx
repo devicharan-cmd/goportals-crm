@@ -5,21 +5,20 @@ import { assignableFor, assigneeOptionsFor, getTaskPageLookups, nameMap, TASK_LI
 import { ButtonLink } from '@/components/ui/button'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
 import { TaskSearchProvider, TaskSearchResults } from '@/components/tasks/TaskSearch'
-import type { TaskListItem } from '@/types/database'
+import type { StaffDirectoryEntry, TaskListItem } from '@/types/database'
 
 export const metadata = { title: 'Tasks' }
 
-type SP = { view?: string; scope?: string; status?: string; client?: string; assignee?: string; dept?: string }
+type SP = { view?: string; scope?: string; status?: string; client?: string; assignee?: string; assigned_by?: string; dept?: string }
 
 export default async function TasksPage({ searchParams }: { searchParams: SP }) {
   const me = await requireStaff()
   const supabase = createClient()
 
-  // Employees only ever see their own + urgent tasks (RLS), so "My tasks" vs "All" matters for managers/admins.
+  // RLS limits each role to the tasks they are allowed to see.
   const canSeeMore = me.role !== 'employee'
-  // Super admins/admins start on all tasks (nothing is usually assigned to them); others on their own.
-  const defaultScope = ['super_admin', 'admin'].includes(me.role) ? 'all' : 'mine'
-  const scope = canSeeMore ? searchParams.scope ?? defaultScope : 'mine'
+  const defaultScope = 'all'
+  const scope = searchParams.scope ?? defaultScope
   const board = searchParams.view === 'board'
 
   let query = supabase.from('tasks').select(TASK_LIST_SELECT)
@@ -28,8 +27,11 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
     .order('created_at', { ascending: false })
     .limit(500)
 
-  if (scope === 'mine') query = query.eq('assignee_id', me.id)
-  else if (searchParams.assignee === 'none') query = query.is('assignee_id', null)
+  if (scope === 'mine') {
+    query = query.eq('assignee_id', me.id)
+    if (searchParams.assigned_by === 'none') query = query.is('assigned_by', null)
+    else if (searchParams.assigned_by) query = query.eq('assigned_by', searchParams.assigned_by)
+  } else if (searchParams.assignee === 'none') query = query.is('assignee_id', null)
   else if (searchParams.assignee) query = query.eq('assignee_id', searchParams.assignee)
 
   const status = searchParams.status ?? 'active'
@@ -40,14 +42,27 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
   if (searchParams.client) query = query.eq('client_id', searchParams.client)
   if (searchParams.dept) query = query.eq('department_id', searchParams.dept)
 
-  const [{ data }, lookups] = await Promise.all([
+  const [taskResult, lookups, myTaskCountResult, allTaskCountResult, assignerResult] = await Promise.all([
     query,
     getTaskPageLookups({
       includePeople: me.role !== 'employee',
       includeAssignments: me.role !== 'employee',
     }),
+    supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assignee_id', me.id),
+    supabase.from('tasks').select('id', { count: 'exact', head: true }),
+    supabase.rpc('staff_directory'),
   ])
-  const tasks = (data ?? []) as TaskListItem[]
+  if (taskResult.error) throw taskResult.error
+  if (myTaskCountResult.error) throw myTaskCountResult.error
+  if (allTaskCountResult.error) throw allTaskCountResult.error
+  if (assignerResult.error) throw assignerResult.error
+  const tasks = (taskResult.data ?? []) as TaskListItem[]
+  const assigners = ((assignerResult.data ?? []) as StaffDirectoryEntry[]).map(person => ({
+    value: person.id,
+    label: person.full_name || 'Staff member',
+    avatarUrl: person.avatar_url,
+    role: person.role,
+  }))
   const names = me.role === 'employee'
     ? { [me.id]: me.full_name || me.email }
     : nameMap(lookups.people)
@@ -66,8 +81,11 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
       board={board}
     >
       <TaskFilters
-        showScope={canSeeMore}
+        showScope
+        showAssigneeFilter={canSeeMore}
         defaultScope={defaultScope}
+        scopeCounts={{ mine: myTaskCountResult.count ?? 0, all: allTaskCountResult.count ?? 0 }}
+        assigners={assigners}
         clients={lookups.clients.map(c => ({ value: c.id, label: c.company_name }))}
         people={(['super_admin', 'admin'].includes(me.role) ? lookups.staff : assignableFor(me, lookups)).map(p => ({ value: p.id, label: p.full_name || p.email, avatarUrl: p.avatar_url, role: p.role }))}
         departments={lookups.departments.map(d => ({ value: d.id, label: d.name }))}

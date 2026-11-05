@@ -202,6 +202,7 @@
   main { padding: 0 !important; }
 }
 
+
 /* Scrollbars in the logo's "GO" lime (#95C12C). Firefox + new Chrome use scrollbar-color; Safari uses the ::-webkit rules. */
 * {
   scrollbar-width: thin;

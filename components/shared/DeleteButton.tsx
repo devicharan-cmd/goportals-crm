@@ -3,11 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { errorMessage } from '@/lib/utils'
+import { showErrorToast, showSuccessToast } from '@/lib/ui-toast'
 
 export function DeleteButton({
   table, id, redirectTo, label = 'Delete', variant = 'ghost', description, confirmationTitle, confirmLabel,
@@ -47,13 +47,10 @@ export function DeleteButton({
     setLoading(false)
     if (failure) {
       setError(failure)
-      toast.error(failure)
+      showErrorToast(failure)
       return
     }
-    toast(`${itemName[0].toUpperCase()}${itemName.slice(1)} deleted`, {
-      icon: <Trash2 className="h-4 w-4 text-red-600" />,
-      style: { background: '#fef2f2', borderColor: '#fecaca', color: '#b91c1c' },
-    })
+    showSuccessToast(`${itemName[0].toUpperCase()}${itemName.slice(1)} deleted`)
     router.push(redirectTo)
     router.refresh()
   }

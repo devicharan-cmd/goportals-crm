@@ -105,12 +105,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: { mo
       />
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <StatCard label="Tickets raised" value={ticketsRaised.length} icon={ClipboardList} tone="brand" />
-        <StatCard label="Tickets closed" value={ticketsClosed.length} icon={CheckCircle2} tone="lime" />
-        <StatCard label="Hours logged" value={Math.round(totalHours * 10) / 10} icon={Clock} tone="amber" />
-        <StatCard label="Tasks created" value={created.length} icon={Inbox} />
-        <StatCard label="Tasks completed" value={closed.length} icon={CheckCircle2} tone="lime" />
-        <StatCard label="Completed late" value={closedLate.length} icon={TimerOff} tone={closedLate.length ? 'red' : 'lime'} />
+        <StatCard label="Tickets raised" value={ticketsRaised.length} icon={<ClipboardList className="h-5 w-5" />} tone="brand" />
+        <StatCard label="Tickets closed" value={ticketsClosed.length} icon={<CheckCircle2 className="h-5 w-5" />} tone="lime" />
+        <StatCard label="Hours logged" value={Math.round(totalHours * 10) / 10} icon={<Clock className="h-5 w-5" />} tone="amber" />
+        <StatCard label="Tasks created" value={created.length} icon={<Inbox className="h-5 w-5" />} />
+        <StatCard label="Tasks completed" value={closed.length} icon={<CheckCircle2 className="h-5 w-5" />} tone="lime" />
+        <StatCard label="Completed late" value={closedLate.length} icon={<TimerOff className="h-5 w-5" />} tone={closedLate.length ? 'red' : 'lime'} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

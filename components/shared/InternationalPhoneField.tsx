@@ -51,12 +51,29 @@ export function InternationalPhoneField({ value, onChange, disabled, required = 
   const [search, setSearch] = useState('')
   const rootRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const countryRef = useRef<Country | null>(inferCountry(value))
   const countries = useMemo(() => getCountries(), [])
 
   useEffect(() => {
     const nextCountry = inferCountry(value)
-    setCountry(nextCountry)
-    setDigits(nationalNumber(value, nextCountry))
+    if (nextCountry) {
+      countryRef.current = nextCountry
+      setCountry(nextCountry)
+      setDigits(nationalNumber(value, nextCountry))
+      return
+    }
+
+    const selectedCountry = countryRef.current
+    if (!selectedCountry) {
+      setCountry(null)
+      setDigits(value.replace(/\D/g, ''))
+      return
+    }
+
+    const callingCode = getCountryCallingCode(selectedCountry)
+    const compact = value.replace(/\D/g, '')
+    setCountry(selectedCountry)
+    setDigits(compact.startsWith(callingCode) ? compact.slice(callingCode.length) : compact)
   }, [value])
 
   useEffect(() => {
@@ -86,10 +103,11 @@ export function InternationalPhoneField({ value, onChange, disabled, required = 
   function updateDigits(nextDigits: string) {
     const clean = nextDigits.replace(/\D/g, '')
     setDigits(clean)
-    onChange(clean && country ? `+${getCountryCallingCode(country)}${clean}` : clean)
+    onChange(clean && countryRef.current ? `+${getCountryCallingCode(countryRef.current)}${clean}` : clean)
   }
 
   function chooseCountry(nextCountry: Country) {
+    countryRef.current = nextCountry
     setCountry(nextCountry)
     setOpen(false)
     setSearch('')

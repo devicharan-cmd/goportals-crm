@@ -39,7 +39,7 @@ export function NotificationsList({ items, taskHref, ticketHref }: { items: Noti
     router.refresh()
   }
 
-  if (items.length === 0) return <EmptyState icon={Bell} title="No notifications" description="You're all caught up." />
+  if (items.length === 0) return <EmptyState icon={<Bell className="h-6 w-6" />} title="No notifications" description="You're all caught up." />
 
   return (
     <div>

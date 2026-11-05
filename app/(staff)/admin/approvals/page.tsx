@@ -28,7 +28,7 @@ export default async function ApprovalsPage() {
   return (
     <div className="mx-auto max-w-4xl">
       {rows.length === 0 ? (
-        <Card><EmptyState icon={ShieldCheck} title="No clients waiting" description="Clients appear here once they finish onboarding, until you approve them." /></Card>
+        <Card><EmptyState icon={<ShieldCheck className="h-6 w-6" />} title="No clients waiting" description="Clients appear here once they finish onboarding, until you approve them." /></Card>
       ) : (
         <div className="space-y-5">
           {rows.map(c => {

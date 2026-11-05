@@ -44,9 +44,9 @@ export default async function PortalHome() {
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Open tickets" value={open.length} icon={Clock} href="/portal/tickets" />
-        <StatCard label="Assigned tickets" value={assigned.length} icon={Loader} tone="amber" href="/portal/tickets?status=assigned" />
-        <StatCard label="Closed this month" value={doneThisMonth.length} icon={CheckCircle2} tone="lime" href="/portal/tickets?status=closed" />
+        <StatCard label="Open tickets" value={open.length} icon={<Clock className="h-5 w-5" />} href="/portal/tickets" />
+        <StatCard label="Assigned tickets" value={assigned.length} icon={<Loader className="h-5 w-5" />} tone="amber" href="/portal/tickets?status=assigned" />
+        <StatCard label="Closed this month" value={doneThisMonth.length} icon={<CheckCircle2 className="h-5 w-5" />} tone="lime" href="/portal/tickets?status=closed" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">

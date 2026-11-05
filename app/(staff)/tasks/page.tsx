@@ -34,7 +34,7 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
   } else if (searchParams.assignee === 'none') query = query.is('assignee_id', null)
   else if (searchParams.assignee) query = query.eq('assignee_id', searchParams.assignee)
 
-  const status = searchParams.status ?? 'active'
+  const status = searchParams.status ?? 'all'
   if (!board) {
     if (status === 'active') query = query.not('status', 'in', '(completed,cancelled)')
     else if (status !== 'all') query = query.eq('status', status)

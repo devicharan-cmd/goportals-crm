@@ -135,13 +135,13 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="My open tasks" value={myOpenCount} icon={CheckSquare} href="/tasks" />
-        <StatCard label="Due today" value={dueTodayCount} icon={AlarmClock} tone={dueTodayCount ? 'amber' : 'lime'} href="/tasks" />
-        <StatCard label="Urgent waiting" value={urgentTasks.length} icon={Flame} tone={urgentTasks.length ? 'red' : 'lime'} href="/urgent" />
+        <StatCard label="My open tasks" value={myOpenCount} icon={<CheckSquare className="h-5 w-5" />} href="/tasks" />
+        <StatCard label="Due today" value={dueTodayCount} icon={<AlarmClock className="h-5 w-5" />} tone={dueTodayCount ? 'amber' : 'lime'} href="/tasks" />
+        <StatCard label="Urgent waiting" value={urgentTasks.length} icon={<Flame className="h-5 w-5" />} tone={urgentTasks.length ? 'red' : 'lime'} href="/urgent" />
         {isSuperAdmin
-          ? <StatCard label="Clients awaiting approval" value={approvals.count ?? 0} icon={ShieldCheck} tone={approvals.count ? 'amber' : 'lime'} href="/admin/approvals" />
+          ? <StatCard label="Clients awaiting approval" value={approvals.count ?? 0} icon={<ShieldCheck className="h-5 w-5" />} tone={approvals.count ? 'amber' : 'lime'} href="/admin/approvals" />
           : canSeeTickets
-            ? <StatCard label="New client tickets" value={clientRequests.length} icon={Inbox} tone="brand" href="/tickets" />
+            ? <StatCard label="New client tickets" value={clientRequests.length} icon={<Inbox className="h-5 w-5" />} tone="brand" href="/tickets" />
             : null}
       </div>
 
@@ -228,7 +228,7 @@ export default async function DashboardPage() {
       {isTeamLead && (
         deptMateIds.length === 0 ? (
           <Card className="mt-6">
-            <EmptyState icon={Users} title="No department yet" description="Ask a manager to add you to a department to see your team's work here." />
+            <EmptyState icon={<Users className="h-6 w-6" />} title="No department yet" description="Ask a manager to add you to a department to see your team's work here." />
           </Card>
         ) : (
           <div className="mt-6 space-y-6">

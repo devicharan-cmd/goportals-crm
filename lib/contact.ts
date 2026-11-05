@@ -1,9 +1,7 @@
-import { isValidPhoneNumber } from 'react-phone-number-input'
-
 export function validateMobilePhone(value: string): string | null {
   const phone = value.trim()
   if (!phone) return 'Mobile number is required.'
-  if (!isValidPhoneNumber(phone)) return 'Enter a valid mobile number with its country code.'
+  if (!/^\+[1-9]\d{7,14}$/.test(phone)) return 'Enter a valid mobile number with its country code.'
   return null
 }
 

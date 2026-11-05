@@ -169,7 +169,9 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
                         description="Visible to the GoPortals team. Clients do not see tasks — reply on the ticket instead." />
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={task.id} comments={(comments ?? []) as TaskComment[]} names={names}
-                             roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))} meId={me.id} myRole={me.role} bounded />
+                             roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))}
+                             avatarUrls={Object.fromEntries(lookups.people.map(p => [p.id, p.avatar_url]))}
+                             meId={me.id} myRole={me.role} bounded />
             </div>
           </Card>
 

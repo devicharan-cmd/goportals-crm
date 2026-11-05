@@ -76,7 +76,7 @@ export function TicketTable({
 
   const statusLabels = audience === 'client' ? TICKET_STATUS_LABELS_CLIENT : TICKET_STATUS_LABELS
   if (tickets.length === 0) {
-    return <EmptyState icon={ClipboardList} title={empty?.title ?? 'No tickets'} description={empty?.description} action={empty?.action} />
+    return <EmptyState icon={<ClipboardList className="h-6 w-6" />} title={empty?.title ?? 'No tickets'} description={empty?.description} action={empty?.action} />
   }
 
   return (

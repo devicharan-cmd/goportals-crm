@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Check, CheckCircle2, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, AlertCircle, Loader2, ChevronDown, Search
+  Check, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, Loader2, ChevronDown, Search
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ROLE_LABELS } from '@/lib/constants'
@@ -16,6 +16,7 @@ import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { InternationalPhoneField } from '@/components/shared/InternationalPhoneField'
 import { TimezoneSelect } from '@/components/shared/TimezoneSelect'
 import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
+import { showSuccessToast } from '@/lib/ui-toast'
 import type { AppRole, Department, Profile } from '@/types/database'
 
 const PROFILE_IMAGE_BUCKET = 'staff-profile-images'
@@ -27,11 +28,13 @@ function ReportingPersonSelect({
   value,
   onChange,
   disabled,
+  invalid,
 }: {
   people: { id: string; full_name: string; email: string; role: AppRole; status: string; avatar_url?: string | null }[]
   value: string
   onChange: (value: string) => void
   disabled?: boolean
+  invalid?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -58,11 +61,15 @@ function ReportingPersonSelect({
         type="button"
         disabled={disabled}
         onClick={() => setOpen(current => !current)}
-        className="flex h-[42px] w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+        className={cn(
+          'flex h-[42px] w-full items-center gap-2 rounded-xl border bg-white px-3.5 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500',
+          invalid ? 'border-red-500 focus:border-red-500' : 'border-slate-200'
+        )}
+        aria-invalid={invalid}
       >
         {selected ? (
           <>
-            <Avatar name={selected.full_name || selected.email} src={selected.avatar_url} role={selected.role} size="xs" />
+            <Avatar name={selected.full_name || selected.email} src={selected.avatar_url} role={selected.role} size="xs" className="h-7 w-7 text-[11px]" />
             <span className="min-w-0 flex-1 truncate text-left">{selected.full_name || selected.email}</span>
           </>
         ) : (
@@ -151,11 +158,13 @@ export function StaffProfileSettings({
   const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>(initialDepartmentIds)
 
   const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
   const [phoneError, setPhoneError] = useState('')
   const [timezoneError, setTimezoneError] = useState('')
   const [jobTitleError, setJobTitleError] = useState('')
+  const [roleError, setRoleError] = useState('')
+  const [reportingToError, setReportingToError] = useState('')
+  const [capacityError, setCapacityError] = useState('')
   const [currentImage, setCurrentImage] = useState<string | null>(profile.avatar_url)
   const [imageLoadFailed, setImageLoadFailed] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
@@ -164,6 +173,7 @@ export function StaffProfileSettings({
   const [imageError, setImageError] = useState('')
   const [imageDialogOpen, setImageDialogOpen] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+
 
   useEffect(() => { setCurrentImage(profile.avatar_url) }, [profile.avatar_url])
   useEffect(() => { setImageLoadFailed(false) }, [currentImage])
@@ -327,7 +337,9 @@ export function StaffProfileSettings({
     setPhoneError('')
     setTimezoneError('')
     setJobTitleError('')
-    setSuccess(false)
+    setRoleError('')
+    setReportingToError('')
+    setCapacityError('')
     setIsEditing(false)
   }
 
@@ -344,7 +356,9 @@ export function StaffProfileSettings({
     setPhoneError('')
     setTimezoneError('')
     setJobTitleError('')
-    setSuccess(false)
+    setRoleError('')
+    setReportingToError('')
+    setCapacityError('')
     if (!jobTitle.trim()) {
       setSaving(false)
       setJobTitleError('Job title is required.')
@@ -359,6 +373,22 @@ export function StaffProfileSettings({
     if (!isValidTimeZone(timezone)) {
       setSaving(false)
       setTimezoneError('Select a valid timezone.')
+      return
+    }
+    if (!role) {
+      setSaving(false)
+      setRoleError('Select a role.')
+      return
+    }
+    if (role !== 'super_admin' && !reportingTo) {
+      setSaving(false)
+      setReportingToError('Select a Reporting To person.')
+      return
+    }
+    const capacity = Number(weeklyCapacity)
+    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 168) {
+      setSaving(false)
+      setCapacityError('Weekly capacity must be between 1 and 168 hours.')
       return
     }
 
@@ -381,12 +411,19 @@ export function StaffProfileSettings({
             department_ids: selectedDeptIds,
           }),
         })
-        const result = await response.json()
+        const responseText = await response.text()
+        let result: { error?: string } = {}
+        if (responseText) {
+          try {
+            result = JSON.parse(responseText)
+          } catch {
+            throw new Error('The server could not process this update. Please try again.')
+          }
+        }
         if (!response.ok) throw new Error(result.error || 'Could not update the staff profile.')
         setIsEditing(false)
-        setSuccess(true)
+        showSuccessToast('Profile updated successfully')
         router.refresh()
-        setTimeout(() => setSuccess(false), 4000)
         return
       }
 
@@ -451,11 +488,17 @@ export function StaffProfileSettings({
 
       // After updating, lock fields back to uneditable mode
       setIsEditing(false)
-      setSuccess(true)
+      showSuccessToast('Profile updated successfully')
       router.refresh()
-      setTimeout(() => setSuccess(false), 4000)
     } catch (err: unknown) {
-      setError(errorMessage(err))
+      const message = errorMessage(err)
+      if (/mobile number|phone/i.test(message)) setPhoneError(message)
+      else if (/timezone/i.test(message)) setTimezoneError(message)
+      else if (/job title/i.test(message)) setJobTitleError(message)
+      else if (/reporting to/i.test(message)) setReportingToError(message)
+      else if (/weekly capacity|capacity/i.test(message)) setCapacityError(message)
+      else if (!isOwnProfile) setJobTitleError(message)
+      else setError(message)
     } finally {
       setSaving(false)
     }
@@ -476,12 +519,6 @@ export function StaffProfileSettings({
                   How you appear to your team and on tickets, tasks, and communications.
                 </p>
               </div>
-              {success && (
-                <span className="flex items-center gap-1.5 rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800 ring-1 ring-lime-200 animate-in fade-in">
-                  <CheckCircle2 className="h-4 w-4 text-lime-600" />
-                  Profile updated successfully
-                </span>
-              )}
             </div>
 
             <div className="space-y-6 p-8 sm:p-10">
@@ -526,7 +563,9 @@ export function StaffProfileSettings({
                       {fullName || profile.email}
                     </h3>
                     <div className="mt-1.5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                      <span className="text-xs font-semibold text-brand-700">{ROLE_LABELS[role]}</span>
+                      {jobTitle.trim() && (
+                        <span className="text-xs font-semibold text-brand-700">{jobTitle.trim()}</span>
+                      )}
                       <span className="text-xs text-slate-500">Joined {formatDate(profile.created_at)}</span>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
@@ -548,7 +587,6 @@ export function StaffProfileSettings({
                         </span>
                       )}
                     </div>
-                    {jobTitle && <p className="mt-2 text-xs font-medium text-slate-500">{jobTitle}</p>}
                     {imageError && !imageDialogOpen && <p role="alert" className="mt-2 text-xs text-red-600">{imageError}</p>}
                   </div>
                 </div>
@@ -586,11 +624,8 @@ export function StaffProfileSettings({
 
                 {/* Email (Always Read-Only) */}
                 <div>
-                  <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
-                    <span>Email</span>
-                    <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
-                      <Lock className="h-3 w-3" /> Account email
-                    </span>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                    Email
                   </label>
                   <input
                     type="email"
@@ -658,8 +693,8 @@ export function StaffProfileSettings({
 
                 <div>
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
-                    <span>Role</span>
-                    {!canChangeRole && (
+                    <span>Role <span className="text-red-500">*</span></span>
+                    {(!canChangeRole || !isEditing) && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
@@ -671,6 +706,7 @@ export function StaffProfileSettings({
                       onChange={e => {
                         const nextRole = e.target.value as AppRole
                         setRole(nextRole)
+                        if (roleError) setRoleError('')
                         const reportingRole = nextRole === 'admin' ? 'super_admin'
                           : nextRole === 'team_lead' ? 'admin'
                             : nextRole === 'employee' ? 'team_lead' : null
@@ -678,7 +714,12 @@ export function StaffProfileSettings({
                           setReportingTo('')
                         }
                       }}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-brand-500 focus:outline-none transition shadow-sm"
+                      aria-invalid={!!roleError}
+                      required
+                      className={cn(
+                        'h-[42px] w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-brand-500 focus:outline-none transition shadow-sm',
+                        roleError ? 'border-red-500' : 'border-slate-200'
+                      )}
                     >
                       <option value="super_admin">Super Admin</option>
                       <option value="admin">Manager</option>
@@ -690,12 +731,15 @@ export function StaffProfileSettings({
                       {ROLE_LABELS[role]}
                     </div>
                   )}
+                  {roleError && (
+                    <p className="mt-1.5 text-xs font-medium text-red-600">{roleError}</p>
+                  )}
                 </div>
 
                 <div>
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
-                    <span>Reporting To (POC)</span>
-                    {!isOwnProfile && !canChangeRole && actorRole !== 'admin' && (
+                    <span>Reporting To (POC) {role !== 'super_admin' && <span className="text-red-500">*</span>}</span>
+                    {(!canChangeRole || !isEditing) && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
@@ -704,7 +748,11 @@ export function StaffProfileSettings({
                   {canChangeRole && isEditing && role !== 'super_admin' ? (
                     <ReportingPersonSelect
                       value={reportingTo}
-                      onChange={setReportingTo}
+                      onChange={value => {
+                        setReportingTo(value)
+                        if (reportingToError) setReportingToError('')
+                      }}
+                      invalid={!!reportingToError}
                       people={reportingPeople.filter(person =>
                         person.id !== profile.id &&
                         person.status === 'active' &&
@@ -715,32 +763,21 @@ export function StaffProfileSettings({
                     />
                   ) : (
                     <div className="flex h-[42px] items-center rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 text-sm font-medium text-slate-700">
-                      {reportingPeople.find(person => person.id === reportingTo)?.full_name || '--'}
+                      {(() => {
+                        const reportingPerson = reportingPeople.find(person => person.id === reportingTo)
+                        return reportingPerson ? (
+                          <>
+                            <Avatar name={reportingPerson.full_name || reportingPerson.email} src={reportingPerson.avatar_url} role={reportingPerson.role} size="xs" className="mr-2 h-7 w-7 text-[11px]" />
+                            <span className="min-w-0 truncate">{reportingPerson.full_name || reportingPerson.email}</span>
+                          </>
+                        ) : '--'
+                      })()}
                     </div>
                   )}
+                  {reportingToError && (
+                    <p className="mt-1.5 text-xs font-medium text-red-600">{reportingToError}</p>
+                  )}
                 </div>
-
-                {!isOwnProfile && (
-                  <div>
-                    <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
-                      <span>Employment status</span>
-                      {!canChangeStatus || !isEditing ? (
-                        <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
-                          <Lock className="h-3 w-3" /> Managed by Super Admin
-                        </span>
-                      ) : null}
-                    </label>
-                    <SearchableSelect
-                      value={employmentStatus}
-                      disabled={!canChangeStatus || !isEditing}
-                      onChange={event => setEmploymentStatus(event.target.value as 'active' | 'suspended')}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900"
-                    >
-                      <option value="active">Active</option>
-                      <option value="suspended">Suspended</option>
-                    </SearchableSelect>
-                  </div>
-                )}
 
                 <div>
                   <label className="mb-1.5 block text-sm font-semibold text-slate-700">
@@ -759,6 +796,28 @@ export function StaffProfileSettings({
                     <p className="mt-1.5 text-xs font-medium text-red-600">{timezoneError}</p>
                   )}
                 </div>
+
+                {!isOwnProfile && (
+                  <div>
+                    <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
+                      <span>Employment status</span>
+                      {!canChangeStatus || !isEditing ? (
+                        <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                          <Lock className="h-3 w-3" /> Managed by Super Admin
+                        </span>
+                      ) : null}
+                    </label>
+                    <SearchableSelect
+                      value={employmentStatus}
+                      disabled={!canChangeStatus || !isEditing}
+                      onChange={event => setEmploymentStatus(event.target.value as 'active' | 'suspended')}
+                      className="h-[42px] w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900"
+                    >
+                      <option value="active">Active</option>
+                      <option value="suspended">Suspended</option>
+                    </SearchableSelect>
+                  </div>
+                )}
                 {isOwnProfile && <div className="hidden sm:block" />}
 
                 <div>
@@ -810,19 +869,27 @@ export function StaffProfileSettings({
                       max="168"
                       value={weeklyCapacity}
                       disabled={!isSuperAdmin || !isEditing}
-                      onChange={e => isSuperAdmin && setWeeklyCapacity(e.target.value)}
+                      onChange={e => {
+                        if (!isSuperAdmin) return
+                        setWeeklyCapacity(e.target.value)
+                        if (capacityError) setCapacityError('')
+                      }}
                       placeholder="40"
                       className={cn(
-                        'w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm pr-16 transition shadow-sm',
+                        'h-[42px] w-full rounded-xl border px-3.5 py-2.5 text-sm pr-16 transition shadow-sm',
                         isSuperAdmin && isEditing
-                          ? 'text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none'
-                          : 'bg-slate-50/70 text-slate-600 cursor-not-allowed'
+                          ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none'
+                          : 'border-slate-200 bg-slate-50/70 text-slate-600 cursor-not-allowed',
+                        capacityError && isEditing && 'border-red-500'
                       )}
                     />
                     <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">
                       hrs / wk
                     </span>
                   </div>
+                  {capacityError && (
+                    <p className="mt-1.5 text-xs font-medium text-red-600">{capacityError}</p>
+                  )}
                 </div>
               </div>
 
@@ -873,14 +940,6 @@ export function StaffProfileSettings({
                   </p>
                 )}
               </div>
-
-              {/* Error Alert */}
-              {error && (
-                <div className="flex items-center gap-2 rounded-xl bg-red-50 p-4 text-sm text-red-700 ring-1 ring-red-200">
-                  <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
-                  <p>{error}</p>
-                </div>
-              )}
 
               {/* Action Buttons: View mode has 'Update profile'; Edit mode has 'Discard' and 'Save changes' */}
               <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-100">

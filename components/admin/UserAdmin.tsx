@@ -5,7 +5,6 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'reac
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Building2, Check, ChevronDown, Layers3, Mail, MoreHorizontal, Phone, Search, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
-import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
@@ -14,6 +13,7 @@ import { Badge } from '@/components/ui/badges'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
 import { cn, errorMessage, formatRelative } from '@/lib/utils'
+import { showErrorToast, showSuccessToast } from '@/lib/ui-toast'
 import type { AccountStatus, AppRole, Department, Invite, StaffRole } from '@/types/database'
 
 export type StaffRow = {
@@ -341,16 +341,16 @@ function UnlinkedClientAccountRow({ account }: { account: UnlinkedClientAccount 
       if (!response.ok) {
         const message = typeof result.error === 'string' ? result.error : 'Could not delete the account.'
         setError(message)
-        toast.error(message)
+        showErrorToast(message)
         return
       }
-      toast.success(`Account and related personal data for ${result.email ?? account.email} deleted.`)
+      showSuccessToast(`Account and related personal data for ${result.email ?? account.email} deleted.`)
       setOpen(false)
       router.refresh()
     } catch (requestError) {
       const message = errorMessage(requestError)
       setError(message)
-      toast.error(message)
+      showErrorToast(message)
     } finally {
       setBusy(false)
     }

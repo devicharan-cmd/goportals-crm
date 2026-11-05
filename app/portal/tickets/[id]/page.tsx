@@ -145,6 +145,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={ticket.id} comments={ticketComments} names={names} meId={me.id} myRole="client"
                               table="ticket_comments" idField="ticket_id"
+                              avatarUrls={Object.fromEntries(staff.map(person => [person.id, person.avatar_url]))}
                               bounded
                               replyNeeded={!!replyAuthorName}
                               lockedNote={ticketStatus === 'closed'

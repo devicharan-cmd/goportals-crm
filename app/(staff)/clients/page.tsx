@@ -26,7 +26,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: { st
     query,
     supabase.from('tasks').select('client_id').not('status', 'in', '(completed,cancelled)'),
     supabase.from('tickets').select('client_id').neq('status', 'closed'),
-    supabase.from('profiles').select('id, full_name, email'),
+    supabase.from('profiles').select('id, full_name, email, avatar_url'),
     supabase.from('platforms').select('*').order('sort_order'),
     supabase.from('services').select('*').order('sort_order'),
   ])
@@ -37,6 +37,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: { st
     : { data: [] }
   const imageUrlByPath = Object.fromEntries((signedImages ?? []).map(image => [image.path, image.signedUrl]))
   const names = nameMap(people ?? [])
+  const avatarUrls = Object.fromEntries((people ?? []).map(person => [person.id, person.avatar_url]))
   // Open work means both: a client raising tickets but having no tasks yet
   // used to read as "0 open".
   const openCount = [...(openTasks ?? []), ...(openTickets ?? [])]
@@ -50,6 +51,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: { st
       initialClients={clients}
       initialImageUrlByPath={imageUrlByPath}
       names={names}
+      avatarUrls={avatarUrls}
       status={searchParams.status === 'active' || searchParams.status === 'pending' || searchParams.status === 'suspended' || searchParams.status === 'rejected' ? searchParams.status : ''}
       openCount={openCount}
     >

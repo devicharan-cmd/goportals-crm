@@ -125,7 +125,7 @@ export function TaskFilters({
 
       <div className="flex flex-wrap items-center gap-2">
         {view !== 'board' && (
-          <SearchableSelect className={select} aria-label="Status" value={params.get('status') ?? 'active'} onChange={e => set('status', e.target.value === 'active' ? '' : e.target.value)}>
+          <SearchableSelect className={select} aria-label="Status" value={params.get('status') ?? 'all'} onChange={e => set('status', e.target.value === 'all' ? '' : e.target.value)}>
             <option value="active">Not done</option>
             <option value="all">All statuses</option>
             {TASK_STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}

@@ -17,6 +17,7 @@ type ClientSearchContextValue = {
   clients: ClientRow[]
   imageUrlByPath: Record<string, string>
   names: Record<string, string>
+  avatarUrls: Record<string, string | null>
   openCount: Record<string, number>
   error: string
   searching: boolean
@@ -29,6 +30,7 @@ export function ClientSearchProvider({
   initialClients,
   initialImageUrlByPath,
   names,
+  avatarUrls,
   status,
   openCount,
   children,
@@ -36,6 +38,7 @@ export function ClientSearchProvider({
   initialClients: ClientRow[]
   initialImageUrlByPath: Record<string, string>
   names: Record<string, string>
+  avatarUrls: Record<string, string | null>
   status: ClientStatus
   openCount: Record<string, number>
   children: React.ReactNode
@@ -77,7 +80,7 @@ export function ClientSearchProvider({
   }, [initialClients, initialImageUrlByPath, query, status])
 
   return (
-    <ClientSearchContext.Provider value={{ clients, imageUrlByPath, names, openCount, error, searching, setQuery: setSearch }}>
+    <ClientSearchContext.Provider value={{ clients, imageUrlByPath, names, avatarUrls, openCount, error, searching, setQuery: setSearch }}>
       {children}
     </ClientSearchContext.Provider>
   )
@@ -96,13 +99,13 @@ export function ClientSearchField() {
 }
 
 export function ClientSearchResults() {
-  const { clients, imageUrlByPath, names, openCount, error, searching } = useClientSearch()
+  const { clients, imageUrlByPath, names, avatarUrls, openCount, error, searching } = useClientSearch()
   return (
     <>
       {error && <Alert>{error}</Alert>}
       {searching && <span className="sr-only" role="status">Searching clients</span>}
       {clients.length === 0 ? (
-        <EmptyState icon={Building2} title="No clients found" />
+        <EmptyState icon={<Building2 className="h-6 w-6" />} title="No clients found" />
       ) : (
         <ul className="divide-y divide-slate-100">
           {clients.map(client => {
@@ -125,7 +128,7 @@ export function ClientSearchResults() {
                   </div>
                   <div className="flex items-center gap-4 sm:w-60 sm:justify-end">
                     <div className="flex -space-x-2">
-                      {team.slice(0, 4).map(id => <Avatar key={id} name={names[id]} size="sm" className="ring-2 ring-white" />)}
+                      {team.slice(0, 4).map(id => <Avatar key={id} name={names[id]} src={avatarUrls[id]} size="sm" className="ring-2 ring-white" />)}
                     </div>
                     <span className="text-xs text-slate-500">{openCount[client.id] ?? 0} open</span>
                     <AccountStatusBadge status={client.status} />

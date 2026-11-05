@@ -54,7 +54,7 @@ export default async function PortalServicesPage() {
     <div className="mx-auto max-w-3xl">
       {rows.length === 0 ? (
         <Card>
-          <EmptyState icon={Layers} title="No services yet" description="Once GoPortals adds a service to your account, it'll show up here." />
+          <EmptyState icon={<Layers className="h-6 w-6" />} title="No services yet" description="Once GoPortals adds a service to your account, it'll show up here." />
         </Card>
       ) : (
         <div className="space-y-6">

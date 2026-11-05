@@ -36,7 +36,7 @@ export default async function SettingsPage() {
         initialDepartmentIds={initialDepartmentIds}
         actorRole={me.role}
         actorId={me.id}
-        reportingPeople={lookups.people.map(({ id, full_name, email, role, status }) => ({ id, full_name, email, role, status }))}
+        reportingPeople={lookups.people.map(({ id, full_name, email, role, status, avatar_url }) => ({ id, full_name, email, role, status, avatar_url }))}
       />
     </div>
   )

@@ -44,7 +44,7 @@ export default async function UrgentPage() {
           <Card className="mb-6 overflow-hidden">
             <CardHeader title={`Tickets waiting for someone (${openTickets.length})`} />
             {openTickets.length === 0 ? (
-              <EmptyState icon={Flame} title="All clear" description="No urgent tickets are waiting right now." />
+              <EmptyState icon={<Flame className="h-6 w-6" />} title="All clear" description="No urgent tickets are waiting right now." />
             ) : (
               <ul className="divide-y divide-slate-100">
                 {openTickets.map(t => (
@@ -89,7 +89,7 @@ export default async function UrgentPage() {
       <Card className="mb-6 overflow-hidden">
         <CardHeader title={`Tasks waiting for someone (${openTasks.length})`} />
         {openTasks.length === 0 ? (
-          <EmptyState icon={Flame} title="All clear" description="No urgent tasks are waiting right now." />
+          <EmptyState icon={<Flame className="h-6 w-6" />} title="All clear" description="No urgent tasks are waiting right now." />
         ) : (
           <ul className="divide-y divide-slate-100">
             {openTasks.map(t => (

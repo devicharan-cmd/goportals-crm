@@ -7,7 +7,7 @@ import { ButtonLink } from '@/components/ui/button'
 import { InviteStaffButton } from '@/components/admin/UserAdmin'
 import { Avatar, Card, EmptyState } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
-import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
+import { ROLE_LABELS } from '@/lib/constants'
 import { capacityColor, capacityTextColor, cn, dueState } from '@/lib/utils'
 import type { StaffRole, Task } from '@/types/database'
 
@@ -93,7 +93,7 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
       </div>
 
       {members.length === 0 ? (
-        <Card><EmptyState icon={Users} title={show === 'inactive' ? 'Everyone is active' : 'No team members yet'} /></Card>
+        <Card><EmptyState icon={<Users className="h-6 w-6" />} title={show === 'inactive' ? 'Everyone is active' : 'No team members yet'} /></Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {members.map(m => (
@@ -105,7 +105,7 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
                   <p className="truncate font-semibold text-slate-900 group-hover:text-brand-700">
                     {m.full_name || m.email} {m.id === me.id && <span className="text-xs font-normal text-slate-400">(you)</span>}
                   </p>
-                  <p className="truncate text-xs text-slate-500">{m.job_title || ROLE_LABELS[m.role]}</p>
+                  {m.job_title && <p className="truncate text-xs text-slate-500">{m.job_title}</p>}
                 </div>
                 {m.active
                   ? <Badge className="bg-lime-50 text-lime-700 ring-lime-200"><span className="h-1.5 w-1.5 rounded-full bg-lime-500" /> Active</Badge>
@@ -134,7 +134,6 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
 
               <div className="mt-4 flex items-center justify-between gap-2">
                 <div className="flex min-w-0 flex-wrap gap-1">
-                  <Badge className={cn('border bg-white transition-colors', ROLE_STYLES[m.role].badge)}>{ROLE_LABELS[m.role]}</Badge>
                   {m.depts.map(d => <Badge key={d}>{d}</Badge>)}
                 </div>
                 <span className="whitespace-nowrap text-xs font-semibold text-brand-600">View stats →</span>

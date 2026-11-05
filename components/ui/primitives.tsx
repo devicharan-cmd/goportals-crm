@@ -43,13 +43,13 @@ export function PageHeader({
 }
 
 export function EmptyState({
-  icon: Icon, title, description, action,
-}: { icon?: React.ElementType; title: string; description?: string; action?: React.ReactNode }) {
+  icon, title, description, action,
+}: { icon?: React.ReactNode; title: string; description?: string; action?: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-      {Icon && (
+      {icon && (
         <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
-          <Icon className="h-6 w-6" />
+          <span className="[&>svg]:h-6 [&>svg]:w-6">{icon}</span>
         </div>
       )}
       <p className="font-semibold text-slate-900">{title}</p>
@@ -127,8 +127,8 @@ export function CompanyAvatar({ name, src, size = 'md', className }: { name: str
 }
 
 export function StatCard({
-  label, value, hint, icon: Icon, tone = 'brand', href,
-}: { label: string; value: React.ReactNode; hint?: string; icon: React.ElementType; tone?: 'brand' | 'lime' | 'red' | 'amber'; href?: string }) {
+  label, value, hint, icon, tone = 'brand', href,
+}: { label: string; value: React.ReactNode; hint?: string; icon: React.ReactNode; tone?: 'brand' | 'lime' | 'red' | 'amber'; href?: string }) {
   const tones = {
     brand: 'bg-brand-50 text-brand-600',
     lime:  'bg-lime-50 text-lime-700',
@@ -138,7 +138,7 @@ export function StatCard({
   const body = (
     <div className="card flex items-center gap-4 p-5 transition hover:shadow-pop">
       <div className={cn('flex h-11 w-11 items-center justify-center rounded-xl', tones[tone])}>
-        <Icon className="h-5 w-5" />
+        <span className="[&>svg]:h-5 [&>svg]:w-5">{icon}</span>
       </div>
       <div className="min-w-0">
         <p className="text-2xl font-bold text-slate-900 font-display">{value}</p>

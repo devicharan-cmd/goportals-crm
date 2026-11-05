@@ -13,7 +13,7 @@ export type TicketOverviewField = {
 
 const STATUS_STYLES: Record<TicketStatus, string> = {
   unassigned: 'border-[#E2E8F0] bg-[#F1F5F9] text-[#475569]',
-  assigned: 'border-[#B9E4EC] bg-[#E6F5F8] text-[#086581]',
+  assigned: 'border-[#D9E8B4] bg-[#F4F9E8] text-[#4D7214]',
   closed: 'border-[#E2E8F0] bg-[#F1F5F9] text-[#475569]',
 }
 

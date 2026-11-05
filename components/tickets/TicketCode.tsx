@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
-import { toast } from 'sonner'
+import { showErrorToast, showSuccessToast } from '@/lib/ui-toast'
 
 export function TicketCode({ code }: { code: string }) {
   const [copied, setCopied] = useState(false)
@@ -12,15 +12,15 @@ export function TicketCode({ code }: { code: string }) {
       await navigator.clipboard.writeText(code)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1500)
-      toast.success('Ticket ID copied')
+      showSuccessToast('Ticket ID copied')
     } catch {
-      toast.error('Could not copy ticket ID')
+      showErrorToast('Could not copy ticket ID')
     }
   }
 
   return (
     <span className="inline-flex items-center gap-1">
-      <span className="text-sm font-normal leading-4 text-[#0F172A]">{code}</span>
+      <span className="text-sm font-normal leading-4 text-[#7DAA24]">{code}</span>
       <button
         type="button"
         onClick={copyTicketCode}

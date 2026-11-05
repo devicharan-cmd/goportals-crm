@@ -13,6 +13,9 @@ import { AddressPicker, EMPTY_ADDRESS, type AddressValue } from '@/components/sh
 import { PLATFORM_CATEGORY_LABELS } from '@/lib/constants'
 import { cn, errorMessage } from '@/lib/utils'
 import type { Agreement, Client, Platform, PlatformCategory, Service } from '@/types/database'
+import { InternationalPhoneField } from '@/components/shared/InternationalPhoneField'
+import { TimezoneSelect } from '@/components/shared/TimezoneSelect'
+import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
 
 const STEPS = [
   { key: 'company',   label: 'Company',   icon: Building2 },
@@ -59,6 +62,7 @@ export function OnboardingWizard(props: Props) {
     contact_name:  client?.contact_name ?? profile.full_name,
     contact_email: client?.contact_email ?? profile.email,
     contact_phone: client?.contact_phone ?? '',
+    timezone: client?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'Asia/Kolkata',
   })
   const [address, setAddress] = useState<AddressValue>(client ? {
     address_line: client.address_line ?? '', city: client.city ?? '', state: client.state ?? '',
@@ -90,6 +94,9 @@ export function OnboardingWizard(props: Props) {
     const key = steps[step].key
     if (key === 'company') {
       if (!company.company_name.trim()) return 'Please enter your company or brand name.'
+      const phoneError = validateMobilePhone(company.contact_phone)
+      if (phoneError) return phoneError
+      if (!isValidTimeZone(company.timezone)) return 'Select a valid timezone.'
       if (!address.address_line.trim()) return 'Please add your business address.'
     }
     if (key === 'platforms' && platformIds.length === 0) return 'Select at least one platform.'
@@ -202,9 +209,13 @@ export function OnboardingWizard(props: Props) {
                   <input className="input uppercase" value={company.gstin} maxLength={15}
                          onChange={e => setCompany({ ...company, gstin: e.target.value })} />
                 </Field>
-                <Field label="Phone / WhatsApp">
-                  <input className="input" value={company.contact_phone} type="tel"
-                         onChange={e => setCompany({ ...company, contact_phone: e.target.value })} placeholder="+91 98xxxxxxx" />
+                <Field label="Mobile number" required>
+                  <InternationalPhoneField value={company.contact_phone}
+                    onChange={value => setCompany({ ...company, contact_phone: value })} />
+                </Field>
+                <Field label="Timezone" required>
+                  <TimezoneSelect value={company.timezone}
+                    onChange={value => setCompany({ ...company, timezone: value })} />
                 </Field>
                 <Field label="Contact person">
                   <input className="input" value={company.contact_name}

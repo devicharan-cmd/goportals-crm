@@ -119,7 +119,7 @@ export default async function DashboardPage() {
         const person = lookups.people.find(p => p.id === id)!
         const openTasks = teamTasks.filter(t => t.assignee_id === id)
         const hours = openTasks.reduce((s, t) => s + Number(t.estimated_hours ?? 3), 0)
-        return { id, name: person.full_name || person.email, open: openTasks.length, hours,
+        return { id, name: person.full_name || person.email, avatarUrl: person.avatar_url, open: openTasks.length, hours,
                  pct: Math.round((hours / (person.weekly_capacity_hours || 40)) * 100) }
       }).sort((a, b) => b.pct - a.pct)
     : []
@@ -135,13 +135,13 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="My open tasks" value={myOpenCount} icon={CheckSquare} href="/tasks" />
-        <StatCard label="Due today" value={dueTodayCount} icon={AlarmClock} tone={dueTodayCount ? 'amber' : 'lime'} href="/tasks" />
-        <StatCard label="Urgent waiting" value={urgentTasks.length} icon={Flame} tone={urgentTasks.length ? 'red' : 'lime'} href="/urgent" />
+        <StatCard label="My open tasks" value={myOpenCount} icon={<CheckSquare className="h-5 w-5" />} href="/tasks" />
+        <StatCard label="Due today" value={dueTodayCount} icon={<AlarmClock className="h-5 w-5" />} tone={dueTodayCount ? 'amber' : 'lime'} href="/tasks" />
+        <StatCard label="Urgent waiting" value={urgentTasks.length} icon={<Flame className="h-5 w-5" />} tone={urgentTasks.length ? 'red' : 'lime'} href="/urgent" />
         {isSuperAdmin
-          ? <StatCard label="Clients awaiting approval" value={approvals.count ?? 0} icon={ShieldCheck} tone={approvals.count ? 'amber' : 'lime'} href="/admin/approvals" />
+          ? <StatCard label="Clients awaiting approval" value={approvals.count ?? 0} icon={<ShieldCheck className="h-5 w-5" />} tone={approvals.count ? 'amber' : 'lime'} href="/admin/approvals" />
           : canSeeTickets
-            ? <StatCard label="New client tickets" value={clientRequests.length} icon={Inbox} tone="brand" href="/tickets" />
+            ? <StatCard label="New client tickets" value={clientRequests.length} icon={<Inbox className="h-5 w-5" />} tone="brand" href="/tickets" />
             : null}
       </div>
 
@@ -191,7 +191,7 @@ export default async function DashboardPage() {
                       <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                         {t.priority ? <PriorityBadge priority={t.priority} /> : <span className="w-7 text-center text-xs text-slate-300">—</span>}
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-slate-400">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
+                          <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                           <p className="truncate text-xs text-slate-500">{t.client?.company_name} · {formatRelative(t.created_at)}</p>
                         </div>
                       </Link>
@@ -228,7 +228,7 @@ export default async function DashboardPage() {
       {isTeamLead && (
         deptMateIds.length === 0 ? (
           <Card className="mt-6">
-            <EmptyState icon={Users} title="No department yet" description="Ask a manager to add you to a department to see your team's work here." />
+            <EmptyState icon={<Users className="h-6 w-6" />} title="No department yet" description="Ask a manager to add you to a department to see your team's work here." />
           </Card>
         ) : (
           <div className="mt-6 space-y-6">
@@ -238,7 +238,7 @@ export default async function DashboardPage() {
                 {workload.map(w => (
                   <Link key={w.id} href={`/team/${w.id}`} className="rounded-lg border border-slate-100 p-3 transition hover:shadow-pop">
                     <div className="flex items-center gap-2">
-                      <Avatar name={w.name} size="sm" />
+                      <Avatar name={w.name} src={w.avatarUrl} size="sm" />
                       <p className="truncate text-sm font-medium text-slate-900">{w.name}</p>
                     </div>
                     <div className="mt-2 flex items-center justify-between text-xs">

@@ -1,9 +1,9 @@
 'use client'
 
-import * as Select from '@radix-ui/react-select'
-import { Check, ChevronDown, Store } from 'lucide-react'
+import { Store } from 'lucide-react'
 import { SiBigbasket, SiSwiggy } from 'react-icons/si'
 import { cn } from '@/lib/utils'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 
 type MarketplaceAccount = {
   id: string
@@ -85,44 +85,23 @@ function MarketplaceSelect({ value, placeholder, onChange, items, disabled, clas
   value: string
   placeholder: string
   onChange: (value: string) => void
-  items: { id: string; label: React.ReactNode }[]
+  items: { id: string; label: React.ReactNode; textLabel: string }[]
   disabled?: boolean
   className?: string
 }) {
   return (
-    <Select.Root
+    <SearchableSelect
       value={value || EMPTY_VALUE}
-      onValueChange={selected => onChange(selected === EMPTY_VALUE ? '' : selected)}
+      onChange={event => onChange(event.target.value === EMPTY_VALUE ? '' : event.target.value)}
       disabled={disabled}
-    >
-      <Select.Trigger className={cn('input flex w-full min-w-0 items-center justify-between gap-2 overflow-hidden text-left', className)} aria-label={placeholder}>
-        <Select.Value className="min-w-0 flex-1 truncate" placeholder={placeholder} />
-        <Select.Icon><ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-500" /></Select.Icon>
-      </Select.Trigger>
-      <Select.Portal>
-        <Select.Content
-          position="popper"
-          sideOffset={4}
-          avoidCollisions
-          collisionPadding={8}
-          align="start"
-          className="z-50 box-border min-w-0 w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
-        >
-          <Select.Viewport className="max-h-[min(15rem,var(--radix-select-content-available-height))] w-full overflow-x-hidden overflow-y-auto p-1">
-            <Select.Item value={EMPTY_VALUE} className="relative flex min-w-0 cursor-pointer items-center justify-between rounded-md py-1.5 pl-2.5 pr-8 text-xs text-slate-500 outline-none data-[highlighted]:bg-slate-50">
-              <Select.ItemText>{placeholder}</Select.ItemText>
-              <Select.ItemIndicator className="absolute right-2"><Check aria-hidden="true" className="h-3.5 w-3.5 text-brand-700" /></Select.ItemIndicator>
-            </Select.Item>
-            {items.map(item => (
-              <Select.Item key={item.id} value={item.id} className="relative flex min-w-0 cursor-pointer items-center justify-between rounded-md py-1.5 pl-2.5 pr-8 text-xs text-slate-800 outline-none data-[highlighted]:bg-slate-50">
-                <Select.ItemText className="min-w-0 flex-1 overflow-hidden">{item.label}</Select.ItemText>
-                <Select.ItemIndicator className="absolute right-2"><Check aria-hidden="true" className="h-3.5 w-3.5 text-brand-700" /></Select.ItemIndicator>
-              </Select.Item>
-            ))}
-          </Select.Viewport>
-        </Select.Content>
-      </Select.Portal>
-    </Select.Root>
+      placeholder={placeholder}
+      aria-label={placeholder}
+      className={cn('input flex w-full min-w-0 items-center justify-between gap-2 overflow-hidden text-left', className)}
+      options={[
+        { value: EMPTY_VALUE, label: <span className="text-slate-500">{placeholder}</span>, text: placeholder },
+        ...items.map(item => ({ value: item.id, label: item.label, text: item.textLabel })),
+      ]}
+    />
   )
 }
 
@@ -140,6 +119,7 @@ export function MarketplaceAccountSelect({ accounts, value, onChange, placeholde
       items={accounts.map(account => ({
         id: account.id,
         label: <MarketplaceAccountLabel platformName={account.platform_name} accountName={account.account_name} />,
+        textLabel: `${account.platform_name ?? ''} ${account.account_name ?? ''}`.trim(),
       }))}
     />
   )
@@ -163,6 +143,7 @@ export function MarketplacePlatformSelect({ platforms, value, onChange, placehol
       items={platforms.map(platform => ({
         id: platform.id,
         label: <MarketplacePlatformLabel name={platform.name} />,
+        textLabel: platform.name,
       }))}
     />
   )

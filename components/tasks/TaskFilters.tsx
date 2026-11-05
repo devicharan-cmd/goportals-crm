@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ChevronDown, KanbanSquare, List, UserRound, UsersRound, X } from 'lucide-react'
 import { Avatar } from '@/components/ui/primitives'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { TASK_STATUS_OPTIONS } from '@/lib/constants'
 import { TaskSearchField, useTaskSearch } from '@/components/tasks/TaskSearch'
 import { cn } from '@/lib/utils'
@@ -58,7 +59,7 @@ export function TaskFilters({
 
   const view = params.get('view') ?? 'list'
   const scope = params.get('scope') ?? defaultScope
-  const filtered = Boolean(q || taskSearch.query) || ['status', 'client', 'assignee', 'assigned_by', 'dept'].some(k => params.get(k))
+  const filtered = Boolean(q || taskSearch.query) || ['status', 'client', 'assignee', 'assigned_by', 'dept', 'due'].some(k => params.get(k))
 
   function clearFilters() {
     const next = new URLSearchParams()
@@ -124,16 +125,16 @@ export function TaskFilters({
 
       <div className="flex flex-wrap items-center gap-2">
         {view !== 'board' && (
-          <select className={select} aria-label="Status" value={params.get('status') ?? 'active'} onChange={e => set('status', e.target.value === 'active' ? '' : e.target.value)}>
-            <option value="active">Status: not done</option>
-            <option value="all">Status: all</option>
-            {TASK_STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>Status: {s.label.toLowerCase()}</option>)}
-          </select>
+          <SearchableSelect className={select} aria-label="Status" value={params.get('status') ?? 'all'} onChange={e => set('status', e.target.value === 'all' ? '' : e.target.value)}>
+            <option value="active">Not done</option>
+            <option value="all">All statuses</option>
+            {TASK_STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </SearchableSelect>
         )}
-        <select className={select} aria-label="Client" value={params.get('client') ?? ''} onChange={e => set('client', e.target.value)}>
+        <SearchableSelect className={select} aria-label="Client" searchable searchPlaceholder="Search clients..." value={params.get('client') ?? ''} onChange={e => set('client', e.target.value)}>
           <option value="">All clients</option>
           {clients.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-        </select>
+        </SearchableSelect>
         {(scope === 'mine' || (showAssigneeFilter && scope === 'all')) && (
           <div className="relative w-full sm:w-44" data-assignee-filter>
             <button type="button" className="input flex h-9 w-full items-center justify-between gap-2 py-1.5 pr-3 text-left text-sm"
@@ -172,10 +173,18 @@ export function TaskFilters({
             )}
           </div>
         )}
-        <select className={select} aria-label="Department" value={params.get('dept') ?? ''} onChange={e => set('dept', e.target.value)}>
+        <SearchableSelect className={select} aria-label="Department" searchable searchPlaceholder="Search departments..." value={params.get('dept') ?? ''} onChange={e => set('dept', e.target.value)}>
           <option value="">All departments</option>
           {departments.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-        </select>
+        </SearchableSelect>
+        <input
+          type="date"
+          aria-label="Filter by due date"
+          title="Filter by due date"
+          value={params.get('due') ?? ''}
+          onChange={e => set('due', e.target.value)}
+          className="input h-9 w-full py-1.5 text-sm sm:w-44"
+        />
         {filtered && (
           <button onClick={clearFilters} className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800">
             <X className="h-4 w-4" /> Clear filters

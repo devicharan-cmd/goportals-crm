@@ -17,6 +17,7 @@ type TaskSearchFilters = {
   client: string
   assignee: string
   department: string
+  due: string
   board: boolean
 }
 
@@ -53,6 +54,7 @@ export async function searchTasks(value: string, filters: TaskSearchFilters): Pr
   }
   if (filters.client) query = query.eq('client_id', filters.client)
   if (filters.department) query = query.eq('department_id', filters.department)
+  if (filters.due) query = query.eq('due_date', filters.due)
   if (taskNumber !== null) query = query.eq('task_number', taskNumber)
   else if (queryText) query = query.ilike('title', `%${queryText}%`)
 

@@ -5,7 +5,7 @@ import type { AppRole } from '@/types/database'
 
 /**
  * POST /api/admin/invite — super admin (any role), or admin (team_lead/employee only).
- *   Staff:  { kind: 'staff',  email, full_name, role, job_title?, department_ids? }
+ *   Staff:  { kind: 'staff',  email, full_name, role, reporting_to, job_title?, department_ids? }
  *   Client: { kind: 'client', email, full_name?, client_id? }
  *           client_id set  → login for an existing (admin-created) client
  *           no client_id   → invite link; the client fills in the onboarding wizard
@@ -19,6 +19,12 @@ import type { AppRole } from '@/types/database'
 const ROLES_INVITABLE_BY: Partial<Record<AppRole, AppRole[]>> = {
   super_admin: ['super_admin', 'admin', 'team_lead', 'employee'],
   admin:       ['team_lead', 'employee'],
+}
+
+const REPORTING_ROLE_FOR: Partial<Record<AppRole, AppRole>> = {
+  admin: 'super_admin',
+  team_lead: 'admin',
+  employee: 'team_lead',
 }
 
 function inviteApiError(message: string) {
@@ -38,8 +44,15 @@ export async function POST(req: NextRequest) {
   const email = String(body.email ?? '').trim().toLowerCase()
   if (!/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ error: 'Enter a valid email' }, { status: 400 })
 
+  const fullName = typeof body.full_name === 'string' ? body.full_name.trim() : ''
+  const jobTitle = typeof body.job_title === 'string' ? body.job_title.trim() : ''
   let role: AppRole
   if (body.kind === 'staff') {
+    if (!fullName) return NextResponse.json({ error: 'Enter the team member’s full name' }, { status: 400 })
+    if (!jobTitle) return NextResponse.json({ error: 'Enter a job title' }, { status: 400 })
+    if (!['super_admin', 'admin', 'team_lead', 'employee'].includes(body.role)) {
+      return NextResponse.json({ error: 'Select a valid role' }, { status: 400 })
+    }
     role = body.role
     if (!ROLES_INVITABLE_BY[me.role]!.includes(role)) {
       return NextResponse.json({ error: 'You are not allowed to invite someone with that role' }, { status: 403 })
@@ -62,17 +75,58 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
 
+  let reportingTo: string | null = null
+  if (body.kind === 'staff' && role !== 'super_admin') {
+    if (typeof body.reporting_to !== 'string' || !body.reporting_to) {
+      return NextResponse.json({ error: 'Select a Reporting To person' }, { status: 400 })
+    }
+
+    const { data: reportingPerson, error: reportingPersonError } = await admin
+      .from('profiles')
+      .select('id, email, role, status')
+      .eq('id', body.reporting_to)
+      .maybeSingle()
+    if (reportingPersonError) {
+      console.error('[invite] Could not validate the Reporting To person:', reportingPersonError.message)
+      return NextResponse.json({ error: 'Could not validate the Reporting To person.' }, { status: 500 })
+    }
+    if (!reportingPerson
+        || reportingPerson.role !== REPORTING_ROLE_FOR[role]
+        || reportingPerson.status !== 'active') {
+      return NextResponse.json({ error: 'Select an active Reporting To person with the required role.' }, { status: 400 })
+    }
+    if (reportingPerson.email.toLowerCase() === email) {
+      return NextResponse.json({ error: 'A person cannot report to themselves.' }, { status: 400 })
+    }
+    reportingTo = reportingPerson.id
+  } else if (body.kind === 'staff' && body.reporting_to) {
+    return NextResponse.json({ error: 'Super Admin invitations cannot have a Reporting To person.' }, { status: 400 })
+  }
+
   if (body.client_id) {
     const { data: client } = await admin.from('clients').select('id, owner_id').eq('id', body.client_id).single()
     if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     if (client.owner_id) return NextResponse.json({ error: 'This client already has a login' }, { status: 409 })
   }
 
+  // Check profiles before creating an invite row or calling Auth. Supabase Auth's
+  // duplicate-email response varies by configuration; profiles are created for every
+  // registered account by handle_new_user(). Escape ILIKE wildcards in valid emails.
+  const emailPattern = email.replace(/[\\%_]/g, '\\$&')
+  const { data: existingProfile, error: profileLookupError } = await admin
+    .from('profiles').select('id').ilike('email', emailPattern).limit(1).maybeSingle()
+  if (profileLookupError) {
+    console.error('[invite] Could not check for an existing profile:', profileLookupError.message)
+    return NextResponse.json({ error: 'Could not check whether this email already has an account.' }, { status: 500 })
+  }
+  if (existingProfile) return NextResponse.json({ error: 'Someone with this email address already has an account.' }, { status: 409 })
+
   const { data: invite, error: inviteErr } = await admin.from('invites').insert({
     email,
     role,
-    full_name:      body.full_name?.trim() || null,
-    job_title:      body.kind === 'staff' ? body.job_title?.trim() || null : null,
+    reporting_to: body.kind === 'staff' ? reportingTo : null,
+    full_name:      fullName || null,
+    job_title:      body.kind === 'staff' ? jobTitle : null,
     department_ids: body.kind === 'staff' ? body.department_ids ?? [] : [],
     client_id:      body.kind === 'client' ? body.client_id ?? null : null,
     invited_by:     me.id,
@@ -81,7 +135,7 @@ export async function POST(req: NextRequest) {
 
   const origin = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { full_name: body.full_name?.trim() || '' },
+    data: { full_name: fullName },
     redirectTo: `${origin}/auth/callback`,
   })
 

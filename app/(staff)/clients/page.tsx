@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/auth'
 import { Card } from '@/components/ui/primitives'
 import { ClientFormModal } from '@/components/clients/ClientFormModal'
 import { ClientSearchField, ClientSearchProvider, ClientSearchResults } from '@/components/clients/ClientSearchList'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { nameMap } from '@/lib/queries'
 import type { Client, Platform, Service } from '@/types/database'
 
@@ -25,7 +26,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: { st
     query,
     supabase.from('tasks').select('client_id').not('status', 'in', '(completed,cancelled)'),
     supabase.from('tickets').select('client_id').neq('status', 'closed'),
-    supabase.from('profiles').select('id, full_name, email'),
+    supabase.from('profiles').select('id, full_name, email, avatar_url'),
     supabase.from('platforms').select('*').order('sort_order'),
     supabase.from('services').select('*').order('sort_order'),
   ])
@@ -36,6 +37,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: { st
     : { data: [] }
   const imageUrlByPath = Object.fromEntries((signedImages ?? []).map(image => [image.path, image.signedUrl]))
   const names = nameMap(people ?? [])
+  const avatarUrls = Object.fromEntries((people ?? []).map(person => [person.id, person.avatar_url]))
   // Open work means both: a client raising tickets but having no tasks yet
   // used to read as "0 open".
   const openCount = [...(openTasks ?? []), ...(openTickets ?? [])]
@@ -49,19 +51,20 @@ export default async function ClientsPage({ searchParams }: { searchParams: { st
       initialClients={clients}
       initialImageUrlByPath={imageUrlByPath}
       names={names}
+      avatarUrls={avatarUrls}
       status={searchParams.status === 'active' || searchParams.status === 'pending' || searchParams.status === 'suspended' || searchParams.status === 'rejected' ? searchParams.status : ''}
       openCount={openCount}
     >
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <ClientSearchField />
         <form className="flex flex-wrap gap-2" action="/clients">
-          <select name="status" defaultValue={searchParams.status ?? ''} className="input h-9 w-auto py-1.5">
+          <SearchableSelect name="status" defaultValue={searchParams.status ?? ''} className="input h-9 w-auto py-1.5" aria-label="Client status">
             <option value="">All statuses</option>
             <option value="active">Active</option>
             <option value="pending">Pending</option>
             <option value="suspended">Suspended</option>
             <option value="rejected">Rejected</option>
-          </select>
+          </SearchableSelect>
           <button className="rounded-lg bg-slate-100 px-3 text-sm font-medium text-slate-700 hover:bg-slate-200">Filter</button>
         </form>
         {/* Outside the search form: the modal has its own form inside. */}

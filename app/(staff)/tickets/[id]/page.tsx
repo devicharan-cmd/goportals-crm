@@ -8,14 +8,15 @@ import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-c
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { TaskTable } from '@/components/tasks/TaskTable'
-import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
+import { Avatar, Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
 import { TicketProperties } from '@/components/tickets/TicketProperties'
 import { ActivityPanel } from '@/components/tasks/ActivityPanel'
 import { formatDate, ticketCode } from '@/lib/utils'
-import type { TaskListItem, Ticket, TicketActivity, TicketComment } from '@/types/database'
+import type { AppRole, TaskListItem, Ticket, TicketActivity, TicketComment } from '@/types/database'
+import { ROLE_LABELS } from '@/lib/constants'
 import { TicketOverviewCard } from '@/components/tickets/TicketOverviewCard'
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
@@ -41,19 +42,22 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
     : { data: null, error: null }
   if (clientImageError) throw clientImageError
 
-  const [{ data: comments }, { data: activity }, lookups, attachments, { data: linkedTasks }] = await Promise.all([
+  const [{ data: comments }, { data: activity }, lookups, attachments, { data: linkedTasks }, { data: workerRows, error: workersError }] = await Promise.all([
     supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
     supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
     getStaffLookups(),
     getTicketAttachments(ticketId),
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: false }),
+    supabase.rpc('ticket_task_assignees', { p_ticket_id: ticketId }),
   ])
+  if (workersError) throw new Error(`Could not load ticket workers: ${workersError.message}`)
   const ticket = data as Ticket & {
     client: { id: string; company_name: string; contact_name: string | null; owner_id: string | null; company_profile_image_path: string | null } | null
     ecommerce_account: { account_name: string; platform: { name: string } | null } | null
   }
   const names = nameMap(lookups.people)
   const tasksFromTicket = (linkedTasks ?? []) as TaskListItem[]
+  const ticketWorkers = (workerRows ?? []) as { id: string; full_name: string | null; avatar_url: string | null; role: AppRole }[]
   const clientOwner = ticket.client?.owner_id
     ? lookups.people.find(person => person.id === ticket.client?.owner_id && person.role === 'client' && person.status === 'active')
     : undefined
@@ -80,7 +84,7 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <Link href="/tickets" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tickets</Link>
+        <Link href="/tickets" className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tickets</Link>
         <div className="flex items-center gap-2">
           {me.role === 'super_admin' && <DeleteButton table="tickets" id={ticket.id} redirectTo="/tickets" label="Delete ticket" variant="danger" />}
         </div>
@@ -119,7 +123,7 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
             {tasksFromTicket.length > 0 ? (
               <TaskTable tasks={tasksFromTicket} names={names} empty={{ title: 'No tasks yet' }} />
             ) : (
-              <p className="px-5 py-4 text-sm text-slate-500">No tasks have been created from this ticket yet.</p>
+              <p className="px-5 py-4 text-sm text-slate-500">No visible tasks have been created from this ticket.</p>
             )}
           </Card>
 
@@ -128,7 +132,9 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
                         description={['super_admin', 'admin'].includes(me.role) ? 'Choose "Team only" or "Public" for each comment. Client messages are always public.' : 'Your comments are visible to the team only.'} />
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={ticket.id} comments={(comments ?? []) as TicketComment[]} names={names}
-                             roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))} meId={me.id} myRole={me.role}
+                             roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))}
+                             avatarUrls={Object.fromEntries(lookups.people.map(p => [p.id, p.avatar_url]))}
+                             meId={me.id} myRole={me.role}
                              table="ticket_comments" idField="ticket_id" bounded
                              lockedNote={ticket.status === 'closed'
                                ? 'This ticket is closed. Messages can no longer be sent.'
@@ -173,6 +179,22 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
                 <div key={k as string} className="flex justify-between gap-3 px-5 py-2.5"><dt className="text-slate-500">{k}</dt><dd className="text-right text-slate-800">{v}</dd></div>
               ))}
             </dl>
+          </Card>
+          <Card>
+            <CardHeader title="Staff handling this ticket" />
+            {ticketWorkers.length > 0 ? (
+              <ul className="divide-y divide-slate-100">
+                {ticketWorkers.map(worker => (
+                  <li key={worker.id} className="flex items-center gap-3 px-5 py-3">
+                    <Avatar name={worker.full_name || 'Staff member'} src={worker.avatar_url} role={worker.role} size="sm" />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">{worker.full_name || 'Staff member'}</span>
+                    <span className="shrink-0 text-xs text-slate-500">{ROLE_LABELS[worker.role]}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-5 py-3 text-sm text-slate-500">No one has been assigned a task on this ticket yet.</p>
+            )}
           </Card>
         </div>
       </div>

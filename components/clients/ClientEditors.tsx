@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { Modal } from '@/components/ui/modal'
 import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { BILLING_LABELS, SERVICE_STATUS_STYLES } from '@/lib/constants'
 import { cn, errorMessage, formatINR } from '@/lib/utils'
 import type { BillingType, ClientServiceStatus, Department, EcommerceAccountStatus, Platform, Service } from '@/types/database'
@@ -63,13 +64,13 @@ export function EcommerceAccountsEditor({
               </p>
             </div>
             {editable ? (
-              <select value={r.status} disabled={busy}
+              <SearchableSelect value={r.status} disabled={busy}
                       onChange={e => run(() => supabase.from('ecommerce_accounts').update({ status: e.target.value }).eq('id', r.id))}
                       className={cn('rounded-md border-0 py-0.5 pl-2 pr-7 text-xs font-medium ring-1 ring-inset',
                         r.status === 'active' ? 'bg-lime-50 text-lime-700 ring-lime-200' : 'bg-slate-100 text-slate-500 ring-slate-200')}>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
-              </select>
+              </SearchableSelect>
             ) : (
               <Badge className={r.status === 'active' ? 'bg-lime-50 text-lime-700 ring-lime-200' : 'bg-slate-100 text-slate-500 ring-slate-200'}>{r.status}</Badge>
             )}
@@ -85,10 +86,10 @@ export function EcommerceAccountsEditor({
       <ErrorLine error={error} />
       {editable && (
         <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-3">
-          <select className="input h-9 w-32 py-1.5" value={platformId} onChange={e => setPlatformId(e.target.value)}>
+          <SearchableSelect className="input h-9 w-32 py-1.5" searchable searchPlaceholder="Search platforms..." value={platformId} onChange={e => setPlatformId(e.target.value)}>
             <option value="">Platform…</option>
             {platforms.filter(p => p.is_active).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          </SearchableSelect>
           <input className="input h-9 flex-1" placeholder="Account name (e.g. ABC Amazon Seller 2)" value={accountName} onChange={e => setAccountName(e.target.value)} />
           <input className="input h-9 w-32" placeholder="Seller ID" value={sellerId} onChange={e => setSellerId(e.target.value)} />
           <Button size="sm" variant="secondary" disabled={!platformId || !accountName.trim()} loading={busy}
@@ -142,13 +143,13 @@ export function ClientServicesEditor({
               </p>
             </div>
             {editable ? (
-              <select value={r.status} disabled={busy}
+              <SearchableSelect value={r.status} disabled={busy}
                       onChange={e => run(() => supabase.from('client_services').update({ status: e.target.value }).eq('id', r.id))}
                       className={cn('rounded-md border-0 py-0.5 pl-2 pr-7 text-xs font-medium ring-1 ring-inset', SERVICE_STATUS_STYLES[r.status])}>
                 <option value="requested">Requested</option>
                 <option value="active">Active</option>
                 <option value="stopped">Stopped</option>
-              </select>
+              </SearchableSelect>
             ) : (
               <Badge className={cn('capitalize', SERVICE_STATUS_STYLES[r.status])}>{r.status}</Badge>
             )}
@@ -159,23 +160,23 @@ export function ClientServicesEditor({
       {editable && (
         <div className="space-y-2 border-t border-slate-100 px-5 py-3">
           <div className="flex flex-wrap gap-2">
-            <select className="input h-9 flex-1 py-1.5" value={adding} onChange={e => setAdding(e.target.value)}>
+            <SearchableSelect className="input h-9 flex-1 py-1.5" searchable searchPlaceholder="Search services..." value={adding} onChange={e => setAdding(e.target.value)}>
               <option value="">Service…</option>
               {services.filter(s => s.is_active).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            </SearchableSelect>
             <input className="input h-9 flex-1" placeholder="…or type a custom one" value={custom} onChange={e => setCustom(e.target.value)} />
           </div>
           <div className="flex flex-wrap gap-2">
-            <select className="input h-9 w-40 py-1.5" value={accountId} onChange={e => setAccountId(e.target.value)}>
+            <SearchableSelect className="input h-9 w-40 py-1.5" searchable searchPlaceholder="Search accounts..." value={accountId} onChange={e => setAccountId(e.target.value)}>
               <option value="">Whole client</option>
               {accounts.map(a => <option key={a.id} value={a.id}>{a.account_name}</option>)}
-            </select>
+            </SearchableSelect>
             <input className="input h-9 w-28" type="number" min="0" placeholder="Price ₹" value={price} onChange={e => setPrice(e.target.value)} />
-            <select className="input h-9 w-28 py-1.5" value={billing} onChange={e => setBilling(e.target.value as BillingType)}>
+            <SearchableSelect className="input h-9 w-28 py-1.5" value={billing} onChange={e => setBilling(e.target.value as BillingType)}>
               <option value="monthly">Monthly</option>
               <option value="one_time">One-time</option>
               <option value="per_task">Per task</option>
-            </select>
+            </SearchableSelect>
             <Button size="sm" variant="secondary" disabled={!adding && !custom.trim()} loading={busy}
                     onClick={async () => {
                       const ok = await run(() => supabase.from('client_services').insert({
@@ -206,7 +207,7 @@ export function ClientTeamEditor({
 }: {
   clientId: string
   rows: ClientTeamRow[]
-  people: { id: string; name: string; departmentIds: string[] }[]
+  people: { id: string; name: string; avatarUrl?: string | null; departmentIds: string[] }[]
   departments: Department[]
   editableDepartmentIds: string[]   // super admin: all; manager: their departments
 }) {
@@ -215,6 +216,7 @@ export function ClientTeamEditor({
   const [person, setPerson] = useState('')
   const supabase = createClient()
   const names = Object.fromEntries(people.map(p => [p.id, p.name]))
+  const avatars = Object.fromEntries(people.map(p => [p.id, p.avatarUrl ?? null]))
   const deptName = Object.fromEntries(departments.map(d => [d.id, d.name]))
   const editableDepts = departments.filter(d => editableDepartmentIds.includes(d.id))
   const candidates = people.filter(p => dept && p.departmentIds.includes(dept) && !rows.some(r => r.profile_id === p.id && r.department_id === dept))
@@ -225,7 +227,7 @@ export function ClientTeamEditor({
       <ul className="divide-y divide-slate-100">
         {rows.map(r => (
           <li key={`${r.profile_id}-${r.department_id}`} className="flex items-center gap-3 px-5 py-2.5">
-            <Avatar name={names[r.profile_id]} size="sm" />
+            <Avatar name={names[r.profile_id]} src={avatars[r.profile_id]} size="sm" />
             <span className="flex-1 text-sm font-medium text-slate-800">{names[r.profile_id] ?? '—'}</span>
             <Badge>{deptName[r.department_id] ?? '—'}</Badge>
             {editableDepartmentIds.includes(r.department_id) && (
@@ -242,14 +244,14 @@ export function ClientTeamEditor({
       <ErrorLine error={error} />
       {editableDepts.length > 0 && (
         <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-3">
-          <select className="input h-9 flex-1 py-1.5" value={dept} onChange={e => { setDept(e.target.value); setPerson('') }}>
+          <SearchableSelect className="input h-9 flex-1 py-1.5" searchable searchPlaceholder="Search departments..." value={dept} onChange={e => { setDept(e.target.value); setPerson('') }}>
             <option value="">Department…</option>
             {editableDepts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
-          <select className="input h-9 flex-1 py-1.5" value={person} onChange={e => setPerson(e.target.value)} disabled={!dept}>
+          </SearchableSelect>
+          <SearchableSelect className="input h-9 flex-1 py-1.5" searchable searchPlaceholder="Search people..." value={person} onChange={e => setPerson(e.target.value)} disabled={!dept}>
             <option value="">{dept && candidates.length === 0 ? 'No one in this department' : 'Person…'}</option>
             {candidates.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          </SearchableSelect>
           <Button size="sm" variant="secondary" disabled={!dept || !person} loading={busy}
                   onClick={async () => {
                     if (await run(() => supabase.from('client_team').insert({ client_id: clientId, profile_id: person, department_id: dept }))) setPerson('')
@@ -295,12 +297,12 @@ export function ClientStatusSelect({ clientId, status }: { clientId: string; sta
   }
   return (
     <span className="inline-flex flex-col items-end">
-      <select className="input h-8 w-auto py-1 text-xs" value={status} disabled={busy} onChange={e => change(e.target.value)}>
+      <SearchableSelect className="input h-8 w-auto py-1 text-xs" value={status} disabled={busy} onChange={e => change(e.target.value)}>
         <option value="active">Active</option>
         <option value="suspended">Suspended</option>
         <option value="pending">Pending</option>
         <option value="rejected">Rejected</option>
-      </select>
+      </SearchableSelect>
       {error && <span className="text-xs text-red-600">{error}</span>}
     </span>
   )

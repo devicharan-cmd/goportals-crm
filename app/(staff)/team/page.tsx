@@ -1,22 +1,22 @@
 import Link from 'next/link'
-import { Users } from 'lucide-react'
+import { UserCheck, UserX, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { getStaffLookups, profileIdsSharingDepartment } from '@/lib/queries'
+import { getStaffLookups, profileIdsReportingTo } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { InviteStaffButton } from '@/components/admin/UserAdmin'
 import { Avatar, Card, EmptyState } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
-import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
+import { ROLE_LABELS } from '@/lib/constants'
 import { capacityColor, capacityTextColor, cn, dueState } from '@/lib/utils'
-import type { Task } from '@/types/database'
+import type { StaffRole, Task } from '@/types/database'
 
 export const metadata = { title: 'Team' }
 
 const TABS = [
-  { key: 'all',      label: 'All' },
-  { key: 'active',   label: 'Active' },
-  { key: 'inactive', label: 'Not active' },
+  { key: 'all',      label: 'All', icon: Users },
+  { key: 'active',   label: 'Active', icon: UserCheck },
+  { key: 'inactive', label: 'Not active', icon: UserX },
 ] as const
 
 export default async function TeamPage({ searchParams }: { searchParams: { show?: string } }) {
@@ -35,12 +35,13 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
   }, {})
   const deptName = Object.fromEntries(lookups.departments.map(d => [d.id, d.name]))
 
-  // Super admin / admin: all staff, company-wide. Team lead: only employees sharing a department with them.
+  // Super Admin sees all staff. Managers and Team Leads see only their reporting hierarchy.
   // Active and not-active people are both listed.
-  const sharedIds = profileIdsSharingDepartment(me.id, lookups)
+  const reportingIds = profileIdsReportingTo(me.id, lookups)
   const visible = lookups.people.filter(p =>
-    ['super_admin', 'admin'].includes(me.role) ? p.role !== 'client'
-      : p.role === 'employee' && sharedIds.has(p.id))
+    me.role === 'super_admin'
+      ? p.role !== 'client'
+      : p.role !== 'client' && reportingIds.has(p.id))
   const everyone = visible.map(p => {
     const mine = tasks.filter(t => t.assignee_id === p.id)
     const hours = mine.reduce((s, t) => s + Number(t.estimated_hours ?? 3), 0)
@@ -63,22 +64,36 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-lg bg-slate-100 p-1 text-sm">
+        <div className="grid h-9 min-w-0 grid-cols-3 gap-px rounded-xl border border-slate-200 bg-white p-0.5 shadow-card">
           {TABS.map(t => (
             <Link key={t.key} href={t.key === 'all' ? '/team' : `/team?show=${t.key}`}
-                  className={cn('rounded-md px-3 py-1 font-medium', show === t.key ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
-              {t.label} <span className="ml-1 text-xs text-slate-400">{counts[t.key]}</span>
+                  className={cn(
+                    'relative flex h-full min-w-0 items-center gap-2 rounded-lg px-3 pr-7 text-xs transition-[background-color,color,box-shadow] duration-200 ease-out',
+                    show === t.key
+                      ? 'bg-brand-700 font-semibold text-white shadow-[0_2px_5px_rgba(2,43,59,0.2)]'
+                      : 'bg-white font-medium text-slate-800 hover:bg-slate-50',
+                  )}>
+              <t.icon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', show === t.key ? 'text-white' : 'text-slate-800')} />
+              <span className="min-w-0 truncate">{t.label}</span>
+              <span className={cn(
+                'absolute right-1 top-1/2 inline-flex h-4 min-w-4 -translate-y-1/2 items-center justify-center rounded-full px-0.5 text-[9px] font-bold leading-none shadow-sm',
+                counts[t.key] > 0 ? 'bg-lime-500 text-white' : 'bg-slate-200 text-[#0F172A]',
+              )}>
+                {counts[t.key] > 99 ? '99+' : counts[t.key]}
+              </span>
             </Link>
           ))}
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {['super_admin', 'admin'].includes(me.role) && <ButtonLink href="/admin/users" variant="secondary" size="sm">Manage users & invites</ButtonLink>}
-          {me.role !== 'team_lead' && <InviteStaffButton departments={lookups.departments} roles={['employee']} />}
+          {me.role !== 'team_lead' && <InviteStaffButton departments={lookups.departments} roles={['employee']} reportingPeople={lookups.people
+            .filter(p => p.role !== 'client')
+            .map(({ id, full_name, email, avatar_url, role, status }) => ({ id, full_name, email, avatar_url, role: role as StaffRole, status }))} />}
         </div>
       </div>
 
       {members.length === 0 ? (
-        <Card><EmptyState icon={Users} title={show === 'inactive' ? 'Everyone is active' : 'No team members yet'} /></Card>
+        <Card><EmptyState icon={<Users className="h-6 w-6" />} title={show === 'inactive' ? 'Everyone is active' : 'No team members yet'} /></Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {members.map(m => (
@@ -90,7 +105,7 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
                   <p className="truncate font-semibold text-slate-900 group-hover:text-brand-700">
                     {m.full_name || m.email} {m.id === me.id && <span className="text-xs font-normal text-slate-400">(you)</span>}
                   </p>
-                  <p className="truncate text-xs text-slate-500">{m.job_title || ROLE_LABELS[m.role]}</p>
+                  {m.job_title && <p className="truncate text-xs text-slate-500">{m.job_title}</p>}
                 </div>
                 {m.active
                   ? <Badge className="bg-lime-50 text-lime-700 ring-lime-200"><span className="h-1.5 w-1.5 rounded-full bg-lime-500" /> Active</Badge>
@@ -119,7 +134,6 @@ export default async function TeamPage({ searchParams }: { searchParams: { show?
 
               <div className="mt-4 flex items-center justify-between gap-2">
                 <div className="flex min-w-0 flex-wrap gap-1">
-                  <Badge className={cn('border bg-white transition-colors', ROLE_STYLES[m.role].badge)}>{ROLE_LABELS[m.role]}</Badge>
                   {m.depts.map(d => <Badge key={d}>{d}</Badge>)}
                 </div>
                 <span className="whitespace-nowrap text-xs font-semibold text-brand-600">View stats →</span>

@@ -9,6 +9,7 @@ import { Alert, Avatar, Field } from '@/components/ui/primitives'
 import { TaskBasicInformation } from '@/components/tasks/TaskBasicInformation'
 import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } from '@/components/tasks/TaskFormSections'
 import { MarketplacePlatformSelect } from '@/components/shared/Marketplace'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TICKET_STATUS_LABELS, TYPE_OPTIONS } from '@/lib/constants'
 import { TICKET_CATEGORY_BY_VALUE } from '@/lib/ticket-categories'
 import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
@@ -70,11 +71,10 @@ function FormSelect({
 
   if (native) {
     return (
-      <select className={cn('input h-9 text-sm', className, invalid && 'border-red-400 focus:border-red-500 focus:ring-red-200')}
-              value={value} disabled={disabled} required={required} aria-label={ariaLabel}
-              aria-required={required} aria-invalid={invalid} onChange={event => onChange(event.target.value)}>
+      <SearchableSelect className={cn('input h-9 text-sm', className)} value={value} disabled={disabled} required={required} aria-label={ariaLabel}
+                        aria-required={required} aria-invalid={invalid} onChange={event => onChange(event.target.value)}>
         {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
+      </SearchableSelect>
     )
   }
 
@@ -327,8 +327,8 @@ export function TaskForm(p: TaskFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className={p.modalLayout ? 'flex min-h-0 flex-1 flex-col' : 'card space-y-6 p-6'}>
-      <div data-modal-content={p.modalLayout ? '' : undefined} className={p.modalLayout ? 'min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-7' : 'space-y-6'}>
+    <form onSubmit={handleSubmit} className={p.modalLayout ? 'flex min-h-0 flex-1 flex-col' : 'card space-y-5 p-5 sm:p-6'}>
+      <div data-modal-content={p.modalLayout ? '' : undefined} className={p.modalLayout ? 'min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-7' : 'space-y-5'}>
       <TaskFormCard enabled={!!p.modalLayout}>
       {p.modalLayout && <TaskFormCardTitle />}
       {p.mode === 'create' && <h1 className="text-2xl font-bold text-slate-900">Create New Task</h1>}
@@ -360,7 +360,7 @@ export function TaskForm(p: TaskFormProps) {
       )}
 
       {p.modalLayout && <TaskSectionHeader section="configuration" />}
-      {!p.modalLayout && <div className={cn('grid gap-5 sm:grid-cols-2', p.mode === 'create' && 'lg:grid-cols-3')}>
+      {!p.modalLayout && <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Client" required hint={p.clients.length === 0 ? 'No clients have active tickets' : undefined}>
           <FormSelect label="Select client…" value={form.client_id}
             className={p.modalLayout ? 'h-9 rounded-xl text-sm' : undefined}

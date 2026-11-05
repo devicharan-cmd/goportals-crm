@@ -22,7 +22,7 @@ export default async function StaffTicketsPage({ searchParams }: { searchParams:
   const tab = TABS.find(t => t.key === searchParams.status)?.key ?? 'unassigned'
   const [ticketResult, ...countResults] = await Promise.all([
     supabase.from('tickets')
-      .select('*, client:clients(id, company_name)')
+      .select('*, client:clients(id, company_name, company_profile_image_path)')
       .eq('status', tab)
       .order('created_at', { ascending: false })
       .limit(200),
@@ -36,10 +36,29 @@ export default async function StaffTicketsPage({ searchParams }: { searchParams:
     if (result.error) throw result.error
   }
   const ticketCounts = Object.fromEntries(TABS.map((item, index) => [item.key, countResults[index].count ?? 0])) as Record<(typeof TABS)[number]['key'], number>
+  const imagePaths = ((data ?? [])
+    .map(ticket => (ticket.client as { company_profile_image_path?: string | null } | null)?.company_profile_image_path)
+    .filter((path): path is string => !!path))
+  const { data: signedImages } = imagePaths.length
+    ? await supabase.storage.from('client-profile-images').createSignedUrls(Array.from(new Set(imagePaths)), 3600)
+    : { data: [] }
+  const imageUrlByPath = Object.fromEntries((signedImages ?? []).map(image => [image.path, image.signedUrl]))
+  const ticketsWithClientImages = (data ?? []).map(ticket => {
+    const client = ticket.client as { id: string; company_name: string; company_profile_image_path?: string | null } | null
+    return {
+      ...ticket,
+      client: client ? {
+        ...client,
+        company_profile_image_signed_url: client.company_profile_image_path
+          ? imageUrlByPath[client.company_profile_image_path] ?? null
+          : null,
+      } : null,
+    }
+  }) as TicketListItem[]
 
   return (
     <TicketSearchProvider
-      initialTickets={(data ?? []) as TicketListItem[]}
+      initialTickets={ticketsWithClientImages}
       audience="staff"
       status={tab}
     >

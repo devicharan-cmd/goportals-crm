@@ -3,14 +3,14 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { errorMessage } from '@/lib/utils'
+import { showErrorToast, showSuccessToast } from '@/lib/ui-toast'
 
 export function DeleteButton({
-  table, id, redirectTo, label = 'Delete', variant = 'ghost', description,
+  table, id, redirectTo, label = 'Delete', variant = 'ghost', description, confirmationTitle, confirmLabel,
 }: {
   table: 'tasks' | 'tickets' | 'clients'
   id: string
@@ -18,6 +18,8 @@ export function DeleteButton({
   label?: string
   variant?: 'ghost' | 'danger'
   description?: string
+  confirmationTitle?: string
+  confirmLabel?: string
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -28,18 +30,27 @@ export function DeleteButton({
   async function remove() {
     setError('')
     setLoading(true)
-    const { error } = await createClient().from(table).delete().eq('id', id)
+    let failure: string | null = null
+    if (table === 'clients') {
+      try {
+        const response = await fetch(`/api/admin/clients/${encodeURIComponent(id)}`, { method: 'DELETE' })
+        const result = await response.json() as { error?: unknown }
+        if (!response.ok) failure = typeof result.error === 'string' ? result.error : 'Could not delete the client.'
+      } catch (requestError) {
+        failure = errorMessage(requestError)
+      }
+    } else {
+      const { data, error } = await createClient().from(table).delete().eq('id', id).select('id')
+      if (error) failure = errorMessage(error)
+      else if (!data?.length) failure = `Could not delete this ${itemName}; you may not have permission.`
+    }
     setLoading(false)
-    if (error) {
-      const message = errorMessage(error)
-      setError(message)
-      toast.error(message)
+    if (failure) {
+      setError(failure)
+      showErrorToast(failure)
       return
     }
-    toast(`${itemName[0].toUpperCase()}${itemName.slice(1)} deleted`, {
-      icon: <Trash2 className="h-4 w-4 text-red-600" />,
-      style: { background: '#fef2f2', borderColor: '#fecaca', color: '#b91c1c' },
-    })
+    showSuccessToast(`${itemName[0].toUpperCase()}${itemName.slice(1)} deleted`)
     router.push(redirectTo)
     router.refresh()
   }
@@ -57,13 +68,18 @@ export function DeleteButton({
       <Modal
         open={open}
         onClose={() => { if (!loading) setOpen(false) }}
-        title={`Delete ${itemName}?`}
+        title={confirmationTitle ?? `Delete ${itemName}?`}
         description={description ?? `This ${itemName} will be permanently deleted. This action cannot be undone.`}
       >
+        {table === 'clients' && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            This permanently removes the client and portal login, including company/onboarding details, all client tickets and tasks (including company-side history), comments, attachments, activity, and uploaded files. This cannot be undone.
+          </div>
+        )}
         {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button variant="secondary" size="sm" disabled={loading} onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="danger" size="sm" loading={loading} onClick={remove}>Delete {itemName}</Button>
+          <Button variant="danger" size="sm" loading={loading} onClick={remove}>{confirmLabel ?? `Delete ${itemName}`}</Button>
         </div>
       </Modal>
     </>

@@ -95,7 +95,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
   return (
     <>
       <div className="mb-4 flex items-center justify-between">
-        <Link href="/portal/tickets" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> My tickets</Link>
+        <Link href="/portal/tickets" className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> My tickets</Link>
         <div className="flex items-center gap-2">
           {canEdit
             ? <ButtonLink href={`/portal/tickets/${ticket.id}/edit`} variant="secondary" size="sm"><Pencil className="h-3.5 w-3.5" /> Edit</ButtonLink>
@@ -145,6 +145,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={ticket.id} comments={ticketComments} names={names} meId={me.id} myRole="client"
                               table="ticket_comments" idField="ticket_id"
+                              avatarUrls={Object.fromEntries(staff.map(person => [person.id, person.avatar_url]))}
                               bounded
                               replyNeeded={!!replyAuthorName}
                               lockedNote={ticketStatus === 'closed'
@@ -187,7 +188,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
                 ['Account', ticket.ecommerce_account
                   ? <MarketplaceAccountLabel platformName={ticket.ecommerce_account.platform?.name ?? null} accountName={ticket.ecommerce_account.account_name} size="sm" />
                   : null],
-                ['Raised', formatDateTime(ticket.created_at)],
+                ['Created', formatDateTime(ticket.created_at)],
                 ['Closed', ticket.closed_at ? formatDate(ticket.closed_at) : null],
               ].filter(([, v]) => v).map(([k, v], index) => (
                 <div key={index} className="flex justify-between gap-3 px-5 py-2.5"><dt className="text-slate-500">{k}</dt><dd className="text-right text-slate-800">{v}</dd></div>

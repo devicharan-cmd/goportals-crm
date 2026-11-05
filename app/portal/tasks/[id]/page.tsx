@@ -24,7 +24,7 @@ export default async function PortalTaskDetailPage({ params }: { params: { id: s
   const taskId = await resolveTaskId(params.id)
   if (!taskId) notFound()
 
-  const [{ data, error: taskError }, { data: comments, error: commentsError }, { data: attachments, error: attachmentsError }, names] = await Promise.all([
+  const [{ data, error: taskError }, { data: comments, error: commentsError }, { data: attachments, error: attachmentsError }, names, { data: staffDirectory }] = await Promise.all([
     supabase.from('tasks')
       .select(`${TASK_LIST_SELECT}, ticket:tickets(id, ticket_number, subject)`)
       .eq('id', taskId)
@@ -32,6 +32,7 @@ export default async function PortalTaskDetailPage({ params }: { params: { id: s
     supabase.from('task_comments').select('*').eq('task_id', taskId).order('created_at'),
     supabase.from('task_attachments').select('*').eq('task_id', taskId).order('created_at'),
     getPortalNames(me),
+    supabase.rpc('staff_directory'),
   ])
   if (taskError) throw new Error(taskError.message)
   if (commentsError) throw new Error(commentsError.message)
@@ -52,7 +53,7 @@ export default async function PortalTaskDetailPage({ params }: { params: { id: s
   return (
     <>
       <div className="mb-4">
-        <Link href="/portal/tasks" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+        <Link href="/portal/tasks" className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800">
           <ArrowLeft className="h-4 w-4" /> My tasks
         </Link>
       </div>
@@ -85,7 +86,14 @@ export default async function PortalTaskDetailPage({ params }: { params: { id: s
           <Card id="conversation" className="overflow-hidden">
             <CardHeader title={`Discussion (${clientComments.length})`} description="Messages here are visible to you and the GoPortals team." />
             <div className="p-5">
-              <CommentThread taskId={task.id} comments={clientComments} names={commentNames} meId={me.id} myRole="client" />
+              <CommentThread
+                taskId={task.id}
+                comments={clientComments}
+                names={commentNames}
+                avatarUrls={Object.fromEntries(((staffDirectory ?? []) as { id: string; avatar_url: string | null }[]).map(person => [person.id, person.avatar_url]))}
+                meId={me.id}
+                myRole="client"
+              />
             </div>
           </Card>
         </div>

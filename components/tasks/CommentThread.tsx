@@ -95,12 +95,13 @@ function MessageMenu({ commentId, table, canDelete, mine }: {
 }
 
 export function CommentThread({
-  taskId, comments, names, roles, meId, myRole, table = 'task_comments', idField = 'task_id', lockedNote, bounded = false, replyNeeded = false,
+  taskId, comments, names, roles, avatarUrls, meId, myRole, table = 'task_comments', idField = 'task_id', lockedNote, bounded = false, replyNeeded = false,
 }: {
   taskId: string
   comments: CommentLike[]
   names: Record<string, string>
   roles?: Record<string, AppRole>
+  avatarUrls?: Record<string, string | null>
   meId: string
   myRole: AppRole
   table?: 'task_comments' | 'ticket_comments'
@@ -233,7 +234,7 @@ export function CommentThread({
                 )}
                 <div className={cn('flex items-end gap-2', mine ? 'flex-row-reverse' : 'flex-row', newBlock ? 'mt-2.5' : 'mt-0.5')}>
                   <span className={cn('w-7 flex-shrink-0', mine && 'hidden')}>
-                    {newBlock && !mine && <Avatar name={senderName || '?'} role={role} size="xs" />}
+                    {newBlock && !mine && <Avatar name={senderName || '?'} src={avatarUrls?.[author]} role={role} size="xs" />}
                   </span>
                   <div className={cn('group/msg flex min-w-0 max-w-[78%] flex-col', mine ? 'items-end' : 'items-start')}>
                     {newBlock && !mine && (

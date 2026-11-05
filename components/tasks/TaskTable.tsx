@@ -40,9 +40,10 @@ export function TaskTable({
 }) {
   const assigneeRoles = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.role]))
   const assigneeAvatarRoles = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.avatarRole]))
+  const assigneeAvatarUrls = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.avatarUrl]))
 
   if (tasks.length === 0) {
-    return <EmptyState icon={ClipboardList} title={empty?.title ?? 'No tasks'} description={empty?.description} action={empty?.action} />
+    return <EmptyState icon={<ClipboardList className="h-6 w-6" />} title={empty?.title ?? 'No tasks'} description={empty?.description} action={empty?.action} />
   }
 
   return (
@@ -97,7 +98,7 @@ export function TaskTable({
                   <div className="relative h-14 min-w-0">
                     {t.assignee_id ? (
                       <span className="absolute left-0 top-1/2 flex w-full min-w-0 -translate-y-1/2 items-center gap-2 text-slate-700">
-                        <Avatar name={names[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" />
+                        <Avatar name={names[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" />
                         <span className="flex min-w-0 items-center gap-2">
                           <span className="truncate">{names[t.assignee_id] ?? '—'}</span>
                           {assignOptions && !TASK_TERMINAL_STATUSES.includes(t.status) && (
@@ -143,7 +144,7 @@ export function TaskTable({
                 <span className="flex min-w-0 flex-col items-start gap-1.5 text-slate-600">
                   <span className="flex min-w-0 items-center gap-1.5">
                   {t.assignee_id
-                    ? <><Avatar name={names[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" /> <span className="truncate">{names[t.assignee_id] ?? '—'}</span></>
+                    ? <><Avatar name={names[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" /> <span className="truncate">{names[t.assignee_id] ?? '—'}</span></>
                     : <span className="italic text-slate-400">Unassigned</span>}
                   {assignOptions && !TASK_TERMINAL_STATUSES.includes(t.status) && (
                     <span className="shrink-0">

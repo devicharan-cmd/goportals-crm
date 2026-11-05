@@ -60,13 +60,13 @@ export const TICKET_STATUS_LABELS_CLIENT: Record<TicketStatus, string> = TICKET_
 
 export const TICKET_STATUS_STYLES: Record<TicketStatus, string> = {
   unassigned: 'bg-slate-100 text-slate-700 ring-slate-200',
-  assigned:   'bg-sky-50 text-sky-700 ring-sky-200',
+  assigned:   'bg-lime-50 text-lime-800 ring-lime-200',
   closed:     'bg-slate-100 text-slate-600 ring-slate-300',
 }
 
 export const TICKET_STATUS_DOT: Record<TicketStatus, string> = {
   unassigned: 'bg-slate-400',
-  assigned:   'bg-sky-500',
+  assigned:   'bg-lime-500',
   closed:     'bg-slate-500',
 }
 

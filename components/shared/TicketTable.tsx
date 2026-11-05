@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ClipboardList, MessageSquareText } from 'lucide-react'
 import { EmptyState } from '@/components/ui/primitives'
+import { CompanyAvatar } from '@/components/ui/primitives'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_LABELS_CLIENT, TICKET_STATUS_STYLES, TICKET_TERMINAL_STATUSES } from '@/lib/constants'
 import { TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
@@ -12,7 +13,14 @@ import { cn, formatDate, ticketCode } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import type { Ticket } from '@/types/database'
 
-export type TicketListItem = Ticket & { client?: { id: string; company_name: string } | null }
+export type TicketListItem = Ticket & {
+  client?: {
+    id: string
+    company_name: string
+    company_profile_image_path?: string | null
+    company_profile_image_signed_url?: string | null
+  } | null
+}
 
 /**
  * Unread messages on a ticket: the count rides the corner of a chat icon, the
@@ -68,7 +76,7 @@ export function TicketTable({
 
   const statusLabels = audience === 'client' ? TICKET_STATUS_LABELS_CLIENT : TICKET_STATUS_LABELS
   if (tickets.length === 0) {
-    return <EmptyState icon={ClipboardList} title={empty?.title ?? 'No tickets'} description={empty?.description} action={empty?.action} />
+    return <EmptyState icon={<ClipboardList className="h-6 w-6" />} title={empty?.title ?? 'No tickets'} description={empty?.description} action={empty?.action} />
   }
 
   return (
@@ -91,7 +99,7 @@ export function TicketTable({
               <td className="max-w-md px-5 py-3.5">
                 <Link href={`${hrefBase}/${t.id}`} className="block">
                   <span className="flex items-center gap-2">
-                    <span className="flex-shrink-0 font-mono text-xs font-semibold text-slate-400">{ticketCode(t.ticket_number)}</span>
+                    <span className="flex-shrink-0 font-mono text-xs font-semibold text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>
                     {t.is_urgent && !TICKET_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
                     <span className="truncate font-medium text-slate-900 group-hover:text-brand-700">{t.subject}</span>
                   </span>
@@ -109,7 +117,16 @@ export function TicketTable({
                   </button>
                 </td>
               )}
-              {showClient && <td className="w-36 whitespace-nowrap truncate px-3 py-3.5 text-slate-600">{t.client?.company_name ?? '—'}</td>}
+              {showClient && (
+                <td className="w-36 whitespace-nowrap px-3 py-3.5 text-slate-600">
+                  {t.client ? (
+                    <span className="flex items-center gap-2">
+                      <CompanyAvatar name={t.client.company_name} src={t.client.company_profile_image_signed_url ?? null} size="xs" />
+                      <span className="truncate">{t.client.company_name}</span>
+                    </span>
+                  ) : '—'}
+                </td>
+              )}
               <td className="w-32 whitespace-nowrap truncate px-3 py-3.5 text-slate-600">{TICKET_CATEGORY_LABELS[t.category]}</td>
               <td className="w-32 whitespace-nowrap px-3 py-3.5"><StatusBadge label={statusLabels[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} /></td>
               <td className="w-24 whitespace-nowrap px-3 py-3.5">{t.priority ? <PriorityBadge priority={t.priority} /> : <span className="text-xs text-slate-400">—</span>}</td>
@@ -124,7 +141,7 @@ export function TicketTable({
           <li key={t.id}>
             <Link href={`${hrefBase}/${t.id}`} className="block px-4 py-3 active:bg-slate-50">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-slate-400">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
+                <p className="font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                 {t.priority && <PriorityBadge priority={t.priority} />}
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -132,7 +149,12 @@ export function TicketTable({
                 <StatusBadge label={statusLabels[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} />
                 <UnreadMessages count={liveUnreadByTicket[t.id] ?? 0} />
                 <span className="text-xs text-slate-500">{TICKET_CATEGORY_LABELS[t.category]}</span>
-                {showClient && t.client && <span className="text-xs text-slate-500">{t.client.company_name}</span>}
+                {showClient && t.client && (
+                  <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <CompanyAvatar name={t.client.company_name} src={t.client.company_profile_image_signed_url ?? null} size="xs" />
+                    {t.client.company_name}
+                  </span>
+                )}
                 <span className="ml-auto text-xs text-slate-400">{formatDate(t.created_at)}</span>
               </div>
             </Link>

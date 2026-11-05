@@ -4,13 +4,13 @@ import { addWeeks, differenceInHours, format, startOfMonth, startOfWeek } from '
 import { AlarmClock, ArrowLeft, CheckCircle2, Clock, Gauge, ListTodo, Mail, Plus, Target, Timer } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { assigneeOptionsFor, getStaffLookups, nameMap, profileIdsSharingDepartment, TASK_LIST_SELECT } from '@/lib/queries'
+import { assigneeOptionsFor, getStaffLookups, nameMap, profileIdsReportingTo, TASK_LIST_SELECT } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader, StatCard } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { WeeklyDoneChart, type WeekBucket } from '@/components/team/WeeklyDoneChart'
-import { ROLE_LABELS, TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
+import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { capacityColor, capacityTextColor, cn, dateKeyInTimeZone, dueState } from '@/lib/utils'
 import type { Profile, TaskListItem, TaskStatus } from '@/types/database'
 
@@ -29,10 +29,10 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
   if (!personData) notFound()
   const person = personData as Profile
   if (person.role === 'client') notFound()
-  // Team leads only look at employees in a department they share, or themselves.
-  if (me.role === 'team_lead') {
-    const shared = profileIdsSharingDepartment(me.id, lookups).has(person.id)
-    if (person.id !== me.id && (person.role !== 'employee' || !shared)) redirect('/team')
+  // Managers and team leads only look at people in their reporting hierarchy, or themselves.
+  if (me.role !== 'super_admin') {
+    const reporting = profileIdsReportingTo(me.id, lookups).has(person.id)
+    if (person.id !== me.id && !reporting) redirect('/team')
   }
 
   const tasks = (taskData ?? []) as TaskListItem[]
@@ -74,7 +74,7 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
 
   return (
     <>
-      <Link href="/team" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Team</Link>
+      <Link href="/team" className="mb-4 -ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Team</Link>
 
       {/* Header */}
       <Card className="mb-6 p-6">
@@ -87,10 +87,9 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
                 ? <Badge className="bg-lime-50 text-lime-700 ring-lime-200"><span className="h-1.5 w-1.5 rounded-full bg-lime-500" /> Active</Badge>
                 : <Badge className="bg-slate-100 text-slate-500 ring-slate-200"><span className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Not active</Badge>}
             </div>
-            {/* One meta row: role, job title, departments, then email after a divider. */}
+            {/* One meta row: job title, departments, then email after a divider. */}
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-              <Badge className="bg-brand-50 text-brand-700 ring-brand-200">{ROLE_LABELS[person.role]}</Badge>
-              {person.job_title && <span className="text-slate-500">{person.job_title}</span>}
+              {person.job_title && <Badge className="bg-brand-50 text-brand-700 ring-brand-200">{person.job_title}</Badge>}
               {depts.length > 0 && <span className="flex flex-wrap gap-1.5">{depts.map(d => <Badge key={d}>{d}</Badge>)}</span>}
               <span className="hidden h-4 w-px bg-slate-200 sm:block" />
               {/* Opens Gmail compose; a bare mailto: does nothing on PCs with no default mail app. */}
@@ -116,15 +115,15 @@ export default async function EmployeeStatsPage({ params }: { params: { id: stri
 
       {/* Headline stats */}
       <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Working on now" value={open.length} icon={ListTodo} />
-        <StatCard label="Overdue" value={overdue.length} icon={AlarmClock} tone={overdue.length ? 'red' : 'lime'} />
-        <StatCard label="Completed this month" value={doneMonth.length} icon={CheckCircle2} tone="lime" hint={`${doneWeek.length} this week · ${done.length} all time`} />
-        <StatCard label="Completed on time" value={onTimePct == null ? '—' : `${onTimePct}%`} icon={Target} tone={onTimePct == null || onTimePct >= 80 ? 'lime' : onTimePct >= 60 ? 'amber' : 'red'}
+        <StatCard label="Working on now" value={open.length} icon={<ListTodo className="h-5 w-5" />} />
+        <StatCard label="Overdue" value={overdue.length} icon={<AlarmClock className="h-5 w-5" />} tone={overdue.length ? 'red' : 'lime'} />
+        <StatCard label="Completed this month" value={doneMonth.length} icon={<CheckCircle2 className="h-5 w-5" />} tone="lime" hint={`${doneWeek.length} this week · ${done.length} all time`} />
+        <StatCard label="Completed on time" value={onTimePct == null ? '—' : `${onTimePct}%`} icon={<Target className="h-5 w-5" />} tone={onTimePct == null || onTimePct >= 80 ? 'lime' : onTimePct >= 60 ? 'amber' : 'red'}
                   hint={withDue.length ? `${onTime.length} of ${withDue.length} with a due date` : 'No due dates yet'} />
       </div>
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Avg. time to complete" value={avgDays == null ? '—' : `${avgDays}d`} icon={Timer} tone="brand" hint="From assigned to done" />
-        <StatCard label="Hours logged this month" value={`${hoursMonth}h`} icon={Clock} tone="amber" />
+        <StatCard label="Avg. time to complete" value={avgDays == null ? '—' : `${avgDays}d`} icon={<Timer className="h-5 w-5" />} tone="brand" hint="From assigned to done" />
+        <StatCard label="Hours logged this month" value={`${hoursMonth}h`} icon={<Clock className="h-5 w-5" />} tone="amber" />
         <div className="card col-span-2 p-5">
           <div className="mb-2 flex items-center justify-between">
             <p className="flex items-center gap-2 text-xs font-medium text-slate-500"><Gauge className="h-4 w-4 text-slate-400" /> Workload (open estimated hours vs weekly capacity)</p>

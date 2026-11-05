@@ -6,6 +6,7 @@ import { nameMap } from '@/lib/queries'
 import { dateKeyInTimeZone } from '@/lib/utils'
 import { Card, CardHeader, PageHeader, StatCard } from '@/components/ui/primitives'
 import { PrintButton } from '@/components/shared/PrintButton'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import type { Task } from '@/types/database'
 
 export const metadata = { title: 'Reports' }
@@ -93,9 +94,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: { mo
         actions={
           <>
             <form className="no-print">
-              <select name="month" defaultValue={month} className="input h-9 w-auto py-1.5">
+              <SearchableSelect name="month" defaultValue={month} className="input h-9 w-auto py-1.5" aria-label="Report month" searchPlaceholder="Search months...">
                 {monthOptions.map(m => <option key={m} value={m}>{format(parse(m, 'yyyy-MM', new Date()), 'MMMM yyyy')}</option>)}
-              </select>
+              </SearchableSelect>
               <button className="ml-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200">Show</button>
             </form>
             <PrintButton />
@@ -104,12 +105,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: { mo
       />
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <StatCard label="Tickets raised" value={ticketsRaised.length} icon={ClipboardList} tone="brand" />
-        <StatCard label="Tickets closed" value={ticketsClosed.length} icon={CheckCircle2} tone="lime" />
-        <StatCard label="Hours logged" value={Math.round(totalHours * 10) / 10} icon={Clock} tone="amber" />
-        <StatCard label="Tasks created" value={created.length} icon={Inbox} />
-        <StatCard label="Tasks completed" value={closed.length} icon={CheckCircle2} tone="lime" />
-        <StatCard label="Completed late" value={closedLate.length} icon={TimerOff} tone={closedLate.length ? 'red' : 'lime'} />
+        <StatCard label="Tickets raised" value={ticketsRaised.length} icon={<ClipboardList className="h-5 w-5" />} tone="brand" />
+        <StatCard label="Tickets closed" value={ticketsClosed.length} icon={<CheckCircle2 className="h-5 w-5" />} tone="lime" />
+        <StatCard label="Hours logged" value={Math.round(totalHours * 10) / 10} icon={<Clock className="h-5 w-5" />} tone="amber" />
+        <StatCard label="Tasks created" value={created.length} icon={<Inbox className="h-5 w-5" />} />
+        <StatCard label="Tasks completed" value={closed.length} icon={<CheckCircle2 className="h-5 w-5" />} tone="lime" />
+        <StatCard label="Completed late" value={closedLate.length} icon={<TimerOff className="h-5 w-5" />} tone={closedLate.length ? 'red' : 'lime'} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

@@ -106,7 +106,7 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <Link href="/tasks" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
+        <Link href="/tasks" className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
         <div className="flex items-center gap-2">
           {me.role === 'super_admin' && <DeleteButton table="tasks" id={task.id} redirectTo="/tasks" />}
           {me.role !== 'employee' && <AssignButton taskId={task.id} currentId={task.assignee_id} options={assignees} />}
@@ -169,7 +169,9 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
                         description="Visible to the GoPortals team. Clients do not see tasks — reply on the ticket instead." />
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={task.id} comments={(comments ?? []) as TaskComment[]} names={names}
-                             roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))} meId={me.id} myRole={me.role} bounded />
+                             roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))}
+                             avatarUrls={Object.fromEntries(lookups.people.map(p => [p.id, p.avatar_url]))}
+                             meId={me.id} myRole={me.role} bounded />
             </div>
           </Card>
 

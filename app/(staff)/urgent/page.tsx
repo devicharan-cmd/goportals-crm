@@ -18,7 +18,7 @@ export default async function UrgentPage() {
   const me = await requireStaff()
   const canSeeTickets = ['super_admin', 'admin', 'team_lead'].includes(me.role)
   const supabase = createClient()
-  const [{ data: taskData }, { data: ticketData }, { data: people }] = await Promise.all([
+  const [{ data: taskData }, { data: ticketData }, { data: people }, { data: profileRows }] = await Promise.all([
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).not('status', 'in', '(completed,cancelled)')
       .order('priority').order('created_at'),
     canSeeTickets
@@ -26,10 +26,12 @@ export default async function UrgentPage() {
           .order('created_at')
       : Promise.resolve({ data: [] }),
     supabase.rpc('staff_directory'),
+    supabase.from('profiles').select('id, avatar_url'),
   ])
   const tasks = (taskData ?? []) as TaskListItem[]
   const tickets = (ticketData ?? []) as (Ticket & { client: { id: string; company_name: string } | null })[]
   const names = Object.fromEntries((people ?? []).map((p: { id: string; full_name: string }) => [p.id, p.full_name]))
+  const avatarUrls = Object.fromEntries((profileRows ?? []).map((p: { id: string; avatar_url: string | null }) => [p.id, p.avatar_url]))
   const openTasks = tasks.filter(t => !t.assignee_id)
   const takenTasks = tasks.filter(t => t.assignee_id)
   const openTickets = tickets.filter(t => t.status === 'unassigned')
@@ -42,14 +44,14 @@ export default async function UrgentPage() {
           <Card className="mb-6 overflow-hidden">
             <CardHeader title={`Tickets waiting for someone (${openTickets.length})`} />
             {openTickets.length === 0 ? (
-              <EmptyState icon={Flame} title="All clear" description="No urgent tickets are waiting right now." />
+              <EmptyState icon={<Flame className="h-6 w-6" />} title="All clear" description="No urgent tickets are waiting right now." />
             ) : (
               <ul className="divide-y divide-slate-100">
                 {openTickets.map(t => (
                   <li key={t.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
                     <Link href={`/tickets/${t.id}`} className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-semibold text-slate-400">{ticketCode(t.ticket_number)}</span>
+                        <span className="font-mono text-xs font-semibold text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>
                         {t.priority && <PriorityBadge priority={t.priority} />}
                         <p className="truncate font-semibold text-slate-900 hover:text-brand-700">{t.subject}</p>
                       </div>
@@ -71,7 +73,7 @@ export default async function UrgentPage() {
                   <li key={t.id}>
                     <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-slate-400">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
+                        <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                         <p className="text-xs text-slate-500">{t.client?.company_name}</p>
                       </div>
                       <StatusBadge label={TICKET_STATUS_LABELS[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} />
@@ -87,7 +89,7 @@ export default async function UrgentPage() {
       <Card className="mb-6 overflow-hidden">
         <CardHeader title={`Tasks waiting for someone (${openTasks.length})`} />
         {openTasks.length === 0 ? (
-          <EmptyState icon={Flame} title="All clear" description="No urgent tasks are waiting right now." />
+          <EmptyState icon={<Flame className="h-6 w-6" />} title="All clear" description="No urgent tasks are waiting right now." />
         ) : (
           <ul className="divide-y divide-slate-100">
             {openTasks.map(t => (
@@ -122,7 +124,7 @@ export default async function UrgentPage() {
             {takenTasks.map(t => (
               <li key={t.id}>
                 <Link href={`/tasks/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
-                  <Avatar name={names[t.assignee_id!]} size="sm" />
+                  <Avatar name={names[t.assignee_id!]} src={avatarUrls[t.assignee_id!]} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-slate-400">{taskCode(t.task_number)}</span>{t.title}</p>
                     <p className="text-xs text-slate-500">{names[t.assignee_id!] ?? '—'} · {t.client?.company_name}</p>

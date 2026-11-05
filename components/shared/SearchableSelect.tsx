@@ -9,6 +9,7 @@ type OptionProps = { value?: string | number; children?: ReactNode; disabled?: b
 type SelectOption = { value: string; label: string; disabled: boolean }
 type SelectValueChangeEvent = { target: { value: string }; currentTarget: { value: string } }
 type DropdownPosition = { left: number; top: number; width: number; maxHeight: number; openBelow: boolean }
+type RichSelectOption = { value: string; label: ReactNode; text: string; disabled?: boolean }
 
 function optionLabel(children: ReactNode): string {
   return Children.toArray(children).map(child => {
@@ -43,11 +44,12 @@ export function SearchableSelect({
   disabled = false,
   required = false,
   id,
+  options: richOptions,
   'aria-label': ariaLabel,
   'aria-invalid': ariaInvalid,
   'aria-describedby': ariaDescribedBy,
 }: {
-  children: ReactNode
+  children?: ReactNode
   value?: string
   defaultValue?: string
   onChange?: (event: SelectValueChangeEvent) => void
@@ -60,11 +62,15 @@ export function SearchableSelect({
   disabled?: boolean
   required?: boolean
   id?: string
+  options?: RichSelectOption[]
   'aria-label'?: string
   'aria-invalid'?: boolean
   'aria-describedby'?: string
 }) {
-  const options = useMemo(() => getOptions(children), [children])
+  const options = useMemo(() => richOptions
+    ? richOptions.map(option => ({ value: option.value, label: option.text, content: option.label, disabled: !!option.disabled }))
+    : getOptions(children).map(option => ({ ...option, content: option.label })),
+  [children, richOptions])
   const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue ?? options[0]?.value ?? '')
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -192,7 +198,7 @@ export function SearchableSelect({
         aria-expanded={open}
         onClick={() => setOpen(current => !current)}
       >
-        <span className="min-w-0 flex-1 truncate">{selected?.label || placeholder || ''}</span>
+        <span className="min-w-0 flex-1 truncate">{selected ? (selected.content ?? selected.label) : placeholder || ''}</span>
         <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
       </button>
       {validationError && <span className="sr-only">Please select an option.</span>}
@@ -237,7 +243,7 @@ export function SearchableSelect({
                     active ? 'bg-brand-50 font-medium text-brand-700' : 'text-slate-700 hover:bg-slate-50',
                   )}
                 >
-                  <span className="min-w-0 truncate">{option.label}</span>
+                  <span className="min-w-0 truncate">{option.content ?? option.label}</span>
                   {active && <Check className="h-4 w-4 shrink-0 text-brand-600" />}
                 </button>
               )

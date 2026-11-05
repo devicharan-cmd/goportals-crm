@@ -327,8 +327,8 @@ export function TaskForm(p: TaskFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className={p.modalLayout ? 'flex min-h-0 flex-1 flex-col' : 'card space-y-6 p-6'}>
-      <div data-modal-content={p.modalLayout ? '' : undefined} className={p.modalLayout ? 'min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-7' : 'space-y-6'}>
+    <form onSubmit={handleSubmit} className={p.modalLayout ? 'flex min-h-0 flex-1 flex-col' : 'card space-y-5 p-5 sm:p-6'}>
+      <div data-modal-content={p.modalLayout ? '' : undefined} className={p.modalLayout ? 'min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-7' : 'space-y-5'}>
       <TaskFormCard enabled={!!p.modalLayout}>
       {p.modalLayout && <TaskFormCardTitle />}
       {p.mode === 'create' && <h1 className="text-2xl font-bold text-slate-900">Create New Task</h1>}
@@ -360,7 +360,7 @@ export function TaskForm(p: TaskFormProps) {
       )}
 
       {p.modalLayout && <TaskSectionHeader section="configuration" />}
-      {!p.modalLayout && <div className={cn('grid gap-5 sm:grid-cols-2', p.mode === 'create' && 'lg:grid-cols-3')}>
+      {!p.modalLayout && <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Client" required hint={p.clients.length === 0 ? 'No clients have active tickets' : undefined}>
           <FormSelect label="Select client…" value={form.client_id}
             className={p.modalLayout ? 'h-9 rounded-xl text-sm' : undefined}

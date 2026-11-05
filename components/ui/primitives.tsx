@@ -1,4 +1,7 @@
+ 'use client'
+
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import type { AppRole } from '@/types/database'
@@ -96,13 +99,17 @@ const AVATAR_COLORS = [
 export function Avatar({ name, src, role, size = 'md', className }: { name: string | null | undefined; src?: string | null; role?: AppRole; size?: 'xs' | 'sm' | 'md' | 'lg'; className?: string }) {
   const sizes = { xs: 'h-5 w-5 text-[10px]', sm: 'h-7 w-7 text-xs', md: 'h-9 w-9 text-sm', lg: 'h-12 w-12 text-base' }
   const hash = (name ?? '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+  const [imageFailed, setImageFailed] = useState(false)
+  useEffect(() => setImageFailed(false), [src])
   return (
     <span
       title={name ?? undefined}
       className={cn('inline-flex flex-shrink-0 items-center justify-center rounded-full font-semibold',
         sizes[size], (role ? ROLE_STYLES[role].avatar : undefined) ?? AVATAR_COLORS[hash % AVATAR_COLORS.length], className)}
     >
-      {src ? <img src={src} alt="" className="h-full w-full rounded-[inherit] object-cover" /> : getInitials(name)}
+      {src && !imageFailed
+        ? <img src={src} alt="" className="h-full w-full rounded-[inherit] object-cover" onError={() => setImageFailed(true)} />
+        : getInitials(name)}
     </span>
   )
 }

@@ -19,6 +19,7 @@
 
 @layer components {
   .international-phone-field {
+    position: relative;
     display: flex;
     width: 100%;
     min-height: 42px;
@@ -31,12 +32,106 @@
   }
   .international-phone-field:focus-within {
     border-color: #045e80;
-    box-shadow: 0 0 0 2px rgb(4 94 128 / 0.18);
+    box-shadow: none;
   }
   .international-phone-field .PhoneInputCountry {
+    position: relative;
     align-self: stretch;
     margin: 0;
     padding-left: 0.75rem;
+  }
+  .phone-country-trigger {
+    display: flex;
+    height: 100%;
+    align-items: center;
+    gap: 0.375rem;
+    border: 0;
+    border-right: 1px solid #cbd5e1;
+    background: transparent;
+    padding: 0 0.625rem;
+    font-size: 0.875rem;
+    color: #334155;
+  }
+  .phone-country-trigger:focus,
+  .phone-country-trigger:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+  .phone-country-flag {
+    font-size: 1.125rem;
+    line-height: 1;
+  }
+  .phone-country-flag svg,
+  .phone-country-list-flag svg {
+    width: 1.25rem;
+    height: 0.875rem;
+    display: block;
+    border-radius: 0.125rem;
+    box-shadow: 0 0 0 1px rgb(15 23 42 / 0.08);
+  }
+  .phone-country-code {
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .phone-country-globe {
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .phone-country-chevron {
+    flex-shrink: 0;
+    color: #64748b;
+  }
+  .phone-country-popover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 50;
+    margin-top: 0.5rem;
+    width: 18rem;
+    max-width: calc(100vw - 2rem);
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    background: #fff;
+    padding: 0.5rem;
+    box-shadow: 0 12px 30px rgb(15 23 42 / 0.14);
+  }
+  .phone-country-search {
+    width: 100%;
+    height: 2.25rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    padding: 0 0.625rem;
+    outline: none;
+    font-size: 0.8125rem;
+  }
+  .phone-country-search:focus {
+    border-color: #045e80;
+    box-shadow: none;
+  }
+  .phone-country-list {
+    max-height: 15rem;
+    overflow-y: auto;
+    margin-top: 0.375rem;
+  }
+  .phone-country-option {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.625rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.625rem;
+    text-align: left;
+    font-size: 0.8125rem;
+  }
+  .phone-country-option:hover {
+    background: #f1f5f9;
+  }
+  .phone-country-empty {
+    padding: 0.75rem 0.625rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: #64748b;
   }
   .international-phone-field .PhoneInputInput {
     min-width: 0;
@@ -46,6 +141,10 @@
     background: transparent;
     padding: 0.625rem 0.75rem 0.625rem 0.5rem;
     font-size: 0.875rem;
+  }
+  .international-phone-field .PhoneInputInput:focus {
+    outline: none;
+    box-shadow: none;
   }
   .international-phone-field:has(.PhoneInputInput:disabled) {
     background: #f8fafc;
@@ -65,11 +164,19 @@
   .input::placeholder { color: #94a3b8; }
   .input:focus {
     border-color: #0a6f94;
-    outline: 2px solid transparent;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 2px rgb(10 111 148 / 0.2);
+    outline: none;
+    box-shadow: none;
   }
   .input:disabled { background-color: #f8fafc; color: #64748b; }
+
+  /* Use one thin border for every form focus state; never add a separate ring. */
+  input:focus,
+  textarea:focus,
+  select:focus,
+  button[aria-haspopup="listbox"]:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
   .label {
     display: block;
     margin-bottom: 0.375rem;

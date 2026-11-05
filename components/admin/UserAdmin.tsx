@@ -555,7 +555,7 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
     <li className={cn('px-5 py-4', row.status !== 'active' && 'bg-slate-50/70 opacity-75')}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <Avatar name={row.full_name || row.email} role={row.role} />
+          <Avatar name={row.full_name || row.email} src={row.avatar_url} role={row.role} />
           <div className="min-w-0 flex-1">
             {/* Everyone may fix their own name; a super admin may fix anyone's.
                 Without this, accounts invited without one show as a raw email

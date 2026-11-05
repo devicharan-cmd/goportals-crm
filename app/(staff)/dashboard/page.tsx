@@ -119,7 +119,7 @@ export default async function DashboardPage() {
         const person = lookups.people.find(p => p.id === id)!
         const openTasks = teamTasks.filter(t => t.assignee_id === id)
         const hours = openTasks.reduce((s, t) => s + Number(t.estimated_hours ?? 3), 0)
-        return { id, name: person.full_name || person.email, open: openTasks.length, hours,
+        return { id, name: person.full_name || person.email, avatarUrl: person.avatar_url, open: openTasks.length, hours,
                  pct: Math.round((hours / (person.weekly_capacity_hours || 40)) * 100) }
       }).sort((a, b) => b.pct - a.pct)
     : []
@@ -238,7 +238,7 @@ export default async function DashboardPage() {
                 {workload.map(w => (
                   <Link key={w.id} href={`/team/${w.id}`} className="rounded-lg border border-slate-100 p-3 transition hover:shadow-pop">
                     <div className="flex items-center gap-2">
-                      <Avatar name={w.name} size="sm" />
+                      <Avatar name={w.name} src={w.avatarUrl} size="sm" />
                       <p className="truncate text-sm font-medium text-slate-900">{w.name}</p>
                     </div>
                     <div className="mt-2 flex items-center justify-between text-xs">

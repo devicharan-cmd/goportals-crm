@@ -46,8 +46,8 @@ export default async function StaffProfilePage({ params }: { params: { id: strin
         initialDepartmentIds={(membershipsRes.data ?? []).map(row => row.department_id)}
         actorRole={me.role}
         actorId={me.id}
-        isOwnProfile={false}
-        reportingPeople={lookups.people.map(({ id, full_name, email, role, status }) => ({ id, full_name, email, role, status }))}
+        isOwnProfile={me.id === profile.id}
+        reportingPeople={lookups.people.map(({ id, full_name, email, role, status, avatar_url }) => ({ id, full_name, email, role, status, avatar_url }))}
       />
     </div>
   )

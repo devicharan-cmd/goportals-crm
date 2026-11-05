@@ -35,6 +35,7 @@ export function TaskSearchProvider({
   client,
   assignee,
   department,
+  due,
   board,
   children,
 }: {
@@ -46,6 +47,7 @@ export function TaskSearchProvider({
   client: string
   assignee: string
   department: string
+  due: string
   board: boolean
   children: React.ReactNode
 }) {
@@ -67,7 +69,7 @@ export function TaskSearchProvider({
 
     setSearching(true)
     setError('')
-    void searchTasks(query, { scope, status, client, assignee, department, board })
+    void searchTasks(query, { scope, status, client, assignee, department, due, board })
       .then(result => {
         if (!active) return
         setTasks(result.tasks)
@@ -81,7 +83,7 @@ export function TaskSearchProvider({
       })
 
     return () => { active = false }
-  }, [assignee, board, client, department, initialNames, initialTasks, query, scope, status])
+  }, [assignee, board, client, department, due, initialNames, initialTasks, query, scope, status])
 
   const handleSearch = useCallback((value: string) => setQuery(value), [])
   const value: TaskSearchContextValue = {

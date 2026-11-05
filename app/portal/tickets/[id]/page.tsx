@@ -187,7 +187,7 @@ export default async function PortalTicketDetail({ params }: { params: { id: str
                 ['Account', ticket.ecommerce_account
                   ? <MarketplaceAccountLabel platformName={ticket.ecommerce_account.platform?.name ?? null} accountName={ticket.ecommerce_account.account_name} size="sm" />
                   : null],
-                ['Raised', formatDateTime(ticket.created_at)],
+                ['Created', formatDateTime(ticket.created_at)],
                 ['Closed', ticket.closed_at ? formatDate(ticket.closed_at) : null],
               ].filter(([, v]) => v).map(([k, v], index) => (
                 <div key={index} className="flex justify-between gap-3 px-5 py-2.5"><dt className="text-slate-500">{k}</dt><dd className="text-right text-slate-800">{v}</dd></div>

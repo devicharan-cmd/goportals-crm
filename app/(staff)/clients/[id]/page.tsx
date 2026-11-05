@@ -62,6 +62,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const staffWithDepts = lookups.staff.map(p => ({
     id: p.id,
     name: p.full_name || p.email,
+    avatarUrl: p.avatar_url,
     departmentIds: lookups.departmentMembers.filter(m => m.profile_id === p.id).map(m => m.department_id),
   }))
 

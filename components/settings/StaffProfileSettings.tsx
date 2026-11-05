@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Check, CheckCircle2, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, AlertCircle, Loader2
+  Check, CheckCircle2, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, AlertCircle, Loader2, ChevronDown, Search
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ROLE_LABELS } from '@/lib/constants'
@@ -22,6 +22,89 @@ const PROFILE_IMAGE_BUCKET = 'staff-profile-images'
 const PROFILE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 
+function ReportingPersonSelect({
+  people,
+  value,
+  onChange,
+  disabled,
+}: {
+  people: { id: string; full_name: string; email: string; role: AppRole; status: string; avatar_url?: string | null }[]
+  value: string
+  onChange: (value: string) => void
+  disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const rootRef = useRef<HTMLDivElement>(null)
+  const selected = people.find(person => person.id === value)
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return query
+      ? people.filter(person => `${person.full_name} ${person.email}`.toLowerCase().includes(query))
+      : people
+  }, [people, search])
+
+  useEffect(() => {
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick)
+  }, [])
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen(current => !current)}
+        className="flex h-[42px] w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 shadow-sm transition focus:border-brand-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+      >
+        {selected ? (
+          <>
+            <Avatar name={selected.full_name || selected.email} src={selected.avatar_url} role={selected.role} size="xs" />
+            <span className="min-w-0 flex-1 truncate text-left">{selected.full_name || selected.email}</span>
+          </>
+        ) : (
+          <span className="flex-1 text-left text-slate-500">Select Reporting To</span>
+        )}
+        <ChevronDown className={cn('h-4 w-4 flex-shrink-0 text-slate-400 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+          <div className="relative mb-1">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              placeholder="Search team members..."
+              className="h-9 w-full rounded-lg border border-slate-200 pl-8 pr-3 text-sm outline-none focus:border-brand-500"
+            />
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            {filtered.map(person => (
+              <button
+                key={person.id}
+                type="button"
+                onClick={() => { onChange(person.id); setOpen(false); setSearch('') }}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-50"
+              >
+                <Avatar name={person.full_name || person.email} src={person.avatar_url} role={person.role} size="sm" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-slate-800">{person.full_name || person.email}</span>
+                  <span className="block truncate text-xs text-slate-500">{ROLE_LABELS[person.role]}</span>
+                </span>
+              </button>
+            ))}
+            {filtered.length === 0 && <div className="px-3 py-4 text-center text-sm text-slate-500">No team members found.</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface StaffProfileSettingsProps {
   profile: Profile
   initialAddress: { current_address: string | null; permanent_address: string | null }
@@ -30,7 +113,7 @@ interface StaffProfileSettingsProps {
   actorRole: AppRole
   actorId?: string
   isOwnProfile?: boolean
-  reportingPeople?: { id: string; full_name: string; email: string; role: AppRole; status: string }[]
+  reportingPeople?: { id: string; full_name: string; email: string; role: AppRole; status: string; avatar_url?: string | null }[]
 }
 
 export function StaffProfileSettings({
@@ -45,7 +128,7 @@ export function StaffProfileSettings({
 }: StaffProfileSettingsProps) {
   const router = useRouter()
   const isSuperAdmin = actorRole === 'super_admin'
-  const canEditProfile = isOwnProfile || isSuperAdmin
+  const canEditProfile = isOwnProfile || isSuperAdmin || actorRole === 'admin'
   const canChangeRole = isSuperAdmin && (isOwnProfile || actorId !== profile.id)
   const canChangeStatus = isSuperAdmin && !isOwnProfile && actorId !== profile.id
 
@@ -71,6 +154,7 @@ export function StaffProfileSettings({
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
   const [currentImage, setCurrentImage] = useState<string | null>(profile.avatar_url)
+  const [imageLoadFailed, setImageLoadFailed] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null)
   const [imageBusy, setImageBusy] = useState(false)
@@ -79,6 +163,7 @@ export function StaffProfileSettings({
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setCurrentImage(profile.avatar_url) }, [profile.avatar_url])
+  useEffect(() => { setImageLoadFailed(false) }, [currentImage])
 
   useEffect(() => {
     if (!selectedImage) { setSelectedImagePreview(null); return }
@@ -360,23 +445,7 @@ export function StaffProfileSettings({
 
   return (
     <div className="space-y-6">
-      <div className={cn('grid grid-cols-1 gap-6', isOwnProfile && 'lg:grid-cols-[220px_minmax(0,1fr)]')}>
-        {isOwnProfile && (
-          <aside>
-            <nav className="space-y-1.5" aria-label="Settings Tabs">
-              <div className="flex items-center gap-3 rounded-xl border border-brand-200/80 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-900 shadow-xs">
-                <div>
-                  <p className="leading-tight">Profile</p>
-                  <p className="text-[11px] font-normal text-brand-600/80">Name, photo, contact</p>
-                </div>
-              </div>
-            </nav>
-          </aside>
-        )}
-
-        {/* Main Content Card: Your Profile */}
-        <main className="min-w-0">
-          <div className="rounded-2xl border border-slate-200/80 bg-white shadow-card overflow-hidden">
+      <div className="rounded-2xl border border-slate-200/80 bg-white shadow-card overflow-hidden">
             {/* Card Header */}
             <div className="border-b border-slate-100 px-6 py-5 flex items-center justify-between">
               <div>
@@ -409,10 +478,28 @@ export function StaffProfileSettings({
                         label={currentImage ? 'Update profile photo' : 'Add profile photo'}
                         className="flex h-20 w-20 items-center justify-center rounded-full shadow-sm"
                       >
-                        <Avatar name={fullName || profile.email} src={currentImage} role={role} size="lg" className="h-20 w-20 border-4 border-white text-2xl" />
+                        {currentImage && !imageLoadFailed ? (
+                          <img
+                            src={currentImage}
+                            alt={fullName || profile.email}
+                            className="h-full w-full rounded-full object-cover border-4 border-white"
+                            onError={() => setImageLoadFailed(true)}
+                          />
+                        ) : (
+                          <Avatar name={fullName || profile.email} role={role} size="lg" className="h-20 w-20 border-4 border-white text-2xl" />
+                        )}
                       </ProfileImageControl>
                     ) : (
-                      <Avatar name={fullName || profile.email} src={currentImage} role={role} size="lg" className="h-20 w-20 border-4 border-white text-2xl" />
+                      currentImage && !imageLoadFailed ? (
+                        <img
+                          src={currentImage}
+                          alt={fullName || profile.email}
+                          className="h-20 w-20 rounded-full object-cover border-4 border-white"
+                          onError={() => setImageLoadFailed(true)}
+                        />
+                      ) : (
+                        <Avatar name={fullName || profile.email} role={role} size="lg" className="h-20 w-20 border-4 border-white text-2xl" />
+                      )
                     )}
                   </div>
 
@@ -472,7 +559,7 @@ export function StaffProfileSettings({
                     className={cn(
                       'w-full rounded-xl border px-3.5 py-2.5 text-sm transition shadow-sm',
                       isEditing && (isOwnProfile || isSuperAdmin)
-                        ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+                        ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none'
                         : 'border-slate-200 bg-slate-50/70 text-slate-700 cursor-default'
                     )}
                   />
@@ -499,7 +586,7 @@ export function StaffProfileSettings({
                 <div>
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Role</span>
-                    {(!canChangeRole || !isEditing) && (
+                    {!isOwnProfile && !canChangeRole && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
@@ -518,10 +605,10 @@ export function StaffProfileSettings({
                           setReportingTo('')
                         }
                       }}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition shadow-sm"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-brand-500 focus:outline-none transition shadow-sm"
                     >
                       <option value="super_admin">Super Admin</option>
-                      <option value="admin">Manager (Admin)</option>
+                      <option value="admin">Manager</option>
                       <option value="team_lead">Team Lead</option>
                       <option value="employee">Employee</option>
                     </SearchableSelect>
@@ -532,33 +619,52 @@ export function StaffProfileSettings({
                   )}
                 </div>
 
+                {/* Job Title */}
+                <div>
+                  <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
+                    <span>Job title</span>
+                    {!isOwnProfile && (!isSuperAdmin || !isEditing) && (
+                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                        <Lock className="h-3 w-3" /> Managed by Super Admin
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={jobTitle}
+                    disabled={!isSuperAdmin || !isEditing}
+                    onChange={e => isSuperAdmin && setJobTitle(e.target.value)}
+                    placeholder="e.g. Ads Executive, Senior Designer"
+                    className={cn(
+                      'w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm transition shadow-sm',
+                      isSuperAdmin && isEditing
+                        ? 'text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none'
+                        : 'bg-slate-50/70 text-slate-600 cursor-not-allowed'
+                    )}
+                  />
+                </div>
+
                 <div>
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Reporting To (POC)</span>
-                    {(!canChangeRole || !isEditing) && (
+                    {!isOwnProfile && !canChangeRole && actorRole !== 'admin' && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
                     )}
                   </label>
                   {canChangeRole && isEditing && role !== 'super_admin' ? (
-                    <SearchableSelect
+                    <ReportingPersonSelect
                       value={reportingTo}
-                      onChange={event => setReportingTo(event.target.value)}
-                      searchable
-                      searchPlaceholder="Search team members..."
-                      placeholder="Select Reporting To"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                    >
-                      <option value="">Select Reporting To</option>
-                      {reportingPeople
-                        .filter(person => person.id !== profile.id && person.status === 'active' && person.role === (
+                      onChange={setReportingTo}
+                      people={reportingPeople.filter(person =>
+                        person.id !== profile.id &&
+                        person.status === 'active' &&
+                        person.role === (
                           role === 'admin' ? 'super_admin' : role === 'team_lead' ? 'admin' : 'team_lead'
-                        ))
-                        .map(person => (
-                          <option key={person.id} value={person.id}>{person.full_name || person.email}</option>
-                        ))}
-                    </SearchableSelect>
+                        )
+                      )}
+                    />
                   ) : (
                     <div className="flex h-[42px] items-center rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 text-sm font-medium text-slate-700">
                       {reportingPeople.find(person => person.id === reportingTo)?.full_name || '--'}
@@ -570,7 +676,7 @@ export function StaffProfileSettings({
                   <div>
                     <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                       <span>Employment status</span>
-                      {(!canChangeStatus || !isEditing) && (
+                      {!isOwnProfile && (!canChangeStatus || !isEditing) && (
                         <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                           <Lock className="h-3 w-3" /> Managed by Super Admin
                         </span>
@@ -620,7 +726,7 @@ export function StaffProfileSettings({
                     className={cn(
                       'w-full rounded-xl border px-3.5 py-2.5 text-sm transition shadow-sm',
                       isEditing && (isOwnProfile || isSuperAdmin)
-                        ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+                        ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none'
                         : 'border-slate-200 bg-slate-50/70 text-slate-700 cursor-default'
                     )}
                   />
@@ -636,33 +742,8 @@ export function StaffProfileSettings({
                     className={cn(
                       'w-full rounded-xl border px-3.5 py-2.5 text-sm transition shadow-sm',
                       isEditing && (isOwnProfile || isSuperAdmin)
-                        ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+                        ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none'
                         : 'border-slate-200 bg-slate-50/70 text-slate-700 cursor-default'
-                    )}
-                  />
-                </div>
-
-                {/* Job Title */}
-                <div>
-                  <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
-                    <span>Job title</span>
-                    {(!isSuperAdmin || !isEditing) && (
-                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
-                        <Lock className="h-3 w-3" /> Managed by Super Admin
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    value={jobTitle}
-                    disabled={!isSuperAdmin || !isEditing}
-                    onChange={e => isSuperAdmin && setJobTitle(e.target.value)}
-                    placeholder="e.g. Ads Executive, Senior Designer"
-                    className={cn(
-                      'w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm transition shadow-sm',
-                      isSuperAdmin && isEditing
-                        ? 'text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
-                        : 'bg-slate-50/70 text-slate-600 cursor-not-allowed'
                     )}
                   />
                 </div>
@@ -671,7 +752,7 @@ export function StaffProfileSettings({
                 <div>
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Weekly capacity</span>
-                    {(!isSuperAdmin || !isEditing) && (
+                    {!isOwnProfile && (!isSuperAdmin || !isEditing) && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
@@ -689,7 +770,7 @@ export function StaffProfileSettings({
                       className={cn(
                         'w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm pr-16 transition shadow-sm',
                         isSuperAdmin && isEditing
-                          ? 'text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+                          ? 'text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none'
                           : 'bg-slate-50/70 text-slate-600 cursor-not-allowed'
                       )}
                     />
@@ -787,8 +868,6 @@ export function StaffProfileSettings({
                 )}
               </div>
             </div>
-          </div>
-        </main>
       </div>
 
       <input

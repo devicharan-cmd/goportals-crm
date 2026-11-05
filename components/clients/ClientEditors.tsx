@@ -207,7 +207,7 @@ export function ClientTeamEditor({
 }: {
   clientId: string
   rows: ClientTeamRow[]
-  people: { id: string; name: string; departmentIds: string[] }[]
+  people: { id: string; name: string; avatarUrl?: string | null; departmentIds: string[] }[]
   departments: Department[]
   editableDepartmentIds: string[]   // super admin: all; manager: their departments
 }) {
@@ -216,6 +216,7 @@ export function ClientTeamEditor({
   const [person, setPerson] = useState('')
   const supabase = createClient()
   const names = Object.fromEntries(people.map(p => [p.id, p.name]))
+  const avatars = Object.fromEntries(people.map(p => [p.id, p.avatarUrl ?? null]))
   const deptName = Object.fromEntries(departments.map(d => [d.id, d.name]))
   const editableDepts = departments.filter(d => editableDepartmentIds.includes(d.id))
   const candidates = people.filter(p => dept && p.departmentIds.includes(dept) && !rows.some(r => r.profile_id === p.id && r.department_id === dept))
@@ -226,7 +227,7 @@ export function ClientTeamEditor({
       <ul className="divide-y divide-slate-100">
         {rows.map(r => (
           <li key={`${r.profile_id}-${r.department_id}`} className="flex items-center gap-3 px-5 py-2.5">
-            <Avatar name={names[r.profile_id]} size="sm" />
+            <Avatar name={names[r.profile_id]} src={avatars[r.profile_id]} size="sm" />
             <span className="flex-1 text-sm font-medium text-slate-800">{names[r.profile_id] ?? '—'}</span>
             <Badge>{deptName[r.department_id] ?? '—'}</Badge>
             {editableDepartmentIds.includes(r.department_id) && (

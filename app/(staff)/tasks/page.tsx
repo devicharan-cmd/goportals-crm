@@ -9,7 +9,7 @@ import type { StaffDirectoryEntry, TaskListItem } from '@/types/database'
 
 export const metadata = { title: 'Tasks' }
 
-type SP = { view?: string; scope?: string; status?: string; client?: string; assignee?: string; assigned_by?: string; dept?: string }
+type SP = { view?: string; scope?: string; status?: string; client?: string; assignee?: string; assigned_by?: string; dept?: string; due?: string }
 
 export default async function TasksPage({ searchParams }: { searchParams: SP }) {
   const me = await requireStaff()
@@ -41,6 +41,7 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
   }
   if (searchParams.client) query = query.eq('client_id', searchParams.client)
   if (searchParams.dept) query = query.eq('department_id', searchParams.dept)
+  if (searchParams.due) query = query.eq('due_date', searchParams.due)
 
   const [taskResult, lookups, myTaskCountResult, allTaskCountResult, assignerResult] = await Promise.all([
     query,
@@ -78,6 +79,7 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
       client={searchParams.client ?? ''}
       assignee={searchParams.assignee ?? ''}
       department={searchParams.dept ?? ''}
+      due={searchParams.due ?? ''}
       board={board}
     >
       <TaskFilters

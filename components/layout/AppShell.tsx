@@ -57,7 +57,7 @@ const CLIENT_NAV: NavGroup[] = [
 
 const COLLAPSE_KEY = 'gp.sidebar.collapsed'
 
-export type ShellUser = { name: string; email: string; role: AppRole; jobTitle: string | null }
+export type ShellUser = { id?: string; name: string; email: string; role: AppRole; jobTitle: string | null; avatarUrl?: string | null }
 export type ShellCounts = { notifications: number; urgent?: number; approvals?: number }
 
 export function AppShell({
@@ -70,9 +70,36 @@ export function AppShell({
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [liveCounts, setLiveCounts] = useState(counts)
   const profileMenuRef = useRef<HTMLDivElement>(null)
-
   const isClient = user.role === 'client'
+
+  useEffect(() => {
+    if (!user.id || isClient) return
+    let active = true
+    const supabase = createClient()
+
+    void Promise.all([
+      supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_id', user.id).eq('is_read', false),
+      supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)'),
+      ['super_admin', 'admin', 'team_lead'].includes(user.role)
+        ? supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('is_urgent', true).eq('status', 'unassigned')
+        : Promise.resolve({ count: 0 }),
+      user.role === 'super_admin'
+        ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+        : Promise.resolve({ count: 0 }),
+    ]).then(([notifications, urgentTasks, urgentTickets, approvals]) => {
+      if (!active) return
+      setLiveCounts({
+        notifications: notifications.count ?? 0,
+        urgent: (urgentTasks.count ?? 0) + (urgentTickets.count ?? 0),
+        approvals: approvals.count ?? 0,
+      })
+    })
+
+    return () => { active = false }
+  }, [isClient, user.id, user.role])
+
   const groups = (isClient ? CLIENT_NAV : STAFF_NAV)
     .map(g => ({ ...g, items: g.items.filter(i => !i.roles || i.roles.includes(user.role)) }))
     .filter(g => g.items.length > 0)
@@ -197,7 +224,7 @@ export function AppShell({
             <ul className="space-y-0.5">
               {group.items.map(item => {
                 const active = isActive(item.href)
-                const count = item.badge === 'urgent' ? counts.urgent : item.badge === 'approvals' ? counts.approvals : 0
+                const count = item.badge === 'urgent' ? liveCounts.urgent : item.badge === 'approvals' ? liveCounts.approvals : 0
                 return (
                   <li key={item.href}>
                     <Link
@@ -235,7 +262,7 @@ export function AppShell({
         {signOutError && !compact && <p role="alert" className="mb-2 px-2 text-xs text-red-600">Could not sign out. Please try again.</p>}
         <div className={cn('flex items-center rounded-lg', compact ? 'flex-col gap-2 py-1' : 'gap-3 px-2 py-2')}>
           <span title={compact ? `${user.name || user.email} · ${user.jobTitle || ROLE_LABELS[user.role]}` : undefined}>
-            <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : undefined} role={isClient ? 'client' : user.role} size="md" />
+            <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : user.avatarUrl} role={isClient ? 'client' : user.role} size="md" />
           </span>
           {!compact && (
             <div className="min-w-0 flex-1">
@@ -305,16 +332,15 @@ export function AppShell({
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
-              {counts.notifications > 0 && (
+              {liveCounts.notifications > 0 && (
                 <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-bold text-white">
-                  {counts.notifications > 9 ? '9+' : counts.notifications}
+                  {liveCounts.notifications > 9 ? '9+' : liveCounts.notifications}
                 </span>
               )}
             </Link>
 
             {/* Profile Dropdown Trigger & Floating Menu */}
-            {!isClient && (
-              <div className="relative" ref={profileMenuRef}>
+            <div className="relative" ref={profileMenuRef}>
                 <button
                   type="button"
                   onClick={() => setProfileMenuOpen(v => !v)}
@@ -327,13 +353,13 @@ export function AppShell({
                   aria-expanded={profileMenuOpen}
                   aria-haspopup="true"
                 >
-                  <Avatar name={user.name || user.email} role={user.role} size="sm" />
+                  <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : user.avatarUrl} role={user.role} size="sm" />
                   <div className="hidden min-w-0 sm:flex sm:flex-col sm:justify-center text-left">
                     <p className="max-w-[130px] truncate text-[11px] font-semibold text-slate-900 leading-[1.2]">
                       {user.name || user.email}
                     </p>
                     <p className="text-[10px] font-medium leading-[1.2] text-slate-500">
-                      {ROLE_LABELS[user.role]}
+                      {isClient ? 'Client' : ROLE_LABELS[user.role]}
                     </p>
                   </div>
                   <ChevronDown
@@ -348,12 +374,12 @@ export function AppShell({
                 {profileMenuOpen && (
                   <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-slate-200/80 bg-white p-1.5 shadow-pop z-50 animate-in fade-in zoom-in-95 duration-100">
                     <Link
-                      href="/settings"
+                      href={isClient ? '/portal/profile' : '/settings'}
                       onClick={() => setProfileMenuOpen(false)}
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
                     >
                       <User className="h-4 w-4 text-slate-500" />
-                      Profile
+                      {isClient ? 'Company profile' : 'Profile'}
                     </Link>
 
                     <div className="border-t border-slate-100 my-1" />
@@ -371,8 +397,7 @@ export function AppShell({
                     </button>
                   </div>
                 )}
-              </div>
-            )}
+            </div>
           </div>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">

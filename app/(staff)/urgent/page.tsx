@@ -18,7 +18,7 @@ export default async function UrgentPage() {
   const me = await requireStaff()
   const canSeeTickets = ['super_admin', 'admin', 'team_lead'].includes(me.role)
   const supabase = createClient()
-  const [{ data: taskData }, { data: ticketData }, { data: people }] = await Promise.all([
+  const [{ data: taskData }, { data: ticketData }, { data: people }, { data: profileRows }] = await Promise.all([
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).not('status', 'in', '(completed,cancelled)')
       .order('priority').order('created_at'),
     canSeeTickets
@@ -26,10 +26,12 @@ export default async function UrgentPage() {
           .order('created_at')
       : Promise.resolve({ data: [] }),
     supabase.rpc('staff_directory'),
+    supabase.from('profiles').select('id, avatar_url'),
   ])
   const tasks = (taskData ?? []) as TaskListItem[]
   const tickets = (ticketData ?? []) as (Ticket & { client: { id: string; company_name: string } | null })[]
   const names = Object.fromEntries((people ?? []).map((p: { id: string; full_name: string }) => [p.id, p.full_name]))
+  const avatarUrls = Object.fromEntries((profileRows ?? []).map((p: { id: string; avatar_url: string | null }) => [p.id, p.avatar_url]))
   const openTasks = tasks.filter(t => !t.assignee_id)
   const takenTasks = tasks.filter(t => t.assignee_id)
   const openTickets = tickets.filter(t => t.status === 'unassigned')
@@ -122,7 +124,7 @@ export default async function UrgentPage() {
             {takenTasks.map(t => (
               <li key={t.id}>
                 <Link href={`/tasks/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
-                  <Avatar name={names[t.assignee_id!]} size="sm" />
+                  <Avatar name={names[t.assignee_id!]} src={avatarUrls[t.assignee_id!]} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-slate-400">{taskCode(t.task_number)}</span>{t.title}</p>
                     <p className="text-xs text-slate-500">{names[t.assignee_id!] ?? '—'} · {t.client?.company_name}</p>

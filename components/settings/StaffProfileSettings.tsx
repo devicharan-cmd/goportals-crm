@@ -153,6 +153,9 @@ export function StaffProfileSettings({
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [phoneError, setPhoneError] = useState('')
+  const [timezoneError, setTimezoneError] = useState('')
+  const [jobTitleError, setJobTitleError] = useState('')
   const [currentImage, setCurrentImage] = useState<string | null>(profile.avatar_url)
   const [imageLoadFailed, setImageLoadFailed] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
@@ -253,6 +256,7 @@ export function StaffProfileSettings({
       if (cleanupError) cleanupMessage = `Photo updated, but the previous image could not be removed: ${errorMessage(cleanupError)}`
     }
     setCurrentImage(imageUrl)
+    window.dispatchEvent(new CustomEvent('gp:profile-avatar-change', { detail: imageUrl }))
     setSelectedImage(null)
     setImageDialogOpen(false)
     setImageBusy(false)
@@ -293,6 +297,7 @@ export function StaffProfileSettings({
       if (cleanupError) cleanupMessage = `Photo removed, but the stored image could not be deleted: ${errorMessage(cleanupError)}`
     }
     setCurrentImage(null)
+    window.dispatchEvent(new CustomEvent('gp:profile-avatar-change', { detail: null }))
     setImageDialogOpen(false)
     setImageBusy(false)
     setImageError(cleanupMessage)
@@ -319,6 +324,9 @@ export function StaffProfileSettings({
     setWeeklyCapacity(profile.weekly_capacity_hours != null ? String(profile.weekly_capacity_hours) : '40')
     setSelectedDeptIds(initialDepartmentIds)
     setError('')
+    setPhoneError('')
+    setTimezoneError('')
+    setJobTitleError('')
     setSuccess(false)
     setIsEditing(false)
   }
@@ -333,15 +341,25 @@ export function StaffProfileSettings({
   async function handleSave() {
     setSaving(true)
     setError('')
+    setPhoneError('')
+    setTimezoneError('')
+    setJobTitleError('')
     setSuccess(false)
-    const phoneError = validateMobilePhone(phone)
-    if (phoneError) {
+    if (!jobTitle.trim()) {
       setSaving(false)
-      return setError(phoneError)
+      setJobTitleError('Job title is required.')
+      return
+    }
+    const phoneValidationError = validateMobilePhone(phone)
+    if (phoneValidationError) {
+      setSaving(false)
+      setPhoneError(phoneValidationError)
+      return
     }
     if (!isValidTimeZone(timezone)) {
       setSaving(false)
-      return setError('Select a valid timezone.')
+      setTimezoneError('Select a valid timezone.')
+      return
     }
 
     try {
@@ -552,6 +570,7 @@ export function StaffProfileSettings({
                   </label>
                   <input
                     type="text"
+                    required
                     value={fullName}
                     disabled={!isEditing || (!isOwnProfile && !isSuperAdmin)}
                     onChange={e => setFullName(e.target.value)}
@@ -582,11 +601,65 @@ export function StaffProfileSettings({
                   />
                 </div>
 
-                {/* Role */}
+                {/* Phone */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                    Mobile number <span className="text-red-500">*</span>
+                  </label>
+                  <InternationalPhoneField
+                    value={phone}
+                    disabled={!isEditing || (!isOwnProfile && !isSuperAdmin)}
+                    onChange={value => {
+                      setPhone(value)
+                      if (phoneError) setPhoneError('')
+                    }}
+                    invalid={!!phoneError}
+                  />
+                  {phoneError && (
+                    <p className="mt-1.5 text-xs font-medium text-red-600">{phoneError}</p>
+                  )}
+                </div>
+
+                {/* Job Title */}
+                <div>
+                  <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
+                    <span>Job title <span className="text-red-500">*</span></span>
+                    {!isOwnProfile && (!isSuperAdmin || !isEditing) && (
+                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                        <Lock className="h-3 w-3" /> Managed by Super Admin
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={jobTitle}
+                    disabled={!isSuperAdmin || !isEditing}
+                    onChange={e => {
+                      if (!isSuperAdmin) return
+                      setJobTitle(e.target.value)
+                      if (jobTitleError) setJobTitleError('')
+                    }}
+                    placeholder="e.g. Ads Executive, Senior Designer"
+                    className={cn(
+                      'w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm transition shadow-sm',
+                      isSuperAdmin && isEditing
+                        ? jobTitleError
+                          ? '!border-red-500 text-slate-900 placeholder-slate-400 focus:border-red-500 focus:outline-none'
+                          : 'text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none'
+                        : 'bg-slate-50/70 text-slate-600 cursor-not-allowed'
+                    )}
+                    aria-invalid={!!jobTitleError}
+                  />
+                  {jobTitleError && (
+                    <p className="mt-1.5 text-xs font-medium text-red-600">{jobTitleError}</p>
+                  )}
+                </div>
+
                 <div>
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Role</span>
-                    {!isOwnProfile && !canChangeRole && (
+                    {!canChangeRole && (
                       <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
@@ -617,31 +690,6 @@ export function StaffProfileSettings({
                       {ROLE_LABELS[role]}
                     </div>
                   )}
-                </div>
-
-                {/* Job Title */}
-                <div>
-                  <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
-                    <span>Job title</span>
-                    {!isOwnProfile && (!isSuperAdmin || !isEditing) && (
-                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
-                        <Lock className="h-3 w-3" /> Managed by Super Admin
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    value={jobTitle}
-                    disabled={!isSuperAdmin || !isEditing}
-                    onChange={e => isSuperAdmin && setJobTitle(e.target.value)}
-                    placeholder="e.g. Ads Executive, Senior Designer"
-                    className={cn(
-                      'w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm transition shadow-sm',
-                      isSuperAdmin && isEditing
-                        ? 'text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none'
-                        : 'bg-slate-50/70 text-slate-600 cursor-not-allowed'
-                    )}
-                  />
                 </div>
 
                 <div>
@@ -676,11 +724,11 @@ export function StaffProfileSettings({
                   <div>
                     <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                       <span>Employment status</span>
-                      {!isOwnProfile && (!canChangeStatus || !isEditing) && (
+                      {!canChangeStatus || !isEditing ? (
                         <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
                           <Lock className="h-3 w-3" /> Managed by Super Admin
                         </span>
-                      )}
+                      ) : null}
                     </label>
                     <SearchableSelect
                       value={employmentStatus}
@@ -694,27 +742,24 @@ export function StaffProfileSettings({
                   </div>
                 )}
 
-                {/* Phone */}
-                <div>
-                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                    Mobile number <span className="text-red-500">*</span>
-                  </label>
-                  <InternationalPhoneField
-                    value={phone}
-                    disabled={!isEditing || (!isOwnProfile && !isSuperAdmin)}
-                    onChange={setPhone}
-                  />
-                </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                     Timezone <span className="text-red-500">*</span>
                   </label>
                   <TimezoneSelect
                     value={timezone}
-                    onChange={setTimezone}
+                    onChange={value => {
+                      setTimezone(value)
+                      if (timezoneError) setTimezoneError('')
+                    }}
                     disabled={!isEditing || (!isOwnProfile && !isSuperAdmin)}
+                    invalid={!!timezoneError}
                   />
+                  {timezoneError && (
+                    <p className="mt-1.5 text-xs font-medium text-red-600">{timezoneError}</p>
+                  )}
                 </div>
+                {isOwnProfile && <div className="hidden sm:block" />}
 
                 <div>
                   <label className="mb-1.5 block text-sm font-semibold text-slate-700">Current address</label>

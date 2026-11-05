@@ -42,7 +42,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const departmentIds = body.department_ids
   const phone = typeof body.phone === 'string' ? body.phone.trim() : ''
   const timezone = typeof body.timezone === 'string' ? body.timezone.trim() : ''
+  const jobTitle = typeof body.job_title === 'string' ? body.job_title.trim() : ''
   if (!fullName) return NextResponse.json({ error: 'Full name is required.' }, { status: 400 })
+  if (!jobTitle) return NextResponse.json({ error: 'Job title is required.' }, { status: 400 })
   const phoneError = validateMobilePhone(phone)
   if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
   if (!isValidTimeZone(timezone)) return NextResponse.json({ error: 'Select a valid timezone.' }, { status: 400 })

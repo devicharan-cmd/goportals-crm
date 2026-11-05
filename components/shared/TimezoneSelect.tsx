@@ -13,11 +13,13 @@ export function TimezoneSelect({
   onChange,
   disabled = false,
   required = true,
+  invalid = false,
 }: {
   value: string
   onChange: (value: string) => void
   disabled?: boolean
   required?: boolean
+  invalid?: boolean
 }) {
   const values = useMemo(() => {
     const intlWithTimeZones = Intl as typeof Intl & { supportedValuesOf?: (key: 'timeZone') => string[] }
@@ -29,7 +31,7 @@ export function TimezoneSelect({
 
   return (
     <select
-      className="input"
+      className={`input h-[42px] rounded-xl border-slate-200 py-2.5 ${invalid ? '!border-red-500 !text-slate-900' : ''}`}
       value={value}
       onChange={event => onChange(event.target.value)}
       disabled={disabled}

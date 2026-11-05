@@ -11,6 +11,7 @@ type Props = {
   onChange: (value: string) => void
   disabled?: boolean
   required?: boolean
+  invalid?: boolean
 }
 
 function CountryFlag({ country }: { country: Country }) {
@@ -43,7 +44,7 @@ function nationalNumber(value: string, country: Country | null) {
   return digits
 }
 
-export function InternationalPhoneField({ value, onChange, disabled, required = true }: Props) {
+export function InternationalPhoneField({ value, onChange, disabled, required = true, invalid = false }: Props) {
   const [country, setCountry] = useState<Country | null>(() => inferCountry(value))
   const [digits, setDigits] = useState(() => nationalNumber(value, inferCountry(value)))
   const [open, setOpen] = useState(false)
@@ -96,7 +97,7 @@ export function InternationalPhoneField({ value, onChange, disabled, required = 
   }
 
   return (
-    <div ref={rootRef} className={`international-phone-field ${disabled ? 'opacity-70' : ''}`}>
+    <div ref={rootRef} className={`international-phone-field ${invalid ? 'international-phone-field-invalid' : ''} ${disabled ? 'opacity-70' : ''}`}>
       <button
         type="button"
         disabled={disabled}
@@ -123,6 +124,7 @@ export function InternationalPhoneField({ value, onChange, disabled, required = 
         required={required}
         placeholder="Mobile number"
         aria-label="Mobile number"
+        aria-invalid={invalid || undefined}
         className="PhoneInputInput"
         onChange={event => updateDigits(event.target.value)}
       />

@@ -71,8 +71,35 @@ export function AppShell({
   const [signOutError, setSignOutError] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [liveCounts, setLiveCounts] = useState(counts)
-  const profileMenuRef = useRef<HTMLDivElement>(null)
   const isClient = user.role === 'client'
+  const [liveAvatarUrl, setLiveAvatarUrl] = useState<string | null>(isClient ? null : user.avatarUrl ?? null)
+  const profileMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isClient) setLiveAvatarUrl(user.avatarUrl ?? null)
+  }, [isClient, user.avatarUrl])
+
+  useEffect(() => {
+    if (!user.id || isClient) return
+    const supabase = createClient()
+    let active = true
+
+    void supabase.from('profiles').select('avatar_url').eq('id', user.id).maybeSingle()
+      .then(({ data }) => {
+        if (active) setLiveAvatarUrl(data?.avatar_url ?? null)
+      })
+
+    function handleProfileAvatarChange(event: Event) {
+      const avatarUrl = (event as CustomEvent<string | null>).detail
+      setLiveAvatarUrl(avatarUrl)
+    }
+    window.addEventListener('gp:profile-avatar-change', handleProfileAvatarChange)
+
+    return () => {
+      active = false
+      window.removeEventListener('gp:profile-avatar-change', handleProfileAvatarChange)
+    }
+  }, [isClient, user.id])
 
   useEffect(() => {
     if (!user.id || isClient) return
@@ -262,7 +289,7 @@ export function AppShell({
         {signOutError && !compact && <p role="alert" className="mb-2 px-2 text-xs text-red-600">Could not sign out. Please try again.</p>}
         <div className={cn('flex items-center rounded-lg', compact ? 'flex-col gap-2 py-1' : 'gap-3 px-2 py-2')}>
           <span title={compact ? `${user.name || user.email} · ${user.jobTitle || ROLE_LABELS[user.role]}` : undefined}>
-            <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : user.avatarUrl} role={isClient ? 'client' : user.role} size="md" />
+            <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : liveAvatarUrl} role={isClient ? 'client' : user.role} size="md" />
           </span>
           {!compact && (
             <div className="min-w-0 flex-1">
@@ -353,7 +380,7 @@ export function AppShell({
                   aria-expanded={profileMenuOpen}
                   aria-haspopup="true"
                 >
-                  <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : user.avatarUrl} role={user.role} size="sm" />
+                  <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : liveAvatarUrl} role={user.role} size="sm" />
                   <div className="hidden min-w-0 sm:flex sm:flex-col sm:justify-center text-left">
                     <p className="max-w-[130px] truncate text-[11px] font-semibold text-slate-900 leading-[1.2]">
                       {user.name || user.email}

@@ -572,7 +572,15 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input defaultValue={row.job_title ?? ''} placeholder="Job title (e.g. Team Lead)" disabled={busy || !canEditProfile}
-                 onBlur={e => e.target.value !== (row.job_title ?? '') && update({ job_title: e.target.value || null })}
+                 onBlur={e => {
+                   const value = e.target.value.trim()
+                   if (!value) {
+                     setError('Job title is required.')
+                     e.target.value = row.job_title ?? ''
+                     return
+                   }
+                   if (value !== (row.job_title ?? '')) update({ job_title: value })
+                 }}
                  spellCheck={false} autoCorrect="off" className="input h-8 w-44 py-1 text-xs" />
           {canEditProfile ? (
             <SearchableSelect value={row.role} disabled={busy || isMe} onChange={e => update({ role: e.target.value })} className="h-8 w-auto py-1 text-xs">

@@ -173,7 +173,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
       )}
 
       {isEdit ? (
-        <Field label="Category"><p className="text-sm font-medium text-slate-800">{def?.label} — can't be changed after submitting</p></Field>
+        <Field label="Category"><p className="text-sm font-medium text-slate-800">{def?.label} — can&apos;t be changed after submitting</p></Field>
       ) : (
         <Field label="What kind of ticket is this?" required>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

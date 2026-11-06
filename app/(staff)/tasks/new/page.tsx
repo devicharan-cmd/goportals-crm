@@ -8,7 +8,10 @@ import { TaskForm } from '@/components/tasks/TaskForm'
 
 export const metadata = { title: 'Create New Task' }
 
-export default async function NewTaskPage({ searchParams }: { searchParams: { client_id?: string; assignee?: string } }) {
+export default async function NewTaskPage(
+  props: { searchParams: Promise<{ client_id?: string; assignee?: string }> }
+) {
+  const searchParams = await props.searchParams
   const me = await requireStaff()
   const lookups = await getStaffLookups()
 

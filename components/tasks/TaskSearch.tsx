@@ -8,11 +8,11 @@ import { TaskTable } from '@/components/tasks/TaskTable'
 import { ButtonLink } from '@/components/ui/button'
 import { Alert, Card } from '@/components/ui/primitives'
 import type { AssigneeOption } from '@/lib/queries'
-import type { TaskListItem } from '@/types/database'
+import type { TaskSummary } from '@/types/database'
 import { errorMessage } from '@/lib/utils'
 
 type TaskSearchContextValue = {
-  tasks: TaskListItem[]
+  tasks: TaskSummary[]
   names: Record<string, string>
   assignOptions?: AssigneeOption[]
   query: string
@@ -39,7 +39,7 @@ export function TaskSearchProvider({
   board,
   children,
 }: {
-  initialTasks: TaskListItem[]
+  initialTasks: TaskSummary[]
   initialNames: Record<string, string>
   assignOptions?: AssigneeOption[]
   scope: 'mine' | 'all'

@@ -26,7 +26,7 @@ async function listStorageFiles(prefix: string): Promise<string[]> {
     const entries = data ?? []
     for (const entry of entries) {
       if (entry.id) paths.push(`${prefix}/${entry.name}`)
-      else paths.push(...await listStorageFiles(`${prefix}/${entry.name}`))
+      else paths.push(...(await listStorageFiles(`${prefix}/${entry.name}`)))
     }
     if (entries.length < 1000) return paths
   }
@@ -40,7 +40,8 @@ async function removeStorageFiles(bucket: string, paths: string[]) {
   }
 }
 
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const supabase = createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {

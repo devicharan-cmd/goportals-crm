@@ -1,17 +1,18 @@
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assignableFor, assigneeOptionsFor, getTaskPageLookups, nameMap, TASK_LIST_SELECT } from '@/lib/queries'
+import { assignableFor, assigneeOptionsFor, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, TASK_SUMMARY_SELECT } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
 import { TaskSearchProvider, TaskSearchResults } from '@/components/tasks/TaskSearch'
-import type { StaffDirectoryEntry, TaskListItem } from '@/types/database'
+import type { StaffDirectoryEntry, TaskSummary } from '@/types/database'
 
 export const metadata = { title: 'Tasks' }
 
 type SP = { view?: string; scope?: string; status?: string; client?: string; assignee?: string; assigned_by?: string; dept?: string; due?: string }
 
-export default async function TasksPage({ searchParams }: { searchParams: SP }) {
+export default async function TasksPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams
   const me = await requireStaff()
   const supabase = createClient()
 
@@ -21,7 +22,7 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
   const scope = searchParams.scope ?? defaultScope
   const board = searchParams.view === 'board'
 
-  let query = supabase.from('tasks').select(TASK_LIST_SELECT)
+  let query = supabase.from('tasks').select(TASK_SUMMARY_SELECT)
     .order('is_urgent', { ascending: false })
     .order('due_date', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
@@ -57,7 +58,7 @@ export default async function TasksPage({ searchParams }: { searchParams: SP }) 
   if (myTaskCountResult.error) throw myTaskCountResult.error
   if (allTaskCountResult.error) throw allTaskCountResult.error
   if (assignerResult.error) throw assignerResult.error
-  const tasks = (taskResult.data ?? []) as TaskListItem[]
+  const tasks = normalizeTaskSummaryRows((taskResult.data ?? []) as Parameters<typeof normalizeTaskSummaryRows>[0])
   const assigners = ((assignerResult.data ?? []) as StaffDirectoryEntry[]).map(person => ({
     value: person.id,
     label: person.full_name || 'Staff member',

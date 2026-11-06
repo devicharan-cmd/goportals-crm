@@ -266,7 +266,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
         </fieldset>
 
         <p className="text-xs text-slate-400">
-          Platforms, services and pricing are set by your GoPortals account manager and can't be changed here.
+          Platforms, services and pricing are set by your GoPortals account manager and can&apos;t be changed here.
         </p>
 
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-5">

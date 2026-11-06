@@ -7,9 +7,9 @@ import { AssignButton } from '@/components/tasks/AssignButton'
 import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import type { AssigneeOption } from '@/lib/queries'
-import type { TaskListItem } from '@/types/database'
+import type { TaskSummary } from '@/types/database'
 
-function TaskDueDisplay({ task, className }: { task: TaskListItem; className?: string }) {
+function TaskDueDisplay({ task, className }: { task: TaskSummary; className?: string }) {
   const isOverdue = dueState(task.due_date, task.status) === 'overdue'
 
   return (
@@ -29,7 +29,7 @@ function TaskDueDisplay({ task, className }: { task: TaskListItem; className?: s
 export function TaskTable({
   tasks, names, hrefBase = '/tasks', showClient = true, showAssignee = true, empty, assignOptions,
 }: {
-  tasks: TaskListItem[]
+  tasks: TaskSummary[]
   names: Record<string, string>
   hrefBase?: string
   showClient?: boolean

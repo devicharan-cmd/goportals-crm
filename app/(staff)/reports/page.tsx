@@ -20,7 +20,8 @@ type Row = Pick<Task, 'id' | 'client_id' | 'assignee_id' | 'status' | 'due_date'
   client: { company_name: string } | null
 }
 
-export default async function ReportsPage({ searchParams }: { searchParams: { month?: string } }) {
+export default async function ReportsPage(props: { searchParams: Promise<{ month?: string }> }) {
+  const searchParams = await props.searchParams
   await requireRole(['super_admin', 'admin'])
   const supabase = createClient()
 
@@ -63,10 +64,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: { mo
     byPerson.set(t.assignee_id, r)
   })
   ;(logs ?? []).forEach((l: { profile_id: string; hours: number }) => {
-    const r = byPerson.get(l.profile_id) ?? { done: 0, late: 0, hours: 0 }
-    r.hours += Number(l.hours)
-    byPerson.set(l.profile_id, r)
-  })
+      const r = byPerson.get(l.profile_id) ?? { done: 0, late: 0, hours: 0 }
+      r.hours += Number(l.hours)
+      byPerson.set(l.profile_id, r)
+    })
 
   const ticketsRaised = tickets.filter(t => inMonth(t.created_at))
   const ticketsClosed = tickets.filter(t => inMonth(t.closed_at))

@@ -11,7 +11,8 @@ import type { AppRole, Task } from '@/types/database'
 
 export const metadata = { title: 'Edit task' }
 
-export default async function EditTaskPage({ params }: { params: { id: string } }) {
+export default async function EditTaskPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const me = await requireStaff()
   const supabase = createClient()
   const [{ data }, lookups] = await Promise.all([

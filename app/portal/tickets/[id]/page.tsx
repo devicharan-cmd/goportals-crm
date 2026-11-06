@@ -20,11 +20,13 @@ import { formatDate, formatDateTime, splitTeamName, ticketCode } from '@/lib/uti
 import type { AppRole, TicketActivity, TicketComment, Ticket, TicketStatus } from '@/types/database'
 import { TicketOverviewCard } from '@/components/tickets/TicketOverviewCard'
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   return { title: await ticketPageTitle(params.id) }
 }
 
-export default async function PortalTicketDetail({ params }: { params: { id: string } }) {
+export default async function PortalTicketDetail(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const me = await requireClient()
   const supabase = createClient()
   const ticketId = await resolveTicketId(params.id)

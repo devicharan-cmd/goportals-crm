@@ -2,11 +2,34 @@
 import { createClient } from '@/lib/supabase/server'
 import { ROLE_LABELS } from '@/lib/constants'
 import { parseTaskCode, parseTicketCode, taskCode, ticketCode } from '@/lib/utils'
-import type { AppRole, Department, Platform, Profile, Service } from '@/types/database'
+import type { AppRole, Department, Platform, Profile, Service, TaskSummary } from '@/types/database'
 
 /** Columns + joins used by every task list / board. */
 export const TASK_LIST_SELECT =
   '*, client:clients(id, company_name, company_profile_image_path), platform:platforms(id, name), department:departments(id, name)'
+
+/** Only the fields used by the staff task table and board. */
+export const TASK_SUMMARY_SELECT =
+  'id, task_number, title, status, priority, is_urgent, source, due_date, assignee_id, client:clients(company_name), platform:platforms(name), department:departments(name)'
+
+type TaskSummaryRow = Omit<TaskSummary, 'client' | 'platform' | 'department'> & {
+  client: TaskSummary['client'] | TaskSummary['client'][]
+  platform: TaskSummary['platform'] | TaskSummary['platform'][]
+  department: TaskSummary['department'] | TaskSummary['department'][]
+}
+
+function firstRelated<T>(value: T | T[] | null): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value
+}
+
+export function normalizeTaskSummaryRows(rows: TaskSummaryRow[]): TaskSummary[] {
+  return rows.map(({ client, platform, department, ...task }) => ({
+    ...task,
+    client: firstRelated(client),
+    platform: firstRelated(platform),
+    department: firstRelated(department),
+  }))
+}
 
 /** Columns + joins used by every ticket list. */
 export const TICKET_LIST_SELECT = '*, client:clients(id, company_name)'

@@ -19,7 +19,8 @@ import { STAGE_LABELS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { formatDate, formatINR } from '@/lib/utils'
 import type { Client, ClientInternal, TaskListItem } from '@/types/database'
 
-export default async function ClientDetailPage({ params }: { params: { id: string } }) {
+export default async function ClientDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const me = await requireRole(['super_admin', 'admin'])
   const supabase = createClient()
   const id = params.id

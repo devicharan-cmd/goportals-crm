@@ -15,7 +15,7 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   const supabase = createClient()
   // middleware already verified the JWT with Supabase Auth for this request —
   // trust its header instead of paying for a second getUser() round-trip here.
-  const userId = headers().get('x-user-id') ?? (await supabase.auth.getUser()).data.user?.id
+  const userId = (await headers()).get('x-user-id') ?? (await supabase.auth.getUser()).data.user?.id
   if (!userId) return null
   const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
   return (data as Profile) ?? null

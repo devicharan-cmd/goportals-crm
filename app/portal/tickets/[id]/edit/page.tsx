@@ -10,7 +10,8 @@ import type { Ticket } from '@/types/database'
 
 export const metadata = { title: 'Edit ticket' }
 
-export default async function EditPortalTicketPage({ params }: { params: { id: string } }) {
+export default async function EditPortalTicketPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const me = await requireClient()
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()

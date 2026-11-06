@@ -23,11 +23,13 @@ import { ROLE_LABELS, TYPE_LABELS } from '@/lib/constants'
 import { formatDate, formatRelative, taskCode } from '@/lib/utils'
 import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TimeLog } from '@/types/database'
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   return { title: await taskPageTitle(params.id) }
 }
 
-export default async function TaskDetailPage({ params }: { params: { id: string } }) {
+export default async function TaskDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const me = await requireStaff()
   const supabase = createClient()
   const taskId = await resolveTaskId(params.id)

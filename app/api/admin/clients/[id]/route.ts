@@ -22,7 +22,7 @@ async function listStorageFiles(bucket: string, prefix: string): Promise<string[
     const entries = data ?? []
     for (const entry of entries) {
       if (entry.id) paths.push(`${prefix}/${entry.name}`)
-      else paths.push(...await listStorageFiles(bucket, `${prefix}/${entry.name}`))
+      else paths.push(...(await listStorageFiles(bucket, `${prefix}/${entry.name}`)))
     }
     if (entries.length < 1000) return paths
   }
@@ -45,7 +45,8 @@ async function removeStorageFiles(bucket: string, paths: string[]) {
   }
 }
 
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const me = await getProfile()
   if (!me || me.status !== 'active' || me.role !== 'super_admin') {
     return NextResponse.json({ error: 'Only an active super admin can delete a client' }, { status: 403 })

@@ -9,7 +9,8 @@ import type { Department, Profile } from '@/types/database'
 
 export const metadata = { title: 'Staff Profile' }
 
-export default async function StaffProfilePage({ params }: { params: { id: string } }) {
+export default async function StaffProfilePage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const me = await requireAdmin()
   const supabase = createClient()
   const [profileRes, addressRes, departmentsRes, membershipsRes, lookups] = await Promise.all([

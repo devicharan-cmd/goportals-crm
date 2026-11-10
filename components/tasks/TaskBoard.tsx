@@ -15,9 +15,9 @@ import type { AssigneeOption } from '@/lib/queries'
 import { DueDate, PriorityBadge } from '@/components/ui/badges'
 import { TASK_STATUS_DOT, TASK_STATUS_OPTIONS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { cn, errorMessage, taskCode } from '@/lib/utils'
-import type { TaskListItem, TaskStatus } from '@/types/database'
+import type { TaskSummary, TaskStatus } from '@/types/database'
 
-type CardProps = { task: TaskListItem; names: Record<string, string>; assignOptions?: AssigneeOption[] }
+type CardProps = { task: TaskSummary; names: Record<string, string>; assignOptions?: AssigneeOption[] }
 
 function Card({ task, names, overlay, linked, assignOptions }: CardProps & { overlay?: boolean; linked?: boolean }) {
   const body = (
@@ -65,7 +65,7 @@ function DraggableCard({ task, names, assignOptions }: CardProps) {
   )
 }
 
-function Column({ status, label, tasks, names, assignOptions }: { status: TaskStatus; label: string; tasks: TaskListItem[]; names: Record<string, string>; assignOptions?: AssigneeOption[] }) {
+function Column({ status, label, tasks, names, assignOptions }: { status: TaskStatus; label: string; tasks: TaskSummary[]; names: Record<string, string>; assignOptions?: AssigneeOption[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: status })
   return (
     <div className="flex min-w-0 flex-col">
@@ -86,7 +86,7 @@ function Column({ status, label, tasks, names, assignOptions }: { status: TaskSt
 /** Kanban: drag between columns to change status (DB triggers log activity + notify). */
 export function TaskBoard({
   tasks: initial, names, assignOptions,
-}: { tasks: TaskListItem[]; names: Record<string, string>; assignOptions?: AssigneeOption[] }) {
+}: { tasks: TaskSummary[]; names: Record<string, string>; assignOptions?: AssigneeOption[] }) {
   const router = useRouter()
   const [tasks, setTasks] = useState(initial)
   const [activeId, setActiveId] = useState<string | null>(null)

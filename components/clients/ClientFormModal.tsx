@@ -254,7 +254,7 @@ export function ClientFormModal({
           {!isEdit && (
             <div className="rounded-xl bg-slate-50 p-4">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Services & pricing</p>
-              <p className="mb-3 text-xs text-slate-500">The client sees this price in the agreement — it won't change if the service's default price changes later.</p>
+              <p className="mb-3 text-xs text-slate-500">The client sees this price in the agreement — it won&apos;t change if the service&apos;s default price changes later.</p>
               {serviceDrafts.map(s => (
                 <div key={s.key} className="mb-2 flex flex-wrap items-center gap-2">
                   <SearchableSelect className="input h-9 w-40 py-1.5" searchable searchPlaceholder="Search services..." value={s.service_id} onChange={e => updateService(s.key, { service_id: e.target.value })}>

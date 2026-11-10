@@ -14,11 +14,13 @@ import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES } from '@/lib/c
 import { formatDate, taskCode, ticketCode } from '@/lib/utils'
 import type { TaskAttachment, TaskComment, TaskListItem } from '@/types/database'
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   return { title: `Task ${params.id}` }
 }
 
-export default async function PortalTaskDetailPage({ params }: { params: { id: string } }) {
+export default async function PortalTaskDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const me = await requireClient()
   const supabase = createClient()
   const taskId = await resolveTaskId(params.id)

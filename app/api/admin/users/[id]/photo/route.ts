@@ -43,7 +43,8 @@ async function getTarget(admin: ReturnType<typeof createAdminClient>, profileId:
   return data
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const authorization = await authorizeSuperAdmin()
   if (authorization.error) return authorization.error
   const { admin } = authorization
@@ -99,7 +100,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
   return NextResponse.json({ ok: true, avatar_url: imageUrl, warning })
 }
 
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const authorization = await authorizeSuperAdmin()
   if (authorization.error) return authorization.error
   const { admin } = authorization

@@ -2,16 +2,40 @@
 import { createClient } from '@/lib/supabase/server'
 import { ROLE_LABELS } from '@/lib/constants'
 import { parseTaskCode, parseTicketCode, taskCode, ticketCode } from '@/lib/utils'
-import type { AppRole, Department, Platform, Profile, Service } from '@/types/database'
+import type { AppRole, Department, Platform, Profile, Service, TaskSummary } from '@/types/database'
 
 /** Columns + joins used by every task list / board. */
 export const TASK_LIST_SELECT =
   '*, client:clients(id, company_name, company_profile_image_path), platform:platforms(id, name), department:departments(id, name)'
 
+/** Only the fields used by the staff task table and board. */
+export const TASK_SUMMARY_SELECT =
+  'id, task_number, title, status, priority, is_urgent, source, due_date, assignee_id, assigned_by, client:clients(company_name), platform:platforms(name), department:departments(name)'
+
+type TaskSummaryRow = Omit<TaskSummary, 'client' | 'platform' | 'department'> & {
+  client: TaskSummary['client'] | TaskSummary['client'][]
+  platform: TaskSummary['platform'] | TaskSummary['platform'][]
+  department: TaskSummary['department'] | TaskSummary['department'][]
+}
+
+function firstRelated<T>(value: T | T[] | null): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value
+}
+
+export function normalizeTaskSummaryRows(rows: TaskSummaryRow[]): TaskSummary[] {
+  return rows.map(({ client, platform, department, ...task }) => ({
+    ...task,
+    client: firstRelated(client),
+    platform: firstRelated(platform),
+    department: firstRelated(department),
+  }))
+}
+
 /** Columns + joins used by every ticket list. */
 export const TICKET_LIST_SELECT = '*, client:clients(id, company_name)'
 
 export type Person = Pick<Profile, 'id' | 'full_name' | 'email' | 'avatar_url' | 'role' | 'job_title' | 'status' | 'weekly_capacity_hours' | 'created_at' | 'reporting_to'>
+export type TaskAssignerInfo = { name: string; role: AppRole; avatarUrl: string | null }
 export type ClientOption = { id: string; company_name: string }
 export type DepartmentMember = { department_id: string; profile_id: string; is_lead: boolean }
 
@@ -153,6 +177,24 @@ export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLo
     return lookups.staff.filter(p => p.id === me.id || (p.role === 'employee' && sharedIds.has(p.id)))
   }
   return lookups.staff.filter(p => p.id === me.id)
+}
+
+/** People available in the Tasks page assignee filter, scoped by reporting hierarchy. */
+export function assigneeFilterPeopleFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
+  if (me.role === 'super_admin') return lookups.staff
+  if (me.role === 'admin') {
+    const teamLeadIds = new Set(
+      lookups.staff.filter(p => p.reporting_to === me.id && p.role === 'team_lead').map(p => p.id),
+    )
+    const employeeIds = new Set(
+      lookups.staff.filter(p => p.role === 'employee' && p.reporting_to && teamLeadIds.has(p.reporting_to)).map(p => p.id),
+    )
+    return lookups.staff.filter(p => teamLeadIds.has(p.id) || employeeIds.has(p.id))
+  }
+  if (me.role === 'team_lead') {
+    return lookups.staff.filter(p => p.role === 'employee' && p.reporting_to === me.id)
+  }
+  return assignableFor(me, lookups)
 }
 
 export function nameMap(people: { id: string; full_name: string; email?: string }[]): Record<string, string> {

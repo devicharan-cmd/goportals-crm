@@ -3,9 +3,9 @@
 import { requireClient, requireRole, requireStaff } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { TASK_STATUS_OPTIONS } from '@/lib/constants'
-import { nameMap, TASK_LIST_SELECT } from '@/lib/queries'
+import { nameMap, normalizeTaskSummaryRows, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
 import { parseTaskCode, parseTicketCode } from '@/lib/utils'
-import type { Client, TaskListItem, Ticket } from '@/types/database'
+import type { Client, TaskSummary, Ticket } from '@/types/database'
 
 type TicketStatusFilter = 'unassigned' | 'assigned' | 'closed'
 type ClientStatusFilter = '' | 'active' | 'pending' | 'suspended' | 'rejected'
@@ -26,8 +26,9 @@ function safeSearchText(value: string) {
 }
 
 export async function searchTasks(value: string, filters: TaskSearchFilters): Promise<{
-  tasks: TaskListItem[]
+  tasks: TaskSummary[]
   names: Record<string, string>
+  taskAssigners: Record<string, TaskAssignerInfo>
 }> {
   const me = await requireStaff()
   const supabase = createClient()
@@ -38,7 +39,7 @@ export async function searchTasks(value: string, filters: TaskSearchFilters): Pr
   if (!['mine', 'all'].includes(filters.scope)) throw new Error('Invalid task scope filter')
   if (!['active', 'all'].includes(filters.status) && !taskStatus) throw new Error('Invalid task status filter')
 
-  let query = supabase.from('tasks').select(TASK_LIST_SELECT)
+  let query = supabase.from('tasks').select(TASK_SUMMARY_SELECT)
     .order('is_urgent', { ascending: false })
     .order('due_date', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
@@ -60,14 +61,25 @@ export async function searchTasks(value: string, filters: TaskSearchFilters): Pr
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
-  const tasks = (data ?? []) as TaskListItem[]
+  const tasks = normalizeTaskSummaryRows((data ?? []) as Parameters<typeof normalizeTaskSummaryRows>[0])
   const assigneeIds = Array.from(new Set(tasks.flatMap(task => task.assignee_id ? [task.assignee_id] : [])))
-  const { data: people, error: peopleError } = assigneeIds.length
-    ? await supabase.from('profiles').select('id, full_name, email').in('id', assigneeIds)
-    : { data: [], error: null }
-  if (peopleError) throw new Error(peopleError.message)
+  const taskAssignerIds = Array.from(new Set(tasks.flatMap(task => task.assigned_by ? [task.assigned_by] : [])))
+  const [peopleResult, taskAssignersResult] = await Promise.all([
+    assigneeIds.length
+      ? supabase.from('profiles').select('id, full_name, email').in('id', assigneeIds)
+      : Promise.resolve({ data: [], error: null }),
+    taskAssignerIds.length
+      ? supabase.from('profiles').select('id, full_name, email, role, avatar_url').in('id', taskAssignerIds)
+      : Promise.resolve({ data: [], error: null }),
+  ])
+  if (peopleResult.error) throw new Error(peopleResult.error.message)
+  if (taskAssignersResult.error) throw new Error(taskAssignersResult.error.message)
 
-  return { tasks, names: nameMap(people ?? []) }
+  const taskAssigners = Object.fromEntries((taskAssignersResult.data ?? []).map(person => [
+    person.id,
+    { name: person.full_name || person.email, role: person.role, avatarUrl: person.avatar_url },
+  ]))
+  return { tasks, names: nameMap(peopleResult.data ?? []), taskAssigners }
 }
 
 export async function searchPortalTickets(value: string, status: 'open' | 'done'): Promise<Ticket[]> {

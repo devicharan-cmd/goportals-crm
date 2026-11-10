@@ -16,7 +16,8 @@ import type { Profile, TaskListItem, TaskStatus } from '@/types/database'
 
 export const metadata = { title: 'Employee stats' }
 
-export default async function EmployeeStatsPage({ params }: { params: { id: string } }) {
+export default async function EmployeeStatsPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const me = await requireRole(['super_admin', 'admin', 'team_lead'])
   const supabase = createClient()
 

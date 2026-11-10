@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Card, CardHeader } from '@/components/ui/primitives'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { cn } from '@/lib/utils'
-import type { TaskListItem } from '@/types/database'
+import type { TaskSummary } from '@/types/database'
 
 type Group = 'working' | 'done'
 
@@ -13,8 +13,8 @@ type Group = 'working' | 'done'
 export function DashboardTaskPanel({
   workingTasks, doneTasks, workingCount, doneCount, names,
 }: {
-  workingTasks: TaskListItem[]
-  doneTasks: TaskListItem[]
+  workingTasks: TaskSummary[]
+  doneTasks: TaskSummary[]
   workingCount: number
   doneCount: number
   names: Record<string, string>

@@ -19,10 +19,11 @@ const TABS = [
   { key: 'inactive', label: 'Not active', icon: UserX },
 ] as const
 
-export default async function TeamPage({ searchParams }: { searchParams: { show?: string } }) {
+export default async function TeamPage(props: { searchParams: Promise<{ show?: string }> }) {
+  const searchParams = await props.searchParams
   const me = await requireRole(['super_admin', 'admin', 'team_lead'])
   const supabase = createClient()
-  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
+  const monthStart = new Date();monthStart.setDate(1);monthStart.setHours(0, 0, 0, 0)
   const [lookups, { data }, { data: doneData }] = await Promise.all([
     getStaffLookups(),
     supabase.from('tasks').select('assignee_id, estimated_hours, status, due_date').not('status', 'in', '(completed,cancelled)').not('assignee_id', 'is', null),

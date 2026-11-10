@@ -19,11 +19,13 @@ import type { AppRole, TaskListItem, Ticket, TicketActivity, TicketComment } fro
 import { ROLE_LABELS } from '@/lib/constants'
 import { TicketOverviewCard } from '@/components/tickets/TicketOverviewCard'
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   return { title: await ticketPageTitle(params.id) }
 }
 
-export default async function StaffTicketDetailPage({ params }: { params: { id: string } }) {
+export default async function StaffTicketDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const me = await requireRole(['super_admin', 'admin', 'team_lead'])
   const supabase = createClient()
   const ticketId = await resolveTicketId(params.id)
@@ -181,14 +183,16 @@ export default async function StaffTicketDetailPage({ params }: { params: { id: 
             </dl>
           </Card>
           <Card>
-            <CardHeader title="Staff handling this ticket" />
+            <CardHeader title="Working on this ticket" />
             {ticketWorkers.length > 0 ? (
               <ul className="divide-y divide-slate-100">
                 {ticketWorkers.map(worker => (
                   <li key={worker.id} className="flex items-center gap-3 px-5 py-3">
-                    <Avatar name={worker.full_name || 'Staff member'} src={worker.avatar_url} role={worker.role} size="sm" />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">{worker.full_name || 'Staff member'}</span>
-                    <span className="shrink-0 text-xs text-slate-500">{ROLE_LABELS[worker.role]}</span>
+                    <Avatar name={worker.full_name || 'Staff member'} src={worker.avatar_url} role={worker.role} size="md" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-slate-800">{worker.full_name || 'Staff member'}</span>
+                      <span className="block truncate text-xs text-slate-500">{ROLE_LABELS[worker.role]}</span>
+                    </span>
                   </li>
                 ))}
               </ul>

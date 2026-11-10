@@ -14,7 +14,8 @@ const TABS = [
   { key: 'done', label: 'Closed', icon: CircleCheck },
 ] as const
 
-export default async function PortalTicketsPage({ searchParams }: { searchParams: { status?: string } }) {
+export default async function PortalTicketsPage(props: { searchParams: Promise<{ status?: string }> }) {
+  const searchParams = await props.searchParams
   await requireClient()
   const supabase = createClient()
   const tab = TABS.find(item => item.key === searchParams.status)?.key ?? 'open'

@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ChevronDown, KanbanSquare, List, UserRound, UsersRound, X } from 'lucide-react'
 import { Avatar } from '@/components/ui/primitives'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
-import { TASK_STATUS_OPTIONS } from '@/lib/constants'
+import { ROLE_LABELS, TASK_STATUS_OPTIONS } from '@/lib/constants'
 import { TaskSearchField, useTaskSearch } from '@/components/tasks/TaskSearch'
 import { cn } from '@/lib/utils'
 import type { AppRole } from '@/types/database'
@@ -142,9 +142,7 @@ export function TaskFilters({
                     onClick={() => setAssigneeOpen(current => !current)}>
               <span className="truncate">
                 {scope === 'mine'
-                  ? params.get('assigned_by') === 'none'
-                    ? 'Unknown assigner'
-                    : assigners.find(person => person.value === params.get('assigned_by'))?.label ?? 'Assigned by'
+                  ? assigners.find(person => person.value === params.get('assigned_by'))?.label ?? 'Assigned by'
                   : params.get('assignee') === 'none'
                     ? 'Unassigned'
                     : people.find(person => person.value === params.get('assignee'))?.label ?? 'Any assignee'}
@@ -155,7 +153,6 @@ export function TaskFilters({
               <div role="listbox" aria-label={scope === 'mine' ? 'Assigned by' : 'Assignee'} className="absolute left-0 top-full z-30 mt-1 max-h-64 w-full min-w-56 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
                 {[
                   { value: '', label: scope === 'mine' ? 'Assigned by' : 'Any assignee' },
-                  { value: 'none', label: scope === 'mine' ? 'Unknown assigner' : 'Unassigned' },
                   ...(scope === 'mine' ? assigners : people),
                 ].map(person => {
                   const filterKey = scope === 'mine' ? 'assigned_by' : 'assignee'
@@ -164,8 +161,11 @@ export function TaskFilters({
                     <button key={person.value || 'any'} type="button" role="option" aria-selected={selected}
                             onClick={() => { set(filterKey, person.value); setAssigneeOpen(false) }}
                             className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors', selected ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-[#f3f5f4]')}>
-                      {person.value && person.value !== 'none' && <Avatar name={person.label} src={person.avatarUrl} role={person.role} size="sm" />}
-                      <span className="truncate">{person.label}</span>
+                      {person.value && <Avatar name={person.label} src={person.avatarUrl} role={person.role} size="sm" />}
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate">{person.label}</span>
+                        {person.role && <span className="text-[10px] text-slate-400">({ROLE_LABELS[person.role]})</span>}
+                      </span>
                     </button>
                   )
                 })}

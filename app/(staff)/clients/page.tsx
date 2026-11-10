@@ -13,7 +13,8 @@ type Row = Client & {
   client_team: { profile_id: string }[]
 }
 
-export default async function ClientsPage({ searchParams }: { searchParams: { status?: string } }) {
+export default async function ClientsPage(props: { searchParams: Promise<{ status?: string }> }) {
+  const searchParams = await props.searchParams
   const me = await requireRole(['super_admin', 'admin'])
   const supabase = createClient()
 

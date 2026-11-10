@@ -222,6 +222,22 @@ export interface TaskListItem extends Task {
   department: { id: string; name: string } | null
 }
 
+export interface TaskSummary {
+  id: string
+  task_number: number
+  title: string
+  status: TaskStatus
+  priority: TaskPriority
+  is_urgent: boolean
+  source: TaskSource
+  due_date: string | null
+  assignee_id: string | null
+  assigned_by: string | null
+  client: { company_name: string } | null
+  platform: { name: string } | null
+  department: { name: string } | null
+}
+
 export interface TaskComment {
   id: string
   task_id: string

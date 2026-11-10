@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assignableFor, assigneeOptionsFor, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, TASK_SUMMARY_SELECT } from '@/lib/queries'
+import { assignableFor, assigneeFilterPeopleFor, assigneeOptionsFor, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
 import { TaskSearchProvider, TaskSearchResults } from '@/components/tasks/TaskSearch'
@@ -30,8 +30,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
 
   if (scope === 'mine') {
     query = query.eq('assignee_id', me.id)
-    if (searchParams.assigned_by === 'none') query = query.is('assigned_by', null)
-    else if (searchParams.assigned_by) query = query.eq('assigned_by', searchParams.assigned_by)
+    if (searchParams.assigned_by) query = query.eq('assigned_by', searchParams.assigned_by)
   } else if (searchParams.assignee === 'none') query = query.is('assignee_id', null)
   else if (searchParams.assignee) query = query.eq('assignee_id', searchParams.assignee)
 
@@ -59,7 +58,8 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
   if (allTaskCountResult.error) throw allTaskCountResult.error
   if (assignerResult.error) throw assignerResult.error
   const tasks = normalizeTaskSummaryRows((taskResult.data ?? []) as Parameters<typeof normalizeTaskSummaryRows>[0])
-  const assigners = ((assignerResult.data ?? []) as StaffDirectoryEntry[]).map(person => ({
+  const directoryPeople = (assignerResult.data ?? []) as StaffDirectoryEntry[]
+  const assigners = directoryPeople.map(person => ({
     value: person.id,
     label: person.full_name || 'Staff member',
     avatarUrl: person.avatar_url,
@@ -68,12 +68,25 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
   const names = me.role === 'employee'
     ? { [me.id]: me.full_name || me.email }
     : nameMap(lookups.people)
+  const taskAssigners: Record<string, TaskAssignerInfo> = Object.fromEntries([
+    ...directoryPeople.map(person => [person.id, {
+      name: person.full_name || 'Staff member',
+      role: person.role,
+      avatarUrl: person.avatar_url,
+    }] as const),
+    ...lookups.people.map(person => [person.id, {
+      name: person.full_name || person.email,
+      role: person.role,
+      avatarUrl: person.avatar_url,
+    }] as const),
+  ])
   const assignOptions = me.role !== 'employee' ? assigneeOptionsFor(me, lookups) : undefined
 
   return (
     <TaskSearchProvider
       initialTasks={tasks}
       initialNames={names}
+      initialTaskAssigners={taskAssigners}
       assignOptions={assignOptions}
       scope={scope === 'mine' ? 'mine' : 'all'}
       status={status}
@@ -90,7 +103,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
         scopeCounts={{ mine: myTaskCountResult.count ?? 0, all: allTaskCountResult.count ?? 0 }}
         assigners={assigners}
         clients={lookups.clients.map(c => ({ value: c.id, label: c.company_name }))}
-        people={(['super_admin', 'admin'].includes(me.role) ? lookups.staff : assignableFor(me, lookups)).map(p => ({ value: p.id, label: p.full_name || p.email, avatarUrl: p.avatar_url, role: p.role }))}
+        people={assigneeFilterPeopleFor(me, lookups).map(p => ({ value: p.id, label: p.full_name || p.email, avatarUrl: p.avatar_url, role: p.role }))}
         departments={lookups.departments.map(d => ({ value: d.id, label: d.name }))}
         action={<ButtonLink href="/tasks/new" size="sm"><Plus className="h-3.5 w-3.5" /> New task</ButtonLink>}
       />

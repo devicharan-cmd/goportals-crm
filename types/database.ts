@@ -232,6 +232,7 @@ export interface TaskSummary {
   source: TaskSource
   due_date: string | null
   assignee_id: string | null
+  assigned_by: string | null
   client: { company_name: string } | null
   platform: { name: string } | null
   department: { name: string } | null

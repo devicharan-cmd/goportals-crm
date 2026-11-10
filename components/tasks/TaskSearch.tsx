@@ -7,13 +7,14 @@ import { TaskBoard } from '@/components/tasks/TaskBoard'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { ButtonLink } from '@/components/ui/button'
 import { Alert, Card } from '@/components/ui/primitives'
-import type { AssigneeOption } from '@/lib/queries'
+import type { AssigneeOption, TaskAssignerInfo } from '@/lib/queries'
 import type { TaskSummary } from '@/types/database'
 import { errorMessage } from '@/lib/utils'
 
 type TaskSearchContextValue = {
   tasks: TaskSummary[]
   names: Record<string, string>
+  taskAssigners: Record<string, TaskAssignerInfo>
   assignOptions?: AssigneeOption[]
   query: string
   scope: string
@@ -29,6 +30,7 @@ const TaskSearchContext = createContext<TaskSearchContextValue | null>(null)
 export function TaskSearchProvider({
   initialTasks,
   initialNames,
+  initialTaskAssigners,
   assignOptions,
   scope,
   status,
@@ -41,6 +43,7 @@ export function TaskSearchProvider({
 }: {
   initialTasks: TaskSummary[]
   initialNames: Record<string, string>
+  initialTaskAssigners: Record<string, TaskAssignerInfo>
   assignOptions?: AssigneeOption[]
   scope: 'mine' | 'all'
   status: string
@@ -54,6 +57,7 @@ export function TaskSearchProvider({
   const [query, setQuery] = useState('')
   const [tasks, setTasks] = useState(initialTasks)
   const [names, setNames] = useState(initialNames)
+  const [taskAssigners, setTaskAssigners] = useState(initialTaskAssigners)
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState('')
 
@@ -62,6 +66,7 @@ export function TaskSearchProvider({
     if (!query) {
       setTasks(initialTasks)
       setNames(initialNames)
+      setTaskAssigners(initialTaskAssigners)
       setSearching(false)
       setError('')
       return () => { active = false }
@@ -74,6 +79,7 @@ export function TaskSearchProvider({
         if (!active) return
         setTasks(result.tasks)
         setNames({ ...initialNames, ...result.names })
+        setTaskAssigners({ ...initialTaskAssigners, ...result.taskAssigners })
       })
       .catch(searchError => {
         if (active) setError(errorMessage(searchError))
@@ -83,11 +89,11 @@ export function TaskSearchProvider({
       })
 
     return () => { active = false }
-  }, [assignee, board, client, department, due, initialNames, initialTasks, query, scope, status])
+  }, [assignee, board, client, department, due, initialNames, initialTaskAssigners, initialTasks, query, scope, status])
 
   const handleSearch = useCallback((value: string) => setQuery(value), [])
   const value: TaskSearchContextValue = {
-    tasks, names, assignOptions, query, scope, status, board, searching, error, setQuery: handleSearch,
+    tasks, names, taskAssigners, assignOptions, query, scope, status, board, searching, error, setQuery: handleSearch,
   }
 
   return <TaskSearchContext.Provider value={value}>{children}</TaskSearchContext.Provider>
@@ -126,6 +132,8 @@ export function TaskSearchResults() {
           <TaskTable
             tasks={search.tasks}
             names={search.names}
+            taskAssigners={search.taskAssigners}
+            showAssignedBy
             assignOptions={search.assignOptions}
             empty={{
               title: search.query ? 'No tasks match this search' : search.scope === 'mine' ? 'Nothing assigned to you' : search.status === 'active' ? 'No open tasks' : 'No tasks match these filters',

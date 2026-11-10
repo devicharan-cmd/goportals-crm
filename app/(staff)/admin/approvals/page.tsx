@@ -19,7 +19,7 @@ type Row = Client & {
 
 export default async function ApprovalsPage() {
   await requireSuperAdmin()
-  const { data } = await createClient().from('clients')
+  const { data } = await (await createClient()).from('clients')
     .select('*, ecommerce_accounts(account_name, platform:platforms(name)), client_services(custom_name, service:services(name)), agreement_acceptances(accepted_at)')
     .eq('status', 'pending')
     .order('created_at')
@@ -40,7 +40,7 @@ export default async function ApprovalsPage() {
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
                   <div className="min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2.5">
-                      <Link href={`/clients/${c.id}`} className="text-xl font-semibold tracking-tight text-slate-900 hover:text-brand-700">
+                      <Link href={`/clients/${c.id}`} className="text-xl font-semibold tracking-tight text-slate-900 hover:text-[#034C68]">
                         {c.company_name}
                       </Link>
                       <Badge className="bg-amber-50 text-amber-800 ring-amber-200">Awaiting approval</Badge>
@@ -77,7 +77,7 @@ export default async function ApprovalsPage() {
                     <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Services</h3>
                     <div className="flex flex-wrap gap-1.5">
                       {c.client_services.map((s, i) => (
-                        <Badge key={i} className={s.service ? undefined : 'bg-lime-50 text-lime-800 ring-lime-200'}>{s.service?.name ?? s.custom_name}</Badge>
+                        <Badge key={i} className={s.service ? undefined : 'bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]'}>{s.service?.name ?? s.custom_name}</Badge>
                       ))}
                       {c.client_services.length === 0 && <span className="text-sm text-slate-400">—</span>}
                     </div>
@@ -85,7 +85,7 @@ export default async function ApprovalsPage() {
                   <section>
                     <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Agreement</h3>
                     {accepted
-                      ? <span className="inline-flex items-center gap-1.5 rounded-lg bg-lime-50 px-2.5 py-1.5 text-sm font-medium text-lime-800 ring-1 ring-inset ring-lime-200"><CheckCircle2 className="h-4 w-4 flex-shrink-0" /> Accepted {formatRelative(c.agreement_acceptances[0].accepted_at)}</span>
+                      ? <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#F5FAE8] px-2.5 py-1.5 text-sm font-medium text-[#465B17] ring-1 ring-inset ring-[#D3E896]"><CheckCircle2 className="h-4 w-4 flex-shrink-0" /> Accepted {formatRelative(c.agreement_acceptances[0].accepted_at)}</span>
                       : <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-sm font-medium text-amber-800 ring-1 ring-inset ring-amber-200"><FileSignature className="h-4 w-4 flex-shrink-0" /> Not yet accepted</span>}
                   </section>
                 </div>

@@ -98,7 +98,7 @@ function Callback() {
         </h2>
         <Alert>{visibleError}</Alert>
         <div className="flex flex-wrap items-center gap-4 text-sm font-semibold">
-          <Link href="/forgot-password" className="text-brand-600">
+          <Link href="/forgot-password" className="text-[#045E80]">
             Request a new reset link
           </Link>
           <Link href="/login" className="text-slate-600">
@@ -117,7 +117,7 @@ function Callback() {
 
   return (
     <div className="flex items-center gap-3 text-slate-600">
-      <Loader2 className="h-5 w-5 animate-spin text-brand-600" /> {loadingLabel}
+      <Loader2 className="h-5 w-5 animate-spin text-[#045E80]" /> {loadingLabel}
     </div>
   )
 }

@@ -27,7 +27,7 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
 export default async function StaffTicketDetailPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
   const me = await requireRole(['super_admin', 'admin', 'team_lead'])
-  const supabase = createClient()
+  const supabase = await createClient()
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
 
@@ -168,7 +168,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
                 ['Client', ticket.client
                   ? <span className="inline-flex items-center justify-end gap-2">
                       <CompanyAvatar name={ticket.client.company_name} src={clientImage?.signedUrl} size="xs" />
-                      <Link href={`/clients/${ticket.client.id}`} className="font-medium text-brand-700 hover:underline">{ticket.client.company_name}</Link>
+                      <Link href={`/clients/${ticket.client.id}`} className="font-medium text-[#034C68] hover:underline">{ticket.client.company_name}</Link>
                     </span>
                   : '—'],
                 ['Account', ticket.ecommerce_account

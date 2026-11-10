@@ -9,7 +9,7 @@ export const metadata = { title: 'New ticket' }
 
 export default async function NewPortalTicketPage() {
   const me = await requireClient()
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: client } = await supabase.from('clients').select('id').eq('owner_id', me.id).single()
   const [{ data: accounts }, { data: platforms }] = await Promise.all([
     supabase.from('ecommerce_accounts')

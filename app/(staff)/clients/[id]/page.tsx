@@ -22,7 +22,7 @@ import type { Client, ClientInternal, TaskListItem } from '@/types/database'
 export default async function ClientDetailPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
   const me = await requireRole(['super_admin', 'admin'])
-  const supabase = createClient()
+  const supabase = await createClient()
   const id = params.id
 
   const [{ data: clientData }, { data: internalData }, { data: accounts }, { data: services }, { data: team }, { data: tasks }, { data: acceptances }, lookups] =
@@ -79,13 +79,13 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold">{client.company_name}</h1>
               <AccountStatusBadge status={client.status} />
-              <Badge className="bg-brand-50 text-brand-700 ring-brand-200">{STAGE_LABELS[client.stage]}</Badge>
+              <Badge className="bg-[#EAF4F8] text-[#034C68] ring-[#9FCCDE]">{STAGE_LABELS[client.stage]}</Badge>
             </div>
             <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-500">
               {client.contact_name && <span>{client.contact_name}</span>}
-              {client.contact_email && <a href={`mailto:${client.contact_email}`} className="inline-flex items-center gap-1 hover:text-brand-700"><Mail className="h-3.5 w-3.5" />{client.contact_email}</a>}
-              {client.contact_phone && <a href={`tel:${client.contact_phone}`} className="inline-flex items-center gap-1 hover:text-brand-700"><Phone className="h-3.5 w-3.5" />{client.contact_phone}</a>}
-              {client.whatsapp_group_link && <a href={client.whatsapp_group_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-lime-700 hover:text-lime-800"><MessageCircle className="h-3.5 w-3.5" />WhatsApp group</a>}
+              {client.contact_email && <a href={`mailto:${client.contact_email}`} className="inline-flex items-center gap-1 hover:text-[#034C68]"><Mail className="h-3.5 w-3.5" />{client.contact_email}</a>}
+              {client.contact_phone && <a href={`tel:${client.contact_phone}`} className="inline-flex items-center gap-1 hover:text-[#034C68]"><Phone className="h-3.5 w-3.5" />{client.contact_phone}</a>}
+              {client.whatsapp_group_link && <a href={client.whatsapp_group_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[#5B771A] hover:text-[#465B17]"><MessageCircle className="h-3.5 w-3.5" />WhatsApp group</a>}
               {client.gstin && <span>GSTIN {client.gstin}</span>}
             </div>
             <p className="mt-2 flex items-start gap-1.5 text-sm text-slate-500">

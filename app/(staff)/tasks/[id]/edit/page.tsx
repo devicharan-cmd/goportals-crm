@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getStaffLookups, nameMap } from '@/lib/queries'
+import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap } from '@/lib/queries'
 import { ROLE_LABELS } from '@/lib/constants'
 import { PageHeader } from '@/components/ui/primitives'
 import { TaskForm } from '@/components/tasks/TaskForm'
@@ -14,7 +14,7 @@ export const metadata = { title: 'Edit task' }
 export default async function EditTaskPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
   const me = await requireStaff()
-  const supabase = createClient()
+  const supabase = await createClient()
   const [{ data }, lookups] = await Promise.all([
     supabase.from('tasks').select('*').eq('id', params.id).maybeSingle(),
     getStaffLookups(),
@@ -58,6 +58,7 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
     const clientIds = await clientIdsForTeamLead(me.id, deptIds)
     clients = lookups.clients.filter(c => clientIds.has(c.id) || c.id === task.client_id)
   }
+  const clientImageUrlByPath = await getClientProfileImageUrls(clients)
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -72,6 +73,7 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
         canMarkUrgent={me.role !== 'employee'}
         canEditAssignment={me.role !== 'employee'}
         clients={clients}
+        clientImageUrlByPath={clientImageUrlByPath}
         assignees={assignees}
         departments={lookups.departments}
         platforms={lookups.platforms}

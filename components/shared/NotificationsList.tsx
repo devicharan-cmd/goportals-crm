@@ -54,9 +54,9 @@ export function NotificationsList({ items, taskHref, ticketHref }: { items: Noti
           const Icon = ICONS[n.type] ?? Bell
           return (
             <li key={n.id}>
-              <button onClick={() => open(n)} className={cn('flex w-full items-start gap-3 px-5 py-4 text-left hover:bg-slate-50', !n.is_read && 'bg-brand-50/40')}>
+              <button onClick={() => open(n)} className={cn('flex w-full items-start gap-3 px-5 py-4 text-left hover:bg-slate-50', !n.is_read && 'bg-[#EAF4F8]/40')}>
                 <span className={cn('mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full',
-                  n.is_read ? 'bg-slate-100 text-slate-400' : 'bg-brand-100 text-brand-700')}>
+                  n.is_read ? 'bg-slate-100 text-slate-400' : 'bg-[#CFE6EF] text-[#034C68]')}>
                   <Icon className="h-4 w-4" />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -64,7 +64,7 @@ export function NotificationsList({ items, taskHref, ticketHref }: { items: Noti
                   {n.body && <span className="block truncate text-sm text-slate-500">{n.body}</span>}
                   <span className="text-xs text-slate-400" suppressHydrationWarning>{formatRelative(n.created_at)}</span>
                 </span>
-                {!n.is_read && <span className="mt-2 h-2 w-2 rounded-full bg-lime-500" />}
+                {!n.is_read && <span className="mt-2 h-2 w-2 rounded-full bg-[#95C12C]" />}
               </button>
             </li>
           )

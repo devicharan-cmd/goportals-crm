@@ -33,7 +33,7 @@ function todayInIndia() {
 
 export default async function DashboardPage() {
   const me = await requireStaff()
-  const supabase = createClient()
+  const supabase = await createClient()
   const isAdmin = ['super_admin', 'admin'].includes(me.role)
   // Approving a client is the super admin's call alone.
   const isSuperAdmin = me.role === 'super_admin'
@@ -128,7 +128,7 @@ export default async function DashboardPage() {
     <>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-lime-600">{todayInIndia()}</p>
+          <p className="text-sm font-medium text-[#789C20]">{todayInIndia()}</p>
           <h1 className="text-2xl font-bold">{greeting()}, {me.full_name.split(' ')[0] || 'there'} 👋</h1>
         </div>
         {!isAdmin && <ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
@@ -147,7 +147,7 @@ export default async function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <Card className="overflow-hidden">
-          <CardHeader title="My tasks" description="Soonest deadline first" action={<Link href="/tasks" className="text-xs font-semibold text-brand-600 hover:text-brand-700">View all</Link>} />
+          <CardHeader title="My tasks" description="Soonest deadline first" action={<Link href="/tasks" className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
           <TaskTable
             tasks={myTasks.slice(0, 8)}
             names={names}
@@ -160,7 +160,7 @@ export default async function DashboardPage() {
           <Card className="overflow-hidden">
             <CardHeader
               title={<span className="flex items-center gap-1.5"><Flame className="h-4 w-4 text-red-600" /> Urgent pool</span>}
-              action={<Link href="/urgent" className="text-xs font-semibold text-brand-600">Open</Link>}
+              action={<Link href="/urgent" className="text-xs font-semibold text-[#045E80]">Open</Link>}
             />
             {urgentTasks.length === 0 ? (
               <EmptyState title="Nothing urgent" description="No urgent tasks are waiting." />
@@ -169,7 +169,7 @@ export default async function DashboardPage() {
                 {urgentTasks.map(t => (
                   <li key={t.id} className="flex items-center gap-3 px-5 py-3">
                     <Link href={`/tasks/${t.id}`} className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-900 hover:text-brand-700"><span className="mr-1.5 font-mono text-xs text-slate-400">{taskCode(t.task_number)}</span>{t.title}</p>
+                      <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>{t.title}</p>
                       <p className="truncate text-xs text-slate-500">{t.client?.company_name} · <DueDate date={t.due_date} status={t.status} /></p>
                     </Link>
                     <ClaimButton taskId={t.id} />
@@ -191,7 +191,7 @@ export default async function DashboardPage() {
                       <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                         {t.priority ? <PriorityBadge priority={t.priority} /> : <span className="w-7 text-center text-xs text-slate-300">—</span>}
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
+                          <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                           <p className="truncate text-xs text-slate-500">{t.client?.company_name} · {formatRelative(t.created_at)}</p>
                         </div>
                       </Link>
@@ -233,10 +233,10 @@ export default async function DashboardPage() {
         ) : (
           <div className="mt-6 space-y-6">
             <Card className="overflow-hidden">
-              <CardHeader title="My team" action={<Link href="/team" className="text-xs font-semibold text-brand-600 hover:text-brand-700">View team</Link>} />
+              <CardHeader title="My team" action={<Link href="/team" className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View team</Link>} />
               <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
                 {workload.map(w => (
-                  <Link key={w.id} href={`/team/${w.id}`} className="rounded-lg border border-slate-100 p-3 transition hover:shadow-pop">
+                  <Link key={w.id} href={`/team/${w.id}`} className="rounded-lg border border-slate-100 p-3 transition hover:[box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">
                     <div className="flex items-center gap-2">
                       <Avatar name={w.name} src={w.avatarUrl} size="sm" />
                       <p className="truncate text-sm font-medium text-slate-900">{w.name}</p>

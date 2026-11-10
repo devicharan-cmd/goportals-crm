@@ -38,7 +38,7 @@ function groupByAccount(rows: Row[]): Group[] {
 export default async function PortalServicesPage() {
   const me = await requireClient()
   const clientId = await getMyClientId(me.id)
-  const { data } = await createClient()
+  const { data } = await (await createClient())
     .from('client_services')
     .select(`
       id, service_id, custom_name, status, ecommerce_account_id, agreed_price, currency, billing_type,

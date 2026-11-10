@@ -9,7 +9,7 @@ export const metadata = { title: 'My tasks' }
 
 export default async function PortalTasksPage() {
   const me = await requireClient()
-  const { data, error } = await createClient().from('tasks')
+  const { data, error } = await (await createClient()).from('tasks')
     .select(TASK_LIST_SELECT)
     .eq('assignee_id', me.id)
     .order('created_at', { ascending: false })

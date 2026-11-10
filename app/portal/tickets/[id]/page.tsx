@@ -28,7 +28,7 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
 export default async function PortalTicketDetail(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
   const me = await requireClient()
-  const supabase = createClient()
+  const supabase = await createClient()
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
   const [

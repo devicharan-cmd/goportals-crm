@@ -23,7 +23,7 @@ type Row = Pick<Task, 'id' | 'client_id' | 'assignee_id' | 'status' | 'due_date'
 export default async function ReportsPage(props: { searchParams: Promise<{ month?: string }> }) {
   const searchParams = await props.searchParams
   await requireRole(['super_admin', 'admin'])
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const month = /^\d{4}-\d{2}$/.test(searchParams.month ?? '') ? searchParams.month! : format(new Date(), 'yyyy-MM')
   const start = startOfMonth(parse(month, 'yyyy-MM', new Date()))
@@ -95,7 +95,7 @@ export default async function ReportsPage(props: { searchParams: Promise<{ month
         actions={
           <>
             <form className="no-print">
-              <SearchableSelect name="month" defaultValue={month} className="input h-9 w-auto py-1.5" aria-label="Report month" searchPlaceholder="Search months...">
+              <SearchableSelect name="month" defaultValue={month} className="form-field h-9 w-auto py-1.5" aria-label="Report month" searchPlaceholder="Search months...">
                 {monthOptions.map(m => <option key={m} value={m}>{format(parse(m, 'yyyy-MM', new Date()), 'MMMM yyyy')}</option>)}
               </SearchableSelect>
               <button className="ml-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200">Show</button>

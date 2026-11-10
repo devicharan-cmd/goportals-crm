@@ -12,7 +12,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center px-4">
-      <div className="card w-full max-w-md p-8 text-center">
+      <div className="content-card w-full max-w-md p-8 text-center">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-600">
           <WifiOff className="h-7 w-7" />
         </div>

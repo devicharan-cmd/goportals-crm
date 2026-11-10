@@ -66,7 +66,7 @@ export function ClientTaskAttachments({
               </span>
               <div className="min-w-0 flex-1">
                 <a href={attachment.signedUrl} target="_blank" rel="noreferrer"
-                   className="block truncate text-sm font-medium text-brand-700 hover:underline">
+                   className="block truncate text-sm font-medium text-[#034C68] hover:underline">
                   {attachment.file_name}
                 </a>
                 <p className="text-xs text-slate-400">{formatDate(attachment.created_at)}</p>

@@ -10,7 +10,7 @@ export const metadata = { title: 'Agreement' }
 
 export default async function AgreementPage() {
   await requireSuperAdmin()
-  const supabase = createClient()
+  const supabase = await createClient()
   const [{ data }, { count }] = await Promise.all([
     supabase.from('agreements').select('*').order('created_at', { ascending: false }),
     supabase.from('agreement_acceptances').select('id', { count: 'exact', head: true }),
@@ -33,7 +33,7 @@ export default async function AgreementPage() {
             {versions.map(v => (
               <li key={v.id} className="flex items-center justify-between px-5 py-3 text-sm">
                 <span><span className="font-semibold">{v.version}</span> <span className="text-slate-500">· {formatDate(v.published_at ?? v.created_at)}</span></span>
-                {v.is_current && <Badge className="bg-lime-50 text-lime-700 ring-lime-200">Live</Badge>}
+                {v.is_current && <Badge className="bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]">Live</Badge>}
               </li>
             ))}
           </ul>

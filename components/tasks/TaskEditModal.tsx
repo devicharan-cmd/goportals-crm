@@ -14,6 +14,7 @@ export function TaskEditModal({
   canMarkUrgent,
   canEditAssignment,
   clients,
+  clientImageUrlByPath,
   assignees,
   departments,
   platforms,
@@ -24,6 +25,7 @@ export function TaskEditModal({
   canMarkUrgent: boolean
   canEditAssignment: boolean
   clients: TaskFormProps['clients']
+  clientImageUrlByPath?: TaskFormProps['clientImageUrlByPath']
   assignees: TaskFormProps['assignees']
   departments: TaskFormProps['departments']
   platforms: TaskFormProps['platforms']
@@ -47,7 +49,7 @@ export function TaskEditModal({
         bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-0"
         titleClassName="text-lg font-bold text-slate-900"
         closeButtonClassName="bg-slate-100 text-slate-600 shadow-sm ring-1 ring-inset ring-slate-200 transition-all hover:rotate-90 hover:bg-red-50 hover:text-red-600 hover:ring-red-200 focus-visible:ring-red-300"
-        headerIcon={<span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700"><Layers3 className="h-5 w-5" /></span>}
+        headerIcon={<span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#CFE6EF] text-[#034C68]"><Layers3 className="h-5 w-5" /></span>}
       >
         <TaskForm
           mode="edit"
@@ -56,6 +58,7 @@ export function TaskEditModal({
           canMarkUrgent={canMarkUrgent}
           canEditAssignment={canEditAssignment}
           clients={clients}
+          clientImageUrlByPath={clientImageUrlByPath}
           assignees={assignees}
           departments={departments}
           platforms={platforms}

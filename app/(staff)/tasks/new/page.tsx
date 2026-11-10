@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { requireStaff } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getStaffLookups } from '@/lib/queries'
+import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups } from '@/lib/queries'
 import { ROLE_LABELS } from '@/lib/constants'
 import { TaskForm } from '@/components/tasks/TaskForm'
 
@@ -26,11 +26,12 @@ export default async function NewTaskPage(
   }
 
   const { data: activeTickets, error: ticketsError } = clients.length > 0
-    ? await createClient().from('tickets').select('client_id').in('client_id', clients.map(client => client.id)).neq('status', 'closed')
+    ? await (await createClient()).from('tickets').select('client_id').in('client_id', clients.map(client => client.id)).neq('status', 'closed')
     : { data: [], error: null }
   if (ticketsError) throw ticketsError
   const clientsWithActiveTickets = new Set((activeTickets ?? []).map(ticket => ticket.client_id))
   clients = clients.filter(client => clientsWithActiveTickets.has(client.id))
+  const clientImageUrlByPath = await getClientProfileImageUrls(clients)
 
   return (
     <div>
@@ -44,6 +45,7 @@ export default async function NewTaskPage(
         defaultAssigneeId={searchParams.assignee}
         canMarkUrgent={me.role !== 'employee'}
         clients={clients}
+        clientImageUrlByPath={clientImageUrlByPath}
         assignees={assignableFor(me, lookups).map(p => ({ id: p.id, name: p.full_name || p.email, avatarUrl: p.avatar_url, employeeId: p.id, role: ROLE_LABELS[p.role], avatarRole: p.role }))}
         departments={lookups.departments}
         platforms={lookups.platforms}

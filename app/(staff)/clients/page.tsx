@@ -16,7 +16,7 @@ type Row = Client & {
 export default async function ClientsPage(props: { searchParams: Promise<{ status?: string }> }) {
   const searchParams = await props.searchParams
   const me = await requireRole(['super_admin', 'admin'])
-  const supabase = createClient()
+  const supabase = await createClient()
 
   let query = supabase.from('clients')
     .select('*, client_team(profile_id)')
@@ -59,7 +59,7 @@ export default async function ClientsPage(props: { searchParams: Promise<{ statu
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <ClientSearchField />
         <form className="flex flex-wrap gap-2" action="/clients">
-          <SearchableSelect name="status" defaultValue={searchParams.status ?? ''} className="input h-9 w-auto py-1.5" aria-label="Client status">
+          <SearchableSelect name="status" defaultValue={searchParams.status ?? ''} className="form-field h-9 w-auto py-1.5" aria-label="Client status">
             <option value="">All statuses</option>
             <option value="active">Active</option>
             <option value="pending">Pending</option>

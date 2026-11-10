@@ -22,7 +22,7 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
 export default async function PortalTaskDetailPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
   const me = await requireClient()
-  const supabase = createClient()
+  const supabase = await createClient()
   const taskId = await resolveTaskId(params.id)
   if (!taskId) notFound()
 
@@ -64,15 +64,15 @@ export default async function PortalTaskDetailPage(props: { params: Promise<{ id
         <div className="min-w-0 space-y-6">
           <Card className="p-6">
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs font-semibold text-slate-400">{taskCode(task.task_number)}</span>
+              <span className="font-mono text-xs font-semibold text-[#045E80]">{taskCode(task.task_number)}</span>
               <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={TASK_STATUS_STYLES[task.status]} dotClassName={TASK_STATUS_DOT[task.status]} />
               <PriorityBadge priority={task.priority} />
               <DueDate date={task.due_date} status={task.status} className="ml-auto" />
             </div>
             <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
             {task.ticket && (
-              <Link href={`/portal/tickets/${task.ticket.id}`} className="mt-2 inline-block text-sm font-medium text-brand-700 hover:underline">
-                {ticketCode(task.ticket.ticket_number)} · {task.ticket.subject}
+              <Link href={`/portal/tickets/${task.ticket.id}`} className="mt-2 inline-block text-sm font-medium text-[#034C68] hover:underline">
+                <span className="font-mono font-semibold text-[#045E80]">{ticketCode(task.ticket.ticket_number)}</span> · {task.ticket.subject}
               </Link>
             )}
             {task.description

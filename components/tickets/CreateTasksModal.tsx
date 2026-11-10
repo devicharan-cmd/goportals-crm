@@ -11,6 +11,7 @@ import { Avatar } from '@/components/ui/primitives'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { MarketplacePlatformSelect } from '@/components/shared/Marketplace'
 import { TaskBasicInformation } from '@/components/tasks/TaskBasicInformation'
+import { AssigneeOptionContent } from '@/components/tasks/AssigneeOptionContent'
 import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } from '@/components/tasks/TaskFormSections'
 import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TYPE_OPTIONS } from '@/lib/constants'
 import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
@@ -143,7 +144,7 @@ function AssigneeSelect({ id, value, options, onChange, onOpenChange, invalid, d
     <div>
       <button ref={buttonRef} id={id} type="button"
               disabled={disabled}
-              className={`input flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-50 ${invalid ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
+              className={`form-field flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-50 ${invalid ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
               aria-required="true" aria-invalid={invalid}
               aria-haspopup="listbox" aria-expanded={open} aria-controls={`${id}-options`}
               onClick={() => {
@@ -153,7 +154,7 @@ function AssigneeSelect({ id, value, options, onChange, onOpenChange, invalid, d
               }}>
         <span className="flex min-w-0 items-center gap-2">
           {selected && <Avatar name={selected.name} src={selected.avatarUrl} role={selected.avatarRole} size="sm" />}
-          <span className="truncate">{selected?.name ?? 'Unassigned'}</span>
+          <span className="truncate">{selected?.name ?? 'Select assignee…'}</span>
         </span>
         <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
       </button>
@@ -165,29 +166,24 @@ function AssigneeSelect({ id, value, options, onChange, onOpenChange, invalid, d
             <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input ref={searchRef} type="search" value={search} onChange={event => setSearch(event.target.value)}
                    placeholder="Search assignees…" aria-label="Search assignees"
-                   className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-100" />
+                   className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#0A6F94] focus:bg-white focus:ring-2 focus:ring-[#CFE6EF]" />
           </div>
           <div id={`${id}-options`} role="listbox" aria-label="Assignee"
-               className="assignee-dropdown-scroll space-y-1 overflow-y-auto"
+               className="assignee-options-scroll-area space-y-1 overflow-y-auto"
                 style={{ maxHeight: Math.max(0, position.maxHeight - 60) }}>
-            <button type="button" role="option" aria-selected={!value}
-                    onClick={() => choose('')}
-                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${!value ? 'bg-brand-50 font-semibold text-brand-700' : 'text-slate-700 hover:bg-slate-50'}`}>
-              {value ? <span className="h-4 w-4" /> : <Check className="h-4 w-4 text-brand-600" />}
-              Unassigned
-            </button>
             {filteredOptions.map(option => {
               const active = option.id === value
               return (
                 <button key={option.id} type="button" role="option" aria-selected={active}
                         onClick={() => choose(option.id)}
-                        className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${active ? 'bg-brand-50' : 'hover:bg-slate-50'}`}>
-                  <Avatar name={option.name} src={option.avatarUrl} role={option.avatarRole} size="md" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-slate-900">{option.name}</span>
-                    {option.role && <span className="mt-0.5 block truncate text-xs text-slate-500">{option.role}</span>}
-                  </span>
-                  {active && <Check className="h-4 w-4 flex-shrink-0 text-brand-600" />}
+                        className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${active ? 'bg-[#EAF4F8]' : 'hover:bg-slate-50'}`}>
+                  <AssigneeOptionContent
+                    name={option.name}
+                    avatarUrl={option.avatarUrl}
+                    avatarRole={option.avatarRole}
+                    roleLabel={option.role}
+                  />
+                  {active && <Check className="h-4 w-4 flex-shrink-0 text-[#045E80]" />}
                 </button>
               )
             })}
@@ -283,7 +279,7 @@ export function CreateTasksModal({
 
   function label(index: number, field: RowField, text: string) {
     return (
-      <label htmlFor={`task-${field}-${index}`} className="label text-sm">
+      <label htmlFor={`task-${field}-${index}`} className="form-field-label text-sm">
         {text} <span className="text-red-600" aria-hidden="true">*</span>
       </label>
     )
@@ -404,7 +400,7 @@ export function CreateTasksModal({
              bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-0"
              titleClassName="text-lg font-bold text-slate-900"
              closeButtonClassName="bg-slate-100 text-slate-600 shadow-sm ring-1 ring-inset ring-slate-200 transition-all hover:rotate-90 hover:bg-red-50 hover:text-red-600 hover:ring-red-200 focus-visible:ring-red-300"
-             headerIcon={<span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700"><Layers3 className="h-5 w-5" /></span>}>
+             headerIcon={<span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#CFE6EF] text-[#034C68]"><Layers3 className="h-5 w-5" /></span>}>
         <div data-modal-content className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-5 sm:px-7">
           {rows.map((r, i) => (
             <TaskFormCard key={i} enabled>
@@ -432,15 +428,15 @@ export function CreateTasksModal({
               <TaskSectionHeader section="configuration" />
               <TaskFieldsGrid columns="four">
                 <label className="min-w-0">
-                  <span className="label text-sm">Type</span>
-                  <SearchableSelect className="input h-9 rounded-xl text-sm" value={r.type} disabled={!!createdTaskIds}
+                  <span className="form-field-label text-sm">Type</span>
+                  <SearchableSelect className="form-field h-9 rounded-xl text-sm" value={r.type} disabled={!!createdTaskIds}
                           onChange={e => update(i, { type: e.target.value as TaskType })}>
                     {TYPE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </SearchableSelect>
                 </label>
                 <label className="min-w-0">
-                  <span className="label text-sm">Service</span>
-                  <SearchableSelect className="input h-9 rounded-xl text-sm" value={r.service_id} disabled={!!createdTaskIds}
+                  <span className="form-field-label text-sm">Service</span>
+                  <SearchableSelect className="form-field h-9 rounded-xl text-sm" value={r.service_id} disabled={!!createdTaskIds}
                           onChange={e => {
                             const serviceId = e.target.value
                             const service = services.find(item => item.id === serviceId)
@@ -453,17 +449,17 @@ export function CreateTasksModal({
                   </SearchableSelect>
                 </label>
                 <label className="min-w-0">
-                  <span className="label text-sm">Department</span>
-                  <SearchableSelect className="input h-9 rounded-xl text-sm" value={r.department_id} disabled={!!createdTaskIds}
+                  <span className="form-field-label text-sm">Department</span>
+                  <SearchableSelect className="form-field h-9 rounded-xl text-sm" value={r.department_id} disabled={!!createdTaskIds}
                           onChange={e => update(i, { department_id: e.target.value })}>
                     <option value="">—</option>
                     {departments.map(department => <option key={department.id} value={department.id}>{department.name}</option>)}
                   </SearchableSelect>
                 </label>
                 <label className="min-w-0">
-                  <span className="label text-sm">Platform</span>
+                  <span className="form-field-label text-sm">Platform</span>
                   <MarketplacePlatformSelect
-                    className="input flex h-9 w-full items-center justify-between gap-2 rounded-xl text-sm"
+                    className="form-field flex h-9 w-full items-center justify-between gap-2 rounded-xl text-sm"
                     platforms={platforms.filter(platform => platform.is_active || platform.id === r.platform_id)}
                     value={r.platform_id}
                     placeholder="—"
@@ -484,7 +480,7 @@ export function CreateTasksModal({
                 <div className="min-w-0">
                   {label(i, 'priority', 'Priority')}
                   <SearchableSelect id={`task-priority-${i}`} aria-invalid={!!fieldError(i, 'priority')} required disabled={!!createdTaskIds}
-                          className={`input h-9 rounded-xl text-sm ${fieldError(i, 'priority') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
+                          className={`form-field h-9 rounded-xl text-sm ${fieldError(i, 'priority') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
                           value={r.priority}
                           onChange={e => update(i, { priority: e.target.value as TaskPriority })}>
                     {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -492,8 +488,8 @@ export function CreateTasksModal({
                   {fieldErrorText(i, 'priority')}
                 </div>
                 <div className="min-w-0">
-                  <label htmlFor={`task-estimated-hours-${i}`} className="label text-sm">Estimated hours</label>
-                  <input id={`task-estimated-hours-${i}`} className="input h-9 rounded-xl text-sm" type="number" min="0" step="0.5"
+                  <label htmlFor={`task-estimated-hours-${i}`} className="form-field-label text-sm">Estimated hours</label>
+                  <input id={`task-estimated-hours-${i}`} className="form-field h-9 rounded-xl text-sm" type="number" min="0" step="0.5"
                          value={r.estimated_hours} placeholder="Enter hours" disabled={!!createdTaskIds}
                          onChange={e => update(i, { estimated_hours: e.target.value })} />
                 </div>
@@ -508,14 +504,14 @@ export function CreateTasksModal({
                               : { deadline_type: deadline.value, due_date: dueDateFor(deadline.value) })}
                             className={cn('inline-flex h-7 items-center rounded-full px-3 text-xs font-medium ring-1 ring-inset transition disabled:opacity-50',
                               r.deadline_type === deadline.value
-                                ? 'bg-brand-600 text-white ring-brand-600'
+                                ? 'bg-[#045E80] text-white ring-[#045E80]'
                                 : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50')}>
                       {deadline.label}
                     </button>
                   ))}
                   <input id={`task-due_date-${i}`} type="date"
                          aria-invalid={!!fieldError(i, 'due_date')} required disabled={!!createdTaskIds}
-                         className={`input h-7 w-auto rounded-full px-3 py-1 text-xs leading-4 ${fieldError(i, 'due_date') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
+                         className={`form-field h-7 w-auto rounded-full px-3 py-1 text-xs leading-4 ${fieldError(i, 'due_date') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
                          value={r.due_date}
                          onChange={e => update(i, { due_date: e.target.value, deadline_type: '' })} />
                 </div>
@@ -535,7 +531,7 @@ export function CreateTasksModal({
             </TaskFormCard>
           ))}
           <button type="button" disabled={!!createdTaskIds} onClick={() => setRows([...rows, emptyRow(ticket)])}
-                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-brand-200 bg-transparent px-3 text-sm font-semibold text-brand-700 transition-colors hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50">
+                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#9FCCDE] bg-transparent px-3 text-sm font-semibold text-[#034C68] transition-colors hover:border-[#2A87AA] hover:bg-[#EAF4F8] disabled:cursor-not-allowed disabled:opacity-50">
             <Plus className="h-4 w-4" /> Add another task
           </button>
           {error && (
@@ -551,7 +547,7 @@ export function CreateTasksModal({
           </p>
           <div className="ml-auto flex items-center gap-2">
             <Button variant="secondary" size="lg" className="rounded-xl" disabled={saving} onClick={closeModal}>Cancel</Button>
-            <Button loading={saving} size="lg" className="rounded-xl bg-brand-600 shadow-md hover:bg-brand-700" onClick={submit}>
+            <Button loading={saving} size="lg" className="rounded-xl bg-[#045E80] shadow-md hover:bg-[#034C68]" onClick={submit}>
               {!saving && <Check className="h-4 w-4" />}
               Create {rows.length > 1 ? `${rows.length} tasks` : 'task'}
             </Button>

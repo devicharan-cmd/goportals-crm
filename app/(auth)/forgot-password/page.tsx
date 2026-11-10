@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
               setSent(false)
               setError('')
             }}
-            className="input"
+            className="form-field"
           />
         </Field>
         <Button type="submit" size="lg" loading={loading} className="w-full">
@@ -63,7 +63,7 @@ export default function ForgotPasswordPage() {
         </Button>
       </form>
       <p className="mt-8 text-center text-sm">
-        <Link href="/login" className="font-semibold text-brand-600">Back to sign in</Link>
+        <Link href="/login" className="font-semibold text-[#045E80]">Back to sign in</Link>
       </p>
     </>
   )

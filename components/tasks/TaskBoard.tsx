@@ -9,11 +9,10 @@ import {
 } from '@dnd-kit/core'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
-import { AssignButton } from '@/components/tasks/AssignButton'
 import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import type { AssigneeOption } from '@/lib/queries'
-import { DueDate, PriorityBadge } from '@/components/ui/badges'
-import { TASK_STATUS_DOT, TASK_STATUS_OPTIONS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
+import { DueDate } from '@/components/ui/badges'
+import { PRIORITY_STYLES, TASK_STATUS_DOT, TASK_STATUS_OPTIONS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { cn, errorMessage, taskCode } from '@/lib/utils'
 import type { TaskSummary, TaskStatus } from '@/types/database'
 
@@ -24,8 +23,10 @@ function Card({ task, names, overlay, linked, assignOptions }: CardProps & { ove
     <>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5">
-          <span className="font-mono text-[11px] font-semibold text-slate-400">{taskCode(task.task_number)}</span>
-          <PriorityBadge priority={task.priority} />
+          <span className="font-mono text-[11px] font-semibold text-[#045E80]">{taskCode(task.task_number)}</span>
+          <span className={cn('inline-flex items-center rounded-md px-1.5 py-0 text-[10px] font-bold leading-4 ring-1 ring-inset', PRIORITY_STYLES[task.priority])}>
+            {task.priority}
+          </span>
         </span>
         {task.platform?.name && <span className="truncate text-[11px] text-slate-400"><MarketplacePlatformLabel name={task.platform.name} /></span>}
       </div>
@@ -35,8 +36,8 @@ function Card({ task, names, overlay, linked, assignOptions }: CardProps & { ove
     </>
   )
   return (
-    <div className={cn('rounded-lg border bg-white text-left',
-      overlay ? 'rotate-1 border-brand-400 shadow-pop' : 'border-slate-200 shadow-card',
+    <div className={cn('overflow-hidden rounded-lg border bg-white text-left transition-[border-color,box-shadow,transform] duration-200 ease-out',
+      overlay ? 'rotate-1 border-[#2A87AA] [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]' : 'border-slate-200 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-[0_6px_14px_rgba(15,23,42,0.12)]',
       task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && 'border-l-4 border-l-red-500')}>
       {linked
         ? <Link href={`/tasks/${task.id}`} draggable={false} className="block p-3 pb-2 hover:bg-slate-50/60">{body}</Link>
@@ -45,12 +46,6 @@ function Card({ task, names, overlay, linked, assignOptions }: CardProps & { ove
         {task.assignee_id
           ? <span className="flex min-w-0 items-center gap-1.5 text-xs text-slate-600"><Avatar name={names[task.assignee_id]} src={assignOptions?.find(option => option.id === task.assignee_id)?.avatarUrl} role={assignOptions?.find(option => option.id === task.assignee_id)?.avatarRole} size="xs" /><span className="truncate">{names[task.assignee_id] ?? '—'}</span></span>
           : <span className="text-[11px] italic text-slate-400">Unassigned</span>}
-        {assignOptions && !TASK_TERMINAL_STATUSES.includes(task.status) && (
-          // Keep clicks / drags inside the picker from starting a drag or opening the task.
-          <span onPointerDown={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-            <AssignButton taskId={task.id} currentId={task.assignee_id} options={assignOptions} variant="link" />
-          </span>
-        )}
       </div>
     </div>
   )
@@ -75,8 +70,8 @@ function Column({ status, label, tasks, names, assignOptions }: { status: TaskSt
         <span className="rounded-full bg-slate-200/70 px-2 text-xs font-medium text-slate-600">{tasks.length}</span>
       </div>
       <div ref={setNodeRef}
-           className={cn('min-h-[200px] flex-1 space-y-2 rounded-xl p-2 transition-colors',
-             isOver ? 'bg-brand-50 ring-2 ring-brand-200' : 'bg-slate-100/70')}>
+           className={cn('box-border w-full flex-1 flex flex-col gap-2 rounded-xl p-2 transition-colors',
+             isOver ? 'border-[#0A6F94] bg-[#CFE6EF]' : 'bg-slate-100/70')}>
         {tasks.map(t => <DraggableCard key={t.id} task={t} names={names} assignOptions={assignOptions} />)}
       </div>
     </div>
@@ -123,7 +118,7 @@ export function TaskBoard({
     <div>
       {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       <DndContext id="task-board" sensors={sensors} onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))} onDragEnd={onDragEnd} onDragCancel={() => setActiveId(null)}>
-        <div className="-mx-4 grid auto-cols-[minmax(180px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
+        <div className={cn('-mx-4 grid auto-cols-[minmax(180px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0', tasks.length === 0 && 'min-h-[200px]')}>
           {TASK_STATUS_OPTIONS.map(s => (
             <Column key={s.value} status={s.value} label={s.label} names={names} assignOptions={assignOptions} tasks={tasks.filter(t => t.status === s.value)} />
           ))}

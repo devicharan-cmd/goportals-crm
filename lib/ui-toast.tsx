@@ -10,7 +10,7 @@ export function showSuccessToast(message: string) {
       role="status"
       aria-live="polite"
     >
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-lime-100 text-lime-700 ring-1 ring-lime-200">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#E8F3C8] text-[#5B771A] ring-1 ring-[#D3E896]">
         <Check className="h-3.5 w-3.5" strokeWidth={3} />
       </span>
       <span className="min-w-0 flex-1 text-[12px] font-semibold leading-4 text-slate-700">{message}</span>

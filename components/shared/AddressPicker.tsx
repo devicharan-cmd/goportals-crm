@@ -171,18 +171,18 @@ export function AddressPicker({ value, onChange }: { value: AddressValue; onChan
     return (
       <div className="space-y-3">
         <button type="button" onClick={() => setMode('map')}
-                className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-800">
+                className="inline-flex items-center gap-1 text-xs font-medium text-[#034C68] hover:text-[#033B51]">
           <MapPin className="h-3.5 w-3.5" /> Search on the map instead
         </button>
         <Field label="Address line" required>
-          <input className="input" value={value.address_line}
+          <input className="form-field" value={value.address_line}
                  onChange={e => onChange({ ...value, address_line: e.target.value, address_source: 'manual' })} />
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="City"><input className="input" value={value.city} onChange={e => onChange({ ...value, city: e.target.value, address_source: 'manual' })} /></Field>
-          <Field label="State"><input className="input" value={value.state} onChange={e => onChange({ ...value, state: e.target.value, address_source: 'manual' })} /></Field>
-          <Field label="Postal code"><input className="input" value={value.postal_code} onChange={e => onChange({ ...value, postal_code: e.target.value, address_source: 'manual' })} /></Field>
-          <Field label="Country"><input className="input" value={value.country} onChange={e => onChange({ ...value, country: e.target.value, address_source: 'manual' })} /></Field>
+          <Field label="City"><input className="form-field" value={value.city} onChange={e => onChange({ ...value, city: e.target.value, address_source: 'manual' })} /></Field>
+          <Field label="State"><input className="form-field" value={value.state} onChange={e => onChange({ ...value, state: e.target.value, address_source: 'manual' })} /></Field>
+          <Field label="Postal code"><input className="form-field" value={value.postal_code} onChange={e => onChange({ ...value, postal_code: e.target.value, address_source: 'manual' })} /></Field>
+          <Field label="Country"><input className="form-field" value={value.country} onChange={e => onChange({ ...value, country: e.target.value, address_source: 'manual' })} /></Field>
         </div>
       </div>
     )
@@ -193,7 +193,7 @@ export function AddressPicker({ value, onChange }: { value: AddressValue; onChan
       <Field label="Search your address" required hint="Search, click the map, or drag the pin to fine-tune.">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input className="input pl-9" value={query} placeholder="Search for your business address…"
+          <input className="form-field pl-9" value={query} placeholder="Search for your business address…"
                  onChange={e => { setQuery(e.target.value); setShowSuggestions(true) }}
                  onFocus={() => setShowSuggestions(true)}
                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)} />
@@ -214,7 +214,7 @@ export function AddressPicker({ value, onChange }: { value: AddressValue; onChan
       </Field>
       <div ref={mapDivRef} className={cn('h-64 w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-100')} />
       {value.address_source === 'map' && value.latitude != null && (
-        <p className="flex items-center gap-1.5 rounded-lg bg-lime-50 px-3 py-2 text-xs text-lime-800">
+        <p className="flex items-center gap-1.5 rounded-lg bg-[#F5FAE8] px-3 py-2 text-xs text-[#465B17]">
           <MapPin className="h-3.5 w-3.5 flex-shrink-0" /> {value.address_line}
         </p>
       )}

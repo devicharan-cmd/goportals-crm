@@ -12,7 +12,7 @@ export const isStaffRole = (role: AppRole | null | undefined) =>
 
 /** Logged-in user's profile (one DB call per request). Null when signed out. */
 export const getProfile = cache(async (): Promise<Profile | null> => {
-  const supabase = createClient()
+  const supabase = await createClient()
   // middleware already verified the JWT with Supabase Auth for this request —
   // trust its header instead of paying for a second getUser() round-trip here.
   const userId = (await headers()).get('x-user-id') ?? (await supabase.auth.getUser()).data.user?.id

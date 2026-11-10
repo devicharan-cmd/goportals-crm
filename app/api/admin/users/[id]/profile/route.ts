@@ -13,7 +13,7 @@ const REPORTING_ROLE: Partial<Record<StaffRole, StaffRole>> = {
 
 export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params
-  const sessionClient = createClient()
+  const sessionClient = await createClient()
   const { data: { user }, error: authError } = await sessionClient.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Your session could not be verified. Sign in again.' }, { status: 401 })
 

@@ -31,7 +31,7 @@ export function TimezoneSelect({
 
   return (
     <select
-      className={`input h-[42px] rounded-xl border-slate-200 py-2.5 ${invalid ? '!border-red-500 !text-slate-900' : ''}`}
+      className={`form-field h-[42px] rounded-xl border-slate-200 py-2.5 ${invalid ? '!border-red-500 !text-slate-900' : ''}`}
       value={value}
       onChange={event => onChange(event.target.value)}
       disabled={disabled}

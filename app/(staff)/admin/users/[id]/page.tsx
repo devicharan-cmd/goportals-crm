@@ -12,7 +12,7 @@ export const metadata = { title: 'Staff Profile' }
 export default async function StaffProfilePage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
   const me = await requireAdmin()
-  const supabase = createClient()
+  const supabase = await createClient()
   const [profileRes, addressRes, departmentsRes, membershipsRes, lookups] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', params.id).maybeSingle(),
     supabase.from('staff_profile_details').select('current_address, permanent_address').eq('profile_id', params.id).maybeSingle(),

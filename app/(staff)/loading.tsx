@@ -22,7 +22,7 @@ export default function StaffLoading() {
         ))}
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="content-card overflow-hidden">
         <div className="border-b border-slate-100 px-5 py-4">
           <div className="h-4 w-32 rounded bg-slate-200" />
         </div>

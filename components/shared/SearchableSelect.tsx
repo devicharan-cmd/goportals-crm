@@ -7,9 +7,10 @@ import { cn } from '@/lib/utils'
 
 type OptionProps = { value?: string | number; children?: ReactNode; disabled?: boolean }
 type SelectOption = { value: string; label: string; disabled: boolean }
+type DisplayOption = SelectOption & { content?: ReactNode; selectedContent?: ReactNode }
 type SelectValueChangeEvent = { target: { value: string }; currentTarget: { value: string } }
 type DropdownPosition = { left: number; top: number; width: number; maxHeight: number; openBelow: boolean }
-type RichSelectOption = { value: string; label: ReactNode; text: string; disabled?: boolean }
+type RichSelectOption = { value: string; label: ReactNode; text: string; selectedLabel?: ReactNode; disabled?: boolean }
 
 function optionLabel(children: ReactNode): string {
   return Children.toArray(children).map(child => {
@@ -45,6 +46,10 @@ export function SearchableSelect({
   required = false,
   id,
   options: richOptions,
+  dropdownMinWidth,
+  dropdownMaxHeight = 320,
+  dropdownHeading,
+  compactOptions = false,
   'aria-label': ariaLabel,
   'aria-invalid': ariaInvalid,
   'aria-describedby': ariaDescribedBy,
@@ -63,13 +68,23 @@ export function SearchableSelect({
   required?: boolean
   id?: string
   options?: RichSelectOption[]
+  dropdownMinWidth?: number
+  dropdownMaxHeight?: number
+  dropdownHeading?: string
+  compactOptions?: boolean
   'aria-label'?: string
   'aria-invalid'?: boolean
   'aria-describedby'?: string
 }) {
-  const options = useMemo(() => richOptions
-    ? richOptions.map(option => ({ value: option.value, label: option.text, content: option.label, disabled: !!option.disabled }))
-    : getOptions(children).map(option => ({ ...option, content: option.label })),
+  const options = useMemo<DisplayOption[]>(() => richOptions
+    ? richOptions.map(option => ({
+        value: option.value,
+        label: option.text,
+        content: option.label,
+        selectedContent: option.selectedLabel,
+        disabled: !!option.disabled,
+      }))
+    : getOptions(children).map(option => ({ ...option, selectedContent: undefined })),
   [children, richOptions])
   const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue ?? options[0]?.value ?? '')
   const [open, setOpen] = useState(false)
@@ -101,12 +116,12 @@ export function SearchableSelect({
       const buttonRect = button.getBoundingClientRect()
       const boundsTop = Math.max(8, dialogRect?.top ?? 0) + 8
       const boundsBottom = Math.min(window.innerHeight - 8, dialogRect?.bottom ?? window.innerHeight) - 8
-      const width = buttonRect.width
+      const width = Math.min(Math.max(buttonRect.width, dropdownMinWidth ?? 0), window.innerWidth - 16)
       const left = Math.min(Math.max(buttonRect.left, 8), window.innerWidth - width - 8)
       const availableBelow = Math.max(0, boundsBottom - buttonRect.bottom - 8)
       const availableAbove = Math.max(0, buttonRect.top - boundsTop - 8)
       const openBelow = availableBelow >= availableAbove
-      const maxHeight = Math.min(320, openBelow ? availableBelow : availableAbove)
+      const maxHeight = Math.min(dropdownMaxHeight, openBelow ? availableBelow : availableAbove)
       setPosition({ left, top: openBelow ? buttonRect.bottom + 8 : buttonRect.top - maxHeight - 8, width, maxHeight, openBelow })
     }
 
@@ -119,7 +134,7 @@ export function SearchableSelect({
       window.removeEventListener('resize', updatePosition)
       window.removeEventListener('scroll', updatePosition, true)
     }
-  }, [open, searchable])
+  }, [dropdownMaxHeight, dropdownMinWidth, open, searchable])
 
   useLayoutEffect(() => {
     if (!open || !position || position.openBelow) return
@@ -186,7 +201,7 @@ export function SearchableSelect({
         type="button"
         disabled={disabled}
         className={cn(
-          'input flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm focus:!shadow-none focus:!ring-0 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50',
+          'form-field flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm focus:!shadow-none focus:!ring-0 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50',
           (ariaInvalid || validationError) && 'border-red-500 focus:border-red-500 focus:ring-red-100',
           className,
         )}
@@ -198,7 +213,7 @@ export function SearchableSelect({
         aria-expanded={open}
         onClick={() => setOpen(current => !current)}
       >
-        <span className="min-w-0 flex-1 truncate">{selected ? (selected.content ?? selected.label) : placeholder || ''}</span>
+        <span className="min-w-0 flex-1 truncate">{selected ? (selected.selectedContent ?? selected.content ?? selected.label) : placeholder || ''}</span>
         <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
       </button>
       {validationError && <span className="sr-only">Please select an option.</span>}
@@ -208,6 +223,9 @@ export function SearchableSelect({
           className="fixed z-[1200] overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
           style={{ left: position.left, top: position.top, width: position.width, maxHeight: position.maxHeight }}
         >
+          {dropdownHeading && (
+            <p className="px-3 pb-2 pt-1 text-sm font-medium text-slate-600">{dropdownHeading}</p>
+          )}
           {searchable && (
             <div className="relative mb-2">
               <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -218,15 +236,15 @@ export function SearchableSelect({
                 onChange={event => setSearch(event.target.value)}
                 placeholder={searchPlaceholder}
                 aria-label={ariaLabel ? `${ariaLabel} search` : searchPlaceholder}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-brand-500 focus:bg-white focus:shadow-none focus:ring-0"
+                className="search-input-with-icon h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#0A6F94] focus:bg-white focus:shadow-none focus:ring-0"
               />
             </div>
           )}
           <div
             role="listbox"
             aria-label={ariaLabel}
-            className="space-y-1 overflow-y-auto"
-            style={{ maxHeight: Math.max(0, position.maxHeight - (searchable ? 60 : 8)) }}
+            className={cn(compactOptions ? 'space-y-2' : 'space-y-1', 'overflow-y-auto')}
+            style={{ maxHeight: Math.max(0, position.maxHeight - (searchable ? 60 : 8) - (dropdownHeading ? 28 : 0)) }}
           >
             {filteredOptions.map(option => {
               const active = option.value === value
@@ -239,12 +257,12 @@ export function SearchableSelect({
                   disabled={option.disabled}
                   onClick={() => choose(option.value)}
                   className={cn(
-                    'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                    active ? 'bg-brand-50 font-medium text-brand-700' : 'text-slate-700 hover:bg-slate-50',
+                    cn('flex w-full items-center justify-between gap-2 rounded-lg px-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50', compactOptions ? 'py-1' : 'py-2'),
+                    active ? 'bg-[#EAF4F8] font-medium text-[#034C68]' : 'text-slate-700 hover:bg-slate-50',
                   )}
                 >
-                  <span className="min-w-0 truncate">{option.content ?? option.label}</span>
-                  {active && <Check className="h-4 w-4 shrink-0 text-brand-600" />}
+                  <span className="min-w-0 flex-1 text-left">{option.content ?? <span className="block truncate">{option.label}</span>}</span>
+                  {active && <Check className="h-4 w-4 shrink-0 text-[#045E80]" />}
                 </button>
               )
             })}

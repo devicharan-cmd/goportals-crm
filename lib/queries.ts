@@ -36,7 +36,7 @@ export const TICKET_LIST_SELECT = '*, client:clients(id, company_name)'
 
 export type Person = Pick<Profile, 'id' | 'full_name' | 'email' | 'avatar_url' | 'role' | 'job_title' | 'status' | 'weekly_capacity_hours' | 'created_at' | 'reporting_to'>
 export type TaskAssignerInfo = { name: string; role: AppRole; avatarUrl: string | null }
-export type ClientOption = { id: string; company_name: string }
+export type ClientOption = { id: string; company_name: string; company_profile_image_path: string | null }
 export type DepartmentMember = { department_id: string; profile_id: string; is_lead: boolean }
 
 export type StaffLookups = {
@@ -61,10 +61,10 @@ export function sortPeopleByRoleAndJoiningDate<T extends Pick<Person, 'id' | 'ro
 }
 
 export async function getStaffLookups(): Promise<StaffLookups> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const [people, clients, departments, platforms, services, members] = await Promise.all([
     supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to'),
-    supabase.from('clients').select('id, company_name').order('company_name'),
+    supabase.from('clients').select('id, company_name, company_profile_image_path').order('company_name'),
     supabase.from('departments').select('*').order('sort_order'),
     supabase.from('platforms').select('*').order('sort_order'),
     supabase.from('services').select('*').order('sort_order'),
@@ -87,12 +87,12 @@ export async function getTaskPageLookups({ includePeople, includeAssignments }: 
   includePeople: boolean
   includeAssignments: boolean
 }): Promise<StaffLookups> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const [people, clients, departments, members] = await Promise.all([
     includePeople
       ? supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to')
       : Promise.resolve({ data: [] }),
-    supabase.from('clients').select('id, company_name').order('company_name'),
+    supabase.from('clients').select('id, company_name, company_profile_image_path').order('company_name'),
     supabase.from('departments').select('*').order('sort_order'),
     includeAssignments
       ? supabase.from('department_members').select('department_id, profile_id, is_lead')
@@ -110,6 +110,15 @@ export async function getTaskPageLookups({ includePeople, includeAssignments }: 
   }
 }
 
+/** Signed client profile images for visible client options. */
+export async function getClientProfileImageUrls(clients: Pick<ClientOption, 'company_profile_image_path'>[]): Promise<Record<string, string>> {
+  const paths = Array.from(new Set(clients.flatMap(client => client.company_profile_image_path ? [client.company_profile_image_path] : [])))
+  if (!paths.length) return {}
+  const { data, error } = await (await createClient()).storage.from('client-profile-images').createSignedUrls(paths, 3600)
+  if (error) throw error
+  return Object.fromEntries((data ?? []).flatMap(image => image.path && image.signedUrl ? [[image.path, image.signedUrl]] : []))
+}
+
 /** Department IDs a profile belongs to. */
 export function departmentIdsFor(profileId: string, lookups: StaffLookups): Set<string> {
   return new Set(lookups.departmentMembers.filter(m => m.profile_id === profileId).map(m => m.department_id))
@@ -125,7 +134,7 @@ export function departmentIdsFor(profileId: string, lookups: StaffLookups): Set<
  * otherwise lists every company client (unlike /clients, admin/super_admin only).
  */
 export async function clientIdsForTeamLead(profileId: string, departmentIds: string[]): Promise<Set<string>> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const parts = [`profile_id.eq.${profileId}`]
   const scopeParts = [`assignee_id.eq.${profileId}`]
   if (departmentIds.length) {
@@ -168,32 +177,42 @@ export function profileIdsReportingTo(profileId: string, lookups: StaffLookups):
   return descendants
 }
 
+/** Active staff in the same reporting tree, including peers, managers, and reports. */
+export function profileIdsInReportingHierarchy(profileId: string, lookups: StaffLookups): Set<string> {
+  const peopleById = new Map(lookups.people.map(person => [person.id, person]))
+  function rootFor(id: string): string {
+    const visited = new Set<string>()
+    let currentId = id
+    while (!visited.has(currentId)) {
+      visited.add(currentId)
+      const parentId = peopleById.get(currentId)?.reporting_to
+      if (!parentId || !peopleById.has(parentId)) break
+      currentId = parentId
+    }
+    return currentId
+  }
+
+  const rootId = rootFor(profileId)
+  return new Set(
+    lookups.staff
+      .filter(person => rootFor(person.id) === rootId)
+      .map(person => person.id),
+  )
+}
+
 /** People a user may assign to — mirrors can_assign() in the DB. */
 export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
-  if (me.role === 'super_admin' || me.role === 'admin') return lookups.staff
-  if (me.role === 'team_lead') {
-    // Active employees sharing a department and the team lead themselves, in the shared role/date order.
-    const sharedIds = profileIdsSharingDepartment(me.id, lookups)
-    return lookups.staff.filter(p => p.id === me.id || (p.role === 'employee' && sharedIds.has(p.id)))
-  }
-  return lookups.staff.filter(p => p.id === me.id)
+  const allowedIds = profileIdsInReportingHierarchy(me.id, lookups)
+  return lookups.staff.filter(person => allowedIds.has(person.id))
 }
 
 /** People available in the Tasks page assignee filter, scoped by reporting hierarchy. */
 export function assigneeFilterPeopleFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
-  if (me.role === 'super_admin') return lookups.staff
-  if (me.role === 'admin') {
-    const teamLeadIds = new Set(
-      lookups.staff.filter(p => p.reporting_to === me.id && p.role === 'team_lead').map(p => p.id),
-    )
-    const employeeIds = new Set(
-      lookups.staff.filter(p => p.role === 'employee' && p.reporting_to && teamLeadIds.has(p.reporting_to)).map(p => p.id),
-    )
-    return lookups.staff.filter(p => teamLeadIds.has(p.id) || employeeIds.has(p.id))
-  }
-  if (me.role === 'team_lead') {
-    return lookups.staff.filter(p => p.role === 'employee' && p.reporting_to === me.id)
-  }
+  return assignableFor(me, lookups)
+}
+
+/** Active staff who are allowed to assign tasks to the current user. */
+export function taskAssignerFilterPeopleFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
   return assignableFor(me, lookups)
 }
 
@@ -223,7 +242,7 @@ export function assigneeOptionsFor(me: Pick<Profile, 'id' | 'role'>, lookups: St
 export async function resolveTaskId(param: string): Promise<string | null> {
   const n = parseTaskCode(decodeURIComponent(param))
   if (!n) return /^[0-9a-f-]{36}$/i.test(param) ? param : null
-  const { data } = await createClient().from('tasks').select('id').eq('task_number', n).maybeSingle()
+  const { data } = await (await createClient()).from('tasks').select('id').eq('task_number', n).maybeSingle()
   return data?.id ?? null
 }
 
@@ -231,7 +250,7 @@ export async function resolveTaskId(param: string): Promise<string | null> {
 export async function taskPageTitle(param: string): Promise<string> {
   const id = await resolveTaskId(param)
   if (!id) return 'Task'
-  const { data } = await createClient().from('tasks').select('task_number, title').eq('id', id).maybeSingle()
+  const { data } = await (await createClient()).from('tasks').select('task_number, title').eq('id', id).maybeSingle()
   return data ? `${taskCode(data.task_number)} · ${data.title}` : 'Task'
 }
 
@@ -239,7 +258,7 @@ export async function taskPageTitle(param: string): Promise<string> {
 export async function resolveTicketId(param: string): Promise<string | null> {
   const n = parseTicketCode(decodeURIComponent(param))
   if (!n) return /^[0-9a-f-]{36}$/i.test(param) ? param : null
-  const { data } = await createClient().from('tickets').select('id').eq('ticket_number', n).maybeSingle()
+  const { data } = await (await createClient()).from('tickets').select('id').eq('ticket_number', n).maybeSingle()
   return data?.id ?? null
 }
 
@@ -247,7 +266,7 @@ export async function resolveTicketId(param: string): Promise<string | null> {
 export async function ticketPageTitle(param: string): Promise<string> {
   const id = await resolveTicketId(param)
   if (!id) return 'Request'
-  const { data } = await createClient().from('tickets').select('ticket_number, subject').eq('id', id).maybeSingle()
+  const { data } = await (await createClient()).from('tickets').select('ticket_number, subject').eq('id', id).maybeSingle()
   return data ? `${ticketCode(data.ticket_number)} · ${data.subject}` : 'Request'
 }
 
@@ -255,7 +274,7 @@ export type TicketAttachmentLink = { id: string; file_name: string; size_bytes: 
 
 /** A ticket's attachments with short-lived signed download URLs (bucket is private). */
 export async function getTicketAttachments(ticketId: string): Promise<TicketAttachmentLink[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: rows } = await supabase.from('ticket_attachments')
     .select('id, file_name, storage_path, size_bytes').eq('ticket_id', ticketId).order('created_at')
   if (!rows || rows.length === 0) return []

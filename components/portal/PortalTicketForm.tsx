@@ -62,10 +62,10 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
     return (
       <Field key={f.key} label={f.label} required={f.required} className={f.type === 'textarea' ? 'sm:col-span-2' : undefined}>
         {f.type === 'textarea' ? (
-          <textarea className="input min-h-[90px]" required={isRequired} value={details[f.key] ?? ''} placeholder={f.placeholder}
+          <textarea className="form-field min-h-[90px]" required={isRequired} value={details[f.key] ?? ''} placeholder={f.placeholder}
                     onChange={e => setField(f.key, e.target.value)} />
         ) : f.type === 'select' ? (
-          <SearchableSelect className="input" required={isRequired} value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)} placeholder="Select…">
+          <SearchableSelect className="form-field" required={isRequired} value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)} placeholder="Select…">
             <option value="">Select…</option>
             {f.options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </SearchableSelect>
@@ -77,7 +77,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
             onChange={value => setField(f.key, value)}
           />
         ) : (
-          <input className="input" required={isRequired}
+          <input className="form-field" required={isRequired}
                  type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
                  value={details[f.key] ?? ''} placeholder={f.placeholder} onChange={e => setField(f.key, e.target.value)}
                  autoComplete={f.type === 'password' ? 'new-password' : undefined} />
@@ -156,7 +156,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
   }
 
   return (
-    <form onSubmit={submit} className="card space-y-6 p-6">
+    <form onSubmit={submit} className="content-card space-y-6 p-6">
       <div ref={errorRef}>{error && <Alert>{error}</Alert>}</div>
 
       {clients && (
@@ -164,7 +164,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
           <Field label="Client"><p className="text-sm font-medium text-slate-800">{clients.find(c => c.id === clientId)?.company_name ?? '—'}</p></Field>
         ) : (
           <Field label="Client" required>
-            <SearchableSelect className="input" value={clientId} onChange={e => { setClientId(e.target.value); setAccountId('') }} placeholder="Select client…" searchable searchPlaceholder="Search clients...">
+            <SearchableSelect className="form-field" value={clientId} onChange={e => { setClientId(e.target.value); setAccountId('') }} placeholder="Select client…" searchable searchPlaceholder="Search clients...">
               <option value="">Select client…</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
             </SearchableSelect>
@@ -180,7 +180,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
             {TICKET_CATEGORIES.map(c => (
               <button key={c.value} type="button" onClick={() => { setPickedCategory(c.value); setDetails({}) }}
                       className={cn('rounded-lg border px-3 py-2 text-left transition',
-                        pickedCategory === c.value ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-slate-200 hover:bg-slate-50')}>
+                        pickedCategory === c.value ? 'border-[#0A6F94] bg-[#EAF4F8] ring-1 ring-[#0A6F94]' : 'border-slate-200 hover:bg-slate-50')}>
                 <span className="block text-sm font-semibold text-slate-900">{c.label}</span>
                 <span className="block text-xs text-slate-500">{c.hint}</span>
               </button>
@@ -192,7 +192,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
       {def && (
         <>
           <Field label="Subject" required>
-            <input className="input" required autoFocus value={subject} onChange={e => setSubject(e.target.value)}
+            <input className="form-field" required autoFocus value={subject} onChange={e => setSubject(e.target.value)}
                    placeholder="Short summary of your ticket" />
           </Field>
 
@@ -217,18 +217,18 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
             <div className="flex flex-wrap items-center gap-3">
               {def.guide && (
                 <button type="button" onClick={() => setShowGuide(s => !s)}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-800">
+                        className="inline-flex items-center gap-1 text-xs font-medium text-[#034C68] hover:text-[#033B51]">
                   <HelpCircle className="h-3.5 w-3.5" /> {showGuide ? 'Hide guide' : 'See guide'}
                 </button>
               )}
               {GUIDELINE_PDFS_PUBLISHED && def.guideUrl && (
                 <a href={def.guideUrl} target="_blank" rel="noopener noreferrer"
-                   className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-800">
+                   className="inline-flex items-center gap-1 text-xs font-medium text-[#034C68] hover:text-[#033B51]">
                   <FileText className="h-3.5 w-3.5" /> View listing guideline (PDF)
                 </a>
               )}
               {def.guide && showGuide && (
-                <p className="w-full rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800">{def.guide}</p>
+                <p className="w-full rounded-lg bg-[#EAF4F8] px-3 py-2 text-xs text-[#033B51]">{def.guide}</p>
               )}
             </div>
           )}
@@ -250,8 +250,8 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
               {files.some(f => f.label === ff.label) && (
                 <ul className="mt-2 flex flex-wrap gap-1">
                   {files.map((f, i) => f.label === ff.label && (
-                    <li key={i} className="inline-flex w-fit max-w-full items-center gap-2 rounded-md border border-brand-200 bg-white px-2.5 py-1.5 text-xs text-slate-700">
-                      <span className="min-w-0 truncate font-medium text-brand-700">{f.file.name}</span>
+                    <li key={i} className="inline-flex w-fit max-w-full items-center gap-2 rounded-md border border-[#9FCCDE] bg-white px-2.5 py-1.5 text-xs text-slate-700">
+                      <span className="min-w-0 truncate font-medium text-[#034C68]">{f.file.name}</span>
                       <button type="button" onClick={() => setFiles(fs => fs.filter((_, j) => j !== i))} aria-label={`Remove ${f.file.name}`}>
                         <X className="h-3.5 w-3.5 text-slate-400 hover:text-red-600" />
                       </button>
@@ -273,8 +273,8 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
               {files.some(f => !f.label) && (
                 <ul className="mt-2 flex flex-wrap gap-1">
                   {files.map((f, i) => !f.label && (
-                    <li key={i} className="inline-flex w-fit max-w-full items-center gap-2 rounded-md border border-brand-200 bg-white px-2.5 py-1.5 text-xs text-slate-700">
-                      <span className="min-w-0 truncate font-medium text-brand-700">{f.file.name}</span>
+                    <li key={i} className="inline-flex w-fit max-w-full items-center gap-2 rounded-md border border-[#9FCCDE] bg-white px-2.5 py-1.5 text-xs text-slate-700">
+                      <span className="min-w-0 truncate font-medium text-[#034C68]">{f.file.name}</span>
                       <button type="button" onClick={() => setFiles(fs => fs.filter((_, j) => j !== i))} aria-label={`Remove ${f.file.name}`}>
                         <X className="h-3.5 w-3.5 text-slate-400 hover:text-red-600" />
                       </button>
@@ -293,7 +293,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
 
           {!def.hideDescription && (
             <Field label={def.descriptionLabel ?? 'Description'} required={descriptionRequired} hint="Anything else that helps us move faster.">
-              <textarea className="input min-h-[110px]" required={descriptionRequired} value={description} onChange={e => setDescription(e.target.value)} />
+              <textarea className="form-field min-h-[110px]" required={descriptionRequired} value={description} onChange={e => setDescription(e.target.value)} />
             </Field>
           )}
 
@@ -303,7 +303,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
                 {PRIORITIES.map(p => (
                   <button key={p.value} type="button" onClick={() => setPriority(p.value)}
                           className={cn('rounded-lg border px-3 py-2 text-left transition',
-                            priority === p.value ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-slate-200 hover:bg-slate-50')}>
+                            priority === p.value ? 'border-[#0A6F94] bg-[#EAF4F8] ring-1 ring-[#0A6F94]' : 'border-slate-200 hover:bg-slate-50')}>
                     <span className="block text-sm font-semibold text-slate-900">{p.label}</span>
                     <span className="block text-xs text-slate-500">{p.hint}</span>
                   </button>

@@ -72,23 +72,23 @@ export function AgreementEditor({ current, nextVersion }: { current: Agreement |
       {msg && <Alert tone={msg.ok ? 'success' : 'error'}>{msg.text}</Alert>}
       <div className="grid gap-4 sm:grid-cols-[140px_1fr]">
         <Field label="Version">
-          <input className="input disabled:bg-slate-50 disabled:text-slate-500" disabled={!editing} value={form.version}
+          <input className="form-field disabled:bg-slate-50 disabled:text-slate-500" disabled={!editing} value={form.version}
                  onChange={e => setForm({ ...form, version: e.target.value })} />
         </Field>
         <Field label="Title">
-          <input className="input disabled:bg-slate-50 disabled:text-slate-500" disabled={!editing} value={form.title}
+          <input className="form-field disabled:bg-slate-50 disabled:text-slate-500" disabled={!editing} value={form.title}
                  onChange={e => setForm({ ...form, title: e.target.value })} />
         </Field>
       </div>
       <div>
         <div className="mb-1.5 flex items-center justify-between">
-          <label className="label mb-0">Agreement text</label>
+          <label className="form-field-label mb-0">Agreement text</label>
           <button type="button" onClick={() => setPreview(true)} disabled={!form.body.trim()}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 disabled:text-slate-300">
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#045E80] disabled:text-slate-300">
             <Eye className="h-3.5 w-3.5" /> Preview
           </button>
         </div>
-        <textarea className="input min-h-[360px] font-mono text-xs leading-relaxed disabled:bg-slate-50 disabled:text-slate-500"
+        <textarea className="form-field min-h-[360px] font-mono text-xs leading-relaxed disabled:bg-slate-50 disabled:text-slate-500"
                   disabled={!editing} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} />
         {editing && <p className="mt-1 text-xs text-slate-500">Use # for headings, ## for sub-headings, “1.” or “-” for lists, **bold**.</p>}
       </div>

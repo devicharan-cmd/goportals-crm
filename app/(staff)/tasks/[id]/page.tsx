@@ -28,8 +28,8 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
   return { title: await taskPageTitle(params.id) }
 }
 
-export default async function TaskDetailPage(props: { params: Promise<{ id: string }> }) {
-  const params = await props.params
+export default async function TaskDetailPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ scope?: string }> }) {
+  const [params, searchParams] = await Promise.all([props.params, props.searchParams])
   const me = await requireStaff()
   const supabase = await createClient()
   const taskId = await resolveTaskId(params.id)
@@ -54,6 +54,9 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     : { data: null, error: null }
   if (clientImageError) throw clientImageError
   const names = nameMap(lookups.people)
+  const taskAssigner = task.assigned_by
+    ? lookups.people.find(person => person.id === task.assigned_by)
+    : undefined
 
   const assignees = assigneeOptionsFor(me, lookups)
   const editAssignees = [...assignees]
@@ -76,6 +79,13 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const editClientImageUrlByPath = await getClientProfileImageUrls(editClients)
   const canClaim = task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
   const canEditChecklist = me.role !== 'employee' || task.assignee_id === me.id
+  const scopedTasksContext = searchParams.scope === 'mine' || searchParams.scope === 'assigned' || searchParams.scope === 'all'
+  const myTasksContext = searchParams.scope === 'mine'
+  const assignedByMeContext = searchParams.scope === 'assigned' && task.assigned_by === me.id
+  const canManageTask = me.role === 'super_admin'
+    ? searchParams.scope === 'all' || assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext)
+    : assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext)
+  const tasksHref = scopedTasksContext ? `/tasks?scope=${searchParams.scope}` : '/tasks'
 
   const details: [string, React.ReactNode][] = [
     ['Task ID', <span key="id" className="font-mono font-semibold text-[#045E80]">{taskCode(task.task_number)}</span>],
@@ -109,22 +119,24 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <Link href="/tasks" className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
+        <Link href={tasksHref} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
         <div className="flex items-center gap-2">
-          {me.role === 'super_admin' && <DeleteButton table="tasks" id={task.id} redirectTo="/tasks" />}
-          {me.role !== 'employee' && <AssignButton taskId={task.id} currentId={task.assignee_id} options={assignees} />}
-          <TaskEditModal
-            task={task}
-            meId={me.id}
-            canMarkUrgent={me.role !== 'employee'}
-            canEditAssignment={me.role !== 'employee'}
-            clients={editClients}
-            clientImageUrlByPath={editClientImageUrlByPath}
-            assignees={editAssignees}
-            departments={lookups.departments}
-            platforms={lookups.platforms}
-            services={lookups.services}
-          />
+          {canManageTask && me.role === 'super_admin' && <DeleteButton table="tasks" id={task.id} redirectTo={tasksHref} variant="danger" />}
+          {canManageTask && me.role !== 'employee' && <AssignButton taskId={task.id} currentId={task.assignee_id} options={assignees} />}
+          {canManageTask && (
+            <TaskEditModal
+              task={task}
+              meId={me.id}
+              canMarkUrgent={me.role !== 'employee'}
+              canEditAssignment={me.role !== 'employee'}
+              clients={editClients}
+              clientImageUrlByPath={editClientImageUrlByPath}
+              assignees={editAssignees}
+              departments={lookups.departments}
+              platforms={lookups.platforms}
+              services={lookups.services}
+            />
+          )}
         </div>
       </div>
 
@@ -188,6 +200,13 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               task={task}
               assignees={editAssignees}
               assigneeName={task.assignee_id ? names[task.assignee_id] ?? null : null}
+              assignedBy={taskAssigner ? {
+                name: names[taskAssigner.id],
+                avatarUrl: taskAssigner.avatar_url,
+                role: taskAssigner.role,
+              } : null}
+              canChangeStatus={me.role === 'super_admin' || task.assignee_id === me.id}
+              canCompleteReview={me.role !== 'employee'}
             />
           </Card>
           <Card>

@@ -17,7 +17,7 @@ type TaskSearchContextValue = {
   taskAssigners: Record<string, TaskAssignerInfo>
   assignOptions?: AssigneeOption[]
   query: string
-  scope: string
+  scope: 'mine' | 'assigned' | 'all'
   status: string
   board: boolean
   searching: boolean
@@ -46,7 +46,7 @@ export function TaskSearchProvider({
   initialNames: Record<string, string>
   initialTaskAssigners: Record<string, TaskAssignerInfo>
   assignOptions?: AssigneeOption[]
-  scope: 'mine' | 'all'
+  scope: 'mine' | 'assigned' | 'all'
   status: string
   client: string
   assignee: string
@@ -128,7 +128,7 @@ export function TaskSearchResults() {
       {search.error && <Alert>{search.error}</Alert>}
       {search.searching && <span className="sr-only" role="status">Searching tasks</span>}
       {search.board ? (
-        <TaskBoard tasks={search.tasks} names={search.names} assignOptions={search.assignOptions} />
+        <TaskBoard tasks={search.tasks} names={search.names} assignOptions={search.assignOptions} scope={search.scope} />
       ) : (
         <Card className="overflow-hidden">
           <TaskTable
@@ -137,11 +137,16 @@ export function TaskSearchResults() {
             taskAssigners={search.taskAssigners}
             showAssignedBy
             assignOptions={search.assignOptions}
+            scope={search.scope}
             empty={{
-              title: search.query ? 'No tasks match this search' : search.scope === 'mine' ? 'Nothing assigned to you' : search.status === 'active' ? 'No open tasks' : 'No tasks match these filters',
+              title: search.query ? 'No tasks match this search'
+                : search.scope === 'mine' ? 'Nothing assigned to you'
+                  : search.scope === 'assigned' ? 'No tasks assigned by you'
+                    : search.status === 'active' ? 'No open tasks' : 'No tasks match these filters',
               description: search.query ? 'Try another search.' : search.scope === 'mine' ? 'Check the urgent pool or create a task.'
-                : search.status === 'active' ? 'Finished tasks are hidden. Choose “Status: all” to see them.'
-                : 'Try clearing the filters.',
+                : search.scope === 'assigned' ? 'Tasks you assigned to people in your allowed scope will appear here.'
+                  : search.status === 'active' ? 'Finished tasks are hidden. Choose “Status: all” to see them.'
+                    : 'Try clearing the filters.',
               action: search.scope === 'mine' && !search.query ? <ButtonLink href="/urgent" variant="secondary">Open urgent pool</ButtonLink> : undefined,
             }}
           />

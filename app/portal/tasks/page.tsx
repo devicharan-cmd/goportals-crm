@@ -42,6 +42,12 @@ export default async function PortalTasksPage() {
   ]))
 
   return (
-    <PortalTaskList tasks={tasks} names={names} meId={me.id} people={people} taskAssigners={taskAssigners} />
+    <PortalTaskList
+      tasks={tasks}
+      names={names}
+      meId={me.id}
+      people={people}
+      taskAssigners={taskAssigners}
+    />
   )
 }

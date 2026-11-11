@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeFilterPeopleFor, assigneeOptionsFor, getClientProfileImageUrls, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
+import { assigneeFilterPeopleFor, assigneeOptionsFor, getClientProfileImageUrls, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
 import { TaskSearchProvider, TaskSearchResults } from '@/components/tasks/TaskSearch'
@@ -18,9 +18,17 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
 
   // RLS limits each role to the tasks they are allowed to see.
   const canSeeMore = me.role !== 'employee'
-  const defaultScope = 'all'
-  const scope = searchParams.scope ?? defaultScope
+  const defaultScope = 'mine'
+  const scope = searchParams.scope === 'assigned' || searchParams.scope === 'all' || searchParams.scope === 'mine'
+    ? searchParams.scope
+    : defaultScope
   const board = searchParams.view !== 'list'
+
+  const lookups = await getTaskPageLookups({
+    includePeople: true,
+    includeAssignments: true,
+  })
+  const assignedScopeAssigneeIds = taskAssigneeIdsForAssignedScope(me, lookups)
 
   let query = supabase.from('tasks').select(TASK_SUMMARY_SELECT)
     .order('is_urgent', { ascending: false })
@@ -30,8 +38,13 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
 
   if (scope === 'mine') {
     query = query.eq('assignee_id', me.id)
+  } else if (scope === 'assigned') {
+    query = query.eq('assigned_by', me.id)
+    query = assignedScopeAssigneeIds.length
+      ? query.in('assignee_id', assignedScopeAssigneeIds)
+      : query.eq('id', '00000000-0000-0000-0000-000000000000')
   } else if (searchParams.assignee) query = query.eq('assignee_id', searchParams.assignee)
-  if (searchParams.assigned_by) query = query.eq('assigned_by', searchParams.assigned_by)
+  if (scope === 'all' && searchParams.assigned_by) query = query.eq('assigned_by', searchParams.assigned_by)
 
   const status = searchParams.status ?? 'all'
   if (!board) {
@@ -42,19 +55,22 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
   if (searchParams.dept) query = query.eq('department_id', searchParams.dept)
   if (searchParams.due) query = query.eq('due_date', searchParams.due)
 
-  const [taskResult, lookups, myTaskCountResult, allTaskCountResult, assignerResult] = await Promise.all([
+  let assignedCountQuery = supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assigned_by', me.id)
+  assignedCountQuery = assignedScopeAssigneeIds.length
+    ? assignedCountQuery.in('assignee_id', assignedScopeAssigneeIds)
+    : assignedCountQuery.eq('id', '00000000-0000-0000-0000-000000000000')
+
+  const [taskResult, myTaskCountResult, allTaskCountResult, assignedTaskCountResult, assignerResult] = await Promise.all([
     query,
-    getTaskPageLookups({
-      includePeople: true,
-      includeAssignments: true,
-    }),
     supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assignee_id', me.id),
     supabase.from('tasks').select('id', { count: 'exact', head: true }),
+    assignedCountQuery,
     supabase.rpc('staff_directory'),
   ])
   if (taskResult.error) throw taskResult.error
   if (myTaskCountResult.error) throw myTaskCountResult.error
   if (allTaskCountResult.error) throw allTaskCountResult.error
+  if (assignedTaskCountResult.error) throw assignedTaskCountResult.error
   if (assignerResult.error) throw assignerResult.error
   const tasks = normalizeTaskSummaryRows((taskResult.data ?? []) as Parameters<typeof normalizeTaskSummaryRows>[0])
   const directoryPeople = (assignerResult.data ?? []) as StaffDirectoryEntry[]
@@ -88,7 +104,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       initialNames={names}
       initialTaskAssigners={taskAssigners}
       assignOptions={assignOptions}
-      scope={scope === 'mine' ? 'mine' : 'all'}
+      scope={scope}
       status={status}
       client={searchParams.client ?? ''}
       assignee={searchParams.assignee ?? ''}
@@ -102,7 +118,11 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
           showScope
           showAssigneeFilter={canSeeMore}
           defaultScope={defaultScope}
-          scopeCounts={{ mine: myTaskCountResult.count ?? 0, all: allTaskCountResult.count ?? 0 }}
+          scopeCounts={{
+            mine: myTaskCountResult.count ?? 0,
+            assigned: assignedTaskCountResult.count ?? 0,
+            all: allTaskCountResult.count ?? 0,
+          }}
           assigners={assigners}
           clients={lookups.clients.map(client => ({
             value: client.id,

@@ -21,7 +21,7 @@ export function PortalTaskList({
   people: StaffOption[]
   taskAssigners: Record<string, TaskAssignerInfo>
 }) {
-  const [scope, setScope] = useState<'mine' | 'all'>('mine')
+  const [scope, setScope] = useState<'mine' | 'assigned' | 'all'>('mine')
   const [view, setView] = useState<'board' | 'list'>('board')
   const [status, setStatus] = useState('all')
   const [assignee, setAssignee] = useState('')
@@ -32,11 +32,12 @@ export function PortalTaskList({
   const [search, setSearch] = useState('')
 
   const myTasks = useMemo(() => tasks.filter(task => task.assignee_id === meId), [meId, tasks])
+  const assignedByMeTasks = useMemo(() => tasks.filter(task => task.assigned_by === meId), [meId, tasks])
   const departments = useMemo<FilterOption[]>(() => Array.from(new Set(
     tasks.flatMap(task => task.department?.name ? [task.department.name] : []),
   )).sort((a, b) => a.localeCompare(b)).map(name => ({ value: name, label: name })), [tasks])
   const visibleTasks = useMemo(() => {
-    const availableTasks = scope === 'mine' ? myTasks : tasks
+    const availableTasks = scope === 'mine' ? myTasks : scope === 'assigned' ? assignedByMeTasks : tasks
     const taskNumber = parseTaskCode(search)
     const query = search.trim().toLowerCase()
 
@@ -51,7 +52,7 @@ export function PortalTaskList({
       if (query && taskNumber === null && !task.title.toLowerCase().includes(query)) return false
       return true
     })
-  }, [assignee, assignedBy, department, due, myTasks, search, scope, status, tasks, view])
+  }, [assignee, assignedBy, assignedByMeTasks, department, due, myTasks, search, scope, status, tasks, view])
 
   const filtered = Boolean(searchInput.trim() || status !== 'all' || assignee || assignedBy || department || due)
   function clearFilters() {
@@ -72,7 +73,8 @@ export function PortalTaskList({
           setScope(value)
           if (value === 'mine') setAssignee('')
         }}
-        scopeCounts={{ mine: myTasks.length, all: tasks.length }}
+        scopeCounts={{ mine: myTasks.length, assigned: assignedByMeTasks.length, all: tasks.length }}
+        showAssignedScope
         view={view}
         onViewChange={setView}
         status={status}
@@ -113,6 +115,8 @@ export function PortalTaskList({
           names={names}
           assignOptions={people}
           hrefBase="/portal/tasks"
+          scope={scope}
+          readOnly={scope !== 'mine'}
           editableAssigneeId={scope === 'mine' ? meId : undefined}
           editableStatuses={['todo', 'in_progress', 'in_system_process', 'ready_for_review']}
         />
@@ -125,14 +129,19 @@ export function PortalTaskList({
             showClient={false}
             showAssignee
             showAssignedBy
+            scope={scope}
             taskAssigners={taskAssigners}
             empty={{
-              title: scope === 'mine' ? 'No tasks assigned to you yet' : 'No tasks linked to your tickets yet',
+              title: scope === 'mine' ? 'No tasks assigned to you yet'
+                : scope === 'assigned' ? 'No tasks assigned by you'
+                  : 'No tasks linked to your tickets yet',
               description: search || filtered
                 ? 'Try changing or clearing the filters.'
                 : scope === 'mine'
                   ? 'Tasks assigned to your client account will appear here.'
-                  : 'Tasks created for your tickets will appear here.',
+                  : scope === 'assigned'
+                    ? 'Tasks you assigned will appear here.'
+                    : 'Tasks created for your tickets will appear here.',
             }}
           />
         </Card>

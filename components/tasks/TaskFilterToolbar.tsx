@@ -1,6 +1,6 @@
 'use client'
 
-import { KanbanSquare, List, UserRound, UsersRound, X } from 'lucide-react'
+import { KanbanSquare, List, Send, UserRound, UsersRound, X } from 'lucide-react'
 import { AssigneeOptionContent } from '@/components/tasks/AssigneeOptionContent'
 import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
@@ -12,17 +12,18 @@ import type { AppRole } from '@/types/database'
 type Option = { value: string; label: string; avatarUrl?: string | null; role?: AppRole }
 
 export function TaskFilterToolbar({
-  scope, onScopeChange, scopeCounts, showScope = true, view, onViewChange, status, onStatusChange,
+  scope, onScopeChange, scopeCounts, showScope = true, showAssignedScope = false, view, onViewChange, status, onStatusChange,
   clients = [], client = '', onClientChange, showClientFilter = false,
   people = [], assignee = '', onAssigneeChange, showAssigneeFilter = false,
   assigners = [], assignedBy = '', onAssignedByChange, showAssignedByFilter = false,
   departments, department, onDepartmentChange, due, onDueChange,
   searchInput, onSearchInput, onSearch, filtered, onClearFilters, action,
 }: {
-  scope: 'mine' | 'all'
-  onScopeChange: (scope: 'mine' | 'all') => void
-  scopeCounts: { mine: number; all: number }
+  scope: 'mine' | 'assigned' | 'all'
+  onScopeChange: (scope: 'mine' | 'assigned' | 'all') => void
+  scopeCounts: { mine: number; assigned: number; all: number }
   showScope?: boolean
+  showAssignedScope?: boolean
   view: 'board' | 'list'
   onViewChange: (view: 'board' | 'list') => void
   status: string
@@ -52,7 +53,7 @@ export function TaskFilterToolbar({
   action?: React.ReactNode
 }) {
   const toggle = 'inline-flex h-9 items-center rounded-lg bg-slate-100 p-1'
-  const scopeToggle = 'inline-grid h-9 grid-cols-2 gap-px rounded-xl border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)]'
+  const scopeToggle = 'inline-flex h-9 gap-px rounded-xl border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)]'
   const select = 'task-filter-select h-9 w-full rounded-lg px-2.5 pr-2 py-1'
   const staffOptions = (label: string, staff: Option[]) => [
     { value: '', text: label, label, selectedLabel: label },
@@ -91,26 +92,27 @@ export function TaskFilterToolbar({
         {showScope && <div className={scopeToggle}>
           {([
             { value: 'mine', label: 'My tasks', icon: UserRound },
+            { value: 'assigned', label: 'Assigned by me', icon: Send },
             { value: 'all', label: 'All tasks', icon: UsersRound },
-          ] as const).map(option => (
+          ] as const).filter(option => showAssignedScope || option.value !== 'assigned').map(option => (
             <button
               key={option.value}
               type="button"
               onClick={() => onScopeChange(option.value)}
               className={cn(
-                'relative flex h-full min-w-0 items-center gap-2 rounded-lg px-3 pr-7 text-xs transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none',
+                'relative flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 pr-6 text-xs transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none',
                 scope === option.value
                   ? 'bg-[#034C68] font-semibold text-white shadow-[0_2px_5px_rgba(2,43,59,0.2)]'
                   : 'bg-white font-medium text-slate-800',
               )}
             >
               <option.icon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', scope === option.value ? 'text-white' : 'text-slate-800')} />
-              <span className="min-w-0 truncate">{option.label}</span>
+              <span>{option.label}</span>
               <span className={cn(
                 'absolute right-1 top-1/2 inline-flex h-4 min-w-4 -translate-y-1/2 items-center justify-center rounded-full px-0.5 text-[9px] font-bold leading-none shadow-sm',
-                scopeCounts[option.value] > 0 ? 'bg-[#95C12C] text-white' : 'bg-slate-200 text-[#0F172A]',
+                (scopeCounts[option.value] ?? 0) > 0 ? 'bg-[#95C12C] text-white' : 'bg-slate-200 text-[#0F172A]',
               )}>
-                {scopeCounts[option.value] > 99 ? '99+' : scopeCounts[option.value]}
+                {(scopeCounts[option.value] ?? 0) > 99 ? '99+' : scopeCounts[option.value] ?? 0}
               </span>
             </button>
           ))}
@@ -192,7 +194,7 @@ export function TaskFilterToolbar({
               />
             </div>
           )}
-          {showAssignedByFilter && onAssignedByChange && (
+          {showAssignedByFilter && scope === 'all' && onAssignedByChange && (
             <div className="w-full sm:w-40">
               <SearchableSelect
                 className={`${select} sm:w-40`}

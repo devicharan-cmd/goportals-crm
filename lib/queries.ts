@@ -200,6 +200,29 @@ export function profileIdsInReportingHierarchy(profileId: string, lookups: Staff
   )
 }
 
+/** Staff a user may assign to, grouped for the Tasks "Assigned by me" scope. */
+export function taskAssigneeIdsForAssignedScope(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): string[] {
+  if (me.role === 'super_admin') {
+    return lookups.staff.map(person => person.id)
+  }
+
+  const hierarchyIds = profileIdsInReportingHierarchy(me.id, lookups)
+  const superAdminIds = lookups.staff
+    .filter(person => person.role === 'super_admin')
+    .map(person => person.id)
+
+  if (me.role === 'team_lead') {
+    const employeeIds = profileIdsReportingTo(me.id, lookups)
+    return lookups.staff
+      .filter(person => (person.role === 'employee' && employeeIds.has(person.id)) || superAdminIds.includes(person.id))
+      .map(person => person.id)
+  }
+
+  return lookups.staff
+    .filter(person => hierarchyIds.has(person.id) || superAdminIds.includes(person.id))
+    .map(person => person.id)
+}
+
 /** People a user may assign to — mirrors can_assign() in the DB. */
 export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
   const allowedIds = profileIdsInReportingHierarchy(me.id, lookups)

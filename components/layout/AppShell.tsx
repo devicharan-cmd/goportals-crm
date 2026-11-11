@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Bell, Briefcase, Building2, CheckSquare, ChevronDown, ChevronLeft, ChevronRight,
+  Bell, Briefcase, Building2, ChevronDown, ChevronLeft, ChevronRight,
   ClipboardList, FileSignature, Flame, LayoutDashboard, Layers, Loader2, LogOut,
   Menu, PieChart, Settings, Settings2, ShieldCheck, User, UserCircle, UserPlus, Users, X,
 } from 'lucide-react'
+import { BsListTask } from 'react-icons/bs'
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
 import { Avatar } from '@/components/ui/primitives'
@@ -22,7 +23,7 @@ const STAFF_NAV: NavGroup[] = [
     items: [
       { href: '/dashboard',     label: 'Dashboard',   icon: LayoutDashboard },
       { href: '/tickets',       label: 'Tickets',     icon: ClipboardList, roles: ['super_admin', 'manager', 'team_lead'] },
-      { href: '/tasks',         label: 'Tasks',       icon: CheckSquare },
+      { href: '/tasks',         label: 'Tasks',       icon: BsListTask },
       { href: '/urgent',        label: 'Urgent pool', icon: Flame, badge: 'urgent' },
       { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'manager'] },
       { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'manager', 'team_lead'] },
@@ -45,7 +46,7 @@ const CLIENT_NAV: NavGroup[] = [
   {
     items: [
       { href: '/portal',             label: 'Overview',    icon: LayoutDashboard },
-      { href: '/portal/tasks',       label: 'Tasks',       icon: CheckSquare },
+      { href: '/portal/tasks',       label: 'Tasks',       icon: BsListTask },
       { href: '/portal/tickets',     label: 'My tickets', icon: ClipboardList },
       { href: '/portal/tickets/new', label: 'New ticket', icon: Briefcase },
       { href: '/portal/services',    label: 'My services', icon: Layers },

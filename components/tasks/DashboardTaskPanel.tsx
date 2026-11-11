@@ -26,7 +26,7 @@ export function DashboardTaskPanel({
     <Card className="overflow-hidden">
       <CardHeader
         title="All tasks"
-        description={group === 'working' ? 'Todo, in progress, ready for review & changes requested' : 'Most recently completed'}
+        description={group === 'working' ? 'Todo, manual/system progress, reviews & changes requested' : 'Most recently completed'}
         action={
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-xs font-semibold">

@@ -50,6 +50,7 @@ export function SearchableSelect({
   dropdownMaxHeight = 320,
   dropdownHeading,
   compactOptions = false,
+  denseOptions = false,
   'aria-label': ariaLabel,
   'aria-invalid': ariaInvalid,
   'aria-describedby': ariaDescribedBy,
@@ -72,6 +73,7 @@ export function SearchableSelect({
   dropdownMaxHeight?: number
   dropdownHeading?: string
   compactOptions?: boolean
+  denseOptions?: boolean
   'aria-label'?: string
   'aria-invalid'?: boolean
   'aria-describedby'?: string
@@ -257,7 +259,7 @@ export function SearchableSelect({
                   disabled={option.disabled}
                   onClick={() => choose(option.value)}
                   className={cn(
-                    cn('flex w-full items-center justify-between gap-2 rounded-lg px-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50', compactOptions ? 'py-1' : 'py-2'),
+                    cn('flex w-full items-center justify-between gap-2 rounded-lg px-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50', compactOptions || denseOptions ? 'py-1' : 'py-2'),
                     active ? 'bg-[#EAF4F8] font-medium text-[#034C68]' : 'text-slate-700 hover:bg-slate-50',
                   )}
                 >

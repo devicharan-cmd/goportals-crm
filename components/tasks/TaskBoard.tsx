@@ -16,9 +16,9 @@ import { PRIORITY_STYLES, TASK_STATUS_DOT, TASK_STATUS_OPTIONS, TASK_TERMINAL_ST
 import { cn, errorMessage, taskCode } from '@/lib/utils'
 import type { TaskSummary, TaskStatus } from '@/types/database'
 
-type CardProps = { task: TaskSummary; names: Record<string, string>; assignOptions?: AssigneeOption[] }
+type CardProps = { task: TaskSummary; names: Record<string, string>; assignOptions?: AssigneeOption[]; hrefBase: string }
 
-function Card({ task, names, overlay, linked, assignOptions }: CardProps & { overlay?: boolean; linked?: boolean }) {
+function Card({ task, names, overlay, linked, assignOptions, hrefBase }: CardProps & { overlay?: boolean; linked?: boolean }) {
   const body = (
     <>
       <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -40,7 +40,7 @@ function Card({ task, names, overlay, linked, assignOptions }: CardProps & { ove
       overlay ? 'rotate-1 border-[#2A87AA] [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]' : 'border-slate-200 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-[0_6px_14px_rgba(15,23,42,0.12)]',
       task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && 'border-l-4 border-l-red-500')}>
       {linked
-        ? <Link href={`/tasks/${task.id}`} draggable={false} className="block p-3 pb-2 hover:bg-slate-50/60">{body}</Link>
+        ? <Link href={`${hrefBase}/${task.id}`} draggable={false} className="block p-3 pb-2 hover:bg-slate-50/60">{body}</Link>
         : <div className="p-3 pb-2">{body}</div>}
       <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
         {task.assignee_id
@@ -51,17 +51,26 @@ function Card({ task, names, overlay, linked, assignOptions }: CardProps & { ove
   )
 }
 
-function DraggableCard({ task, names, assignOptions }: CardProps) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id })
+function DraggableCard({ task, names, assignOptions, hrefBase, disabled }: CardProps & { disabled: boolean }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, disabled })
   return (
-    <div ref={setNodeRef} {...attributes} {...listeners} className={cn('touch-none', isDragging && 'opacity-30')}>
-      <Card task={task} names={names} assignOptions={assignOptions} linked />
+    <div ref={setNodeRef} {...attributes} {...listeners} className={cn(!disabled && 'touch-none', isDragging && 'opacity-30')}>
+      <Card task={task} names={names} assignOptions={assignOptions} hrefBase={hrefBase} linked />
     </div>
   )
 }
 
-function Column({ status, label, tasks, names, assignOptions }: { status: TaskStatus; label: string; tasks: TaskSummary[]; names: Record<string, string>; assignOptions?: AssigneeOption[] }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status })
+function Column({ status, label, tasks, names, assignOptions, hrefBase, canDrop, canEditTask }: {
+  status: TaskStatus
+  label: string
+  tasks: TaskSummary[]
+  names: Record<string, string>
+  assignOptions?: AssigneeOption[]
+  hrefBase: string
+  canDrop: boolean
+  canEditTask: (task: TaskSummary) => boolean
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: status, disabled: !canDrop })
   return (
     <div className="flex min-w-0 flex-col">
       <div className="mb-2 flex items-center gap-2 px-1">
@@ -72,7 +81,7 @@ function Column({ status, label, tasks, names, assignOptions }: { status: TaskSt
       <div ref={setNodeRef}
            className={cn('box-border w-full flex-1 flex flex-col gap-2 rounded-xl p-2 transition-colors',
              isOver ? 'border-[#0A6F94] bg-[#CFE6EF]' : 'bg-slate-100/70')}>
-        {tasks.map(t => <DraggableCard key={t.id} task={t} names={names} assignOptions={assignOptions} />)}
+        {tasks.map(t => <DraggableCard key={t.id} task={t} names={names} assignOptions={assignOptions} hrefBase={hrefBase} disabled={!canEditTask(t)} />)}
       </div>
     </div>
   )
@@ -80,12 +89,25 @@ function Column({ status, label, tasks, names, assignOptions }: { status: TaskSt
 
 /** Kanban: drag between columns to change status (DB triggers log activity + notify). */
 export function TaskBoard({
-  tasks: initial, names, assignOptions,
-}: { tasks: TaskSummary[]; names: Record<string, string>; assignOptions?: AssigneeOption[] }) {
+  tasks: initial, names, assignOptions, hrefBase = '/tasks', editableAssigneeId, editableStatuses, readOnly = false,
+}: {
+  tasks: TaskSummary[]
+  names: Record<string, string>
+  assignOptions?: AssigneeOption[]
+  hrefBase?: string
+  editableAssigneeId?: string
+  editableStatuses?: TaskStatus[]
+  readOnly?: boolean
+}) {
   const router = useRouter()
   const [tasks, setTasks] = useState(initial)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const allowedStatuses = editableStatuses ?? TASK_STATUS_OPTIONS.map(status => status.value)
+  const canEditTask = (task: TaskSummary) =>
+    !readOnly
+    && (!editableAssigneeId || task.assignee_id === editableAssigneeId)
+    && (!editableAssigneeId || !['client_review', 'completed', 'cancelled'].includes(task.status))
   useEffect(() => setTasks(initial), [initial])
 
   const sensors = useSensors(
@@ -98,7 +120,7 @@ export function TaskBoard({
     const id = String(e.active.id)
     const to = e.over?.id as TaskStatus | undefined
     const task = tasks.find(t => t.id === id)
-    if (!task || !to || task.status === to) return
+    if (!task || !to || !canEditTask(task) || !allowedStatuses.includes(to) || task.status === to) return
 
     const prev = tasks
     setTasks(ts => ts.map(t => (t.id === id ? { ...t, status: to } : t)))
@@ -120,10 +142,20 @@ export function TaskBoard({
       <DndContext id="task-board" sensors={sensors} onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))} onDragEnd={onDragEnd} onDragCancel={() => setActiveId(null)}>
         <div className={cn('-mx-4 grid auto-cols-[minmax(180px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0', tasks.length === 0 && 'min-h-[200px]')}>
           {TASK_STATUS_OPTIONS.map(s => (
-            <Column key={s.value} status={s.value} label={s.label} names={names} assignOptions={assignOptions} tasks={tasks.filter(t => t.status === s.value)} />
+            <Column
+              key={s.value}
+              status={s.value}
+              label={s.label}
+              names={names}
+              assignOptions={assignOptions}
+              hrefBase={hrefBase}
+              canDrop={!readOnly && allowedStatuses.includes(s.value)}
+              canEditTask={canEditTask}
+              tasks={tasks.filter(t => t.status === s.value)}
+            />
           ))}
         </div>
-        <DragOverlay>{active && <Card task={active} names={names} overlay />}</DragOverlay>
+        <DragOverlay>{active && <Card task={active} names={names} hrefBase={hrefBase} overlay />}</DragOverlay>
       </DndContext>
     </div>
   )

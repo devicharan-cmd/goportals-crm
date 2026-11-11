@@ -179,6 +179,7 @@ export function TaskFilters({
                 className={staffSelect}
                 aria-label="Assignee"
                 searchable
+                denseOptions
                 searchPlaceholder="Search assignees..."
                 dropdownMinWidth={220}
                 dropdownMaxHeight={240}
@@ -194,6 +195,7 @@ export function TaskFilters({
               className={staffSelect}
               aria-label="Assigned by"
               searchable
+              denseOptions
               searchPlaceholder="Search assigners..."
               dropdownMinWidth={220}
               dropdownMaxHeight={240}

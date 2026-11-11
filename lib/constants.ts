@@ -22,8 +22,10 @@ export const ROLE_STYLES: Record<AppRole, { avatar: string; badge: string; text:
 
 export const TASK_STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'todo',               label: 'Todo' },
-  { value: 'in_progress',        label: 'In progress' },
-  { value: 'ready_for_review',   label: 'Ready for review' },
+  { value: 'in_progress',        label: 'In manual progress' },
+  { value: 'in_system_process',  label: 'In system process' },
+  { value: 'ready_for_review',   label: 'In review' },
+  { value: 'client_review',      label: 'Client review' },
   { value: 'changes_requested',  label: 'Changes requested' },
   { value: 'completed',          label: 'Completed' },
   { value: 'cancelled',          label: 'Cancelled' },
@@ -33,7 +35,9 @@ export const TASK_STATUS_LABELS = Object.fromEntries(TASK_STATUS_OPTIONS.map(s =
 export const TASK_STATUS_STYLES: Record<TaskStatus, string> = {
   todo:              'bg-slate-100 text-slate-700 ring-slate-200',
   in_progress:       'bg-[#EAF4F8] text-[#034C68] ring-[#9FCCDE]',
+  in_system_process: 'bg-sky-50 text-sky-700 ring-sky-200',
   ready_for_review:  'bg-violet-50 text-violet-700 ring-violet-200',
+  client_review:     'bg-amber-50 text-amber-800 ring-amber-200',
   changes_requested: 'bg-orange-50 text-orange-700 ring-orange-200',
   completed:         'bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]',
   cancelled:         'bg-slate-200 text-slate-500 ring-slate-300',
@@ -42,7 +46,9 @@ export const TASK_STATUS_STYLES: Record<TaskStatus, string> = {
 export const TASK_STATUS_DOT: Record<TaskStatus, string> = {
   todo:              'bg-slate-400',
   in_progress:       'bg-[#0A6F94]',
+  in_system_process: 'bg-sky-500',
   ready_for_review:  'bg-violet-500',
+  client_review:     'bg-amber-500',
   changes_requested: 'bg-orange-500',
   completed:         'bg-[#95C12C]',
   cancelled:         'bg-slate-400',

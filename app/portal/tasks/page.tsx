@@ -1,36 +1,25 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
-import { PageHeader, Card } from '@/components/ui/primitives'
-import { TaskTable } from '@/components/tasks/TaskTable'
-import { TASK_LIST_SELECT } from '@/lib/queries'
-import type { TaskListItem } from '@/types/database'
+import { PageHeader } from '@/components/ui/primitives'
+import { PortalTaskList } from '@/components/portal/PortalTaskList'
+import { getPortalNames } from '@/lib/portal'
+import type { TaskSummary } from '@/types/database'
 
 export const metadata = { title: 'My tasks' }
 
 export default async function PortalTasksPage() {
   const me = await requireClient()
-  const { data, error } = await (await createClient()).from('tasks')
-    .select(TASK_LIST_SELECT)
-    .eq('assignee_id', me.id)
-    .order('created_at', { ascending: false })
+  const [result, names] = await Promise.all([
+    (await createClient()).rpc('client_ticket_tasks', { p_task_id: null, p_task_number: null }),
+    getPortalNames(me),
+  ])
+  const { data, error } = result
   if (error) throw new Error(error.message)
 
   return (
     <>
-      <PageHeader title="My tasks" description="Work and information requests from the GoPortals team." />
-      <Card className="overflow-hidden">
-        <TaskTable
-          tasks={(data ?? []) as TaskListItem[]}
-          names={{ [me.id]: me.full_name || me.email }}
-          hrefBase="/portal/tasks"
-          showClient={false}
-          showAssignee={false}
-          empty={{
-            title: 'No tasks yet',
-            description: 'Tasks or information requests from the GoPortals team will appear here.',
-          }}
-        />
-      </Card>
+      <PageHeader title="My tasks" description="Work assigned to you and the progress of tasks linked to your tickets." />
+      <PortalTaskList tasks={(data ?? []) as TaskSummary[]} names={names} meId={me.id} />
     </>
   )
 }

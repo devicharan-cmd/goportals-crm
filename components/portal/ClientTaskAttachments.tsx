@@ -11,13 +11,13 @@ import type { TaskAttachment, TaskStatus } from '@/types/database'
 type AttachmentLink = TaskAttachment & { signedUrl: string }
 
 export function ClientTaskAttachments({
-  taskId, meId, attachments, status,
-}: { taskId: string; meId: string; attachments: AttachmentLink[]; status: TaskStatus }) {
+  taskId, meId, attachments, status, canUpload = true,
+}: { taskId: string; meId: string; attachments: AttachmentLink[]; status: TaskStatus; canUpload?: boolean }) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
-  const canUpload = status !== 'completed' && status !== 'cancelled'
+  const mayUpload = canUpload && status !== 'completed' && status !== 'cancelled'
 
   async function upload(file: File) {
     setUploading(true)
@@ -75,7 +75,7 @@ export function ClientTaskAttachments({
           ))}
         </ul>
       )}
-      {canUpload && (
+      {mayUpload && (
         <>
           <input ref={inputRef} type="file" className="hidden" aria-label="Choose a file to attach"
                  disabled={uploading} onChange={event => {

@@ -52,7 +52,7 @@ export function TimeLogPanel({
           {logs.map(l => (
             <li key={l.id} className="flex items-start justify-between gap-2 text-xs">
               <span className="text-slate-600">
-                <span className="font-medium text-slate-800">{names[l.profile_id] ?? '—'}</span> · {formatDate(l.logged_date)}
+                <span className="font-medium text-slate-800">{l.profile_id ? names[l.profile_id] ?? 'Former staff member' : 'Former staff member'}</span> · {formatDate(l.logged_date)}
                 {l.notes && <span className="block text-slate-400">{l.notes}</span>}
               </span>
               <span className="font-semibold text-slate-800">{Number(l.hours)}h</span>

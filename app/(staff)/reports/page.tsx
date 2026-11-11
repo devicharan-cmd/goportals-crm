@@ -63,7 +63,8 @@ export default async function ReportsPage(props: { searchParams: Promise<{ month
     if (completedAfterDue(t)) r.late++
     byPerson.set(t.assignee_id, r)
   })
-  ;(logs ?? []).forEach((l: { profile_id: string; hours: number }) => {
+  ;(logs ?? []).forEach((l: { profile_id: string | null; hours: number }) => {
+      if (!l.profile_id) return
       const r = byPerson.get(l.profile_id) ?? { done: 0, late: 0, hours: 0 }
       r.hours += Number(l.hours)
       byPerson.set(l.profile_id, r)

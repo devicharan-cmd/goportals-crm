@@ -70,6 +70,9 @@ export async function getStaffLookups(): Promise<StaffLookups> {
     supabase.from('services').select('*').order('sort_order'),
     supabase.from('department_members').select('department_id, profile_id, is_lead'),
   ])
+  for (const result of [people, clients, departments, platforms, services, members]) {
+    if (result.error) throw result.error
+  }
   const all = sortPeopleByRoleAndJoiningDate((people.data ?? []) as Person[])
   return {
     people: all,
@@ -91,13 +94,16 @@ export async function getTaskPageLookups({ includePeople, includeAssignments }: 
   const [people, clients, departments, members] = await Promise.all([
     includePeople
       ? supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to')
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     supabase.from('clients').select('id, company_name, company_profile_image_path').order('company_name'),
     supabase.from('departments').select('*').order('sort_order'),
     includeAssignments
       ? supabase.from('department_members').select('department_id, profile_id, is_lead')
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
   ])
+  for (const result of [people, clients, departments, members]) {
+    if (result.error) throw result.error
+  }
   const all = sortPeopleByRoleAndJoiningDate((people.data ?? []) as Person[])
   return {
     people: all,
@@ -179,25 +185,33 @@ export function profileIdsReportingTo(profileId: string, lookups: StaffLookups):
 
 /** Active staff in the same reporting tree, including peers, managers, and reports. */
 export function profileIdsInReportingHierarchy(profileId: string, lookups: StaffLookups): Set<string> {
+  const childrenByParent = new Map<string, string[]>()
   const peopleById = new Map(lookups.people.map(person => [person.id, person]))
-  function rootFor(id: string): string {
-    const visited = new Set<string>()
-    let currentId = id
-    while (!visited.has(currentId)) {
-      visited.add(currentId)
-      const parentId = peopleById.get(currentId)?.reporting_to
-      if (!parentId || !peopleById.has(parentId)) break
-      currentId = parentId
-    }
-    return currentId
+  for (const person of lookups.people) {
+    if (!person.reporting_to) continue
+    const children = childrenByParent.get(person.reporting_to) ?? []
+    children.push(person.id)
+    childrenByParent.set(person.reporting_to, children)
   }
 
-  const rootId = rootFor(profileId)
-  return new Set(
-    lookups.staff
-      .filter(person => rootFor(person.id) === rootId)
-      .map(person => person.id),
-  )
+  const hierarchyIds = new Set<string>([profileId])
+  const pending = [profileId]
+  while (pending.length) {
+    const currentId = pending.pop()!
+    const parentId = peopleById.get(currentId)?.reporting_to
+    const relatedIds = [
+      ...(parentId ? [parentId] : []),
+      ...(childrenByParent.get(currentId) ?? []),
+    ]
+
+    for (const relatedId of relatedIds) {
+      if (hierarchyIds.has(relatedId)) continue
+      hierarchyIds.add(relatedId)
+      pending.push(relatedId)
+    }
+  }
+
+  return new Set(lookups.staff.filter(person => hierarchyIds.has(person.id)).map(person => person.id))
 }
 
 /** Staff a user may assign to, grouped for the Tasks "Assigned by me" scope. */
@@ -225,6 +239,13 @@ export function taskAssigneeIdsForAssignedScope(me: Pick<Profile, 'id' | 'role'>
 
 /** People a user may assign to — mirrors can_assign() in the DB. */
 export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
+  if (me.role === 'manager') {
+    const reportIds = profileIdsReportingTo(me.id, lookups)
+    return lookups.staff.filter(person =>
+      person.id === me.id || reportIds.has(person.id) || person.role === 'super_admin',
+    )
+  }
+
   const allowedIds = profileIdsInReportingHierarchy(me.id, lookups)
   return lookups.staff.filter(person => allowedIds.has(person.id))
 }

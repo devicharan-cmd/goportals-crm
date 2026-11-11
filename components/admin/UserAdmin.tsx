@@ -26,8 +26,8 @@ export type StaffRow = {
 export type ReportingPerson = { id: string; full_name: string; email: string; avatar_url: string | null; role: StaffRole; status: AccountStatus }
 type ReportingDropdownPosition = { left: number; top: number; width: number; maxHeight: number; openBelow: boolean }
 
-export function StaffDirectory({ rows, departments, canEdit, inviteButton }: {
-  rows: StaffRow[]; departments: Department[]; canEdit: boolean; inviteButton: ReactNode
+export function StaffDirectory({ rows, departments, canEdit, actorId, inviteButton }: {
+  rows: StaffRow[]; departments: Department[]; canEdit: boolean; actorId: string; inviteButton: ReactNode
 }) {
   const [query, setQuery] = useState('')
   const [role, setRole] = useState('')
@@ -94,7 +94,7 @@ export function StaffDirectory({ rows, departments, canEdit, inviteButton }: {
       {filteredRows.length ? (
         <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
           {filteredRows.map(row => (
-            <StaffProfileCard key={row.id} row={row} departments={departments} canEdit={canEdit} />
+            <StaffProfileCard key={row.id} row={row} departments={departments} canEdit={canEdit} actorId={actorId} />
           ))}
         </div>
       ) : (
@@ -429,10 +429,36 @@ function inviteInputClass(invalid: boolean) {
   )
 }
 
-export function StaffProfileCard({ row, departments, canEdit }: {
-  row: StaffRow; departments: Department[]; canEdit: boolean
+export function StaffProfileCard({ row, departments, canEdit, actorId }: {
+  row: StaffRow; departments: Department[]; canEdit: boolean; actorId: string
 }) {
   const departmentsById = new Map(departments.map(department => [department.id, department.name]))
+  const router = useRouter()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const canDelete = canEdit && row.id !== actorId && row.role !== 'super_admin'
+
+  async function deleteStaffAccount() {
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      const response = await fetch(`/api/admin/staff/${row.id}`, { method: 'DELETE' })
+      const result = await response.json()
+      if (!response.ok) {
+        setDeleteError(typeof result.error === 'string' ? result.error : 'Could not delete this staff account.')
+        return
+      }
+      setDeleteOpen(false)
+      showSuccessToast(`${row.full_name || row.email} was permanently deleted.`)
+      router.refresh()
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Could not delete this staff account.')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <article
@@ -446,12 +472,34 @@ export function StaffProfileCard({ row, departments, canEdit }: {
             <span className={cn('h-1.5 w-1.5 rounded-full', row.status === 'active' ? 'bg-[#95C12C]' : 'bg-slate-400')} />
             {row.status === 'active' ? 'Active' : 'Suspended'}
           </Badge>
-          {canEdit && (
-            <span aria-hidden="true"
-                  onClick={event => event.stopPropagation()}
-                  className="pointer-events-auto absolute right-3 top-3 z-30 inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-sky-100 text-[#033B51] shadow-sm">
-              <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
-            </span>
+          {canDelete && (
+            <div className="pointer-events-auto absolute right-3 top-3 z-40" onClick={event => event.stopPropagation()}>
+              <button
+                type="button"
+                aria-label={`Actions for ${row.full_name || row.email}`}
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen(open => !open)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-sky-100 text-[#033B51] shadow-sm hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#045E80]"
+              >
+                <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-9 z-50 min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      setDeleteError('')
+                      setDeleteOpen(true)
+                    }}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                  >
+                    <Trash2 aria-hidden="true" className="h-4 w-4" />
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <Avatar name={row.full_name || row.email} src={row.avatar_url} role={row.role} size="lg"
             className={cn('absolute left-1/2 top-8 z-10 h-20 w-20 -translate-x-1/2 border-4 border-white text-2xl shadow-sm', row.status !== 'active' && 'grayscale')} />
@@ -508,6 +556,28 @@ export function StaffProfileCard({ row, departments, canEdit }: {
         aria-label={`View ${row.full_name || row.email} staff profile`}
         className="absolute inset-0 z-20 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#045E80]"
       />
+      {canDelete && (
+        <Modal
+          open={deleteOpen}
+          onClose={() => !deleting && setDeleteOpen(false)}
+          title={`Permanently delete ${row.full_name || row.email}?`}
+          description="This action cannot be undone."
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              This permanently removes the staff account and profile. Existing tasks, tickets, comments, activity, attachments, and time logs will remain. Tasks and tickets assigned to this person will be reassigned to their Reporting To person. Tasks they assigned to others will stay assigned as they are; only this person&apos;s profile reference will be cleared.
+            </p>
+            {deleteError && <Alert tone="error">{deleteError}</Alert>}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" disabled={deleting} onClick={() => setDeleteOpen(false)}>Cancel</Button>
+              <Button variant="danger" loading={deleting} onClick={deleteStaffAccount}>
+                <Trash2 className="h-4 w-4" />
+                Permanently delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </article>
   )
 }

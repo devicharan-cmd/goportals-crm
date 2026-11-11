@@ -99,12 +99,7 @@ export function AssignButton({
                   <Avatar name={o.name} src={o.avatarUrl} role={o.avatarRole} size="sm" />
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-slate-900">
-                      <span className="break-all">{o.name}</span>
-                      {o.isMe && (
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">
-                          (me)
-                        </span>
-                      )}
+                      <span className="break-all">{o.name}{o.isMe ? ' (me)' : ''}</span>
                       {o.id === currentId && (
                         <span className="rounded bg-[#E8F3C8] px-1.5 py-0.5 text-[11px] font-medium text-[#465B17]">
                           · current

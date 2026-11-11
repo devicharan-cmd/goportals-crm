@@ -286,7 +286,7 @@ export interface TaskActivity extends ActivityEntry {
 export interface TimeLog {
   id: string
   task_id: string
-  profile_id: string
+  profile_id: string | null
   hours: number
   logged_date: string
   notes: string | null

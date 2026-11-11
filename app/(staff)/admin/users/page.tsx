@@ -56,6 +56,7 @@ export default async function UsersPage() {
         <Card className="overflow-hidden">
           <StaffDirectory rows={rows} departments={lookups.departments}
             canEdit={me.role === 'super_admin'}
+            actorId={me.id}
             inviteButton={<InviteUserButton departments={lookups.departments} actorRole={me.role} reportingPeople={reportingPeople} />} />
         </Card>
         <div className="space-y-6">

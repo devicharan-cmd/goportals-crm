@@ -4,10 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import type { StaffRole } from '@/types/database'
 import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
 
-const STAFF_ROLES: StaffRole[] = ['super_admin', 'admin', 'team_lead', 'employee']
+const STAFF_ROLES: StaffRole[] = ['super_admin', 'manager', 'team_lead', 'employee']
 const REPORTING_ROLE: Partial<Record<StaffRole, StaffRole>> = {
-  admin: 'super_admin',
-  team_lead: 'admin',
+  manager: 'super_admin',
+  team_lead: 'manager',
   employee: 'team_lead',
 }
 

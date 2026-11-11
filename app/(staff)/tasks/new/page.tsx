@@ -16,7 +16,7 @@ export default async function NewTaskPage(
   const lookups = await getStaffLookups()
 
   // Team leads only see clients they cover via client_team (personally, or
-  // through their department) — /clients itself is admin/super_admin only, so
+  // through their department) — /clients itself is Manager/Super Admin only, so
   // the full company-wide list here would otherwise leak every client's name to them.
   let clients = lookups.clients
   if (me.role === 'team_lead') {

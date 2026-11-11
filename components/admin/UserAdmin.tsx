@@ -74,7 +74,7 @@ export function StaffDirectory({ rows, departments, canEdit, inviteButton }: {
           onChange={event => setRole(event.target.value)}
         >
           <option value="">All roles</option>
-          {(['super_admin', 'admin', 'team_lead', 'employee'] as StaffRole[]).map(value => (
+          {(['super_admin', 'manager', 'team_lead', 'employee'] as StaffRole[]).map(value => (
             <option key={value} value={value}>{ROLE_LABELS[value]}</option>
           ))}
         </SearchableSelect>
@@ -105,8 +105,8 @@ export function StaffDirectory({ rows, departments, canEdit, inviteButton }: {
 }
 
 function reportingRoleFor(role: StaffRole | ''): StaffRole | null {
-  if (role === 'admin') return 'super_admin'
-  if (role === 'team_lead') return 'admin'
+  if (role === 'manager') return 'super_admin'
+  if (role === 'team_lead') return 'manager'
   if (role === 'employee') return 'team_lead'
   return null
 }
@@ -141,7 +141,7 @@ function ReportingToField({
     return options.filter(person =>
       `${person.full_name} ${person.email} ${ROLE_LABELS[person.role]}`.toLowerCase().includes(query))
   }, [options, search])
-  const noOptionsText = role === 'admin'
+  const noOptionsText = role === 'manager'
     ? 'No active Super Admin is available.'
     : role === 'team_lead'
       ? 'No active Managers are available.'
@@ -526,10 +526,10 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const supabase = createClient()
-  // Role/status/job title/capacity changes are super-admin-only in the DB (guard_profile_update) —
-  // an admin actor can only manage department membership here, not these fields.
+  // Role/status/job title/capacity changes are Super-Admin-only in the DB (guard_profile_update) —
+  // a Manager can only manage department membership here, not these fields.
   const canEditProfile = actorRole === 'super_admin'
-  const canEditDepartments = actorRole === 'super_admin' || actorRole === 'admin'
+  const canEditDepartments = actorRole === 'super_admin' || actorRole === 'manager'
   // full_name is the one field the DB lets anyone change on their own row.
   const canEditName = canEditProfile || isMe
 
@@ -584,7 +584,7 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
                  spellCheck={false} autoCorrect="off" className="form-field h-8 w-44 py-1 text-xs" />
           {canEditProfile ? (
             <SearchableSelect value={row.role} disabled={busy || isMe} onChange={e => update({ role: e.target.value })} className="h-8 w-auto py-1 text-xs">
-              {(['super_admin', 'admin', 'team_lead', 'employee'] as StaffRole[]).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+              {(['super_admin', 'manager', 'team_lead', 'employee'] as StaffRole[]).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
             </SearchableSelect>
           ) : (
             <span className={cn('rounded-md border bg-white px-2 py-1 text-xs font-medium transition-colors', ROLE_STYLES[row.role].badge)}>{ROLE_LABELS[row.role]}</span>
@@ -626,7 +626,7 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
 
 // ─── Invite staff ────────────────────────────────────────────
 export function InviteStaffButton({
-  departments, roles = ['employee', 'team_lead', 'admin', 'super_admin'], reportingPeople,
+  departments, roles = ['employee', 'team_lead', 'manager', 'super_admin'], reportingPeople,
 }: { departments: Department[]; roles?: StaffRole[]; reportingPeople: ReportingPerson[] }) {
   const onlyEmployees = roles.length === 1 && roles[0] === 'employee'
   const router = useRouter()
@@ -685,7 +685,7 @@ export function InviteStaffButton({
                       onChange={e => {
                         const value = e.currentTarget.value as StaffRole | ''
                         const options = reportingOptionsFor(value, reportingPeople)
-                        const reportingTo = value === 'admin' && options.length === 1 ? options[0].id : ''
+                        const reportingTo = value === 'manager' && options.length === 1 ? options[0].id : ''
                         setForm(current => ({ ...current, role: value, reporting_to: reportingTo }))
                         setErrors(current => ({
                           ...current,
@@ -698,7 +698,7 @@ export function InviteStaffButton({
                 {!onlyEmployees && <option value="">Select role</option>}
                 {roles.includes('employee') && <option value="employee">Employee</option>}
                 {roles.includes('team_lead') && <option value="team_lead">Team Lead</option>}
-                {roles.includes('admin') && <option value="admin">Manager</option>}
+                {roles.includes('manager') && <option value="manager">Manager</option>}
                 {roles.includes('super_admin') && <option value="super_admin">Super Admin</option>}
               </SearchableSelect>
             </Field>
@@ -764,7 +764,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
 }) {
   const staffRoleOptions: { value: StaffRole; label: string }[] = actorRole === 'super_admin'
     ? [{ value: 'employee', label: 'Employee' }, { value: 'team_lead', label: 'Team Lead' },
-       { value: 'admin', label: 'Manager' }, { value: 'super_admin', label: 'Super Admin' }]
+       { value: 'manager', label: 'Manager' }, { value: 'super_admin', label: 'Super Admin' }]
     : [{ value: 'employee', label: 'Employee' }, { value: 'team_lead', label: 'Team Lead' }]
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -874,7 +874,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
                           onChange={e => {
                             const value = e.currentTarget.value as StaffRole | ''
                             const options = reportingOptionsFor(value, reportingPeople)
-                            const reportingTo = value === 'admin' && options.length === 1 ? options[0].id : ''
+                            const reportingTo = value === 'manager' && options.length === 1 ? options[0].id : ''
                             setForm(current => ({ ...current, role: value, reporting_to: reportingTo }))
                             setErrors(current => ({
                               ...current,

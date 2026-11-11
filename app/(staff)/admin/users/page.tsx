@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/auth'
+import { requireManager } from '@/lib/auth'
 import { getStaffLookups } from '@/lib/queries'
 import { Card, CardHeader } from '@/components/ui/primitives'
 import { InviteUserButton, PendingInvites, StaffDirectory, UnlinkedClientAccounts, type StaffRow, type UnlinkedClientAccount } from '@/components/admin/UserAdmin'
@@ -8,7 +8,7 @@ import type { Invite, StaffRole } from '@/types/database'
 export const metadata = { title: 'Users & invites' }
 
 export default async function UsersPage() {
-  const me = await requireAdmin()
+  const me = await requireManager()
   const [lookups, { data: invites }, { data: profileData, error: profileError }, { data: addressData, error: addressError }] = await Promise.all([
     getStaffLookups(),
     (await createClient()).from('invites').select('*').is('used_at', null).order('created_at', { ascending: false }),

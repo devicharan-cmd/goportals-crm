@@ -107,7 +107,7 @@ export function EcommerceAccountsEditor({
   )
 }
 
-// ─── Services (with admin-set price, migration 015) ──────────
+// ─── Services (with Super-Admin-set price, migration 015) ──────────
 export type ClientServiceRow = {
   id: string; service_id: string | null; custom_name: string | null; status: ClientServiceStatus
   ecommerce_account_id: string | null; agreed_price: number | null; currency: string; billing_type: BillingType

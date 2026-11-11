@@ -113,7 +113,7 @@ export type TaskFormProps = {
   defaultClientId?: string
   defaultAssigneeId?: string
   canMarkUrgent: boolean
-  /** false when an employee is editing a task that's already assigned — only managers/admins can then change assignee/due date. */
+  /** false when an employee is editing a task that's already assigned — only managers can then change assignee/due date. */
   canEditAssignment?: boolean
   clients: { id: string; company_name: string; company_profile_image_path?: string | null }[]
   clientImageUrlByPath?: Record<string, string>

@@ -21,12 +21,12 @@ const STAFF_NAV: NavGroup[] = [
   {
     items: [
       { href: '/dashboard',     label: 'Dashboard',   icon: LayoutDashboard },
-      { href: '/tickets',       label: 'Tickets',     icon: ClipboardList, roles: ['super_admin', 'admin', 'team_lead'] },
+      { href: '/tickets',       label: 'Tickets',     icon: ClipboardList, roles: ['super_admin', 'manager', 'team_lead'] },
       { href: '/tasks',         label: 'Tasks',       icon: CheckSquare },
       { href: '/urgent',        label: 'Urgent pool', icon: Flame, badge: 'urgent' },
-      { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'admin'] },
-      { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'admin', 'team_lead'] },
-      { href: '/reports',       label: 'Reports',     icon: PieChart, roles: ['super_admin', 'admin'] },
+      { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'manager'] },
+      { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'manager', 'team_lead'] },
+      { href: '/reports',       label: 'Reports',     icon: PieChart, roles: ['super_admin', 'manager'] },
       { href: '/settings',      label: 'Setting',     icon: Settings },
     ],
   },
@@ -34,7 +34,7 @@ const STAFF_NAV: NavGroup[] = [
     label: 'Manager',
     items: [
       { href: '/admin/approvals', label: 'Approvals',  icon: ShieldCheck, roles: ['super_admin'], badge: 'approvals' },
-      { href: '/admin/users',     label: 'Users & invites', icon: UserPlus, roles: ['super_admin', 'admin'] },
+      { href: '/admin/users',     label: 'Users & invites', icon: UserPlus, roles: ['super_admin', 'manager'] },
       { href: '/admin/settings',  label: 'Platforms & services', icon: Settings2, roles: ['super_admin'] },
       { href: '/admin/agreement', label: 'Agreement',  icon: FileSignature, roles: ['super_admin'] },
     ],
@@ -45,7 +45,7 @@ const CLIENT_NAV: NavGroup[] = [
   {
     items: [
       { href: '/portal',             label: 'Overview',    icon: LayoutDashboard },
-      { href: '/portal/tasks',       label: 'My tasks',    icon: CheckSquare },
+      { href: '/portal/tasks',       label: 'Tasks',       icon: CheckSquare },
       { href: '/portal/tickets',     label: 'My tickets', icon: ClipboardList },
       { href: '/portal/tickets/new', label: 'New ticket', icon: Briefcase },
       { href: '/portal/services',    label: 'My services', icon: Layers },
@@ -108,7 +108,7 @@ export function AppShell({
     void Promise.all([
       supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_id', user.id).eq('is_read', false),
       supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)'),
-      ['super_admin', 'admin', 'team_lead'].includes(user.role)
+      ['super_admin', 'manager', 'team_lead'].includes(user.role)
         ? supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('is_urgent', true).eq('status', 'unassigned')
         : Promise.resolve({ count: 0 }),
       user.role === 'super_admin'

@@ -18,7 +18,7 @@ const TABS: { key: TicketStatus; label: string; icon: typeof Layers3 }[] = [
 
 export default async function StaffTicketsPage(props: { searchParams: Promise<{ status?: string }> }) {
   const searchParams = await props.searchParams
-  const me = await requireRole(['super_admin', 'admin', 'team_lead'])
+  const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
   const tab = TABS.find(t => t.key === searchParams.status)?.key ?? 'unassigned'
   const [ticketResult, ...countResults] = await Promise.all([

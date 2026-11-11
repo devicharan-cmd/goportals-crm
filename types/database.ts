@@ -1,6 +1,6 @@
 // Row types for schema v2 (supabase/migrations/001–004). Keep in sync with the SQL.
 
-export type AppRole       = 'super_admin' | 'admin' | 'team_lead' | 'employee' | 'client'
+export type AppRole       = 'super_admin' | 'manager' | 'team_lead' | 'employee' | 'client'
 export type AccountStatus = 'pending' | 'active' | 'suspended' | 'rejected'
 export type SignupSource  = 'self_signup' | 'admin_created' | 'invite'
 export type ClientStage   = 'onboarding' | 'setup' | 'scale' | 'retention' | 'churned'

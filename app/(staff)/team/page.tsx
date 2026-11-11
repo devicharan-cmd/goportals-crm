@@ -21,7 +21,7 @@ const TABS = [
 
 export default async function TeamPage(props: { searchParams: Promise<{ show?: string }> }) {
   const searchParams = await props.searchParams
-  const me = await requireRole(['super_admin', 'admin', 'team_lead'])
+  const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
   const monthStart = new Date();monthStart.setDate(1);monthStart.setHours(0, 0, 0, 0)
   const [lookups, { data }, { data: doneData }] = await Promise.all([
@@ -86,7 +86,7 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
           ))}
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {['super_admin', 'admin'].includes(me.role) && <ButtonLink href="/admin/users" variant="secondary" size="sm">Manage users & invites</ButtonLink>}
+          {['super_admin', 'manager'].includes(me.role) && <ButtonLink href="/admin/users" variant="secondary" size="sm">Manage users & invites</ButtonLink>}
           {me.role !== 'team_lead' && <InviteStaffButton departments={lookups.departments} roles={['employee']} reportingPeople={lookups.people
             .filter(p => p.role !== 'client')
             .map(({ id, full_name, email, avatar_url, role, status }) => ({ id, full_name, email, avatar_url, role: role as StaffRole, status }))} />}

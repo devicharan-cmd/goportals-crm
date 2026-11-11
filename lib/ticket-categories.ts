@@ -1,6 +1,6 @@
 // Category field definitions for client tickets (migration 014).
 // Kept in sync by hand with guard_ticket_details() in supabase/migrations/014_tickets.sql —
-// these are fixed, business-defined categories, not admin-configurable, so a plain TS map
+// these are fixed, business-defined categories, not configurable in the app, so a plain TS map
 // (not a DB-driven EAV system) is the field source of truth. If required keys change here,
 // update the trigger too.
 import type { TicketCategory } from '@/types/database'
@@ -64,7 +64,7 @@ export type TicketCategoryDef = {
   descriptionRequiredIf?: TicketFieldShowIf
   /** Short plain-text help shown behind a "See guide" toggle on the form, for categories that need one. */
   guide?: string
-  /** Link to an admin-provided guideline document (PDF), shown as a "View guideline" link on the form. */
+  /** Link to a GoPortals guideline document (PDF), shown as a "View guideline" link on the form. */
   guideUrl?: string
 }
 

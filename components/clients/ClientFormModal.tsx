@@ -24,7 +24,7 @@ type AccountDraft = { key: string; platform_id: string; account_name: string; se
 type ServiceDraft = { key: string; service_id: string; custom_name: string; account_key: string; price: string; billing_type: BillingType }
 
 /**
- * Create (super admin) or edit a client. Creating also lets the admin decide the
+ * Create (super admin) or edit a client. Creating also lets the manager decide the
  * e-commerce accounts, services and price right away — the client only ever sees
  * these as read-only, in the agreement they accept at onboarding (never a picker).
  * Editing existing accounts/services/pricing happens on the client detail page instead.

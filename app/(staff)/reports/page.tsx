@@ -22,7 +22,7 @@ type Row = Pick<Task, 'id' | 'client_id' | 'assignee_id' | 'status' | 'due_date'
 
 export default async function ReportsPage(props: { searchParams: Promise<{ month?: string }> }) {
   const searchParams = await props.searchParams
-  await requireRole(['super_admin', 'admin'])
+  await requireRole(['super_admin', 'manager'])
   const supabase = await createClient()
 
   const month = /^\d{4}-\d{2}$/.test(searchParams.month ?? '') ? searchParams.month! : format(new Date(), 'yyyy-MM')

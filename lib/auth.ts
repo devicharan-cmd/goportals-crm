@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { AppRole, Profile } from '@/types/database'
 
-export const STAFF_ROLES: AppRole[] = ['super_admin', 'admin', 'team_lead', 'employee']
+export const STAFF_ROLES: AppRole[] = ['super_admin', 'manager', 'team_lead', 'employee']
 
 export const isStaffRole = (role: AppRole | null | undefined) =>
   !!role && STAFF_ROLES.includes(role)
@@ -37,5 +37,5 @@ export async function requireRole(roles: AppRole[]): Promise<Profile> {
 
 export const requireStaff      = () => requireRole(STAFF_ROLES)
 export const requireSuperAdmin = () => requireRole(['super_admin'])
-export const requireAdmin      = () => requireRole(['super_admin', 'admin'])
+export const requireManager      = () => requireRole(['super_admin', 'manager'])
 export const requireClient     = () => requireRole(['client'])

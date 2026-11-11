@@ -17,7 +17,7 @@ import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
 
 /**
  * Client edits their own basic details + address only. Platform/service/price are
- * admin-only — this form never touches them, and the DB (guard_client_update, 017)
+ * restricted to staff — this form never touches them, and the DB (guard_client_update, 017)
  * rejects any other column even if someone tried.
  */
 const PROFILE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']

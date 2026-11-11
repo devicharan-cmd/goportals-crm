@@ -34,11 +34,11 @@ function todayInIndia() {
 export default async function DashboardPage() {
   const me = await requireStaff()
   const supabase = await createClient()
-  const isAdmin = ['super_admin', 'admin'].includes(me.role)
+  const isManager = ['super_admin', 'manager'].includes(me.role)
   // Approving a client is the super admin's call alone.
   const isSuperAdmin = me.role === 'super_admin'
   const isTeamLead = me.role === 'team_lead'
-  const canSeeTickets = isAdmin || isTeamLead
+  const canSeeTickets = isManager || isTeamLead
   const isEmployee = me.role === 'employee'
   const today = todayDateKey()
 
@@ -62,13 +62,13 @@ export default async function DashboardPage() {
       ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending')
       : Promise.resolve({ count: 0 }),
     supabase.from('profiles').select('id, full_name, email'),
-    isAdmin
+    isManager
       ? supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).not('status', 'in', '(completed,cancelled)')
           .order('is_urgent', { ascending: false })
           .order('due_date', { ascending: true, nullsFirst: false })
           .limit(15)
       : Promise.resolve({ data: [], count: 0 }),
-    isAdmin
+    isManager
       ? supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).eq('status', 'completed')
           .order('closed_at', { ascending: false, nullsFirst: false })
           .limit(15)
@@ -131,7 +131,7 @@ export default async function DashboardPage() {
           <p className="text-sm font-medium text-[#789C20]">{todayInIndia()}</p>
           <h1 className="text-2xl font-bold">{greeting()}, {me.full_name.split(' ')[0] || 'there'} 👋</h1>
         </div>
-        {!isAdmin && <ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
+        {!isManager && <ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -268,7 +268,7 @@ export default async function DashboardPage() {
         )
       )}
 
-      {isAdmin && (
+      {isManager && (
         <div className="mt-6">
           <DashboardTaskPanel
             workingTasks={workingTasks}

@@ -63,13 +63,13 @@ Everyone signs in through the same `/login`. `middleware.ts` + `lib/auth.ts` rou
 
 | Role | Access |
 |---|---|
-| `super_admin` / `admin` | Everything under `/dashboard`, `/clients`, `/tasks`, `/tickets`, `/team`, `/reports`, `/admin` — company-wide |
+| `super_admin` / `manager` | Everything under `/dashboard`, `/clients`, `/tasks`, `/tickets`, `/team`, `/reports`, `/admin` — company-wide |
 | `team_lead` | Same staff routes, scoped to their department(s) |
 | `employee` | Same staff routes, scoped to their own assigned work |
 | `client` | `/portal` only — their own brand's tickets, nothing internal |
 
 A brand rep signs up, lands in `/onboarding` until they accept the agreement, then
-`/pending` until an admin approves them (`/admin/approvals`).
+`/pending` until a Super Admin approves them (`/admin/approvals`).
 
 ## Tasks vs. tickets
 These are two separate tables, not the same thing with different names:
@@ -86,7 +86,7 @@ task that came from it.
 ## Project structure
 ```
 middleware.ts                  Auth + role-based routing
-lib/auth.ts                    requireStaff/requireAdmin/... — role guards for pages
+lib/auth.ts                    requireStaff/requireManager/... — role guards for pages
 lib/supabase/{client,server}.ts  Supabase clients (browser / server components)
 lib/queries.ts                 Shared server-side queries (staff lookups, list selects)
 lib/utils.ts                   cn, formatDate, dueState, capacityColor, ...
@@ -95,14 +95,14 @@ types/database.ts              Row types + enums for schema v2 (keep in sync wit
 app/(auth)/                    login, signup, forgot-password
 app/onboarding/, app/pending/  Client signup → agreement → approval gate
 app/(staff)/
-  dashboard/                   Role-specific overview (admin / team_lead / employee)
+  dashboard/                   Role-specific overview (manager / team_lead / employee)
   clients/                     Brand list + detail
   tasks/                       Internal task list, board, detail, new
   tickets/                     Client ticket list, detail, new (staff-facing)
   urgent/                      Unassigned urgent pool
   team/                        Workload, team_lead's department view
   reports/                     Performance reports
-  admin/                       Users, approvals, agreement, settings (admin-only)
+  admin/                       Users (Manager-accessible); approvals, agreement, settings (Super Admin-only)
 app/portal/                    Client-facing: dashboard, tickets, profile, services
 app/api/                       Admin invite, agreement accept, notify
 

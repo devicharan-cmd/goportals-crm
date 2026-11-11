@@ -8,7 +8,7 @@ import { PortalTicketForm } from '@/components/portal/PortalTicketForm'
 export const metadata = { title: 'New ticket' }
 
 export default async function NewStaffTicketPage() {
-  const me = await requireRole(['super_admin', 'admin'])
+  const me = await requireRole(['super_admin', 'manager'])
   const supabase = await createClient()
   const [{ data: clients }, { data: accounts }, { data: platforms }] = await Promise.all([
     supabase.from('clients').select('id, company_name').eq('status', 'active').order('company_name'),

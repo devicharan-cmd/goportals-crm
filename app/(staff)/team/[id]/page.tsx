@@ -18,7 +18,7 @@ export const metadata = { title: 'Employee stats' }
 
 export default async function EmployeeStatsPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
-  const me = await requireRole(['super_admin', 'admin', 'team_lead'])
+  const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
 
   const [{ data: personData }, { data: taskData }, { data: logData }, lookups] = await Promise.all([

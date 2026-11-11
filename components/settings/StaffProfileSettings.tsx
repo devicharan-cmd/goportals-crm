@@ -135,7 +135,7 @@ export function StaffProfileSettings({
 }: StaffProfileSettingsProps) {
   const router = useRouter()
   const isSuperAdmin = actorRole === 'super_admin'
-  const canEditProfile = isOwnProfile || isSuperAdmin || actorRole === 'admin'
+  const canEditProfile = isOwnProfile || isSuperAdmin || actorRole === 'manager'
   const canChangeRole = isSuperAdmin && (isOwnProfile || actorId !== profile.id)
   const canChangeStatus = isSuperAdmin && !isOwnProfile && actorId !== profile.id
 
@@ -513,7 +513,7 @@ export function StaffProfileSettings({
                 <h2 className="text-lg font-semibold text-slate-900">
                   {isOwnProfile
                     ? 'Your profile'
-                    : `${profile.role === 'employee' ? 'Employee' : profile.role === 'team_lead' ? 'Team Lead' : profile.role === 'admin' ? 'Manager' : 'Super Admin'} Profile`}
+                    : `${profile.role === 'employee' ? 'Employee' : profile.role === 'team_lead' ? 'Team Lead' : profile.role === 'manager' ? 'Manager' : 'Super Admin'} Profile`}
                 </h2>
                 <p className="mt-0.5 text-xs text-slate-500">
                   How you appear to your team and on tickets, tasks, and communications.
@@ -707,8 +707,8 @@ export function StaffProfileSettings({
                         const nextRole = e.target.value as AppRole
                         setRole(nextRole)
                         if (roleError) setRoleError('')
-                        const reportingRole = nextRole === 'admin' ? 'super_admin'
-                          : nextRole === 'team_lead' ? 'admin'
+                        const reportingRole = nextRole === 'manager' ? 'super_admin'
+                          : nextRole === 'team_lead' ? 'manager'
                             : nextRole === 'employee' ? 'team_lead' : null
                         if (!reportingPeople.some(person => person.id === reportingTo && person.role === reportingRole && person.status === 'active')) {
                           setReportingTo('')
@@ -722,7 +722,7 @@ export function StaffProfileSettings({
                       )}
                     >
                       <option value="super_admin">Super Admin</option>
-                      <option value="admin">Manager</option>
+                      <option value="manager">Manager</option>
                       <option value="team_lead">Team Lead</option>
                       <option value="employee">Employee</option>
                     </SearchableSelect>
@@ -757,7 +757,7 @@ export function StaffProfileSettings({
                         person.id !== profile.id &&
                         person.status === 'active' &&
                         person.role === (
-                          role === 'admin' ? 'super_admin' : role === 'team_lead' ? 'admin' : 'team_lead'
+                          role === 'manager' ? 'super_admin' : role === 'team_lead' ? 'manager' : 'team_lead'
                         )
                       )}
                     />

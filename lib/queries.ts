@@ -50,7 +50,7 @@ export type StaffLookups = {
 }
 
 const STAFF_ROLE_ORDER: Record<AppRole, number> = {
-  super_admin: 0, admin: 1, team_lead: 2, employee: 3, client: 4,
+  super_admin: 0, manager: 1, team_lead: 2, employee: 3, client: 4,
 }
 
 /** Consistent staff ordering: role hierarchy, then earliest profile creation/join date. */
@@ -131,7 +131,7 @@ export function departmentIdsFor(profileId: string, lookups: StaffLookups): Set<
  *    the same table manager_covers_client() (DB) uses for visibility)
  *  - tasks assigned to them or their department
  * Used to scope the "Client" picker on the new/edit task form, which
- * otherwise lists every company client (unlike /clients, admin/super_admin only).
+ * otherwise lists every company client (unlike /clients, Manager/Super Admin only).
  */
 export async function clientIdsForTeamLead(profileId: string, departmentIds: string[]): Promise<Set<string>> {
   const supabase = await createClient()

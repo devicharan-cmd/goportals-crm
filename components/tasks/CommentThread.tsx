@@ -119,7 +119,7 @@ export function CommentThread({
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const readMarkedRef = useRef(new Set<string>())
   const readInFlightRef = useRef(new Set<string>())
-  const canChoose = isTicketThread && (myRole === 'super_admin' || myRole === 'admin')
+  const canChoose = isTicketThread && (myRole === 'super_admin' || myRole === 'manager')
   const [body, setBody] = useState('')
   const [isPublic, setIsPublic] = useState(true)
   const [filter, setFilter] = useState<'all' | 'public' | 'team'>('all')

@@ -21,7 +21,7 @@ import type { Client, ClientInternal, TaskListItem } from '@/types/database'
 
 export default async function ClientDetailPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
-  const me = await requireRole(['super_admin', 'admin'])
+  const me = await requireRole(['super_admin', 'manager'])
   const supabase = await createClient()
   const id = params.id
 
@@ -48,13 +48,13 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
   const internal = internalData as ClientInternal | null
   const names = nameMap(lookups.people)
 
-  // Only super_admin and admin reach this page (requireRole above). Both get full
+  // Only Super Admins and Managers reach this page (requireRole above). Both get full
   // edit rights; deleting a client, approving one and changing an account's
-  // status are super-admin-only — everything else uses isAdmin.
-  const isAdmin = ['super_admin', 'admin'].includes(me.role)
+  // status are super-admin-only — everything else uses isManager.
+  const isManager = ['super_admin', 'manager'].includes(me.role)
   const isSuperAdmin = me.role === 'super_admin'
   const teamRows = (team ?? []) as ClientTeamRow[]
-  const canEdit = isAdmin
+  const canEdit = isManager
   const allTasks = (tasks ?? []) as TaskListItem[]
   const openTasks = allTasks.filter(t => !TASK_TERMINAL_STATUSES.includes(t.status))
   const doneTasks = allTasks.filter(t => TASK_TERMINAL_STATUSES.includes(t.status))
@@ -98,7 +98,7 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
               <ApprovalActions clientId={client.id} hasAgreement={accepted.length > 0} />
             )}
             {isSuperAdmin && client.status !== 'pending' && <ClientStatusSelect clientId={client.id} status={client.status} />}
-            {isAdmin && !client.owner_id && <InviteLoginButton clientId={client.id} email={client.contact_email} name={client.contact_name} />}
+            {isManager && !client.owner_id && <InviteLoginButton clientId={client.id} email={client.contact_email} name={client.contact_name} />}
             {canEdit && <ClientFormModal client={client} internal={internal} canEditInternal={!!internal} />}
             <ButtonLink href={`/tasks/new?client_id=${client.id}`} size="sm"><Plus className="h-3.5 w-3.5" /> Task</ButtonLink>
           </div>
@@ -149,7 +149,7 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
               rows={teamRows}
               people={staffWithDepts}
               departments={lookups.departments}
-              editableDepartmentIds={isAdmin ? lookups.departments.map(d => d.id) : []}
+              editableDepartmentIds={isManager ? lookups.departments.map(d => d.id) : []}
             />
           </Card>
 

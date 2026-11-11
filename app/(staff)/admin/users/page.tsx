@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/auth'
+import { requireManager } from '@/lib/auth'
 import { getStaffLookups } from '@/lib/queries'
 import { Card, CardHeader } from '@/components/ui/primitives'
 import { InviteUserButton, PendingInvites, StaffDirectory, UnlinkedClientAccounts, type StaffRow, type UnlinkedClientAccount } from '@/components/admin/UserAdmin'
@@ -8,12 +8,12 @@ import type { Invite, StaffRole } from '@/types/database'
 export const metadata = { title: 'Users & invites' }
 
 export default async function UsersPage() {
-  const me = await requireAdmin()
+  const me = await requireManager()
   const [lookups, { data: invites }, { data: profileData, error: profileError }, { data: addressData, error: addressError }] = await Promise.all([
     getStaffLookups(),
-    createClient().from('invites').select('*').is('used_at', null).order('created_at', { ascending: false }),
-    createClient().from('profiles').select('id, phone'),
-    createClient().from('staff_profile_details').select('profile_id, current_address, permanent_address'),
+    (await createClient()).from('invites').select('*').is('used_at', null).order('created_at', { ascending: false }),
+    (await createClient()).from('profiles').select('id, phone'),
+    (await createClient()).from('staff_profile_details').select('profile_id, current_address, permanent_address'),
   ])
   if (profileError) throw new Error(`Could not load team contact details: ${profileError.message}`)
   if (addressError) throw new Error(`Could not load staff profile addresses: ${addressError.message}`)
@@ -42,8 +42,8 @@ export default async function UsersPage() {
   let unlinkedClientAccounts: UnlinkedClientAccount[] = []
   if (me.role === 'super_admin') {
     const [{ data: clientProfiles, error: profilesError }, { data: clients, error: clientsError }] = await Promise.all([
-      createClient().from('profiles').select('id, email, full_name').eq('role', 'client').order('created_at', { ascending: false }),
-      createClient().from('clients').select('owner_id').not('owner_id', 'is', null),
+      (await createClient()).from('profiles').select('id, email, full_name').eq('role', 'client').order('created_at', { ascending: false }),
+      (await createClient()).from('clients').select('owner_id').not('owner_id', 'is', null),
     ])
     if (profilesError) throw new Error(`Could not load client accounts: ${profilesError.message}`)
     if (clientsError) throw new Error(`Could not load client account links: ${clientsError.message}`)
@@ -56,6 +56,7 @@ export default async function UsersPage() {
         <Card className="overflow-hidden">
           <StaffDirectory rows={rows} departments={lookups.departments}
             canEdit={me.role === 'super_admin'}
+            actorId={me.id}
             inviteButton={<InviteUserButton departments={lookups.departments} actorRole={me.role} reportingPeople={reportingPeople} />} />
         </Card>
         <div className="space-y-6">

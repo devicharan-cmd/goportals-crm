@@ -31,7 +31,7 @@ export function ActivityTimeline({ activity, names, kind = 'task', audience = 's
     <ol className="relative space-y-4 border-l border-slate-200 pl-5">
       {activity.map(a => (
         <li key={a.id} className="relative">
-          <span className="absolute -left-[25px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-brand-400 ring-1 ring-brand-200" />
+          <span className="absolute -left-[25px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#2A87AA] ring-1 ring-[#9FCCDE]" />
           <p className="text-sm text-slate-700">
             <span className="font-semibold text-slate-900">{a.actor_id ? names[a.actor_id] ?? 'Someone' : 'System'}</span>{' '}
             {describe(a, names, kind, audience)}

@@ -38,12 +38,12 @@ export function TimeLogPanel({
   return (
     <div>
       <div className="mb-3 flex items-baseline justify-between">
-        <p className="text-2xl font-bold text-slate-900 font-display">{total}h</p>
+        <p className="text-2xl font-bold text-slate-900 font-sans">{total}h</p>
         <p className="text-xs text-slate-500">{estimated ? `of ${estimated}h estimated` : 'no estimate'}</p>
       </div>
       {estimated ? (
         <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-slate-100">
-          <div className={`h-full rounded-full ${total > estimated ? 'bg-red-500' : 'bg-lime-500'}`} style={{ width: `${pct}%` }} />
+          <div className={`h-full rounded-full ${total > estimated ? 'bg-red-500' : 'bg-[#95C12C]'}`} style={{ width: `${pct}%` }} />
         </div>
       ) : null}
 
@@ -52,7 +52,7 @@ export function TimeLogPanel({
           {logs.map(l => (
             <li key={l.id} className="flex items-start justify-between gap-2 text-xs">
               <span className="text-slate-600">
-                <span className="font-medium text-slate-800">{names[l.profile_id] ?? '—'}</span> · {formatDate(l.logged_date)}
+                <span className="font-medium text-slate-800">{l.profile_id ? names[l.profile_id] ?? 'Former staff member' : 'Former staff member'}</span> · {formatDate(l.logged_date)}
                 {l.notes && <span className="block text-slate-400">{l.notes}</span>}
               </span>
               <span className="font-semibold text-slate-800">{Number(l.hours)}h</span>
@@ -65,12 +65,12 @@ export function TimeLogPanel({
         <form onSubmit={submit} className="space-y-2 rounded-lg bg-slate-50 p-3">
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="grid grid-cols-2 gap-2">
-            <input className="input h-9" type="number" step="0.25" min="0.25" max="24" required placeholder="Hours"
+            <input className="form-field h-9" type="number" step="0.25" min="0.25" max="24" required placeholder="Hours"
                    value={form.hours} onChange={e => setForm({ ...form, hours: e.target.value })} />
-            <input className="input h-9" type="date" required value={form.logged_date}
+            <input className="form-field h-9" type="date" required value={form.logged_date}
                    onChange={e => setForm({ ...form, logged_date: e.target.value })} />
           </div>
-          <input className="input h-9" placeholder="What did you do? (optional)" value={form.notes}
+          <input className="form-field h-9" placeholder="What did you do? (optional)" value={form.notes}
                  onChange={e => setForm({ ...form, notes: e.target.value })} />
           <div className="flex justify-end gap-2">
             <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>

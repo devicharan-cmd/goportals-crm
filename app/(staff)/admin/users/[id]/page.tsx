@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { requireAdmin } from '@/lib/auth'
+import { requireManager } from '@/lib/auth'
 import { getStaffLookups } from '@/lib/queries'
 import { createClient } from '@/lib/supabase/server'
 import { StaffProfileSettings } from '@/components/settings/StaffProfileSettings'
@@ -11,8 +11,8 @@ export const metadata = { title: 'Staff Profile' }
 
 export default async function StaffProfilePage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
-  const me = await requireAdmin()
-  const supabase = createClient()
+  const me = await requireManager()
+  const supabase = await createClient()
   const [profileRes, addressRes, departmentsRes, membershipsRes, lookups] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', params.id).maybeSingle(),
     supabase.from('staff_profile_details').select('current_address, permanent_address').eq('profile_id', params.id).maybeSingle(),

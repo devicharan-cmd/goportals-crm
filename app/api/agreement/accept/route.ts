@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   const { agreement_id } = await req.json()
   if (!agreement_id) return NextResponse.json({ error: 'agreement_id is required' }, { status: 400 })
 
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
 

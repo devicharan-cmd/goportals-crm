@@ -15,8 +15,8 @@ type Row = Client & {
 
 export default async function ClientsPage(props: { searchParams: Promise<{ status?: string }> }) {
   const searchParams = await props.searchParams
-  const me = await requireRole(['super_admin', 'admin'])
-  const supabase = createClient()
+  const me = await requireRole(['super_admin', 'manager'])
+  const supabase = await createClient()
 
   let query = supabase.from('clients')
     .select('*, client_team(profile_id)')
@@ -59,7 +59,7 @@ export default async function ClientsPage(props: { searchParams: Promise<{ statu
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <ClientSearchField />
         <form className="flex flex-wrap gap-2" action="/clients">
-          <SearchableSelect name="status" defaultValue={searchParams.status ?? ''} className="input h-9 w-auto py-1.5" aria-label="Client status">
+          <SearchableSelect name="status" defaultValue={searchParams.status ?? ''} className="form-field h-9 w-auto py-1.5" aria-label="Client status">
             <option value="">All statuses</option>
             <option value="active">Active</option>
             <option value="pending">Pending</option>
@@ -69,7 +69,7 @@ export default async function ClientsPage(props: { searchParams: Promise<{ statu
           <button className="rounded-lg bg-slate-100 px-3 text-sm font-medium text-slate-700 hover:bg-slate-200">Filter</button>
         </form>
         {/* Outside the search form: the modal has its own form inside. */}
-        {['super_admin', 'admin'].includes(me.role) && <ClientFormModal canEditInternal platforms={(platforms ?? []) as Platform[]} services={(services ?? []) as Service[]} />}
+        {['super_admin', 'manager'].includes(me.role) && <ClientFormModal canEditInternal platforms={(platforms ?? []) as Platform[]} services={(services ?? []) as Service[]} />}
       </div>
 
       <Card className="overflow-hidden">

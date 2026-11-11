@@ -119,7 +119,7 @@ export function CommentThread({
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const readMarkedRef = useRef(new Set<string>())
   const readInFlightRef = useRef(new Set<string>())
-  const canChoose = isTicketThread && (myRole === 'super_admin' || myRole === 'admin')
+  const canChoose = isTicketThread && (myRole === 'super_admin' || myRole === 'manager')
   const [body, setBody] = useState('')
   const [isPublic, setIsPublic] = useState(true)
   const [filter, setFilter] = useState<'all' | 'public' | 'team'>('all')
@@ -202,7 +202,7 @@ export function CommentThread({
             ['team', `Team only (${comments.filter(c => c.is_internal).length})`],
           ] as const).map(([k, l]) => (
             <button key={k} type="button" onClick={() => setFilter(k)}
-                    className={cn('rounded-md px-2.5 py-1', filter === k ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
+                    className={cn('rounded-md px-2.5 py-1', filter === k ? 'bg-white text-[#034C68] shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
               {l}
             </button>
           ))}
@@ -251,7 +251,7 @@ export function CommentThread({
                       c.is_internal
                         ? 'bg-amber-50 text-amber-900 ring-amber-200'
                         : mine
-                          ? 'bg-brand-600 text-white ring-brand-600'
+                          ? 'bg-[#045E80] text-white ring-[#045E80]'
                           : 'bg-white text-slate-700 ring-slate-200',
                       newBlock && (mine ? 'rounded-br-md' : 'rounded-bl-md'))}>
                       <p className="whitespace-pre-wrap break-words">{c.body}</p>
@@ -264,7 +264,7 @@ export function CommentThread({
                       )}
                       {isStaff && isTicketThread && (c.is_internal
                         ? <span className="inline-flex items-center gap-0.5 font-medium text-amber-700"><Lock className="h-2.5 w-2.5" /> Team only</span>
-                        : <span className="inline-flex items-center gap-0.5 font-medium text-brand-600"><Globe className="h-2.5 w-2.5" /> Public</span>)}
+                        : <span className="inline-flex items-center gap-0.5 font-medium text-[#045E80]"><Globe className="h-2.5 w-2.5" /> Public</span>)}
                     </span>
                   </div>
                 </div>
@@ -280,7 +280,7 @@ export function CommentThread({
       <form onSubmit={submit} className="mt-5">
         {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
         {/* Composer sits in one rounded bar with the send button, like a chat. */}
-        <div className={cn('flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm transition focus-within:border-brand-300 focus-within:ring-2 focus-within:ring-brand-500/20',
+        <div className={cn('flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm transition focus-within:border-[#63A9C4] focus-within:ring-2 focus-within:ring-[#0A6F94]/20',
           !willBePublic && 'border-amber-200 bg-amber-50/60 focus-within:border-amber-300 focus-within:ring-amber-500/20')}>
           <textarea
             rows={1}
@@ -317,7 +317,7 @@ export function CommentThread({
                   <Lock className="h-3 w-3" /> Team only
                 </button>
                 <button type="button" role="radio" aria-checked={isPublic} onClick={() => setIsPublic(true)}
-                        className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1', isPublic ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500')}>
+                        className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1', isPublic ? 'bg-white text-[#034C68] shadow-sm' : 'text-slate-500')}>
                   <Globe className="h-3 w-3" /> Public (client can see)
                 </button>
               </div>

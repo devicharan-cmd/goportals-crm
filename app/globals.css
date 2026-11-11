@@ -1,207 +1,233 @@
-@import "tailwindcss/base";
-@import "tailwindcss/components";
-@import "tailwindcss/utilities";
+@import "tailwindcss";
 
-@layer base {
-  html { -webkit-font-smoothing: antialiased; }
-  body { background-color: #f8fafc; color: #1e293b; }
-  h1, h2 {
-    font-family: var(--font-sans), system-ui, sans-serif;
-    letter-spacing: -0.025em;
-    color: #0f172a;
-  }
-  h3 {
-    font-family: var(--font-sans), system-ui, sans-serif;
-    color: #0f172a;
-  }
-  ::selection { background-color: #d3e896; color: #022b3b; }
+:root {
+  --font-sans: var(--font-inter), system-ui, sans-serif;
 }
 
-@layer components {
-  .international-phone-field {
-    position: relative;
-    display: flex;
-    width: 100%;
-    min-height: 42px;
-    align-items: center;
-    border: 1px solid #cbd5e1;
-    border-radius: 0.5rem;
-    background: #fff;
-    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    transition: border-color 150ms, box-shadow 150ms;
-  }
-  .international-phone-field:focus-within {
-    border-color: #045e80;
-    box-shadow: none;
-  }
-  .international-phone-field-invalid,
-  .international-phone-field-invalid:focus-within {
-    border-color: #ef4444;
-  }
-  .international-phone-field .PhoneInputCountry {
-    position: relative;
-    align-self: stretch;
-    margin: 0;
-    padding-left: 0.75rem;
-  }
-  .phone-country-trigger {
-    display: flex;
-    height: 100%;
-    align-items: center;
-    gap: 0.375rem;
-    border: 0;
-    border-right: 1px solid #cbd5e1;
-    background: transparent;
-    padding: 0 0.625rem;
-    font-size: 0.875rem;
-    color: #334155;
-  }
-  .phone-country-trigger:focus,
-  .phone-country-trigger:focus-visible {
-    outline: none;
-    box-shadow: none;
-  }
-  .phone-country-flag {
-    font-size: 1.125rem;
-    line-height: 1;
-  }
-  .phone-country-flag svg,
-  .phone-country-list-flag svg {
-    width: 1.25rem;
-    height: 0.875rem;
-    display: block;
-    border-radius: 0.125rem;
-    box-shadow: 0 0 0 1px rgb(15 23 42 / 0.08);
-  }
-  .phone-country-code {
-    font-size: 0.8125rem;
-    font-weight: 600;
-  }
-  .phone-country-globe {
-    font-size: 1rem;
-    line-height: 1;
-  }
-  .phone-country-chevron {
-    flex-shrink: 0;
-    color: #64748b;
-  }
-  .phone-country-popover {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    z-index: 50;
-    margin-top: 0.5rem;
-    width: 18rem;
-    max-width: calc(100vw - 2rem);
-    overflow: hidden;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.75rem;
-    background: #fff;
-    padding: 0.5rem;
-    box-shadow: 0 12px 30px rgb(15 23 42 / 0.14);
-  }
-  .phone-country-search {
-    width: 100%;
-    height: 2.25rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 0.5rem;
-    padding: 0 0.625rem;
-    outline: none;
-    font-size: 0.8125rem;
-  }
-  .phone-country-search:focus {
-    border-color: #045e80;
-    box-shadow: none;
-  }
-  .phone-country-list {
-    max-height: 15rem;
-    overflow-y: auto;
-    margin-top: 0.375rem;
-  }
-  .phone-country-option {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    gap: 0.625rem;
-    border-radius: 0.5rem;
-    padding: 0.5rem 0.625rem;
-    text-align: left;
-    font-size: 0.8125rem;
-  }
-  .phone-country-option:hover {
-    background: #f1f5f9;
-  }
-  .phone-country-empty {
-    padding: 0.75rem 0.625rem;
-    text-align: center;
-    font-size: 0.8125rem;
-    color: #64748b;
-  }
-  .international-phone-field .PhoneInputInput {
-    min-width: 0;
-    flex: 1;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    padding: 0.625rem 0.75rem 0.625rem 0.5rem;
-    font-size: 0.875rem;
-  }
-  .international-phone-field .PhoneInputInput:focus {
-    outline: none;
-    box-shadow: none;
-  }
-  .international-phone-field:has(.PhoneInputInput:disabled) {
-    background: #f8fafc;
-  }
-  .input {
-    width: 100%;
-    border: 1px solid #cbd5e1;
-    border-radius: 0.5rem;
-    background-color: #fff;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
-    line-height: 1.25rem;
-    color: #0f172a;
-    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    transition: color 150ms, background-color 150ms, border-color 150ms, box-shadow 150ms;
-  }
-  .input::placeholder { color: #94a3b8; }
-  .input:focus {
-    border-color: #0a6f94;
-    outline: none;
-    box-shadow: none;
-  }
-  .input:disabled { background-color: #f8fafc; color: #64748b; }
+html { -webkit-font-smoothing: antialiased; }
+body { background-color: #f8fafc; color: #1e293b; }
+h1, h2 {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+}
+h3 {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  color: #0f172a;
+}
+::selection { background-color: #d3e896; color: #022b3b; }
 
-  /* Use one thin border for every form focus state; never add a separate ring. */
-  input:focus,
-  textarea:focus,
-  select:focus,
-  button[aria-haspopup="listbox"]:focus {
-    outline: none !important;
-    box-shadow: none !important;
-  }
-  .label {
-    display: block;
-    margin-bottom: 0.375rem;
-    font-size: 0.875rem;
-    line-height: 1.25rem;
-    font-weight: 500;
-    color: #334155;
-  }
-  .card {
-    border: 1px solid #e2e8f0;
-    border-radius: 0.75rem;
-    background-color: #fff;
-    box-shadow: 0 1px 2px 0 rgb(2 43 59 / 0.04), 0 1px 3px 0 rgb(2 43 59 / 0.06);
-  }
+.international-phone-field {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.international-phone-field:focus-within {
+  border-color: #045e80;
+  box-shadow: none;
+}
+.international-phone-field-invalid,
+.international-phone-field-invalid:focus-within {
+  border-color: #ef4444;
+}
+.international-phone-field .PhoneInputCountry {
+  position: relative;
+  align-self: stretch;
+  margin: 0;
+  padding-left: 0.75rem;
+}
+.phone-country-trigger {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: 0.375rem;
+  border: 0;
+  border-right: 1px solid #cbd5e1;
+  background: transparent;
+  padding: 0 0.625rem;
+  font-size: 0.875rem;
+  color: #334155;
+}
+.phone-country-trigger:focus,
+.phone-country-trigger:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.phone-country-flag {
+  font-size: 1.125rem;
+  line-height: 1;
+}
+.phone-country-flag svg,
+.phone-country-list-flag svg {
+  width: 1.25rem;
+  height: 0.875rem;
+  display: block;
+  border-radius: 0.125rem;
+  box-shadow: 0 0 0 1px rgb(15 23 42 / 0.08);
+}
+.phone-country-code {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.phone-country-globe {
+  font-size: 1rem;
+  line-height: 1;
+}
+.phone-country-chevron {
+  flex-shrink: 0;
+  color: #64748b;
+}
+.phone-country-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  margin-top: 0.5rem;
+  width: 18rem;
+  max-width: calc(100vw - 2rem);
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 0.5rem;
+  box-shadow: 0 12px 30px rgb(15 23 42 / 0.14);
+}
+.phone-country-search {
+  width: 100%;
+  height: 2.25rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  padding: 0 0.625rem;
+  outline: none;
+  font-size: 0.8125rem;
+}
+.phone-country-search:focus {
+  border-color: #045e80;
+  box-shadow: none;
+}
+.phone-country-list {
+  max-height: 15rem;
+  overflow-y: auto;
+  margin-top: 0.375rem;
+}
+.phone-country-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.625rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  text-align: left;
+  font-size: 0.8125rem;
+}
+.phone-country-option:hover {
+  background: #f1f5f9;
+}
+.phone-country-empty {
+  padding: 0.75rem 0.625rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+.international-phone-field .PhoneInputInput {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 0.625rem 0.75rem 0.625rem 0.5rem;
+  font-size: 0.875rem;
+}
+.international-phone-field .PhoneInputInput:focus {
+  outline: none;
+  box-shadow: none;
+}
+.international-phone-field:has(.PhoneInputInput:disabled) {
+  background: #f8fafc;
+}
+.form-field {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background-color: #fff;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: #0f172a;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  transition: color 150ms, background-color 150ms, border-color 150ms, box-shadow 150ms;
+}
+.form-field::placeholder { color: #94a3b8; }
+.task-filter-select {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+}
+.search-input-with-icon {
+  padding-left: 2.5rem;
+}
+.search-input-with-icon::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+.form-field:focus {
+  border-color: #0a6f94;
+  outline: none;
+  box-shadow: none;
+}
+.form-field:disabled { background-color: #f8fafc; color: #64748b; }
+
+/* Use one thin border for every form focus state; never add a separate ring. */
+input:focus,
+textarea:focus,
+select:focus,
+button[aria-haspopup="listbox"]:focus {
+  outline: none;
+  box-shadow: none;
+}
+.form-field-label {
+  display: block;
+  margin-bottom: 0.375rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  color: #334155;
+}
+.task-form-fields-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.task-form-fields-stack .form-field-label {
+  margin-bottom: 0.5rem;
+}
+.task-deadline-date {
+  flex: 0 0 10.5rem;
+  width: 10.5rem;
+}
+.task-urgent-toggle {
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+}
+.content-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background-color: #fff;
+  box-shadow: 0 1px 2px 0 rgb(2 43 59 / 0.04), 0 1px 3px 0 rgb(2 43 59 / 0.06);
 }
 
 @media print {
-  aside, header, .no-print { display: none !important; }
-  main { padding: 0 !important; }
+  aside, header, .no-print { display: none; }
+  main { padding: 0; }
 }
-
 
 /* Scrollbars in the logo's "GO" lime (#95C12C). Firefox + new Chrome use scrollbar-color; Safari uses the ::-webkit rules. */
 * {
@@ -218,24 +244,24 @@
 }
 ::-webkit-scrollbar-thumb:hover { background-color: #789C20; }
 
-.assignee-dropdown-scroll {
+.assignee-options-scroll-area {
   scrollbar-color: #94a3b8 #f1f5f9;
   scrollbar-width: thin;
 }
-.assignee-dropdown-scroll::-webkit-scrollbar {
+.assignee-options-scroll-area::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-.assignee-dropdown-scroll::-webkit-scrollbar-track {
+.assignee-options-scroll-area::-webkit-scrollbar-track {
   border-radius: 9999px;
   background-color: #f1f5f9;
 }
-.assignee-dropdown-scroll::-webkit-scrollbar-thumb {
+.assignee-options-scroll-area::-webkit-scrollbar-thumb {
   background-color: #94a3b8;
   border: 1px solid transparent;
   border-radius: 9999px;
   background-clip: content-box;
 }
-.assignee-dropdown-scroll::-webkit-scrollbar-thumb:hover {
+.assignee-options-scroll-area::-webkit-scrollbar-thumb:hover {
   background-color: #64748b;
 }

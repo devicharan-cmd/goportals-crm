@@ -4,16 +4,16 @@ import { createClient } from '@/lib/supabase/server'
 import type { StaffRole } from '@/types/database'
 import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
 
-const STAFF_ROLES: StaffRole[] = ['super_admin', 'admin', 'team_lead', 'employee']
+const STAFF_ROLES: StaffRole[] = ['super_admin', 'manager', 'team_lead', 'employee']
 const REPORTING_ROLE: Partial<Record<StaffRole, StaffRole>> = {
-  admin: 'super_admin',
-  team_lead: 'admin',
+  manager: 'super_admin',
+  team_lead: 'manager',
   employee: 'team_lead',
 }
 
 export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params
-  const sessionClient = createClient()
+  const sessionClient = await createClient()
   const { data: { user }, error: authError } = await sessionClient.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Your session could not be verified. Sign in again.' }, { status: 401 })
 

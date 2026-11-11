@@ -44,29 +44,29 @@ export function TaskBasicInformation({
     <>
       <TaskSectionHeader section="basic" />
       <div className="min-w-0">
-        <label htmlFor={`${idPrefix}-title`} className="label text-sm">
+        <label htmlFor={`${idPrefix}-title`} className="form-field-label text-sm">
           {titleLabel} <span className="text-red-600" aria-hidden="true">*</span>
         </label>
         <input id={`${idPrefix}-title`} aria-invalid={!!titleError} required disabled={disabled}
-               className={`input h-9 rounded-xl text-sm ${field(titleError)}`} placeholder={titlePlaceholder}
+               className={`form-field h-9 rounded-xl text-sm ${field(titleError)}`} placeholder={titlePlaceholder}
                value={title} onChange={event => onTitleChange(event.target.value)} />
         {titleError && <p className="mt-1 text-xs font-medium text-red-600">{titleError}</p>}
       </div>
       <div className={`mt-3 grid gap-3 ${showAttachments ? 'sm:grid-cols-2' : ''}`}>
         <div className="min-w-0">
-          <label htmlFor={`${idPrefix}-description`} className="label text-sm">
+          <label htmlFor={`${idPrefix}-description`} className="form-field-label text-sm">
             Description {descriptionRequired && <span className="text-red-600" aria-hidden="true">*</span>}
           </label>
           <textarea id={`${idPrefix}-description`} aria-invalid={!!descriptionError}
                     required={descriptionRequired} disabled={disabled}
-                    className={`input min-h-[76px] rounded-xl resize-y text-sm ${field(descriptionError)}`}
+                    className={`form-field min-h-[76px] rounded-xl resize-y text-sm ${field(descriptionError)}`}
                     placeholder={descriptionPlaceholder} value={description}
                     onChange={event => onDescriptionChange(event.target.value)} />
           {descriptionError && <p className="mt-1 text-xs font-medium text-red-600">{descriptionError}</p>}
         </div>
         {showAttachments && (
           <div className="min-w-0">
-            <label htmlFor={`${idPrefix}-files`} className="label text-sm">Attach files</label>
+            <label htmlFor={`${idPrefix}-files`} className="form-field-label text-sm">Attach files</label>
             <input id={`${idPrefix}-files`} type="file" multiple disabled={disabled} className="sr-only"
                    onChange={event => {
                      const selectedFiles = Array.from(event.currentTarget.files ?? [])
@@ -74,7 +74,7 @@ export function TaskBasicInformation({
                      event.currentTarget.value = ''
                    }} />
             <label htmlFor={`${idPrefix}-files`}
-                   className={`flex h-[76px] w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-brand-200 bg-brand-50/60 px-3 text-xs font-semibold text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-50 ${disabled ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}>
+                   className={`flex h-[76px] w-full flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[#9FCCDE] bg-[#EAF4F8]/60 px-3 text-xs font-semibold text-[#034C68] transition-colors hover:border-[#63A9C4] hover:bg-[#EAF4F8] ${disabled ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}>
               <Paperclip aria-hidden="true" className="h-4 w-4" />
               Choose files
             </label>

@@ -26,8 +26,8 @@ export type StaffRow = {
 export type ReportingPerson = { id: string; full_name: string; email: string; avatar_url: string | null; role: StaffRole; status: AccountStatus }
 type ReportingDropdownPosition = { left: number; top: number; width: number; maxHeight: number; openBelow: boolean }
 
-export function StaffDirectory({ rows, departments, canEdit, inviteButton }: {
-  rows: StaffRow[]; departments: Department[]; canEdit: boolean; inviteButton: ReactNode
+export function StaffDirectory({ rows, departments, canEdit, actorId, inviteButton }: {
+  rows: StaffRow[]; departments: Department[]; canEdit: boolean; actorId: string; inviteButton: ReactNode
 }) {
   const [query, setQuery] = useState('')
   const [role, setRole] = useState('')
@@ -64,22 +64,22 @@ export function StaffDirectory({ rows, departments, canEdit, inviteButton }: {
             onChange={event => setQuery(event.target.value)}
             placeholder="Search team members..."
             aria-label="Search team members"
-            className="input h-9 w-full min-w-0 rounded-xl pl-9 text-sm focus:border-brand-600 focus:outline-none focus:ring-0 focus:shadow-none"
+            className="form-field h-9 w-full min-w-0 rounded-xl pl-9 text-sm focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none"
           />
         </label>
         <SearchableSelect
-          className="input h-9 w-[130px] shrink-0 rounded-xl py-1.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-0 focus:shadow-none"
+          className="form-field h-9 w-[130px] shrink-0 rounded-xl py-1.5 text-sm focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none"
           aria-label="Filter by role"
           value={role}
           onChange={event => setRole(event.target.value)}
         >
           <option value="">All roles</option>
-          {(['super_admin', 'admin', 'team_lead', 'employee'] as StaffRole[]).map(value => (
+          {(['super_admin', 'manager', 'team_lead', 'employee'] as StaffRole[]).map(value => (
             <option key={value} value={value}>{ROLE_LABELS[value]}</option>
           ))}
         </SearchableSelect>
         <SearchableSelect
-          className="input h-9 w-[150px] shrink-0 rounded-xl py-1.5 text-sm focus:border-brand-600 focus:outline-none focus:ring-0 focus:shadow-none"
+          className="form-field h-9 w-[150px] shrink-0 rounded-xl py-1.5 text-sm focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none"
           aria-label="Filter by department"
           searchable
           searchPlaceholder="Search departments..."
@@ -94,7 +94,7 @@ export function StaffDirectory({ rows, departments, canEdit, inviteButton }: {
       {filteredRows.length ? (
         <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
           {filteredRows.map(row => (
-            <StaffProfileCard key={row.id} row={row} departments={departments} canEdit={canEdit} />
+            <StaffProfileCard key={row.id} row={row} departments={departments} canEdit={canEdit} actorId={actorId} />
           ))}
         </div>
       ) : (
@@ -105,8 +105,8 @@ export function StaffDirectory({ rows, departments, canEdit, inviteButton }: {
 }
 
 function reportingRoleFor(role: StaffRole | ''): StaffRole | null {
-  if (role === 'admin') return 'super_admin'
-  if (role === 'team_lead') return 'admin'
+  if (role === 'manager') return 'super_admin'
+  if (role === 'team_lead') return 'manager'
   if (role === 'employee') return 'team_lead'
   return null
 }
@@ -141,7 +141,7 @@ function ReportingToField({
     return options.filter(person =>
       `${person.full_name} ${person.email} ${ROLE_LABELS[person.role]}`.toLowerCase().includes(query))
   }, [options, search])
-  const noOptionsText = role === 'admin'
+  const noOptionsText = role === 'manager'
     ? 'No active Super Admin is available.'
     : role === 'team_lead'
       ? 'No active Managers are available.'
@@ -230,7 +230,7 @@ function ReportingToField({
         type="button"
         disabled={disabled || options.length === 0}
         className={cn(
-          'input flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm focus:!shadow-none focus:!ring-0 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50',
+          'form-field flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm focus:!shadow-none focus:!ring-0 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50',
           error && 'border-red-500 focus:border-red-500 focus:!shadow-none',
         )}
         aria-invalid={!!error}
@@ -263,7 +263,7 @@ function ReportingToField({
               onChange={event => setSearch(event.target.value)}
               placeholder="Search people..."
               aria-label="Search reporting people"
-              className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-brand-500 focus:bg-white focus:shadow-none focus:ring-0"
+              className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#0A6F94] focus:bg-white focus:shadow-none focus:ring-0"
             />
           </div>
           <div
@@ -286,7 +286,7 @@ function ReportingToField({
                   }}
                   className={cn(
                     'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors',
-                    active ? 'bg-brand-50' : 'hover:bg-slate-50',
+                    active ? 'bg-[#EAF4F8]' : 'hover:bg-slate-50',
                   )}
                 >
                   <Avatar name={person.full_name || person.email} src={person.avatar_url} role={person.role} size="md" />
@@ -294,7 +294,7 @@ function ReportingToField({
                     <span className="block truncate text-sm font-medium text-slate-900">{person.full_name || person.email}</span>
                     <span className="mt-0.5 block truncate text-xs text-slate-500">{ROLE_LABELS[person.role]}</span>
                   </span>
-                  {active && <Check className="h-4 w-4 shrink-0 text-brand-600" />}
+                  {active && <Check className="h-4 w-4 shrink-0 text-[#045E80]" />}
                 </button>
               )
             })}
@@ -424,34 +424,82 @@ function validateStaffInvite(form: StaffInviteValues, people: ReportingPerson[])
 
 function inviteInputClass(invalid: boolean) {
   return cn(
-    'input rounded-xl focus:outline-none focus:ring-0 focus:shadow-none',
-    invalid ? 'border-red-500 focus:border-red-500' : 'focus:border-brand-600',
+    'form-field rounded-xl focus:outline-none focus:ring-0 focus:shadow-none',
+    invalid ? 'border-red-500 focus:border-red-500' : 'focus:border-[#045E80]',
   )
 }
 
-export function StaffProfileCard({ row, departments, canEdit }: {
-  row: StaffRow; departments: Department[]; canEdit: boolean
+export function StaffProfileCard({ row, departments, canEdit, actorId }: {
+  row: StaffRow; departments: Department[]; canEdit: boolean; actorId: string
 }) {
   const departmentsById = new Map(departments.map(department => [department.id, department.name]))
+  const router = useRouter()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const canDelete = canEdit && row.id !== actorId && row.role !== 'super_admin'
+
+  async function deleteStaffAccount() {
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      const response = await fetch(`/api/admin/staff/${row.id}`, { method: 'DELETE' })
+      const result = await response.json()
+      if (!response.ok) {
+        setDeleteError(typeof result.error === 'string' ? result.error : 'Could not delete this staff account.')
+        return
+      }
+      setDeleteOpen(false)
+      showSuccessToast(`${row.full_name || row.email} was permanently deleted.`)
+      router.refresh()
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Could not delete this staff account.')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <article
-      className="relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card"
+      className="relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)]"
     >
         <div className="pointer-events-none relative z-30 h-32 overflow-hidden rounded-t-2xl bg-gradient-to-br from-sky-400 via-sky-300 to-blue-400">
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-8 left-[-10%] h-24 w-[120%] rounded-[50%] bg-white" />
           <Badge className={cn('absolute left-3 top-3 z-10', row.status === 'active'
-            ? 'bg-lime-50 text-lime-700 ring-lime-200'
+            ? 'bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]'
             : 'bg-slate-100 text-slate-600 ring-slate-200')}>
-            <span className={cn('h-1.5 w-1.5 rounded-full', row.status === 'active' ? 'bg-lime-500' : 'bg-slate-400')} />
+            <span className={cn('h-1.5 w-1.5 rounded-full', row.status === 'active' ? 'bg-[#95C12C]' : 'bg-slate-400')} />
             {row.status === 'active' ? 'Active' : 'Suspended'}
           </Badge>
-          {canEdit && (
-            <span aria-hidden="true"
-                  onClick={event => event.stopPropagation()}
-                  className="pointer-events-auto absolute right-3 top-3 z-30 inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-sky-100 text-brand-800 shadow-sm">
-              <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
-            </span>
+          {canDelete && (
+            <div className="pointer-events-auto absolute right-3 top-3 z-40" onClick={event => event.stopPropagation()}>
+              <button
+                type="button"
+                aria-label={`Actions for ${row.full_name || row.email}`}
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen(open => !open)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-sky-100 text-[#033B51] shadow-sm hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#045E80]"
+              >
+                <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-9 z-50 min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      setDeleteError('')
+                      setDeleteOpen(true)
+                    }}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                  >
+                    <Trash2 aria-hidden="true" className="h-4 w-4" />
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <Avatar name={row.full_name || row.email} src={row.avatar_url} role={row.role} size="lg"
             className={cn('absolute left-1/2 top-8 z-10 h-20 w-20 -translate-x-1/2 border-4 border-white text-2xl shadow-sm', row.status !== 'active' && 'grayscale')} />
@@ -469,13 +517,13 @@ export function StaffProfileCard({ row, departments, canEdit }: {
             <div className="flex min-w-0 items-center gap-2">
               <Mail aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-700" />
               {row.email.trim()
-                ? <a href={`mailto:${row.email}`} title={row.email} onClick={event => event.stopPropagation()} className="pointer-events-auto block min-w-0 flex-1 truncate whitespace-nowrap text-slate-900 hover:text-brand-700">{row.email}</a>
+                ? <a href={`mailto:${row.email}`} title={row.email} onClick={event => event.stopPropagation()} className="pointer-events-auto block min-w-0 flex-1 truncate whitespace-nowrap text-slate-900 hover:text-[#034C68]">{row.email}</a>
                 : <span className="text-slate-800">--</span>}
             </div>
             <div className="flex min-w-0 items-center gap-2">
               <Phone aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-700" />
               {row.phone?.trim()
-                ? <a href={`tel:${row.phone.trim().replace(/[^+\d]/g, '')}`} onClick={event => event.stopPropagation()} className="pointer-events-auto truncate whitespace-nowrap text-slate-900 hover:text-brand-700">{row.phone}</a>
+                ? <a href={`tel:${row.phone.trim().replace(/[^+\d]/g, '')}`} onClick={event => event.stopPropagation()} className="pointer-events-auto truncate whitespace-nowrap text-slate-900 hover:text-[#034C68]">{row.phone}</a>
                 : <span className="text-slate-900">--</span>}
             </div>
           </div>
@@ -506,8 +554,30 @@ export function StaffProfileCard({ row, departments, canEdit }: {
       <Link
         href={`/admin/users/${row.id}`}
         aria-label={`View ${row.full_name || row.email} staff profile`}
-        className="absolute inset-0 z-20 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600"
+        className="absolute inset-0 z-20 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#045E80]"
       />
+      {canDelete && (
+        <Modal
+          open={deleteOpen}
+          onClose={() => !deleting && setDeleteOpen(false)}
+          title={`Permanently delete ${row.full_name || row.email}?`}
+          description="This action cannot be undone."
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              This permanently removes the staff account and profile. Existing tasks, tickets, comments, activity, attachments, and time logs will remain. Tasks and tickets assigned to this person will be reassigned to their Reporting To person. Tasks they assigned to others will stay assigned as they are; only this person&apos;s profile reference will be cleared.
+            </p>
+            {deleteError && <Alert tone="error">{deleteError}</Alert>}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" disabled={deleting} onClick={() => setDeleteOpen(false)}>Cancel</Button>
+              <Button variant="danger" loading={deleting} onClick={deleteStaffAccount}>
+                <Trash2 className="h-4 w-4" />
+                Permanently delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </article>
   )
 }
@@ -526,10 +596,10 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const supabase = createClient()
-  // Role/status/job title/capacity changes are super-admin-only in the DB (guard_profile_update) —
-  // an admin actor can only manage department membership here, not these fields.
+  // Role/status/job title/capacity changes are Super-Admin-only in the DB (guard_profile_update) —
+  // a Manager can only manage department membership here, not these fields.
   const canEditProfile = actorRole === 'super_admin'
-  const canEditDepartments = actorRole === 'super_admin' || actorRole === 'admin'
+  const canEditDepartments = actorRole === 'super_admin' || actorRole === 'manager'
   // full_name is the one field the DB lets anyone change on their own row.
   const canEditName = canEditProfile || isMe
 
@@ -564,7 +634,7 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
               <input defaultValue={row.full_name ?? ''} placeholder="Full name" disabled={busy} readOnly={!canEditName}
                      aria-label={`Full name for ${row.full_name || row.email}`}
                      onBlur={e => canEditName && e.target.value.trim() !== (row.full_name ?? '') && update({ full_name: e.target.value.trim() })}
-                     spellCheck={false} autoCorrect="off" className="input h-8 w-full max-w-56 py-1 text-sm font-semibold read-only:cursor-default" />
+                     spellCheck={false} autoCorrect="off" className="form-field h-8 w-full max-w-56 py-1 text-sm font-semibold read-only:cursor-default" />
               {isMe && <span className="text-xs text-slate-400">(you)</span>}
             </div>
             <p className="truncate text-xs text-slate-500">{row.email}</p>
@@ -581,10 +651,10 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
                    }
                    if (value !== (row.job_title ?? '')) update({ job_title: value })
                  }}
-                 spellCheck={false} autoCorrect="off" className="input h-8 w-44 py-1 text-xs" />
+                 spellCheck={false} autoCorrect="off" className="form-field h-8 w-44 py-1 text-xs" />
           {canEditProfile ? (
             <SearchableSelect value={row.role} disabled={busy || isMe} onChange={e => update({ role: e.target.value })} className="h-8 w-auto py-1 text-xs">
-              {(['super_admin', 'admin', 'team_lead', 'employee'] as StaffRole[]).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+              {(['super_admin', 'manager', 'team_lead', 'employee'] as StaffRole[]).map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
             </SearchableSelect>
           ) : (
             <span className={cn('rounded-md border bg-white px-2 py-1 text-xs font-medium transition-colors', ROLE_STYLES[row.role].badge)}>{ROLE_LABELS[row.role]}</span>
@@ -592,11 +662,11 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
           <label className="flex items-center gap-1 text-xs text-slate-500">
             <input type="number" min="1" max="80" defaultValue={row.weekly_capacity_hours} disabled={busy || !canEditProfile}
                    onBlur={e => Number(e.target.value) !== row.weekly_capacity_hours && update({ weekly_capacity_hours: Number(e.target.value) || 40 })}
-                   className="input h-8 w-16 py-1 text-xs" /> h/wk
+                   className="form-field h-8 w-16 py-1 text-xs" /> h/wk
           </label>
           {canEditProfile ? (
             <SearchableSelect value={row.status} disabled={busy || isMe} onChange={e => update({ status: e.target.value })}
-                    className={cn('input h-8 w-auto py-1 text-xs', row.status !== 'active' && 'text-red-700')}>
+                    className={cn('form-field h-8 w-auto py-1 text-xs', row.status !== 'active' && 'text-red-700')}>
               <option value="active">Active</option>
               <option value="suspended">Suspended</option>
             </SearchableSelect>
@@ -613,7 +683,7 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
           return (
             <button key={d.id} disabled={busy || !canEditDepartments} onClick={() => toggleDept(d.id)}
                     className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset transition',
-                      on ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-500 ring-slate-200 hover:ring-slate-300')}>
+                      on ? 'bg-[#045E80] text-white ring-[#045E80]' : 'bg-white text-slate-500 ring-slate-200 hover:ring-slate-300')}>
               {d.name}
             </button>
           )
@@ -626,7 +696,7 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
 
 // ─── Invite staff ────────────────────────────────────────────
 export function InviteStaffButton({
-  departments, roles = ['employee', 'team_lead', 'admin', 'super_admin'], reportingPeople,
+  departments, roles = ['employee', 'team_lead', 'manager', 'super_admin'], reportingPeople,
 }: { departments: Department[]; roles?: StaffRole[]; reportingPeople: ReportingPerson[] }) {
   const onlyEmployees = roles.length === 1 && roles[0] === 'employee'
   const router = useRouter()
@@ -685,7 +755,7 @@ export function InviteStaffButton({
                       onChange={e => {
                         const value = e.currentTarget.value as StaffRole | ''
                         const options = reportingOptionsFor(value, reportingPeople)
-                        const reportingTo = value === 'admin' && options.length === 1 ? options[0].id : ''
+                        const reportingTo = value === 'manager' && options.length === 1 ? options[0].id : ''
                         setForm(current => ({ ...current, role: value, reporting_to: reportingTo }))
                         setErrors(current => ({
                           ...current,
@@ -698,7 +768,7 @@ export function InviteStaffButton({
                 {!onlyEmployees && <option value="">Select role</option>}
                 {roles.includes('employee') && <option value="employee">Employee</option>}
                 {roles.includes('team_lead') && <option value="team_lead">Team Lead</option>}
-                {roles.includes('admin') && <option value="admin">Manager</option>}
+                {roles.includes('manager') && <option value="manager">Manager</option>}
                 {roles.includes('super_admin') && <option value="super_admin">Super Admin</option>}
               </SearchableSelect>
             </Field>
@@ -738,7 +808,7 @@ export function InviteStaffButton({
                             }
                           }}
                           className={cn('rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset',
-                            on ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-300')}>
+                            on ? 'bg-[#045E80] text-white ring-[#045E80]' : 'bg-white text-slate-600 ring-slate-300')}>
                     {d.name}
                   </button>
                 )
@@ -764,7 +834,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
 }) {
   const staffRoleOptions: { value: StaffRole; label: string }[] = actorRole === 'super_admin'
     ? [{ value: 'employee', label: 'Employee' }, { value: 'team_lead', label: 'Team Lead' },
-       { value: 'admin', label: 'Manager' }, { value: 'super_admin', label: 'Super Admin' }]
+       { value: 'manager', label: 'Manager' }, { value: 'super_admin', label: 'Super Admin' }]
     : [{ value: 'employee', label: 'Employee' }, { value: 'team_lead', label: 'Team Lead' }]
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -825,7 +895,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
             <div className="mr-6 space-y-4">
           {msg && <Alert tone={msg.ok ? 'success' : 'error'}>{msg.text}</Alert>}
           <Field label="Type" required>
-            <div className="inline-flex h-10 w-fit gap-0 rounded-xl border border-slate-200 bg-white p-0.5 text-sm shadow-card">
+            <div className="inline-flex h-10 w-fit gap-0 rounded-xl border border-slate-200 bg-white p-0.5 text-sm [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)]">
               {([
                 ['client', 'Client', Building2],
                 ['staff', 'Team member', UsersRound],
@@ -834,7 +904,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
                         className={cn(
                           'inline-flex h-full flex-none items-center gap-2 whitespace-nowrap rounded-lg px-2.5 py-1 text-sm transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none',
                           form.kind === v
-                            ? 'bg-brand-700 font-semibold text-white shadow-[0_2px_5px_rgba(2,43,59,0.2)]'
+                            ? 'bg-[#034C68] font-semibold text-white shadow-[0_2px_5px_rgba(2,43,59,0.2)]'
                             : 'bg-white font-medium text-slate-800',
                         )}>
                   <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
@@ -874,7 +944,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
                           onChange={e => {
                             const value = e.currentTarget.value as StaffRole | ''
                             const options = reportingOptionsFor(value, reportingPeople)
-                            const reportingTo = value === 'admin' && options.length === 1 ? options[0].id : ''
+                            const reportingTo = value === 'manager' && options.length === 1 ? options[0].id : ''
                             setForm(current => ({ ...current, role: value, reporting_to: reportingTo }))
                             setErrors(current => ({
                               ...current,
@@ -924,7 +994,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
                                 }
                               }}
                               className={cn('rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset',
-                                on ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-300')}>
+                                on ? 'bg-[#045E80] text-white ring-[#045E80]' : 'bg-white text-slate-600 ring-slate-300')}>
                         {d.name}
                       </button>
                     )

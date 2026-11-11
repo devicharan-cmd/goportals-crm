@@ -8,7 +8,7 @@ export const metadata = { title: 'Setting' }
 
 export default async function SettingsPage() {
   const me = await requireStaff()
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const [profileRes, addressRes, deptsRes, deptMembersRes, lookups] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', me.id).single(),

@@ -33,12 +33,12 @@ export function Modal({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-end justify-center bg-brand-950/40 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[1100] flex items-end justify-center bg-[#011B26]/40 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         onClick={e => e.stopPropagation()}
-        className={cn('max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-pop sm:rounded-2xl',
+        className={cn('max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] sm:rounded-2xl',
           size === 'md' ? 'sm:max-w-md' : size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-5xl',
           dialogClassName)}
       >
@@ -52,7 +52,7 @@ export function Modal({
           </div>
           <button
             onClick={onClose}
-            className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 transition-all duration-150 hover:bg-red-50 hover:text-red-600 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 focus-visible:ring-offset-2', closeButtonClassName)}
+            className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#EAF4F8] text-[#034C68] transition-all duration-150 hover:bg-red-50 hover:text-red-600 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63A9C4] focus-visible:ring-offset-2', closeButtonClassName)}
             aria-label="Close"
           >
             <X className={cn('h-5 w-5', closeIconClassName)} />

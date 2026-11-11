@@ -67,12 +67,12 @@ export function EcommerceAccountsEditor({
               <SearchableSelect value={r.status} disabled={busy}
                       onChange={e => run(() => supabase.from('ecommerce_accounts').update({ status: e.target.value }).eq('id', r.id))}
                       className={cn('rounded-md border-0 py-0.5 pl-2 pr-7 text-xs font-medium ring-1 ring-inset',
-                        r.status === 'active' ? 'bg-lime-50 text-lime-700 ring-lime-200' : 'bg-slate-100 text-slate-500 ring-slate-200')}>
+                        r.status === 'active' ? 'bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]' : 'bg-slate-100 text-slate-500 ring-slate-200')}>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </SearchableSelect>
             ) : (
-              <Badge className={r.status === 'active' ? 'bg-lime-50 text-lime-700 ring-lime-200' : 'bg-slate-100 text-slate-500 ring-slate-200'}>{r.status}</Badge>
+              <Badge className={r.status === 'active' ? 'bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]' : 'bg-slate-100 text-slate-500 ring-slate-200'}>{r.status}</Badge>
             )}
             {editable && (
               <button disabled={busy} onClick={() => run(() => supabase.from('ecommerce_accounts').delete().eq('id', r.id))}
@@ -86,12 +86,12 @@ export function EcommerceAccountsEditor({
       <ErrorLine error={error} />
       {editable && (
         <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-3">
-          <SearchableSelect className="input h-9 w-32 py-1.5" searchable searchPlaceholder="Search platforms..." value={platformId} onChange={e => setPlatformId(e.target.value)}>
+          <SearchableSelect className="form-field h-9 w-32 py-1.5" searchable searchPlaceholder="Search platforms..." value={platformId} onChange={e => setPlatformId(e.target.value)}>
             <option value="">Platform…</option>
             {platforms.filter(p => p.is_active).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </SearchableSelect>
-          <input className="input h-9 flex-1" placeholder="Account name (e.g. ABC Amazon Seller 2)" value={accountName} onChange={e => setAccountName(e.target.value)} />
-          <input className="input h-9 w-32" placeholder="Seller ID" value={sellerId} onChange={e => setSellerId(e.target.value)} />
+          <input className="form-field h-9 flex-1" placeholder="Account name (e.g. ABC Amazon Seller 2)" value={accountName} onChange={e => setAccountName(e.target.value)} />
+          <input className="form-field h-9 w-32" placeholder="Seller ID" value={sellerId} onChange={e => setSellerId(e.target.value)} />
           <Button size="sm" variant="secondary" disabled={!platformId || !accountName.trim()} loading={busy}
                   onClick={async () => {
                     const ok = await run(() => supabase.from('ecommerce_accounts').insert({
@@ -107,7 +107,7 @@ export function EcommerceAccountsEditor({
   )
 }
 
-// ─── Services (with admin-set price, migration 015) ──────────
+// ─── Services (with Super-Admin-set price, migration 015) ──────────
 export type ClientServiceRow = {
   id: string; service_id: string | null; custom_name: string | null; status: ClientServiceStatus
   ecommerce_account_id: string | null; agreed_price: number | null; currency: string; billing_type: BillingType
@@ -160,19 +160,19 @@ export function ClientServicesEditor({
       {editable && (
         <div className="space-y-2 border-t border-slate-100 px-5 py-3">
           <div className="flex flex-wrap gap-2">
-            <SearchableSelect className="input h-9 flex-1 py-1.5" searchable searchPlaceholder="Search services..." value={adding} onChange={e => setAdding(e.target.value)}>
+            <SearchableSelect className="form-field h-9 flex-1 py-1.5" searchable searchPlaceholder="Search services..." value={adding} onChange={e => setAdding(e.target.value)}>
               <option value="">Service…</option>
               {services.filter(s => s.is_active).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </SearchableSelect>
-            <input className="input h-9 flex-1" placeholder="…or type a custom one" value={custom} onChange={e => setCustom(e.target.value)} />
+            <input className="form-field h-9 flex-1" placeholder="…or type a custom one" value={custom} onChange={e => setCustom(e.target.value)} />
           </div>
           <div className="flex flex-wrap gap-2">
-            <SearchableSelect className="input h-9 w-40 py-1.5" searchable searchPlaceholder="Search accounts..." value={accountId} onChange={e => setAccountId(e.target.value)}>
+            <SearchableSelect className="form-field h-9 w-40 py-1.5" searchable searchPlaceholder="Search accounts..." value={accountId} onChange={e => setAccountId(e.target.value)}>
               <option value="">Whole client</option>
               {accounts.map(a => <option key={a.id} value={a.id}>{a.account_name}</option>)}
             </SearchableSelect>
-            <input className="input h-9 w-28" type="number" min="0" placeholder="Price ₹" value={price} onChange={e => setPrice(e.target.value)} />
-            <SearchableSelect className="input h-9 w-28 py-1.5" value={billing} onChange={e => setBilling(e.target.value as BillingType)}>
+            <input className="form-field h-9 w-28" type="number" min="0" placeholder="Price ₹" value={price} onChange={e => setPrice(e.target.value)} />
+            <SearchableSelect className="form-field h-9 w-28 py-1.5" value={billing} onChange={e => setBilling(e.target.value as BillingType)}>
               <option value="monthly">Monthly</option>
               <option value="one_time">One-time</option>
               <option value="per_task">Per task</option>
@@ -244,11 +244,11 @@ export function ClientTeamEditor({
       <ErrorLine error={error} />
       {editableDepts.length > 0 && (
         <div className="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-3">
-          <SearchableSelect className="input h-9 flex-1 py-1.5" searchable searchPlaceholder="Search departments..." value={dept} onChange={e => { setDept(e.target.value); setPerson('') }}>
+          <SearchableSelect className="form-field h-9 flex-1 py-1.5" searchable searchPlaceholder="Search departments..." value={dept} onChange={e => { setDept(e.target.value); setPerson('') }}>
             <option value="">Department…</option>
             {editableDepts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </SearchableSelect>
-          <SearchableSelect className="input h-9 flex-1 py-1.5" searchable searchPlaceholder="Search people..." value={person} onChange={e => setPerson(e.target.value)} disabled={!dept}>
+          <SearchableSelect className="form-field h-9 flex-1 py-1.5" searchable searchPlaceholder="Search people..." value={person} onChange={e => setPerson(e.target.value)} disabled={!dept}>
             <option value="">{dept && candidates.length === 0 ? 'No one in this department' : 'Person…'}</option>
             {candidates.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </SearchableSelect>
@@ -297,7 +297,7 @@ export function ClientStatusSelect({ clientId, status }: { clientId: string; sta
   }
   return (
     <span className="inline-flex flex-col items-end">
-      <SearchableSelect className="input h-8 w-auto py-1 text-xs" value={status} disabled={busy} onChange={e => change(e.target.value)}>
+      <SearchableSelect className="form-field h-8 w-auto py-1 text-xs" value={status} disabled={busy} onChange={e => change(e.target.value)}>
         <option value="active">Active</option>
         <option value="suspended">Suspended</option>
         <option value="pending">Pending</option>
@@ -338,14 +338,14 @@ export function InviteLoginButton({ clientId, email, name }: { clientId: string;
       <Modal open={open} onClose={() => setOpen(false)} title="Invite to client portal"
              description="They'll get an email to set a password, then accept the agreement.">
         <form onSubmit={send} className="space-y-4">
-          {msg && <p className={cn('rounded-lg px-3 py-2 text-sm', msg.tone === 'ok' ? 'bg-lime-50 text-lime-800' : 'bg-red-50 text-red-700')}>{msg.text}</p>}
+          {msg && <p className={cn('rounded-lg px-3 py-2 text-sm', msg.tone === 'ok' ? 'bg-[#F5FAE8] text-[#465B17]' : 'bg-red-50 text-red-700')}>{msg.text}</p>}
           <div>
-            <label className="label">Name</label>
-            <input className="input" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} />
+            <label className="form-field-label">Name</label>
+            <input className="form-field" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} />
           </div>
           <div>
-            <label className="label">Email *</label>
-            <input className="input" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+            <label className="form-field-label">Email *</label>
+            <input className="form-field" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Close</Button>

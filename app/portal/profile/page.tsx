@@ -7,7 +7,7 @@ export const metadata = { title: 'Company profile' }
 
 export default async function PortalProfilePage() {
   const me = await requireClient()
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: client } = await supabase.from('clients').select('*').eq('owner_id', me.id).single()
   const { data: image } = client?.company_profile_image_path
     ? await supabase.storage.from('client-profile-images').createSignedUrl(client.company_profile_image_path, 3600)

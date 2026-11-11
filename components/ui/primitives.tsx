@@ -8,7 +8,7 @@ import type { AppRole } from '@/types/database'
 import { ROLE_STYLES } from '@/lib/constants'
 
 export function Card({ className, children, id }: { className?: string; children: React.ReactNode; id?: string }) {
-  return <div id={id} className={cn('card', className)}>{children}</div>
+  return <div id={id} className={cn('content-card', className)}>{children}</div>
 }
 
 export function CardHeader({
@@ -48,7 +48,7 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
       {icon && (
-        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#EAF4F8] text-[#045E80]">
           <span className="[&>svg]:h-6 [&>svg]:w-6">{icon}</span>
         </div>
       )}
@@ -62,8 +62,8 @@ export function EmptyState({
 export function Alert({ tone = 'error', children }: { tone?: 'error' | 'success' | 'info'; children: React.ReactNode }) {
   const styles = {
     error:   'bg-red-50 text-red-700 ring-red-200',
-    success: 'bg-lime-50 text-lime-800 ring-lime-200',
-    info:    'bg-brand-50 text-brand-800 ring-brand-200',
+    success: 'bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]',
+    info:    'bg-[#EAF4F8] text-[#033B51] ring-[#9FCCDE]',
   }
   const Icon = tone === 'success' ? CheckCircle2 : AlertCircle
   return (
@@ -80,7 +80,7 @@ export function Field({
   return (
     <div className={className}>
       {label && (
-        <label className="label">
+        <label className="form-field-label">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
@@ -92,7 +92,7 @@ export function Field({
 }
 
 const AVATAR_COLORS = [
-  'bg-brand-100 text-brand-700', 'bg-lime-100 text-lime-800', 'bg-violet-100 text-violet-700',
+  'bg-[#CFE6EF] text-[#034C68]', 'bg-[#E8F3C8] text-[#465B17]', 'bg-violet-100 text-violet-700',
   'bg-amber-100 text-amber-800', 'bg-sky-100 text-sky-700', 'bg-rose-100 text-rose-700',
 ]
 
@@ -118,7 +118,7 @@ export function CompanyAvatar({ name, src, size = 'md', className }: { name: str
   const sizes = { xs: 'h-5 w-5 text-[8px]', sm: 'h-10 w-10 text-sm', md: 'h-14 w-14 text-lg', lg: 'h-20 w-20 text-2xl' }
   return (
     <div aria-label={`${name} company image`} role="img" className={cn(
-      'flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-800 font-display font-bold text-white',
+      'flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0A6F94] to-[#033B51] font-sans font-bold text-white',
       sizes[size], className,
     )} style={size === 'xs' ? { width: 20, height: 20, minWidth: 20, minHeight: 20 } : undefined}>
       {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : getInitials(name)}
@@ -130,18 +130,18 @@ export function StatCard({
   label, value, hint, icon, tone = 'brand', href,
 }: { label: string; value: React.ReactNode; hint?: string; icon: React.ReactNode; tone?: 'brand' | 'lime' | 'red' | 'amber'; href?: string }) {
   const tones = {
-    brand: 'bg-brand-50 text-brand-600',
-    lime:  'bg-lime-50 text-lime-700',
+    brand: 'bg-[#EAF4F8] text-[#045E80]',
+    lime:  'bg-[#F5FAE8] text-[#5B771A]',
     red:   'bg-red-50 text-red-600',
     amber: 'bg-amber-50 text-amber-600',
   }
   const body = (
-    <div className="card flex items-center gap-4 p-5 transition hover:shadow-pop">
+    <div className="content-card flex items-center gap-4 p-5 transition hover:[box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">
       <div className={cn('flex h-11 w-11 items-center justify-center rounded-xl', tones[tone])}>
         <span className="[&>svg]:h-5 [&>svg]:w-5">{icon}</span>
       </div>
       <div className="min-w-0">
-        <p className="text-2xl font-bold text-slate-900 font-display">{value}</p>
+        <p className="text-2xl font-bold text-slate-900 font-sans">{value}</p>
         <p className="text-xs font-medium text-slate-500">{label}</p>
         {hint && <p className="text-[11px] text-slate-400">{hint}</p>}
       </div>

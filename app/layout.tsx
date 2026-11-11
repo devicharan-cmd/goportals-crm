@@ -4,7 +4,7 @@ import { Toaster } from 'react-hot-toast'
 import './globals.css'
 import 'leaflet/dist/leaflet.css'
 
-const sans = Inter({ subsets: ['latin'], variable: '--font-sans' })
+const sans = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
   title: { default: 'GoPortals', template: '%s · GoPortals' },
@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               background: '#ffffff',
               color: '#0f172a',
               padding: '10px 12px',
-              fontFamily: 'var(--font-sans), system-ui, sans-serif',
+              fontFamily: 'var(--font-inter), system-ui, sans-serif',
               fontSize: 13,
               fontWeight: 600,
               lineHeight: 1.35,

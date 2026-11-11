@@ -11,13 +11,13 @@ import type { TaskAttachment, TaskStatus } from '@/types/database'
 type AttachmentLink = TaskAttachment & { signedUrl: string }
 
 export function ClientTaskAttachments({
-  taskId, meId, attachments, status,
-}: { taskId: string; meId: string; attachments: AttachmentLink[]; status: TaskStatus }) {
+  taskId, meId, attachments, status, canUpload = true,
+}: { taskId: string; meId: string; attachments: AttachmentLink[]; status: TaskStatus; canUpload?: boolean }) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
-  const canUpload = status !== 'completed' && status !== 'cancelled'
+  const mayUpload = canUpload && status !== 'completed' && status !== 'cancelled'
 
   async function upload(file: File) {
     setUploading(true)
@@ -66,7 +66,7 @@ export function ClientTaskAttachments({
               </span>
               <div className="min-w-0 flex-1">
                 <a href={attachment.signedUrl} target="_blank" rel="noreferrer"
-                   className="block truncate text-sm font-medium text-brand-700 hover:underline">
+                   className="block truncate text-sm font-medium text-[#034C68] hover:underline">
                   {attachment.file_name}
                 </a>
                 <p className="text-xs text-slate-400">{formatDate(attachment.created_at)}</p>
@@ -75,7 +75,7 @@ export function ClientTaskAttachments({
           ))}
         </ul>
       )}
-      {canUpload && (
+      {mayUpload && (
         <>
           <input ref={inputRef} type="file" className="hidden" aria-label="Choose a file to attach"
                  disabled={uploading} onChange={event => {

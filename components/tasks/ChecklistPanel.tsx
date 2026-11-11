@@ -64,7 +64,7 @@ export function ChecklistPanel({ taskId, items, canEdit }: { taskId: string; ite
                 onClick={() => toggle(item)} disabled={!canEdit || busyId === item.id}
                 className={cn(
                   'flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border transition disabled:opacity-60',
-                  item.is_done ? 'border-lime-500 bg-lime-500' : 'border-slate-300 bg-white',
+                  item.is_done ? 'border-[#95C12C] bg-[#95C12C]' : 'border-slate-300 bg-white',
                 )}
               >
                 {item.is_done && <span className="h-1.5 w-1.5 rounded-sm bg-white" />}
@@ -83,7 +83,7 @@ export function ChecklistPanel({ taskId, items, canEdit }: { taskId: string; ite
 
       {canEdit && (
         <form onSubmit={addItem} className="flex items-center gap-2">
-          <input className="input h-8 flex-1 text-sm" placeholder="Add a checklist item" value={text} onChange={e => setText(e.target.value)} />
+          <input className="form-field h-8 flex-1 text-sm" placeholder="Add a checklist item" value={text} onChange={e => setText(e.target.value)} />
           <Button type="submit" size="sm" variant="secondary" loading={adding}><Plus className="h-3.5 w-3.5" /></Button>
         </form>
       )}

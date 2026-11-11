@@ -17,7 +17,7 @@ import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
 
 /**
  * Client edits their own basic details + address only. Platform/service/price are
- * admin-only — this form never touches them, and the DB (guard_client_update, 017)
+ * restricted to staff — this form never touches them, and the DB (guard_client_update, 017)
  * rejects any other column even if someone tried.
  */
 const PROFILE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -195,16 +195,16 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
 
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-      <section className="card self-start overflow-visible" aria-labelledby="brand-logo-title">
+      <section className="content-card self-start overflow-visible" aria-labelledby="brand-logo-title">
         {/* Brand banner with the logo circle overlapping its bottom edge */}
-        <div className="h-24 rounded-t-xl bg-gradient-to-br from-brand-500 via-brand-700 to-brand-900" />
+        <div className="h-24 rounded-t-xl bg-gradient-to-br from-[#0A6F94] via-[#034C68] to-[#022B3B]" />
         <div className="-mt-14 flex flex-col items-center px-5 pb-6 text-center">
             <div className="relative">
             <ProfileImageControl
               busy={imageBusy}
               onClick={openImageDialog}
               label={currentImage ? 'Change company logo' : 'Add company logo'}
-              className="h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-900 text-4xl font-bold text-white shadow-lg ring-4 ring-white transition"
+              className="h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-[#0A6F94] to-[#022B3B] text-4xl font-bold text-white shadow-lg ring-4 ring-white transition"
             >
               {currentImage
                 ? <img src={currentImage} alt={`${form.company_name} logo`} className="h-full w-full object-cover" />
@@ -236,24 +236,24 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
         </div>
       </section>
 
-      <form onSubmit={submit} className="card min-w-0 space-y-6 p-5 sm:p-6">
+      <form onSubmit={submit} className="content-card min-w-0 space-y-6 p-5 sm:p-6">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Saved.</Alert>}
         <fieldset disabled={!editing} className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Company / brand name" required className="sm:col-span-2">
-            <input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" required value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })} />
+            <input className="form-field disabled:!bg-slate-50/70 disabled:!text-slate-700" required value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })} />
           </Field>
-          <Field label="Contact name"><input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.contact_name} onChange={e => setForm({ ...form, contact_name: e.target.value })} /></Field>
-          <Field label="Contact email"><input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" type="email" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} /></Field>
+          <Field label="Contact name"><input className="form-field disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.contact_name} onChange={e => setForm({ ...form, contact_name: e.target.value })} /></Field>
+          <Field label="Contact email"><input className="form-field disabled:!bg-slate-50/70 disabled:!text-slate-700" type="email" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} /></Field>
           <Field label="Mobile number" required>
             <InternationalPhoneField value={form.contact_phone} disabled={!editing} onChange={value => setForm({ ...form, contact_phone: value })} />
           </Field>
           <Field label="Timezone" required>
             <TimezoneSelect value={form.timezone} onChange={value => setForm({ ...form, timezone: value })} disabled={!editing} />
           </Field>
-          <Field label="GSTIN"><input className="input uppercase disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value })} /></Field>
-          <Field label="WhatsApp group link" className="sm:col-span-2"><input className="input disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.whatsapp_group_link} onChange={e => setForm({ ...form, whatsapp_group_link: e.target.value })} /></Field>
+          <Field label="GSTIN"><input className="form-field uppercase disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.gstin} onChange={e => setForm({ ...form, gstin: e.target.value })} /></Field>
+          <Field label="WhatsApp group link" className="sm:col-span-2"><input className="form-field disabled:!bg-slate-50/70 disabled:!text-slate-700" value={form.whatsapp_group_link} onChange={e => setForm({ ...form, whatsapp_group_link: e.target.value })} /></Field>
         </div>
 
         <div className="border-t border-slate-100 pt-5">
@@ -286,12 +286,12 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
         onClose={cancelLogoUpload}
         title={currentImage ? 'Update company logo' : 'Add company logo'}
         titleClassName="text-2xl"
-        closeButtonClassName="h-10 w-10 rounded-full text-slate-500 hover:bg-brand-50 hover:text-brand-700 hover:rotate-90 active:scale-95"
+        closeButtonClassName="h-10 w-10 rounded-full text-slate-500 hover:bg-[#EAF4F8] hover:text-[#034C68] hover:rotate-90 active:scale-95"
         closeIconClassName="h-5 w-5"
       >
         <div className="space-y-5">
-          <div className="flex items-center gap-5 rounded-2xl border-2 border-dashed border-brand-200 bg-gradient-to-r from-brand-50/70 to-white p-5 transition hover:border-brand-300 sm:gap-6 sm:p-6">
-            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-900 text-3xl font-bold text-white shadow-lg ring-4 ring-white sm:h-24 sm:w-24 sm:text-4xl">
+          <div className="flex items-center gap-5 rounded-2xl border-2 border-dashed border-[#9FCCDE] bg-gradient-to-r from-[#EAF4F8]/70 to-white p-5 transition hover:border-[#63A9C4] sm:gap-6 sm:p-6">
+            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0A6F94] to-[#022B3B] text-3xl font-bold text-white shadow-lg ring-4 ring-white sm:h-24 sm:w-24 sm:text-4xl">
               {selectedImagePreview || currentImage
                 ? <img src={selectedImagePreview ?? currentImage ?? undefined} alt={selectedImage ? 'Selected company logo preview' : 'Current company logo'} className="h-full w-full object-cover" />
                 : form.company_name.trim().charAt(0).toUpperCase() || '?' }

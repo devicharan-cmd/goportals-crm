@@ -3,7 +3,7 @@
 import { requireClient, requireRole, requireStaff } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { TASK_STATUS_OPTIONS } from '@/lib/constants'
-import { nameMap, normalizeTaskSummaryRows, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
+import { getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
 import { parseTaskCode, parseTicketCode } from '@/lib/utils'
 import type { Client, TaskSummary, Ticket } from '@/types/database'
 
@@ -12,10 +12,11 @@ type ClientStatusFilter = '' | 'active' | 'pending' | 'suspended' | 'rejected'
 type ClientSearchRow = Client & { client_team: { profile_id: string }[] }
 type StaffTicketSearchRow = Ticket & { client: { id: string; company_name: string } | null }
 type TaskSearchFilters = {
-  scope: 'mine' | 'all'
+  scope: 'mine' | 'assigned' | 'all'
   status: string
   client: string
   assignee: string
+  assignedBy: string
   department: string
   due: string
   board: boolean
@@ -31,12 +32,12 @@ export async function searchTasks(value: string, filters: TaskSearchFilters): Pr
   taskAssigners: Record<string, TaskAssignerInfo>
 }> {
   const me = await requireStaff()
-  const supabase = createClient()
+  const supabase = await createClient()
   const queryText = safeSearchText(value)
   const taskNumber = parseTaskCode(queryText)
   const isExactTaskSearch = taskNumber !== null
   const taskStatus = TASK_STATUS_OPTIONS.find(option => option.value === filters.status)?.value
-  if (!['mine', 'all'].includes(filters.scope)) throw new Error('Invalid task scope filter')
+  if (!['mine', 'assigned', 'all'].includes(filters.scope)) throw new Error('Invalid task scope filter')
   if (!['active', 'all'].includes(filters.status) && !taskStatus) throw new Error('Invalid task status filter')
 
   let query = supabase.from('tasks').select(TASK_SUMMARY_SELECT)
@@ -46,14 +47,21 @@ export async function searchTasks(value: string, filters: TaskSearchFilters): Pr
     .limit(500)
 
   if (filters.scope === 'mine' && !isExactTaskSearch) query = query.eq('assignee_id', me.id)
-  else if (filters.assignee === 'none') query = query.is('assignee_id', null)
-  else if (filters.assignee) query = query.eq('assignee_id', filters.assignee)
+  else if (filters.scope === 'assigned') {
+    const lookups = await getTaskPageLookups({ includePeople: true, includeAssignments: true })
+    const assigneeIds = taskAssigneeIdsForAssignedScope(me, lookups)
+    query = query.eq('assigned_by', me.id)
+    query = assigneeIds.length
+      ? query.in('assignee_id', assigneeIds)
+      : query.eq('id', '00000000-0000-0000-0000-000000000000')
+  } else if (filters.assignee) query = query.eq('assignee_id', filters.assignee)
 
   if (!filters.board && !isExactTaskSearch) {
     if (filters.status === 'active') query = query.not('status', 'in', '(completed,cancelled)')
     else if (taskStatus) query = query.eq('status', taskStatus)
   }
   if (filters.client) query = query.eq('client_id', filters.client)
+  if (filters.scope === 'all' && filters.assignedBy) query = query.eq('assigned_by', filters.assignedBy)
   if (filters.department) query = query.eq('department_id', filters.department)
   if (filters.due) query = query.eq('due_date', filters.due)
   if (taskNumber !== null) query = query.eq('task_number', taskNumber)
@@ -85,7 +93,7 @@ export async function searchTasks(value: string, filters: TaskSearchFilters): Pr
 export async function searchPortalTickets(value: string, status: 'open' | 'done'): Promise<Ticket[]> {
   if (!['open', 'done'].includes(status)) throw new Error('Invalid ticket status filter')
   await requireClient()
-  const supabase = createClient()
+  const supabase = await createClient()
   const queryText = safeSearchText(value)
   let query = supabase.from('tickets').select('*').order('created_at', { ascending: false })
   const ticketNumber = parseTicketCode(queryText)
@@ -102,8 +110,8 @@ export async function searchPortalTickets(value: string, status: 'open' | 'done'
 
 export async function searchStaffTickets(value: string, status: TicketStatusFilter): Promise<StaffTicketSearchRow[]> {
   if (!['unassigned', 'assigned', 'closed'].includes(status)) throw new Error('Invalid ticket status filter')
-  await requireRole(['super_admin', 'admin', 'team_lead'])
-  const supabase = createClient()
+  await requireRole(['super_admin', 'manager', 'team_lead'])
+  const supabase = await createClient()
   const queryText = safeSearchText(value)
   let query = supabase.from('tickets')
     .select('*, client:clients(id, company_name)')
@@ -126,8 +134,8 @@ export async function searchClients(value: string, status: ClientStatusFilter): 
   if (!['', 'active', 'pending', 'suspended', 'rejected'].includes(status)) {
     throw new Error('Invalid client status filter')
   }
-  await requireRole(['super_admin', 'admin'])
-  const supabase = createClient()
+  await requireRole(['super_admin', 'manager'])
+  const supabase = await createClient()
   const queryText = safeSearchText(value)
   let query = supabase.from('clients')
     .select('*, client_team(profile_id)')

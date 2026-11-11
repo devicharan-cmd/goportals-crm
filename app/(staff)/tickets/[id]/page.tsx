@@ -26,8 +26,8 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
 
 export default async function StaffTicketDetailPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
-  const me = await requireRole(['super_admin', 'admin', 'team_lead'])
-  const supabase = createClient()
+  const me = await requireRole(['super_admin', 'manager', 'team_lead'])
+  const supabase = await createClient()
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
 
@@ -131,7 +131,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
 
           <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader title={`Discussion (${(comments ?? []).length})`}
-                        description={['super_admin', 'admin'].includes(me.role) ? 'Choose "Team only" or "Public" for each comment. Client messages are always public.' : 'Your comments are visible to the team only.'} />
+                        description={['super_admin', 'manager'].includes(me.role) ? 'Choose "Team only" or "Public" for each comment. Client messages are always public.' : 'Your comments are visible to the team only.'} />
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={ticket.id} comments={(comments ?? []) as TicketComment[]} names={names}
                              roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))}
@@ -168,7 +168,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
                 ['Client', ticket.client
                   ? <span className="inline-flex items-center justify-end gap-2">
                       <CompanyAvatar name={ticket.client.company_name} src={clientImage?.signedUrl} size="xs" />
-                      <Link href={`/clients/${ticket.client.id}`} className="font-medium text-brand-700 hover:underline">{ticket.client.company_name}</Link>
+                      <Link href={`/clients/${ticket.client.id}`} className="font-medium text-[#034C68] hover:underline">{ticket.client.company_name}</Link>
                     </span>
                   : '—'],
                 ['Account', ticket.ecommerce_account

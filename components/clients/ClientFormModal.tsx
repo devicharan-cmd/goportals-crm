@@ -24,7 +24,7 @@ type AccountDraft = { key: string; platform_id: string; account_name: string; se
 type ServiceDraft = { key: string; service_id: string; custom_name: string; account_key: string; price: string; billing_type: BillingType }
 
 /**
- * Create (super admin) or edit a client. Creating also lets the admin decide the
+ * Create (super admin) or edit a client. Creating also lets the manager decide the
  * e-commerce accounts, services and price right away — the client only ever sees
  * these as read-only, in the agreement they accept at onboarding (never a picker).
  * Editing existing accounts/services/pricing happens on the client detail page instead.
@@ -207,11 +207,11 @@ export function ClientFormModal({
           {error && <Alert>{error}</Alert>}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Company / brand name" required className="sm:col-span-2">
-              <input className="input" required value={form.company_name} onChange={e => set('company_name', e.target.value)} />
+              <input className="form-field" required value={form.company_name} onChange={e => set('company_name', e.target.value)} />
             </Field>
-            <Field label="Contact name"><input className="input" value={form.contact_name} onChange={e => set('contact_name', e.target.value)} /></Field>
+            <Field label="Contact name"><input className="form-field" value={form.contact_name} onChange={e => set('contact_name', e.target.value)} /></Field>
             <Field label="Contact email" required={!isEdit && form.send_invite}>
-              <input className="input" type="email" required={!isEdit && form.send_invite} value={form.contact_email} onChange={e => set('contact_email', e.target.value)} />
+              <input className="form-field" type="email" required={!isEdit && form.send_invite} value={form.contact_email} onChange={e => set('contact_email', e.target.value)} />
             </Field>
             <Field label="Mobile number" required>
               <InternationalPhoneField value={form.contact_phone} onChange={value => set('contact_phone', value)} />
@@ -219,8 +219,8 @@ export function ClientFormModal({
             <Field label="Timezone" required>
               <TimezoneSelect value={form.timezone} onChange={value => set('timezone', value)} />
             </Field>
-            <Field label="GSTIN"><input className="input uppercase" value={form.gstin} onChange={e => set('gstin', e.target.value)} /></Field>
-            <Field label="WhatsApp group link"><input className="input" value={form.whatsapp_group_link} onChange={e => set('whatsapp_group_link', e.target.value)} /></Field>
+            <Field label="GSTIN"><input className="form-field uppercase" value={form.gstin} onChange={e => set('gstin', e.target.value)} /></Field>
+            <Field label="WhatsApp group link"><input className="form-field" value={form.whatsapp_group_link} onChange={e => set('whatsapp_group_link', e.target.value)} /></Field>
           </div>
           <Field label="Company location">
             <AddressPicker value={address} onChange={setAddress} />
@@ -233,15 +233,15 @@ export function ClientFormModal({
               {accountDrafts.map(a => (
                 <div key={a.key} className="mb-2 flex flex-wrap items-center gap-2">
                   <MarketplacePlatformSelect
-                    className="input flex h-9 w-32 items-center justify-between gap-2 py-1.5 text-sm"
+                    className="form-field flex h-9 w-32 items-center justify-between gap-2 py-1.5 text-sm"
                     platforms={platforms.filter(p => p.is_active)}
                     value={a.platform_id}
                     placeholder="Platform…"
                     onChange={value => updateAccount(a.key, { platform_id: value })}
                   />
-                  <input className="input h-9 flex-1" placeholder="Account name (e.g. ABC Amazon Seller)" value={a.account_name}
+                  <input className="form-field h-9 flex-1" placeholder="Account name (e.g. ABC Amazon Seller)" value={a.account_name}
                          onChange={e => updateAccount(a.key, { account_name: e.target.value })} />
-                  <input className="input h-9 w-28" placeholder="Seller ID" value={a.seller_id} onChange={e => updateAccount(a.key, { seller_id: e.target.value })} />
+                  <input className="form-field h-9 w-28" placeholder="Seller ID" value={a.seller_id} onChange={e => updateAccount(a.key, { seller_id: e.target.value })} />
                   <button type="button" onClick={() => removeAccount(a.key)} className="rounded p-1.5 text-slate-300 hover:bg-red-50 hover:text-red-600" aria-label="Remove account">
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -257,19 +257,19 @@ export function ClientFormModal({
               <p className="mb-3 text-xs text-slate-500">The client sees this price in the agreement — it won&apos;t change if the service&apos;s default price changes later.</p>
               {serviceDrafts.map(s => (
                 <div key={s.key} className="mb-2 flex flex-wrap items-center gap-2">
-                  <SearchableSelect className="input h-9 w-40 py-1.5" searchable searchPlaceholder="Search services..." value={s.service_id} onChange={e => updateService(s.key, { service_id: e.target.value })}>
+                  <SearchableSelect className="form-field h-9 w-40 py-1.5" searchable searchPlaceholder="Search services..." value={s.service_id} onChange={e => updateService(s.key, { service_id: e.target.value })}>
                     <option value="">Service…</option>
                     {services.filter(sv => sv.is_active).map(sv => <option key={sv.id} value={sv.id}>{sv.name}</option>)}
                   </SearchableSelect>
                   {!s.service_id && (
-                    <input className="input h-9 w-40" placeholder="…or custom name" value={s.custom_name} onChange={e => updateService(s.key, { custom_name: e.target.value })} />
+                    <input className="form-field h-9 w-40" placeholder="…or custom name" value={s.custom_name} onChange={e => updateService(s.key, { custom_name: e.target.value })} />
                   )}
-                  <SearchableSelect className="input h-9 w-36 py-1.5" searchable searchPlaceholder="Search accounts..." value={s.account_key} onChange={e => updateService(s.key, { account_key: e.target.value })}>
+                  <SearchableSelect className="form-field h-9 w-36 py-1.5" searchable searchPlaceholder="Search accounts..." value={s.account_key} onChange={e => updateService(s.key, { account_key: e.target.value })}>
                     <option value="">Whole client</option>
                     {accountDrafts.filter(a => a.account_name.trim()).map(a => <option key={a.key} value={a.key}>{a.account_name}</option>)}
                   </SearchableSelect>
-                  <input className="input h-9 w-24" type="number" min="0" placeholder="Price ₹" value={s.price} onChange={e => updateService(s.key, { price: e.target.value })} />
-                  <SearchableSelect className="input h-9 w-28 py-1.5" value={s.billing_type} onChange={e => updateService(s.key, { billing_type: e.target.value as BillingType })}>
+                  <input className="form-field h-9 w-24" type="number" min="0" placeholder="Price ₹" value={s.price} onChange={e => updateService(s.key, { price: e.target.value })} />
+                  <SearchableSelect className="form-field h-9 w-28 py-1.5" value={s.billing_type} onChange={e => updateService(s.key, { billing_type: e.target.value as BillingType })}>
                     <option value="monthly">Monthly</option>
                     <option value="one_time">One-time</option>
                     <option value="per_task">Per task</option>
@@ -287,16 +287,16 @@ export function ClientFormModal({
             <div className="rounded-xl bg-slate-50 p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Internal — never shown to the client</p>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Monthly retainer (₹)"><input className="input" type="number" min="0" value={form.monthly_retainer} onChange={e => set('monthly_retainer', e.target.value)} /></Field>
+                <Field label="Monthly retainer (₹)"><input className="form-field" type="number" min="0" value={form.monthly_retainer} onChange={e => set('monthly_retainer', e.target.value)} /></Field>
                 <Field label="Health score" className="sm:col-span-2">
                   <HealthBar score={Number(form.health_score) || 0} />
                   <input type="range" min="0" max="100" value={form.health_score}
                          onChange={e => set('health_score', e.target.value)}
                          className="mt-2 w-full cursor-pointer" />
                 </Field>
-                <Field label="Contract start"><input className="input" type="date" value={form.contract_start} onChange={e => set('contract_start', e.target.value)} /></Field>
-                <Field label="Contract end"><input className="input" type="date" value={form.contract_end} onChange={e => set('contract_end', e.target.value)} /></Field>
-                <Field label="Notes" className="sm:col-span-2"><textarea className="input min-h-[70px]" value={form.notes} onChange={e => set('notes', e.target.value)} /></Field>
+                <Field label="Contract start"><input className="form-field" type="date" value={form.contract_start} onChange={e => set('contract_start', e.target.value)} /></Field>
+                <Field label="Contract end"><input className="form-field" type="date" value={form.contract_end} onChange={e => set('contract_end', e.target.value)} /></Field>
+                <Field label="Notes" className="sm:col-span-2"><textarea className="form-field min-h-[70px]" value={form.notes} onChange={e => set('notes', e.target.value)} /></Field>
               </div>
             </div>
           )}
@@ -304,7 +304,7 @@ export function ClientFormModal({
           {!isEdit && (
             <label className="flex items-start gap-3 rounded-lg border border-slate-200 p-3">
               <input type="checkbox" checked={form.send_invite} onChange={e => set('send_invite', e.target.checked)}
-                     className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
+                     className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#045E80]" />
               <span className="text-sm text-slate-700">
                 <span className="font-semibold">Email a portal invite to the contact</span>
                 <span className="block text-slate-500">They set a password, accept the agreement, and can raise tickets — no approval step needed.</span>

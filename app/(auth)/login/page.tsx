@@ -75,13 +75,13 @@ function LoginForm() {
         {error && <Alert>{error}</Alert>}
         <Field label="Email">
           <input type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
-                 className="input" placeholder="you@company.com" />
+                 className="form-field" placeholder="you@company.com" />
         </Field>
         <Field label="Password">
           <PasswordInput ref={passwordRef} required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
         </Field>
         <div className="flex justify-end">
-          <Link href="/forgot-password" className="text-sm font-medium text-brand-600 hover:text-brand-700">Forgot password?</Link>
+          <Link href="/forgot-password" className="text-sm font-medium text-[#045E80] hover:text-[#034C68]">Forgot password?</Link>
         </div>
         <Button type="submit" size="lg" loading={loading} className="w-full">
           {loading ? 'Signing in' : 'Sign in'}

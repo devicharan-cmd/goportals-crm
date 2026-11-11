@@ -16,8 +16,8 @@ export const metadata = { title: 'Urgent pool' }
 
 export default async function UrgentPage() {
   const me = await requireStaff()
-  const canSeeTickets = ['super_admin', 'admin', 'team_lead'].includes(me.role)
-  const supabase = createClient()
+  const canSeeTickets = ['super_admin', 'manager', 'team_lead'].includes(me.role)
+  const supabase = await createClient()
   const [{ data: taskData }, { data: ticketData }, { data: people }, { data: profileRows }] = await Promise.all([
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).not('status', 'in', '(completed,cancelled)')
       .order('priority').order('created_at'),
@@ -51,9 +51,9 @@ export default async function UrgentPage() {
                   <li key={t.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
                     <Link href={`/tickets/${t.id}`} className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-semibold text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>
+                        <span className="font-mono text-xs font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</span>
                         {t.priority && <PriorityBadge priority={t.priority} />}
-                        <p className="truncate font-semibold text-slate-900 hover:text-brand-700">{t.subject}</p>
+                        <p className="truncate font-semibold text-slate-900">{t.subject}</p>
                       </div>
                       <p className="mt-1 text-xs text-slate-500">
                         {[t.client?.company_name, TICKET_CATEGORY_LABELS[t.category]].filter(Boolean).join(' · ')} · raised {formatRelative(t.created_at)}
@@ -73,7 +73,7 @@ export default async function UrgentPage() {
                   <li key={t.id}>
                     <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
+                        <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                         <p className="text-xs text-slate-500">{t.client?.company_name}</p>
                       </div>
                       <StatusBadge label={TICKET_STATUS_LABELS[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} />
@@ -96,9 +96,9 @@ export default async function UrgentPage() {
               <li key={t.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
                 <Link href={`/tasks/${t.id}`} className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-semibold text-slate-400">{taskCode(t.task_number)}</span>
+                    <span className="font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>
                     <PriorityBadge priority={t.priority} />
-                    <p className="truncate font-semibold text-slate-900 hover:text-brand-700">{t.title}</p>
+                    <p className="truncate font-semibold text-slate-900">{t.title}</p>
                   </div>
                   <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-slate-500">
                     {[t.client?.company_name, t.department?.name].filter(Boolean).join(' · ')}
@@ -126,7 +126,7 @@ export default async function UrgentPage() {
                 <Link href={`/tasks/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                   <Avatar name={names[t.assignee_id!]} src={avatarUrls[t.assignee_id!]} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs text-slate-400">{taskCode(t.task_number)}</span>{t.title}</p>
+                    <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>{t.title}</p>
                     <p className="text-xs text-slate-500">{names[t.assignee_id!] ?? '—'} · {t.client?.company_name}</p>
                   </div>
                   <StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} />

@@ -23,7 +23,7 @@ export function TicketAttachmentsList({ attachments }: { attachments: Attachment
           {attachments.map(a => (
             <li key={a.id}>
               <a href={a.url ?? '#'} target="_blank" rel="noreferrer"
-                 className="inline-flex w-fit max-w-full items-center gap-2 rounded-md border border-brand-200 px-2 py-1 text-sm text-brand-700 hover:bg-slate-50 hover:underline">
+                 className="inline-flex w-fit max-w-full items-center gap-2 rounded-md border border-[#9FCCDE] px-2 py-1 text-sm text-[#034C68] hover:bg-slate-50 hover:underline">
                 <Paperclip className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className="min-w-0 truncate">{a.file_name}</span>
                 {a.size_bytes != null && <span className="flex-shrink-0 text-xs text-slate-400">{humanSize(a.size_bytes)}</span>}

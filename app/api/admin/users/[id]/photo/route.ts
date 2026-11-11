@@ -7,7 +7,7 @@ const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_BYTES = 5 * 1024 * 1024
 
 async function authorizeSuperAdmin() {
-  const sessionClient = createClient()
+  const sessionClient = await createClient()
   const { data: { user }, error: authError } = await sessionClient.auth.getUser()
   if (authError || !user) return { error: NextResponse.json({ error: 'Your session could not be verified. Sign in again.' }, { status: 401 }) }
 

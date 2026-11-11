@@ -23,7 +23,7 @@ export function TicketProperties({
   return (
     <div className="space-y-3">
       {isClosed && (
-        <p className="rounded-lg bg-lime-50 px-3 py-2 text-xs text-lime-800">
+        <p className="rounded-lg bg-[#F5FAE8] px-3 py-2 text-xs text-[#465B17]">
           All active tasks linked to this ticket are complete.
         </p>
       )}

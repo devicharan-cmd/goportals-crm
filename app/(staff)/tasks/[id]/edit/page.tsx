@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getStaffLookups, nameMap } from '@/lib/queries'
+import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap } from '@/lib/queries'
 import { ROLE_LABELS } from '@/lib/constants'
 import { PageHeader } from '@/components/ui/primitives'
 import { TaskForm } from '@/components/tasks/TaskForm'
@@ -11,16 +11,21 @@ import type { AppRole, Task } from '@/types/database'
 
 export const metadata = { title: 'Edit task' }
 
-export default async function EditTaskPage(props: { params: Promise<{ id: string }> }) {
-  const params = await props.params
+export default async function EditTaskPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ scope?: string }> }) {
+  const [params, searchParams] = await Promise.all([props.params, props.searchParams])
   const me = await requireStaff()
-  const supabase = createClient()
+  const supabase = await createClient()
   const [{ data }, lookups] = await Promise.all([
     supabase.from('tasks').select('*').eq('id', params.id).maybeSingle(),
     getStaffLookups(),
   ])
   if (!data) notFound()
   const task = data as Task
+  const assignedByMeContext = searchParams.scope === 'assigned' && task.assigned_by === me.id
+  const superAdminAllTasksContext = me.role === 'super_admin' && searchParams.scope === 'all'
+  if ((task.assignee_id === me.id && !assignedByMeContext && !superAdminAllTasksContext) || searchParams.scope === 'mine') {
+    redirect(`/tasks/${task.id}${searchParams.scope ? `?scope=${searchParams.scope}` : ''}`)
+  }
 
   const names = nameMap(lookups.people)
   const assignees: {
@@ -58,6 +63,7 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
     const clientIds = await clientIdsForTeamLead(me.id, deptIds)
     clients = lookups.clients.filter(c => clientIds.has(c.id) || c.id === task.client_id)
   }
+  const clientImageUrlByPath = await getClientProfileImageUrls(clients)
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -72,6 +78,7 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
         canMarkUrgent={me.role !== 'employee'}
         canEditAssignment={me.role !== 'employee'}
         clients={clients}
+        clientImageUrlByPath={clientImageUrlByPath}
         assignees={assignees}
         departments={lookups.departments}
         platforms={lookups.platforms}

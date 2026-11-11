@@ -152,7 +152,7 @@ export function OnboardingWizard(props: Props) {
   const current = steps[step].key
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-brand-50 to-slate-50">
+    <div className="min-h-screen bg-gradient-to-b from-[#EAF4F8] to-slate-50">
       <header className="flex h-16 items-center justify-between px-6">
         <Logo className="h-8" priority />
         <button onClick={signOut} disabled={signingOut}
@@ -182,7 +182,7 @@ export function OnboardingWizard(props: Props) {
                 <div className="flex items-center gap-2">
                   <span className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition',
-                    i < step ? 'bg-lime-500 text-brand-950' : i === step ? 'bg-brand-600 text-white ring-4 ring-brand-100' : 'bg-white text-slate-400 ring-1 ring-slate-200',
+                    i < step ? 'bg-[#95C12C] text-[#011B26]' : i === step ? 'bg-[#045E80] text-white ring-4 ring-[#CFE6EF]' : 'bg-white text-slate-400 ring-1 ring-slate-200',
                   )}>
                     {i < step ? <Check className="h-4 w-4" /> : i + 1}
                   </span>
@@ -194,19 +194,19 @@ export function OnboardingWizard(props: Props) {
           </ol>
         )}
 
-        <div className="card p-6 sm:p-8">
+        <div className="content-card p-6 sm:p-8">
           {error && <div className="mb-5"><Alert>{error}</Alert></div>}
 
           {current === 'company' && (
             <div className="space-y-5">
               <StepTitle title="About your company" subtitle="This is how our team will know your brand." />
               <Field label="Company / brand name" required>
-                <input className="input" value={company.company_name} autoFocus
+                <input className="form-field" value={company.company_name} autoFocus
                        onChange={e => setCompany({ ...company, company_name: e.target.value })} placeholder="e.g. Himalaya Naturals Pvt Ltd" />
               </Field>
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field label="GSTIN" hint="Optional">
-                  <input className="input uppercase" value={company.gstin} maxLength={15}
+                  <input className="form-field uppercase" value={company.gstin} maxLength={15}
                          onChange={e => setCompany({ ...company, gstin: e.target.value })} />
                 </Field>
                 <Field label="Mobile number" required>
@@ -218,11 +218,11 @@ export function OnboardingWizard(props: Props) {
                     onChange={value => setCompany({ ...company, timezone: value })} />
                 </Field>
                 <Field label="Contact person">
-                  <input className="input" value={company.contact_name}
+                  <input className="form-field" value={company.contact_name}
                          onChange={e => setCompany({ ...company, contact_name: e.target.value })} />
                 </Field>
                 <Field label="Contact email">
-                  <input className="input" value={company.contact_email} type="email"
+                  <input className="form-field" value={company.contact_email} type="email"
                          onChange={e => setCompany({ ...company, contact_email: e.target.value })} />
                 </Field>
               </div>
@@ -263,9 +263,9 @@ export function OnboardingWizard(props: Props) {
                 ))}
               </div>
               <div>
-                <label className="label">Something else?</label>
+                <label className="form-field-label">Something else?</label>
                 <div className="flex gap-2">
-                  <input className="input" value={customInput} placeholder="e.g. Influencer marketing"
+                  <input className="form-field" value={customInput} placeholder="e.g. Influencer marketing"
                          onChange={e => setCustomInput(e.target.value)}
                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom() } }} />
                   <Button type="button" variant="secondary" onClick={addCustom}><Plus className="h-4 w-4" /> Add</Button>
@@ -273,7 +273,7 @@ export function OnboardingWizard(props: Props) {
                 {custom.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {custom.map(c => (
-                      <span key={c} className="inline-flex items-center gap-1 rounded-full bg-lime-100 px-3 py-1 text-sm font-medium text-lime-800">
+                      <span key={c} className="inline-flex items-center gap-1 rounded-full bg-[#E8F3C8] px-3 py-1 text-sm font-medium text-[#465B17]">
                         {c}
                         <button onClick={() => setCustom(custom.filter(x => x !== c))} aria-label={`Remove ${c}`}><X className="h-3.5 w-3.5" /></button>
                       </span>
@@ -302,7 +302,7 @@ export function OnboardingWizard(props: Props) {
               <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-4 hover:bg-slate-50">
                 <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
                        disabled={!agreement}
-                       className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                       className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#045E80] focus:ring-[#0A6F94]" />
                 <span className="text-sm text-slate-700">
                   I have read and agree to the {agreement?.title ?? 'service agreement'} on behalf of{' '}
                   <strong>{company.company_name || client?.company_name || 'my company'}</strong>.
@@ -344,11 +344,11 @@ function ChoiceTile({ selected, onClick, children }: { selected: boolean; onClic
       onClick={onClick}
       className={cn(
         'relative rounded-lg border px-4 py-3 text-left text-sm font-medium transition',
-        selected ? 'border-brand-500 bg-brand-50 text-brand-800 ring-1 ring-brand-500' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
+        selected ? 'border-[#0A6F94] bg-[#EAF4F8] text-[#033B51] ring-1 ring-[#0A6F94]' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
       )}
     >
       {selected && (
-        <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-brand-600 text-white">
+        <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#045E80] text-white">
           <Check className="h-3 w-3" />
         </span>
       )}

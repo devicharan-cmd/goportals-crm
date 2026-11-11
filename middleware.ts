@@ -105,8 +105,8 @@ export async function middleware(request: NextRequest) {
 
   // ── Staff ──
   if (profile.status !== 'active') return path === '/blocked' ? response : go('/blocked')
-  if (path.startsWith('/admin') && !['super_admin', 'admin'].includes(profile.role)) return go('/dashboard')
-  if (startsWithAny(path, ['/clients', '/reports']) && !['super_admin', 'admin'].includes(profile.role)) return go('/dashboard')
+  if (path.startsWith('/admin') && !['super_admin', 'manager'].includes(profile.role)) return go('/dashboard')
+  if (startsWithAny(path, ['/clients', '/reports']) && !['super_admin', 'manager'].includes(profile.role)) return go('/dashboard')
   if (path.startsWith('/team') && profile.role === 'employee') return go('/dashboard')
   if (startsWithAny(path, STAFF_PREFIXES)) return response
   return go('/dashboard')

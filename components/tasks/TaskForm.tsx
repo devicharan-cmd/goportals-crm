@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { AlertCircle, Check, ChevronDown, Flame, Info } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Alert, Avatar, Field } from '@/components/ui/primitives'
+import { Alert, Avatar, CompanyAvatar, Field } from '@/components/ui/primitives'
 import { TaskBasicInformation } from '@/components/tasks/TaskBasicInformation'
+import { AssigneeOptionContent } from '@/components/tasks/AssigneeOptionContent'
 import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } from '@/components/tasks/TaskFormSections'
 import { MarketplacePlatformSelect } from '@/components/shared/Marketplace'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
@@ -25,7 +26,7 @@ type TicketOption = {
   description: string | null
   details: Record<string, unknown> | null
 }
-type SelectOption = { value: string; label: string; detail?: string }
+type SelectOption = { value: string; label: string; detail?: string; content?: React.ReactNode; selectedContent?: React.ReactNode }
 
 function FormSelect({
   label,
@@ -71,7 +72,7 @@ function FormSelect({
 
   if (native) {
     return (
-      <SearchableSelect className={cn('input h-9 text-sm', className)} value={value} disabled={disabled} required={required} aria-label={ariaLabel}
+      <SearchableSelect className={cn('form-field h-9 text-sm', className)} value={value} disabled={disabled} required={required} aria-label={ariaLabel}
                         aria-required={required} aria-invalid={invalid} onChange={event => onChange(event.target.value)}>
         {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
       </SearchableSelect>
@@ -80,10 +81,10 @@ function FormSelect({
 
   return (
     <div className="relative" data-form-select>
-      <button type="button" className={cn('input flex w-full items-center justify-between text-left', className, invalid && 'border-red-400 focus:border-red-500 focus:ring-red-200')}
+      <button type="button" className={cn('form-field flex w-full items-center justify-between text-left', className, invalid && 'border-red-400 focus:border-red-500 focus:ring-red-200')}
               disabled={disabled} aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open}
               aria-required={required} aria-invalid={invalid} onClick={() => setOpen(current => !current)}>
-        <span className="truncate">{selected?.label ?? label}</span>
+        <span className="min-w-0 flex-1">{selected?.selectedContent ?? selected?.content ?? selected?.label ?? label}</span>
         <ChevronDown aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
       </button>
       {open && (
@@ -94,8 +95,8 @@ function FormSelect({
               <button key={option.value} type="button" role="option" aria-selected={isSelected}
                       onClick={() => { onChange(option.value); setOpen(false) }}
                       className={cn('w-full rounded-lg px-3 py-2 text-left transition-colors',
-                        isSelected ? 'bg-brand-50 font-medium text-brand-700' : 'text-slate-700 hover:bg-[#f3f5f4]')}>
-                <span className="block truncate text-sm">{option.label}</span>
+                        isSelected ? 'bg-[#EAF4F8] font-medium text-[#034C68]' : 'text-slate-700 hover:bg-[#f3f5f4]')}>
+                <span className={cn('block text-sm', option.content ? 'whitespace-normal' : 'truncate')}>{option.content ?? option.label}</span>
                 {option.detail && <span className="mt-0.5 block text-xs text-slate-500">{option.detail}</span>}
               </button>
             )
@@ -112,9 +113,10 @@ export type TaskFormProps = {
   defaultClientId?: string
   defaultAssigneeId?: string
   canMarkUrgent: boolean
-  /** false when an employee is editing a task that's already assigned — only managers/admins can then change assignee/due date. */
+  /** false when an employee is editing a task that's already assigned — only managers can then change assignee/due date. */
   canEditAssignment?: boolean
-  clients: { id: string; company_name: string }[]
+  clients: { id: string; company_name: string; company_profile_image_path?: string | null }[]
+  clientImageUrlByPath?: Record<string, string>
   assignees: Option[]
   departments: Department[]
   platforms: Platform[]
@@ -327,8 +329,8 @@ export function TaskForm(p: TaskFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className={p.modalLayout ? 'flex min-h-0 flex-1 flex-col' : 'card space-y-5 p-5 sm:p-6'}>
-      <div data-modal-content={p.modalLayout ? '' : undefined} className={p.modalLayout ? 'min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-7' : 'space-y-5'}>
+    <form onSubmit={handleSubmit} className={p.modalLayout ? 'flex min-h-0 flex-1 flex-col' : 'content-card space-y-5 p-5 sm:p-6'}>
+      <div data-modal-content={p.modalLayout ? '' : undefined} className={p.modalLayout ? 'min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-7' : ''}>
       <TaskFormCard enabled={!!p.modalLayout}>
       {p.modalLayout && <TaskFormCardTitle />}
       {p.mode === 'create' && <h1 className="text-2xl font-bold text-slate-900">Create New Task</h1>}
@@ -349,11 +351,11 @@ export function TaskForm(p: TaskFormProps) {
       ) : (
         <>
           <Field label="Title" required>
-            <input className="input" required value={form.title} onChange={e => set('title', e.target.value)}
+            <input className="form-field" required value={form.title} onChange={e => set('title', e.target.value)}
                    placeholder="e.g. Launch Diwali sponsored ads on Amazon" autoFocus={p.mode === 'create'} />
           </Field>
           <Field label="Description">
-            <textarea className="input min-h-[110px]" value={form.description} onChange={e => set('description', e.target.value)}
+            <textarea className="form-field min-h-[110px]" value={form.description} onChange={e => set('description', e.target.value)}
                       placeholder="Details, links, marketplace case IDs…" />
           </Field>
         </>
@@ -364,7 +366,24 @@ export function TaskForm(p: TaskFormProps) {
         <Field label="Client" required hint={p.clients.length === 0 ? 'No clients have active tickets' : undefined}>
           <FormSelect label="Select client…" value={form.client_id}
             className={p.modalLayout ? 'h-9 rounded-xl text-sm' : undefined}
-            options={[{ value: '', label: 'Select client…' }, ...p.clients.map(c => ({ value: c.id, label: c.company_name }))]}
+            options={[
+              { value: '', label: 'Select client…' },
+              ...p.clients.map(client => ({
+                value: client.id,
+                label: client.company_name,
+                selectedContent: client.company_name,
+                content: (
+                  <span className="flex items-center gap-2">
+                    <CompanyAvatar
+                      name={client.company_name}
+                      src={client.company_profile_image_path ? p.clientImageUrlByPath?.[client.company_profile_image_path] : null}
+                      size="xs"
+                    />
+                    <span className="break-words">{client.company_name}</span>
+                  </span>
+                ),
+              })),
+            ]}
             onChange={pickClient} required aria-label="Client" />
         </Field>
         <Field label="Ticket"
@@ -406,7 +425,7 @@ export function TaskForm(p: TaskFormProps) {
             value={form.platform_id}
             placeholder="—"
             className={p.modalLayout
-              ? 'input flex h-9 w-full items-center justify-between gap-2 text-sm'
+              ? 'form-field flex h-9 w-full items-center justify-between gap-2 text-sm'
               : undefined}
             onChange={value => set('platform_id', value)}
           />
@@ -417,7 +436,7 @@ export function TaskForm(p: TaskFormProps) {
         <Field label="Assignee" required={p.mode === 'create'}
                hint={!canEditAssignment ? 'Only managers can change the assignee.' : p.assignees.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
           <div className="relative" data-assignee-picker>
-            <button type="button" className={cn('input flex w-full items-center justify-between text-left', p.modalLayout && 'h-9 rounded-xl text-sm')}
+            <button type="button" className={cn('form-field flex w-full items-center justify-between text-left', p.modalLayout && 'h-9 rounded-xl text-sm')}
                     disabled={!canEditAssignment} aria-haspopup="listbox" aria-expanded={assigneeOpen}
                     aria-required={p.mode === 'create'} aria-invalid={!!assigneeError}
                     onClick={() => setAssigneeOpen(open => !open)}>
@@ -427,28 +446,31 @@ export function TaskForm(p: TaskFormProps) {
               const selected = p.assignees.find(a => a.id === form.assignee_id)
               return selected ? <><span className="relative h-5 w-5 shrink-0"><Avatar name={selected.name} src={selected.avatarUrl} role={selected.avatarRole} size="xs" className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 text-xs" /></span><span className="truncate">{selected.name}{selected.id === p.meId ? ' (me)' : ''}</span></> : 'Select assignee…'
                     })()
-                  : 'Unassigned'}
+                  : 'Select assignee…'}
               </span>
               <ChevronDown aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
             </button>
             {assigneeOpen && (
-              <div role="listbox" aria-label="Assignee" className="absolute z-30 mt-1 max-h-64 w-full space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
-                {[{ id: '', name: 'Unassigned' }, ...p.assignees].map(a => {
-                  const selected = form.assignee_id === a.id
-                  return (
-                    <button key={a.id || 'unassigned'} type="button" role="option" aria-selected={selected}
-                            onClick={() => { set('assignee_id', a.id); if (a.id) setAssigneeError(''); setAssigneeOpen(false) }}
-                            className={cn('w-full rounded-lg px-3 py-2 text-left transition-colors', selected ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-[#f3f5f4]')}>
-                      <span className="flex min-w-0 items-center gap-2">
-                        {a.id && <Avatar name={a.name} src={a.avatarUrl} role={a.avatarRole} size="sm" />}
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium">{a.name}{a.id === p.meId ? ' (me)' : ''}</span>
-                          {'role' in a && a.role && <span className="mt-0.5 block text-xs text-slate-500">({a.role})</span>}
-                        </span>
-                      </span>
-                    </button>
-                  )
-                })}
+              <div className="absolute z-30 mt-1 w-full rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                <p className="px-3 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Assigned to</p>
+                <div role="listbox" aria-label="Assigned to" className="max-h-64 space-y-1 overflow-y-auto">
+                  {p.assignees.map(a => {
+                    const selected = form.assignee_id === a.id
+                    return (
+                      <button key={a.id} type="button" role="option" aria-selected={selected}
+                              onClick={() => { set('assignee_id', a.id); setAssigneeError(''); setAssigneeOpen(false) }}
+                              className={cn('w-full rounded-lg px-3 py-2 text-left transition-colors', selected ? 'bg-[#EAF4F8] font-medium text-[#034C68]' : 'hover:bg-[#f3f5f4]')}>
+                        <AssigneeOptionContent
+                          name={a.name}
+                          avatarUrl={a.avatarUrl}
+                          avatarRole={a.avatarRole}
+                          roleLabel={a.role}
+                          isMe={a.id === p.meId}
+                        />
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -466,30 +488,31 @@ export function TaskForm(p: TaskFormProps) {
             onChange={value => set('priority', value as TaskPriority)} aria-label="Priority" />
         </Field>
         <Field label="Estimated hours">
-          <input className={cn('input', p.modalLayout && 'h-9 rounded-xl text-sm')} type="number" min="0" step="0.5" value={form.estimated_hours} placeholder="Enter hours" onChange={e => set('estimated_hours', e.target.value)} />
+          <input className={cn('form-field', p.modalLayout && 'h-9 rounded-xl text-sm')} type="number" min="0" step="0.5" value={form.estimated_hours} placeholder="Enter hours" onChange={e => set('estimated_hours', e.target.value)} />
         </Field>
       </TaskFieldsGrid>
 
       {p.modalLayout && <TaskSectionHeader section="deadline" />}
       <div>
-        {!p.modalLayout && <label className="label">Deadline</label>}
+        {!p.modalLayout && <label className="form-field-label">Deadline</label>}
         {!canEditAssignment && <p className="mb-1 text-xs text-slate-500">Only managers can change the due date.</p>}
         <div className="flex flex-wrap items-center gap-2">
           {DEADLINE_OPTIONS.map(d => (
             <button key={d.value} type="button" disabled={!canEditAssignment} onClick={() => pickDeadline(d.value)}
                     className={cn('rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition disabled:cursor-not-allowed disabled:opacity-50',
                       p.modalLayout && 'inline-flex h-7 items-center rounded-full px-3 text-xs',
-                      form.deadline_type === d.value ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50')}>
+                      form.deadline_type === d.value ? 'bg-[#045E80] text-white ring-[#045E80]' : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50')}>
               {d.label}
             </button>
           ))}
-          <input type="date" className={cn('input w-auto', p.modalLayout && 'h-7 rounded-full px-3 py-1 text-xs leading-4')} value={form.due_date} disabled={!canEditAssignment}
+          <input type="date" className={cn('form-field task-deadline-date', p.modalLayout && 'h-7 rounded-full px-3 py-1 text-xs leading-4')} value={form.due_date} disabled={!canEditAssignment}
                  onChange={e => setForm(f => ({ ...f, due_date: e.target.value, deadline_type: '' }))} />
         </div>
       </div>
 
       {p.canMarkUrgent && (
         <label className={cn('flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition',
+          !p.modalLayout && 'task-urgent-toggle',
           p.modalLayout && 'mt-3 border-0 p-0',
           form.is_urgent ? 'border-red-300 bg-red-50' : 'border-slate-200 hover:bg-slate-50')}>
           <input type="checkbox" checked={form.is_urgent} onChange={e => set('is_urgent', e.target.checked)}
@@ -509,7 +532,7 @@ export function TaskForm(p: TaskFormProps) {
         <div className="ml-auto flex items-center gap-2">
           <Button type="button" variant="secondary" size={p.modalLayout ? 'lg' : 'md'} className={p.modalLayout ? 'rounded-xl' : undefined}
                   onClick={() => p.onCancel ? p.onCancel() : router.back()}>Cancel</Button>
-          <Button type="submit" size={p.modalLayout ? 'lg' : 'md'} className={p.modalLayout ? 'rounded-xl bg-brand-600 shadow-md hover:bg-brand-700' : undefined}
+          <Button type="submit" size={p.modalLayout ? 'lg' : 'md'} className={p.modalLayout ? 'rounded-xl bg-[#045E80] shadow-md hover:bg-[#034C68]' : undefined}
                   loading={saving}>{p.modalLayout && !saving && <Check className="h-4 w-4" />}{p.mode === 'create' ? 'Create task' : 'Save changes'}</Button>
         </div>
       </div>

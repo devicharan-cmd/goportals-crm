@@ -28,7 +28,7 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
 export default async function PortalTicketDetail(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
   const me = await requireClient()
-  const supabase = createClient()
+  const supabase = await createClient()
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
   const [
@@ -63,7 +63,7 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
   const staff = (staffDirectory ?? []) as { id: string; full_name: string | null; avatar_url: string | null; role: AppRole }[]
   const latestPublicMessage = ticketComments.slice().reverse().find(comment => !comment.is_internal)
   const replyAuthor = latestPublicMessage?.author_id
-    ? staff.find(person => person.id === latestPublicMessage.author_id && ['admin', 'super_admin'].includes(person.role))
+    ? staff.find(person => person.id === latestPublicMessage.author_id && ['manager', 'super_admin'].includes(person.role))
     : undefined
   // The client never reads a staff member's own name: getPortalNames() is the
   // one place that decides what they are called, so the badge and the

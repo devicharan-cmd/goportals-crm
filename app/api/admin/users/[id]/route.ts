@@ -42,7 +42,7 @@ async function removeStorageFiles(bucket: string, paths: string[]) {
 
 export async function DELETE(_request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: 'Your session could not be verified. Sign in again, then retry.' }, { status: 401 })

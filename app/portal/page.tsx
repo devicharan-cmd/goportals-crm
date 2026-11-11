@@ -13,7 +13,7 @@ export const metadata = { title: 'Overview' }
 
 export default async function PortalHome() {
   const me = await requireClient()
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: client } = await supabase.from('clients').select('id, company_name').eq('owner_id', me.id).single()
 
   const [{ data }, { data: accounts }, { data: services }] = await Promise.all([
@@ -31,13 +31,13 @@ export default async function PortalHome() {
 
   return (
     <>
-      <div className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-6 text-white sm:p-8">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-lime-400/25 blur-3xl" />
+      <div className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-[#045E80] via-[#034C68] to-[#022B3B] p-6 text-white sm:p-8">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[#A5CD3F]/25 blur-3xl" />
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-medium text-lime-300">Welcome back{me.full_name ? `, ${me.full_name.split(' ')[0]}` : ''}</p>
+            <p className="text-sm font-medium text-[#BADA5E]">Welcome back{me.full_name ? `, ${me.full_name.split(' ')[0]}` : ''}</p>
             <h1 className="mt-1 text-2xl font-bold text-white sm:text-3xl">{client?.company_name}</h1>
-            <p className="mt-1 text-sm text-brand-100">Track every ticket your GoPortals team is working on.</p>
+            <p className="mt-1 text-sm text-[#CFE6EF]">Track every ticket your GoPortals team is working on.</p>
           </div>
           <ButtonLink href="/portal/tickets/new" variant="lime" size="lg"><Plus className="h-4 w-4" /> New ticket</ButtonLink>
         </div>
@@ -51,7 +51,7 @@ export default async function PortalHome() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <Card className="overflow-hidden">
-          <CardHeader title="Recent activity" action={<Link href="/portal/tickets" className="text-xs font-semibold text-brand-600">View all</Link>} />
+          <CardHeader title="Recent activity" action={<Link href="/portal/tickets" className="text-xs font-semibold text-[#045E80]">View all</Link>} />
           <TicketTable
             tickets={tickets.slice(0, 8)}
             audience="client"
@@ -72,12 +72,12 @@ export default async function PortalHome() {
             </div>
           </Card>
           <Card>
-            <CardHeader title={<span className="flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-lime-600" /> Your services</span>} />
+            <CardHeader title={<span className="flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-[#789C20]" /> Your services</span>} />
             <ul className="divide-y divide-slate-100">
               {myServices.map((s, i) => (
                 <li key={i} className="flex items-center justify-between px-5 py-2.5 text-sm">
                   <span className="text-slate-700">{s.service?.name ?? s.custom_name}</span>
-                  <Badge className={s.status === 'active' ? 'bg-lime-50 text-lime-700 ring-lime-200' : 'bg-amber-50 text-amber-700 ring-amber-200'}>
+                  <Badge className={s.status === 'active' ? 'bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]' : 'bg-amber-50 text-amber-700 ring-amber-200'}>
                     {s.status === 'active' ? 'Active' : 'Requested'}
                   </Badge>
                 </li>

@@ -11,7 +11,7 @@ export default async function OnboardingPage() {
   if (!profile) redirect('/login')
   if (profile.role !== 'client') redirect('/dashboard')
 
-  const supabase = createClient()
+  const supabase = await createClient()
   const [{ data: client }, { data: platforms }, { data: services }, { data: agreement, error: agreementError }, { data: needsAgreement }] =
     await Promise.all([
       supabase.from('clients').select('*').eq('owner_id', profile.id).maybeSingle(),

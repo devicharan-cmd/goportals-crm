@@ -1,12 +1,12 @@
 // Row types for schema v2 (supabase/migrations/001–004). Keep in sync with the SQL.
 
-export type AppRole       = 'super_admin' | 'admin' | 'team_lead' | 'employee' | 'client'
+export type AppRole       = 'super_admin' | 'manager' | 'team_lead' | 'employee' | 'client'
 export type AccountStatus = 'pending' | 'active' | 'suspended' | 'rejected'
 export type SignupSource  = 'self_signup' | 'admin_created' | 'invite'
 export type ClientStage   = 'onboarding' | 'setup' | 'scale' | 'retention' | 'churned'
 export type PlatformCategory    = 'marketplace' | 'quick_commerce' | 'd2c' | 'other'
 export type ClientServiceStatus = 'requested' | 'active' | 'stopped'
-export type TaskStatus   = 'todo' | 'in_progress' | 'ready_for_review' | 'changes_requested' | 'completed' | 'cancelled'
+export type TaskStatus   = 'todo' | 'in_progress' | 'in_system_process' | 'ready_for_review' | 'client_review' | 'changes_requested' | 'completed' | 'cancelled'
 export type TicketStatus = 'unassigned' | 'assigned' | 'closed'
 export type TaskPriority  = 'P1' | 'P2' | 'P3' | 'P4'
 export type TaskType      = 'task' | 'issue' | 'request' | 'grievance'
@@ -286,7 +286,7 @@ export interface TaskActivity extends ActivityEntry {
 export interface TimeLog {
   id: string
   task_id: string
-  profile_id: string
+  profile_id: string | null
   hours: number
   logged_date: string
   notes: string | null

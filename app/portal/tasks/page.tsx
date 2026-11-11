@@ -1,36 +1,53 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
-import { PageHeader, Card } from '@/components/ui/primitives'
-import { TaskTable } from '@/components/tasks/TaskTable'
-import { TASK_LIST_SELECT } from '@/lib/queries'
-import type { TaskListItem } from '@/types/database'
+import { PortalTaskList } from '@/components/portal/PortalTaskList'
+import { getPortalNames } from '@/lib/portal'
+import { ROLE_LABELS } from '@/lib/constants'
+import type { AssigneeOption, TaskAssignerInfo } from '@/lib/queries'
+import type { StaffDirectoryEntry, TaskSummary } from '@/types/database'
 
-export const metadata = { title: 'My tasks' }
+export const metadata = { title: 'Tasks' }
 
 export default async function PortalTasksPage() {
   const me = await requireClient()
-  const { data, error } = await createClient().from('tasks')
-    .select(TASK_LIST_SELECT)
-    .eq('assignee_id', me.id)
-    .order('created_at', { ascending: false })
+  const supabase = await createClient()
+  const [result, names, directoryResult] = await Promise.all([
+    supabase.rpc('client_ticket_tasks', { p_task_id: null, p_task_number: null }),
+    getPortalNames(me),
+    supabase.rpc('staff_directory'),
+  ])
+  const { data, error } = result
   if (error) throw new Error(error.message)
+  if (directoryResult.error) throw new Error(directoryResult.error.message)
+
+  const tasks = (data ?? []) as TaskSummary[]
+  const directory = (directoryResult.data ?? []) as StaffDirectoryEntry[]
+  const people: AssigneeOption[] = [
+    ...directory.map(person => ({
+      id: person.id,
+      name: names[person.id] ?? person.full_name ?? 'GoPortals team',
+      avatarUrl: person.avatar_url,
+      role: ROLE_LABELS[person.role],
+      avatarRole: person.role,
+    })),
+    {
+      id: me.id,
+      name: names[me.id] ?? me.full_name ?? me.email,
+      avatarRole: 'client',
+    },
+  ]
+  const taskAssigners: Record<string, TaskAssignerInfo> = Object.fromEntries(directory.map(person => [
+    person.id,
+    { name: names[person.id] ?? person.full_name ?? 'GoPortals team', role: person.role, avatarUrl: person.avatar_url },
+  ]))
 
   return (
-    <>
-      <PageHeader title="My tasks" description="Work and information requests from the GoPortals team." />
-      <Card className="overflow-hidden">
-        <TaskTable
-          tasks={(data ?? []) as TaskListItem[]}
-          names={{ [me.id]: me.full_name || me.email }}
-          hrefBase="/portal/tasks"
-          showClient={false}
-          showAssignee={false}
-          empty={{
-            title: 'No tasks yet',
-            description: 'Tasks or information requests from the GoPortals team will appear here.',
-          }}
-        />
-      </Card>
-    </>
+    <PortalTaskList
+      tasks={tasks}
+      names={names}
+      meId={me.id}
+      people={people}
+      taskAssigners={taskAssigners}
+    />
   )
 }

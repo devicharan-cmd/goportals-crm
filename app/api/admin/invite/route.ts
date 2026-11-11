@@ -17,13 +17,13 @@ import type { AppRole } from '@/types/database'
  * Custom SMTP there (Authentication → Settings → SMTP Settings) using Resend.
  */
 const ROLES_INVITABLE_BY: Partial<Record<AppRole, AppRole[]>> = {
-  super_admin: ['super_admin', 'admin', 'team_lead', 'employee'],
-  admin:       ['team_lead', 'employee'],
+  super_admin: ['super_admin', 'manager', 'team_lead', 'employee'],
+  manager:       ['team_lead', 'employee'],
 }
 
 const REPORTING_ROLE_FOR: Partial<Record<AppRole, AppRole>> = {
-  admin: 'super_admin',
-  team_lead: 'admin',
+  manager: 'super_admin',
+  team_lead: 'manager',
   employee: 'team_lead',
 }
 
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   if (body.kind === 'staff') {
     if (!fullName) return NextResponse.json({ error: 'Enter the team member’s full name' }, { status: 400 })
     if (!jobTitle) return NextResponse.json({ error: 'Enter a job title' }, { status: 400 })
-    if (!['super_admin', 'admin', 'team_lead', 'employee'].includes(body.role)) {
+    if (!['super_admin', 'manager', 'team_lead', 'employee'].includes(body.role)) {
       return NextResponse.json({ error: 'Select a valid role' }, { status: 400 })
     }
     role = body.role

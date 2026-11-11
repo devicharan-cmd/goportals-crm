@@ -32,7 +32,7 @@ function UnreadMessages({ count }: { count: number }) {
           title={count ? `${count} unread message${count === 1 ? '' : 's'}` : 'Open the conversation'}>
       <MessageSquareText strokeWidth={2.5} className={cn('h-5 w-5', count ? 'text-slate-700' : 'text-slate-400')} />
       {count > 0 && (
-        <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-bold text-brand-950">
+        <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#95C12C] px-1 text-[10px] font-bold text-[#011B26]">
           {count > 9 ? '9+' : count}
         </span>
       )}
@@ -99,9 +99,9 @@ export function TicketTable({
               <td className="max-w-md px-5 py-3.5">
                 <Link href={`${hrefBase}/${t.id}`} className="block">
                   <span className="flex items-center gap-2">
-                    <span className="flex-shrink-0 font-mono text-xs font-semibold text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>
+                    <span className="flex-shrink-0 font-mono text-xs font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</span>
                     {t.is_urgent && !TICKET_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
-                    <span className="truncate font-medium text-slate-900 group-hover:text-brand-700">{t.subject}</span>
+                    <span className="truncate font-medium text-slate-900">{t.subject}</span>
                   </span>
                 </Link>
               </td>
@@ -141,7 +141,7 @@ export function TicketTable({
           <li key={t.id}>
             <Link href={`${hrefBase}/${t.id}`} className="block px-4 py-3 active:bg-slate-50">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#7DAA24]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
+                <p className="font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                 {t.priority && <PriorityBadge priority={t.priority} />}
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">

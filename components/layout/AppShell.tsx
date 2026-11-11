@@ -4,13 +4,15 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Bell, Briefcase, Building2, CheckSquare, ChevronDown, ChevronLeft, ChevronRight,
+  Bell, Briefcase, Building2, ChevronDown, ChevronLeft, ChevronRight,
   ClipboardList, FileSignature, Flame, LayoutDashboard, Layers, Loader2, LogOut,
   Menu, PieChart, Settings, Settings2, ShieldCheck, User, UserCircle, UserPlus, Users, X,
 } from 'lucide-react'
+import { BsListTask } from 'react-icons/bs'
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
 import { Avatar } from '@/components/ui/primitives'
+import { ROLE_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import type { AppRole } from '@/types/database'
 
@@ -21,12 +23,12 @@ const STAFF_NAV: NavGroup[] = [
   {
     items: [
       { href: '/dashboard',     label: 'Dashboard',   icon: LayoutDashboard },
-      { href: '/tickets',       label: 'Tickets',     icon: ClipboardList, roles: ['super_admin', 'admin', 'team_lead'] },
-      { href: '/tasks',         label: 'Tasks',       icon: CheckSquare },
+      { href: '/tickets',       label: 'Tickets',     icon: ClipboardList, roles: ['super_admin', 'manager', 'team_lead'] },
+      { href: '/tasks',         label: 'Tasks',       icon: BsListTask },
       { href: '/urgent',        label: 'Urgent pool', icon: Flame, badge: 'urgent' },
-      { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'admin'] },
-      { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'admin', 'team_lead'] },
-      { href: '/reports',       label: 'Reports',     icon: PieChart, roles: ['super_admin', 'admin'] },
+      { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'manager'] },
+      { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'manager', 'team_lead'] },
+      { href: '/reports',       label: 'Reports',     icon: PieChart, roles: ['super_admin', 'manager'] },
       { href: '/settings',      label: 'Setting',     icon: Settings },
     ],
   },
@@ -34,7 +36,7 @@ const STAFF_NAV: NavGroup[] = [
     label: 'Manager',
     items: [
       { href: '/admin/approvals', label: 'Approvals',  icon: ShieldCheck, roles: ['super_admin'], badge: 'approvals' },
-      { href: '/admin/users',     label: 'Users & invites', icon: UserPlus, roles: ['super_admin', 'admin'] },
+      { href: '/admin/users',     label: 'Users & invites', icon: UserPlus, roles: ['super_admin', 'manager'] },
       { href: '/admin/settings',  label: 'Platforms & services', icon: Settings2, roles: ['super_admin'] },
       { href: '/admin/agreement', label: 'Agreement',  icon: FileSignature, roles: ['super_admin'] },
     ],
@@ -45,7 +47,7 @@ const CLIENT_NAV: NavGroup[] = [
   {
     items: [
       { href: '/portal',             label: 'Overview',    icon: LayoutDashboard },
-      { href: '/portal/tasks',       label: 'My tasks',    icon: CheckSquare },
+      { href: '/portal/tasks',       label: 'Tasks',       icon: BsListTask },
       { href: '/portal/tickets',     label: 'My tickets', icon: ClipboardList },
       { href: '/portal/tickets/new', label: 'New ticket', icon: Briefcase },
       { href: '/portal/services',    label: 'My services', icon: Layers },
@@ -108,7 +110,7 @@ export function AppShell({
     void Promise.all([
       supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_id', user.id).eq('is_read', false),
       supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)'),
-      ['super_admin', 'admin', 'team_lead'].includes(user.role)
+      ['super_admin', 'manager', 'team_lead'].includes(user.role)
         ? supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('is_urgent', true).eq('status', 'unassigned')
         : Promise.resolve({ count: 0 }),
       user.role === 'super_admin'
@@ -213,7 +215,7 @@ export function AppShell({
       title={collapsed ? 'Show sidebar (Ctrl+B)' : 'Hide sidebar (Ctrl+B)'}
       aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
       aria-expanded={!collapsed}
-      className="absolute -right-3 top-5 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-card transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+      className="absolute -right-3 top-5 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] transition hover:border-[#63A9C4] hover:bg-[#EAF4F8] hover:text-[#034C68]"
     >
       {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
     </button>
@@ -224,7 +226,7 @@ export function AppShell({
       {compact ? (
         <div className="flex h-16 items-center justify-center px-2">
           <Link href={isClient ? '/portal' : '/dashboard'} title="GoPortals">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 font-display text-sm font-extrabold text-white">G<span className="text-lime-400">P</span></span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#045E80] font-sans text-sm font-extrabold text-white">G<span className="text-[#A5CD3F]">P</span></span>
           </Link>
         </div>
       ) : (
@@ -235,9 +237,9 @@ export function AppShell({
       )}
 
       {companyName && !compact && (
-        <div className="mx-4 mb-2 rounded-lg bg-brand-50 px-3 py-2">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-brand-500">Client portal</p>
-          <p className="truncate text-sm font-semibold text-brand-900">{companyName}</p>
+        <div className="mx-4 mb-2 rounded-lg bg-[#EAF4F8] px-3 py-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-[#0A6F94]">Client portal</p>
+          <p className="truncate text-sm font-semibold text-[#022B3B]">{companyName}</p>
         </div>
       )}
 
@@ -262,18 +264,18 @@ export function AppShell({
                       className={cn(
                         'group relative flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
                         compact ? 'justify-center px-2' : 'gap-3 px-3',
-                        active ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+                        active ? 'bg-[#EAF4F8] text-[#034C68]' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
                       )}
                     >
-                      {active && <span className="absolute inset-y-1.5 left-0 w-1 rounded-r-full bg-lime-500" />}
-                      <item.icon className={cn('h-[18px] w-[18px] flex-shrink-0', active ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-500')} />
+                      {active && <span className="absolute inset-y-1.5 left-0 w-1 rounded-r-full bg-[#95C12C]" />}
+                      <item.icon className={cn('h-[18px] w-[18px] flex-shrink-0', active ? 'text-[#045E80]' : 'text-slate-400 group-hover:text-slate-500')} />
                       {!compact && <span className="flex-1">{item.label}</span>}
                       {!!count && (compact
-                        ? <span className={cn('absolute right-1 top-1 h-2 w-2 rounded-full', item.badge === 'urgent' ? 'bg-gradient-to-r from-red-600 to-rose-500' : 'bg-lime-500')} />
+                        ? <span className={cn('absolute right-1 top-1 h-2 w-2 rounded-full', item.badge === 'urgent' ? 'bg-gradient-to-r from-red-600 to-rose-500' : 'bg-[#95C12C]')} />
                         : <span className={cn('flex items-center justify-center rounded-full text-[10px] font-bold leading-none',
                             item.badge === 'urgent'
                               ? 'h-5 w-5 shrink-0 bg-gradient-to-r from-red-600 to-rose-500 text-white'
-                              : 'px-2 py-0.5 bg-lime-500 text-brand-950')}>{count}</span>)}
+                              : 'px-2 py-0.5 bg-[#95C12C] text-[#011B26]')}>{count}</span>)}
                     </Link>
                   </li>
                 )
@@ -287,13 +289,13 @@ export function AppShell({
       <div className={cn('border-t border-slate-200', compact ? 'p-2' : 'p-3')}>
         {signOutError && !compact && <p role="alert" className="mb-2 px-2 text-xs text-red-600">Could not sign out. Please try again.</p>}
         <div className={cn('flex items-center rounded-lg', compact ? 'flex-col gap-2 py-1' : 'gap-3 px-2 py-2')}>
-          <span title={compact ? `${user.name || user.email}${user.jobTitle ? ` · ${user.jobTitle}` : ''}` : undefined}>
+          <span title={compact ? `${user.name || user.email} · ${ROLE_LABELS[user.role]}` : undefined}>
             <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : liveAvatarUrl} role={isClient ? 'client' : user.role} size="md" />
           </span>
           {!compact && (
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-slate-900">{user.name || user.email}</p>
-              {user.jobTitle && <p className="truncate text-xs text-slate-500">{user.jobTitle}</p>}
+              <p className="truncate text-xs text-slate-500">{ROLE_LABELS[user.role]}</p>
             </div>
           )}
           <button
@@ -329,8 +331,8 @@ export function AppShell({
       {/* Mobile drawer */}
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-brand-950/40" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 bg-white shadow-pop">{renderSidebar(false, false)}</aside>
+          <div className="absolute inset-0 bg-[#011B26]/40" onClick={() => setOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-72 bg-white [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">{renderSidebar(false, false)}</aside>
         </div>
       )}
 
@@ -344,7 +346,7 @@ export function AppShell({
           {pageTitle && (
             <div className="hidden min-w-0 items-center gap-2.5 sm:flex">
               <span className="hidden h-6 w-px bg-slate-200 sm:block lg:hidden" />
-              <p className="truncate font-display text-xl font-semibold text-slate-900">{pageTitle}</p>
+              <p className="truncate font-sans text-xl font-semibold text-slate-900">{pageTitle}</p>
             </div>
           )}
           <div className="min-h-0 flex-1" />
@@ -359,7 +361,7 @@ export function AppShell({
             >
               <Bell className="h-5 w-5" />
               {liveCounts.notifications > 0 && (
-                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-lime-500 px-1 text-[10px] font-bold text-white">
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#95C12C] px-1 text-[10px] font-bold text-white">
                   {liveCounts.notifications > 9 ? '9+' : liveCounts.notifications}
                 </span>
               )}
@@ -385,7 +387,7 @@ export function AppShell({
                       {user.name || user.email}
                     </p>
                     <p className="text-[10px] font-medium leading-[1.2] text-slate-500">
-                      {isClient ? 'Client' : (user.jobTitle || '')}
+                      {ROLE_LABELS[user.role]}
                     </p>
                   </div>
                   <ChevronDown
@@ -398,7 +400,7 @@ export function AppShell({
 
                 {/* Dropdown Menu: Clean & Minimalist */}
                 {profileMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-slate-200/80 bg-white p-1.5 shadow-pop z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-slate-200/80 bg-white p-1.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] z-50 animate-in fade-in zoom-in-95 duration-100">
                     <Link
                       href={isClient ? '/portal/profile' : '/settings'}
                       onClick={() => setProfileMenuOpen(false)}

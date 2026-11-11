@@ -96,7 +96,7 @@ function MarketplaceSelect({ value, placeholder, onChange, items, disabled, clas
       disabled={disabled}
       placeholder={placeholder}
       aria-label={placeholder}
-      className={cn('input flex w-full min-w-0 items-center justify-between gap-2 overflow-hidden text-left', className)}
+      className={cn('form-field flex w-full min-w-0 items-center justify-between gap-2 overflow-hidden text-left', className)}
       options={[
         { value: EMPTY_VALUE, label: <span className="text-slate-500">{placeholder}</span>, text: placeholder },
         ...items.map(item => ({ value: item.id, label: item.label, text: item.textLabel })),

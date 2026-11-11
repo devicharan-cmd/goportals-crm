@@ -34,7 +34,7 @@ function useSave() {
 function ActiveToggle({ active, onChange, disabled }: { active: boolean; onChange: () => void; disabled?: boolean }) {
   return (
     <button type="button" onClick={onChange} disabled={disabled} role="switch" aria-checked={active}
-            className={cn('relative h-5 w-9 flex-shrink-0 rounded-full transition', active ? 'bg-lime-500' : 'bg-slate-300')}>
+            className={cn('relative h-5 w-9 flex-shrink-0 rounded-full transition', active ? 'bg-[#95C12C]' : 'bg-slate-300')}>
       <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition', active ? 'left-[18px]' : 'left-0.5')} />
     </button>
   )

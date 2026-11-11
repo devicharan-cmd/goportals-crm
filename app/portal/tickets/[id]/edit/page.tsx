@@ -15,7 +15,7 @@ export default async function EditPortalTicketPage(props: { params: Promise<{ id
   const me = await requireClient()
   const ticketId = await resolveTicketId(params.id)
   if (!ticketId) notFound()
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data } = await supabase.from('tickets').select('*').eq('id', ticketId).maybeSingle()
   if (!data) notFound()
   const ticket = data as Ticket

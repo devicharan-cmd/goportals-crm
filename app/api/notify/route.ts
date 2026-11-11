@@ -53,12 +53,12 @@ export async function POST(req: NextRequest) {
 
     if (type === 'renewal' || type === 'all') {
       const in7 = todayDateKey(new Date(Date.now() + 7 * 86400000))
-      const [{ data: renewals }, { data: admins }] = await Promise.all([
+      const [{ data: renewals }, { data: recipients }] = await Promise.all([
         db.from('client_internal').select('client_id, contract_end, client:clients(company_name, status)')
           .gte('contract_end', today).lte('contract_end', in7),
         db.from('profiles').select('email').eq('role', 'super_admin').eq('status', 'active'),
       ])
-      const to = (admins ?? []).map((a: { email: string }) => a.email)
+      const to = (recipients ?? []).map((recipient: { email: string }) => recipient.email)
       for (const r of (renewals ?? []) as unknown as { client_id: string; contract_end: string; client: { company_name: string; status: string } | null }[]) {
         if (!to.length || r.client?.status !== 'active') continue
         await resend.emails.send({

@@ -8,7 +8,7 @@ export const metadata = { title: 'Notifications' }
 
 export default async function PortalNotificationsPage() {
   const me = await requireClient()
-  const { data } = await createClient().from('notifications').select('*')
+  const { data } = await (await createClient()).from('notifications').select('*')
     .eq('recipient_id', me.id).order('created_at', { ascending: false }).limit(100)
   return (
     <div className="mx-auto max-w-3xl">

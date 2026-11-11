@@ -125,7 +125,7 @@ export function dueDateFor(type: DeadlineType, now = new Date()): string {
 export function capacityColor(pct: number): string {
   if (pct >= 100) return 'bg-red-500'
   if (pct >= 80) return 'bg-amber-500'
-  return 'bg-brand-500'
+  return 'bg-[#0A6F94]'
 }
 
 export function capacityTextColor(pct: number): string {
@@ -136,13 +136,13 @@ export function capacityTextColor(pct: number): string {
 
 /** Client relationship health (0-100): green when good, red when at risk. */
 export function healthColor(score: number): string {
-  if (score >= 70) return 'bg-lime-500'
+  if (score >= 70) return 'bg-[#95C12C]'
   if (score >= 40) return 'bg-amber-500'
   return 'bg-red-500'
 }
 
 export function healthTextColor(score: number): string {
-  if (score >= 70) return 'text-lime-700'
+  if (score >= 70) return 'text-[#5B771A]'
   if (score >= 40) return 'text-amber-700'
   return 'text-red-600'
 }

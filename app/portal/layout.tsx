@@ -4,7 +4,7 @@ import { requireClient } from '@/lib/auth'
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const me = await requireClient()
-  const supabase = createClient()
+  const supabase = await createClient()
   const [{ data: client, error: clientError }, { count }] = await Promise.all([
     supabase.from('clients').select('company_name, company_profile_image_path').eq('owner_id', me.id).maybeSingle(),
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_id', me.id).eq('is_read', false),

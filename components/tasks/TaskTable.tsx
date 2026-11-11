@@ -9,16 +9,16 @@ import { ROLE_LABELS, TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, T
 import type { AssigneeOption, TaskAssignerInfo } from '@/lib/queries'
 import type { TaskSummary } from '@/types/database'
 
-function TaskDueDisplay({ task, className }: { task: TaskSummary; className?: string }) {
+function TaskDueDisplay({ task, className, rowAligned = false }: { task: TaskSummary; className?: string; rowAligned?: boolean }) {
   const isOverdue = dueState(task.due_date, task.status) === 'overdue'
 
   return (
-    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs ${className ?? ''}`}>
-      <span className={task.due_date ? 'text-slate-600' : 'text-slate-400'}>
+    <span className={`${rowAligned ? 'relative block h-14' : 'flex w-fit flex-col items-start gap-0.5'} text-xs ${className ?? ''}`}>
+      <span className={`${rowAligned ? 'absolute left-0 top-[calc(50%-7px)]' : 'block'} ${task.due_date ? 'text-slate-600' : 'text-slate-400'}`}>
         {task.due_date ? formatDate(task.due_date) : 'No due date'}
       </span>
       {isOverdue && (
-        <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+        <span className={`${rowAligned ? 'absolute left-0 top-[calc(50%+11px)]' : 'block'} rounded-full bg-red-50 px-1.5 py-0.5 text-[11px] font-medium leading-4 text-red-700`}>
           Overdue
         </span>
       )}
@@ -28,7 +28,7 @@ function TaskDueDisplay({ task, className }: { task: TaskSummary; className?: st
 
 export function TaskTable({
   tasks, names, hrefBase = '/tasks', showClient = true, showAssignee = true, showAssignedBy = false,
-  taskAssigners = {}, empty, assignOptions,
+  taskAssigners = {}, empty, assignOptions, scope,
 }: {
   tasks: TaskSummary[]
   names: Record<string, string>
@@ -36,11 +36,14 @@ export function TaskTable({
   showClient?: boolean
   showAssignee?: boolean
   showAssignedBy?: boolean
+  scope?: 'mine' | 'assigned' | 'all'
   taskAssigners?: Record<string, TaskAssignerInfo>
   empty?: { title: string; description?: string; action?: React.ReactNode }
   /** When set, each row gets a "Change" link to reassign (managers / super admins). */
   assignOptions?: AssigneeOption[]
 }) {
+  const taskHref = (taskId: string) =>
+    `${hrefBase}/${taskId}${scope ? `?scope=${scope}` : ''}`
   const assigneeRoles = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.role]))
   const assigneeAvatarRoles = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.avatarRole]))
   const assigneeAvatarUrls = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.avatarUrl]))
@@ -103,17 +106,17 @@ export function TaskTable({
           {tasks.map(t => (
             <tr key={t.id} className="group hover:bg-slate-50/80">
               {showAssignedBy && (
-                <td className="px-3 py-3 font-mono text-xs font-semibold text-lime-600">
-                  <Link href={`${hrefBase}/${t.id}`} className="hover:text-lime-700">{taskCode(t.task_number)}</Link>
+                <td className="px-3 py-3 font-mono text-xs font-semibold text-[#045E80]">
+                  <Link href={taskHref(t.id)} className="text-[#045E80] hover:text-[#034C68]">{taskCode(t.task_number)}</Link>
                 </td>
               )}
               <td className="px-3 py-3">
-                <Link href={`${hrefBase}/${t.id}`} className="relative block h-14">
+                <Link href={taskHref(t.id)} className="relative block h-14">
                   <span className={`absolute inset-x-0 top-[calc(50%-10px)] grid gap-x-2 ${showAssignedBy ? 'grid-cols-1' : 'grid-cols-[max-content_minmax(0,1fr)]'}`}>
-                    {!showAssignedBy && <span className="font-mono text-xs font-semibold text-slate-400">{taskCode(t.task_number)}</span>}
+                    {!showAssignedBy && <span className="font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>}
                     <span className={`${showAssignedBy ? '' : 'col-start-2'} flex min-w-0 items-center gap-2`}>
                       {t.is_urgent && !TASK_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
-                      <span className="truncate font-medium text-slate-900 group-hover:text-brand-700">{t.title}</span>
+                      <span className="truncate font-medium text-slate-900">{t.title}</span>
                     </span>
                     <span className={`${showAssignedBy ? '' : 'col-start-2'} flex min-w-0 items-center gap-1 truncate text-xs text-slate-400`}>
                       {t.department?.name}
@@ -185,7 +188,7 @@ export function TaskTable({
                   )}
                 </td>
               )}
-              <td className={showAssignedBy ? 'px-2 py-3' : 'px-3 py-3'}><TaskDueDisplay task={t} /></td>
+              <td className={showAssignedBy ? 'px-2 py-3' : 'px-3 py-3'}><TaskDueDisplay task={t} rowAligned /></td>
               {showReassignColumn && (
                 <td className="px-2 py-3 text-center">
                   {!TASK_TERMINAL_STATUSES.includes(t.status) && (
@@ -202,9 +205,9 @@ export function TaskTable({
       <ul className="divide-y divide-slate-100 md:hidden">
         {tasks.map(t => (
           <li key={t.id}>
-            <Link href={`${hrefBase}/${t.id}`} className="block px-4 py-3 active:bg-slate-50">
+            <Link href={taskHref(t.id)} className="block px-4 py-3 active:bg-slate-50">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-slate-400">{taskCode(t.task_number)}</span>{t.title}</p>
+                <p className="font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>{t.title}</p>
                 <PriorityBadge priority={t.priority} />
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">

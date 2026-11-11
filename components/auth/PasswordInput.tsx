@@ -8,7 +8,7 @@ function PasswordInput(props, ref) {
   const [show, setShow] = useState(false)
   return (
     <div className="relative">
-      <input {...props} ref={ref} type={show ? 'text' : 'password'} className="input pr-10" />
+      <input {...props} ref={ref} type={show ? 'text' : 'password'} className="form-field pr-10" />
       <button
         type="button"
         onClick={() => setShow(s => !s)}

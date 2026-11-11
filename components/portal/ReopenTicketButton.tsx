@@ -39,7 +39,7 @@ export function ReopenTicketButton({ ticketId }: { ticketId: string }) {
     <div className="mt-3 space-y-2 rounded-lg bg-orange-50 px-4 py-3 ring-1 ring-inset ring-orange-200">
       <label className="block text-sm font-medium text-orange-800">What needs to change? *</label>
       <textarea
-        className="input min-h-20 w-full text-sm"
+        className="form-field min-h-20 w-full text-sm"
         value={feedback}
         onChange={e => setFeedback(e.target.value)}
         placeholder="Tell us what's missing or needs fixing..."

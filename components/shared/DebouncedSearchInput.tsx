@@ -49,7 +49,7 @@ export function DebouncedSearchInput({
           if (event.key === 'Enter') event.preventDefault()
         }}
         placeholder={placeholder}
-        className={`input h-9 pl-9 ${inputClassName}`}
+        className={`form-field search-input-with-icon h-9 ${inputClassName}`}
       />
     </div>
   )

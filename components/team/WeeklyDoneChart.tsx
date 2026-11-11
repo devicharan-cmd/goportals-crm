@@ -26,7 +26,7 @@ export function WeeklyDoneChart({ weeks }: { weeks: WeekBucket[] }) {
               )}
               <div
                 className={cn('mx-auto w-full max-w-[28px] rounded-t transition-colors',
-                  w.count ? 'bg-brand-500 group-hover:bg-brand-700' : 'bg-slate-200')}
+                  w.count ? 'bg-[#0A6F94] group-hover:bg-[#034C68]' : 'bg-slate-200')}
                 style={{ height: w.count ? `${(w.count / max) * 100}%` : '2px', minHeight: w.count ? 4 : 2 }}
               />
             </div>

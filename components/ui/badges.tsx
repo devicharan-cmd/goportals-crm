@@ -52,7 +52,7 @@ const DUE_STYLES = {
   soon:    'text-amber-600 font-medium',
   ok:      'text-slate-500',
   none:    'text-slate-400',
-  completed: 'text-lime-700 font-medium',
+  completed: 'text-[#5B771A] font-medium',
   cancelled: 'text-slate-400',
 }
 

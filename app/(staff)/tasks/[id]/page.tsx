@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskPageTitle } from '@/lib/queries'
+import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskPageTitle } from '@/lib/queries'
 import { TaskCode } from '@/components/tasks/TaskCode'
 import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { Badge, PriorityBadge, StatusBadge, UrgentBadge, DueDate } from '@/components/ui/badges'
@@ -28,10 +28,10 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
   return { title: await taskPageTitle(params.id) }
 }
 
-export default async function TaskDetailPage(props: { params: Promise<{ id: string }> }) {
-  const params = await props.params
+export default async function TaskDetailPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ scope?: string }> }) {
+  const [params, searchParams] = await Promise.all([props.params, props.searchParams])
   const me = await requireStaff()
-  const supabase = createClient()
+  const supabase = await createClient()
   const taskId = await resolveTaskId(params.id)
   if (!taskId) notFound()
 
@@ -54,6 +54,9 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     : { data: null, error: null }
   if (clientImageError) throw clientImageError
   const names = nameMap(lookups.people)
+  const taskAssigner = task.assigned_by
+    ? lookups.people.find(person => person.id === task.assigned_by)
+    : undefined
 
   const assignees = assigneeOptionsFor(me, lookups)
   const editAssignees = [...assignees]
@@ -73,24 +76,32 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     const clientIds = await clientIdsForTeamLead(me.id, deptIds)
     editClients = lookups.clients.filter(client => clientIds.has(client.id) || client.id === task.client_id)
   }
+  const editClientImageUrlByPath = await getClientProfileImageUrls(editClients)
   const canClaim = task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
   const canEditChecklist = me.role !== 'employee' || task.assignee_id === me.id
+  const scopedTasksContext = searchParams.scope === 'mine' || searchParams.scope === 'assigned' || searchParams.scope === 'all'
+  const myTasksContext = searchParams.scope === 'mine'
+  const assignedByMeContext = searchParams.scope === 'assigned' && task.assigned_by === me.id
+  const canManageTask = me.role === 'super_admin'
+    ? searchParams.scope === 'all' || assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext)
+    : assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext)
+  const tasksHref = scopedTasksContext ? `/tasks?scope=${searchParams.scope}` : '/tasks'
 
   const details: [string, React.ReactNode][] = [
-    ['Task ID', <span key="id" className="font-mono font-semibold">{taskCode(task.task_number)}</span>],
+    ['Task ID', <span key="id" className="font-mono font-semibold text-[#045E80]">{taskCode(task.task_number)}</span>],
     ['Client', !task.client ? '—' : (
       <span className="inline-flex items-center justify-end gap-2">
         <CompanyAvatar name={task.client.company_name} src={clientImage?.signedUrl} size="xs" />
         {me.role === 'employee'
           ? <span>{task.client.company_name}</span>
-          : <Link href={`/clients/${task.client.id}`} className="font-medium text-brand-700 hover:underline">{task.client.company_name}</Link>}
+          : <Link href={`/clients/${task.client.id}`} className="font-medium text-[#034C68] hover:underline">{task.client.company_name}</Link>}
       </span>
     )],
     ['Type', TYPE_LABELS[task.type]],
     ['Service', task.service?.name ?? '—'],
     ['Department', task.department?.name ?? '—'],
     ['Platform', task.platform?.name ? <MarketplacePlatformLabel name={task.platform.name} /> : '—'],
-    ...(task.ticket ? [['Ticket', <Link key="ticket" href={`/tickets/${task.ticket.id}`} className="font-medium text-brand-700 hover:underline">
+    ...(task.ticket ? [['Ticket', <Link key="ticket" href={`/tickets/${task.ticket.id}`} className="font-medium text-[#034C68] hover:underline">
         {task.ticket.subject}
       </Link>] as [string, React.ReactNode]] : []),
     ['Created', formatDate(task.created_at)],
@@ -108,21 +119,24 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <Link href="/tasks" className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
+        <Link href={tasksHref} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
         <div className="flex items-center gap-2">
-          {me.role === 'super_admin' && <DeleteButton table="tasks" id={task.id} redirectTo="/tasks" />}
-          {me.role !== 'employee' && <AssignButton taskId={task.id} currentId={task.assignee_id} options={assignees} />}
-          <TaskEditModal
-            task={task}
-            meId={me.id}
-            canMarkUrgent={me.role !== 'employee'}
-            canEditAssignment={me.role !== 'employee'}
-            clients={editClients}
-            assignees={editAssignees}
-            departments={lookups.departments}
-            platforms={lookups.platforms}
-            services={lookups.services}
-          />
+          {canManageTask && me.role === 'super_admin' && <DeleteButton table="tasks" id={task.id} redirectTo={tasksHref} variant="danger" />}
+          {canManageTask && me.role !== 'employee' && <AssignButton taskId={task.id} currentId={task.assignee_id} options={assignees} />}
+          {canManageTask && (
+            <TaskEditModal
+              task={task}
+              meId={me.id}
+              canMarkUrgent={me.role !== 'employee'}
+              canEditAssignment={me.role !== 'employee'}
+              clients={editClients}
+              clientImageUrlByPath={editClientImageUrlByPath}
+              assignees={editAssignees}
+              departments={lookups.departments}
+              platforms={lookups.platforms}
+              services={lookups.services}
+            />
+          )}
         </div>
       </div>
 
@@ -134,7 +148,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               {task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && <UrgentBadge />}
               <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={TASK_STATUS_STYLES[task.status]} dotClassName={TASK_STATUS_DOT[task.status]} />
               <PriorityBadge priority={task.priority} />
-              {task.source === 'client' && <Badge className="bg-lime-50 text-lime-800 ring-lime-200">Client request</Badge>}
+              {task.source === 'client' && <Badge className="bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]">Client request</Badge>}
               <DueDate date={task.due_date} status={task.status} className="ml-auto !text-red-600" />
             </div>
             <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
@@ -186,6 +200,13 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               task={task}
               assignees={editAssignees}
               assigneeName={task.assignee_id ? names[task.assignee_id] ?? null : null}
+              assignedBy={taskAssigner ? {
+                name: names[taskAssigner.id],
+                avatarUrl: taskAssigner.avatar_url,
+                role: taskAssigner.role,
+              } : null}
+              canChangeStatus={me.role === 'super_admin' || task.assignee_id === me.id}
+              canCompleteReview={me.role !== 'employee'}
             />
           </Card>
           <Card>

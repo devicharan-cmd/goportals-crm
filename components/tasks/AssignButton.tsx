@@ -61,7 +61,7 @@ export function AssignButton({
         ? <Button size="sm" disabled={disabled} className={compact ? 'h-6 px-1.5 text-[10px]' : undefined} onClick={show}>
             <UserCog className={cn('h-3.5 w-3.5', compact && 'h-3 w-3')} /> {currentId ? 'Reassign' : 'Assign'}
           </Button>
-        : <button disabled={disabled} onClick={show} className="text-xs font-semibold text-brand-600 hover:text-brand-700 disabled:pointer-events-none disabled:opacity-50">{currentId ? 'Reassign' : 'Assign'}</button>}
+        : <button disabled={disabled} onClick={show} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68] disabled:pointer-events-none disabled:opacity-50">{currentId ? 'Reassign' : 'Assign'}</button>}
 
       {typeof document !== 'undefined' && createPortal(<Modal
         open={open}
@@ -92,28 +92,23 @@ export function AssignButton({
                   className={cn(
                     'flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors',
                     active
-                      ? 'border-brand-200 bg-brand-50'
+                      ? 'border-[#9FCCDE] bg-[#EAF4F8]'
                       : 'border-slate-200 bg-white hover:bg-[#f3f5f4]',
                   )}
                 >
                   <Avatar name={o.name} src={o.avatarUrl} role={o.avatarRole} size="sm" />
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-slate-900">
-                      <span className="break-all">{o.name}</span>
-                      {o.isMe && (
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-normal text-slate-500">
-                          (me)
-                        </span>
-                      )}
+                      <span className="break-all">{o.name}{o.isMe ? ' (me)' : ''}</span>
                       {o.id === currentId && (
-                        <span className="rounded bg-lime-100 px-1.5 py-0.5 text-[11px] font-medium text-lime-800">
+                        <span className="rounded bg-[#E8F3C8] px-1.5 py-0.5 text-[11px] font-medium text-[#465B17]">
                           · current
                         </span>
                       )}
                     </span>
                     {o.subtitle && <span className="mt-0.5 block text-xs text-slate-500">{o.subtitle}</span>}
                   </span>
-                  {active && <Check className="h-5 w-5 flex-shrink-0 text-brand-600" />}
+                  {active && <Check className="h-5 w-5 flex-shrink-0 text-[#045E80]" />}
                 </button>
               </li>
             )

@@ -18,8 +18,8 @@ export const metadata = { title: 'Employee stats' }
 
 export default async function EmployeeStatsPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
-  const me = await requireRole(['super_admin', 'admin', 'team_lead'])
-  const supabase = createClient()
+  const me = await requireRole(['super_admin', 'manager', 'team_lead'])
+  const supabase = await createClient()
 
   const [{ data: personData }, { data: taskData }, { data: logData }, lookups] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', params.id).maybeSingle(),
@@ -56,7 +56,8 @@ export default async function EmployeeStatsPage(props: { params: Promise<{ id: s
   const openHours = open.reduce((s, t) => s + Number(t.estimated_hours ?? 3), 0)
   const workload = Math.round((openHours / (person.weekly_capacity_hours || 40)) * 100)
 
-  const byStatus = (['todo', 'in_progress', 'ready_for_review', 'changes_requested'] as TaskStatus[]).map(s => ({ s, n: open.filter(t => t.status === s).length }))
+  const byStatus = (['todo', 'in_progress', 'in_system_process', 'ready_for_review', 'client_review', 'changes_requested'] as TaskStatus[])
+    .map(s => ({ s, n: open.filter(t => t.status === s).length }))
 
   // Completed per week, last 8 weeks (Mon–Sun)
   const weeks: WeekBucket[] = Array.from({ length: 8 }, (_, i) => {
@@ -85,12 +86,12 @@ export default async function EmployeeStatsPage(props: { params: Promise<{ id: s
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold">{person.full_name || person.email}</h1>
               {active
-                ? <Badge className="bg-lime-50 text-lime-700 ring-lime-200"><span className="h-1.5 w-1.5 rounded-full bg-lime-500" /> Active</Badge>
+                ? <Badge className="bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]"><span className="h-1.5 w-1.5 rounded-full bg-[#95C12C]" /> Active</Badge>
                 : <Badge className="bg-slate-100 text-slate-500 ring-slate-200"><span className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Not active</Badge>}
             </div>
             {/* One meta row: job title, departments, then email after a divider. */}
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-              {person.job_title && <Badge className="bg-brand-50 text-brand-700 ring-brand-200">{person.job_title}</Badge>}
+              {person.job_title && <Badge className="bg-[#EAF4F8] text-[#034C68] ring-[#9FCCDE]">{person.job_title}</Badge>}
               {depts.length > 0 && <span className="flex flex-wrap gap-1.5">{depts.map(d => <Badge key={d}>{d}</Badge>)}</span>}
               <span className="hidden h-4 w-px bg-slate-200 sm:block" />
               {/* Opens Gmail compose; a bare mailto: does nothing on PCs with no default mail app. */}
@@ -99,9 +100,9 @@ export default async function EmployeeStatsPage(props: { params: Promise<{ id: s
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`Email ${person.full_name || person.email}`}
-                className="group inline-flex min-w-0 items-center gap-2 text-slate-600 transition-colors hover:text-brand-700"
+                className="group inline-flex min-w-0 items-center gap-2 text-slate-600 transition-colors hover:text-[#034C68]"
               >
-                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-lime-100 text-lime-700 transition-colors group-hover:bg-lime-500 group-hover:text-white">
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#E8F3C8] text-[#5B771A] transition-colors group-hover:bg-[#95C12C] group-hover:text-white">
                   <Mail className="h-3.5 w-3.5" />
                 </span>
                 <span className="truncate underline-offset-4 group-hover:underline">{person.email}</span>
@@ -125,7 +126,7 @@ export default async function EmployeeStatsPage(props: { params: Promise<{ id: s
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Avg. time to complete" value={avgDays == null ? '—' : `${avgDays}d`} icon={<Timer className="h-5 w-5" />} tone="brand" hint="From assigned to done" />
         <StatCard label="Hours logged this month" value={`${hoursMonth}h`} icon={<Clock className="h-5 w-5" />} tone="amber" />
-        <div className="card col-span-2 p-5">
+        <div className="content-card col-span-2 p-5">
           <div className="mb-2 flex items-center justify-between">
             <p className="flex items-center gap-2 text-xs font-medium text-slate-500"><Gauge className="h-4 w-4 text-slate-400" /> Workload (open estimated hours vs weekly capacity)</p>
             <span className={cn('text-sm font-bold', capacityTextColor(workload))}>{workload}%</span>

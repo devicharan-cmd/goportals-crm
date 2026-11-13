@@ -2,14 +2,14 @@ import Link from 'next/link'
 import { UserCheck, UserX, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { getStaffLookups, profileIdsReportingTo } from '@/lib/queries'
+import { profileIdsReportingTo, sortPeopleByRoleAndJoiningDate, type DepartmentMember, type Person } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { InviteStaffButton } from '@/components/admin/UserAdmin'
 import { Avatar, Card, EmptyState } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { ROLE_LABELS } from '@/lib/constants'
 import { capacityColor, capacityTextColor, cn, dueState } from '@/lib/utils'
-import type { StaffRole, Task } from '@/types/database'
+import type { Department, StaffRole, Task } from '@/types/database'
 
 export const metadata = { title: 'Team' }
 
@@ -24,11 +24,27 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
   const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
   const monthStart = new Date();monthStart.setDate(1);monthStart.setHours(0, 0, 0, 0)
-  const [lookups, { data }, { data: doneData }] = await Promise.all([
-    getStaffLookups(),
+  const [
+    { data: peopleData, error: peopleError },
+    { data: departmentData, error: departmentError },
+    { data: departmentMemberData, error: departmentMemberError },
+    { data },
+    { data: doneData },
+  ] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to'),
+    supabase.from('departments').select('*').order('sort_order'),
+    supabase.from('department_members').select('department_id, profile_id, is_lead'),
     supabase.from('tasks').select('assignee_id, estimated_hours, status, due_date').not('status', 'in', '(completed,cancelled)').not('assignee_id', 'is', null),
     supabase.from('tasks').select('assignee_id').eq('status', 'completed').gte('closed_at', monthStart.toISOString()).not('assignee_id', 'is', null),
   ])
+  for (const error of [peopleError, departmentError, departmentMemberError]) {
+    if (error) throw error
+  }
+  const lookups = {
+    people: sortPeopleByRoleAndJoiningDate((peopleData ?? []) as Person[]),
+    departments: (departmentData ?? []) as Department[],
+    departmentMembers: (departmentMemberData ?? []) as DepartmentMember[],
+  }
   const tasks = (data ?? []) as Pick<Task, 'assignee_id' | 'estimated_hours' | 'status' | 'due_date'>[]
   const doneThisMonth = (doneData ?? []).reduce<Record<string, number>>((acc, t: { assignee_id: string }) => {
     acc[t.assignee_id] = (acc[t.assignee_id] ?? 0) + 1

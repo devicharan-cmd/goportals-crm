@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 import { assigneeFilterPeopleFor, assigneeOptionsFor, getClientProfileImageUrls, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
+import { TASK_PAGE_SIZE } from '@/lib/constants'
 import { ButtonLink } from '@/components/ui/button'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
 import { TaskSearchProvider, TaskSearchResults } from '@/components/tasks/TaskSearch'
@@ -23,58 +24,73 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     ? searchParams.scope
     : defaultScope
   const board = searchParams.view !== 'list'
+  const status = searchParams.status ?? 'all'
 
-  const lookups = await getTaskPageLookups({
+  const lookupsPromise = getTaskPageLookups({
     includePeople: true,
     includeAssignments: true,
   })
-  const assignedScopeAssigneeIds = taskAssigneeIdsForAssignedScope(me, lookups)
 
-  let query = supabase.from('tasks').select(TASK_SUMMARY_SELECT)
-    .order('is_urgent', { ascending: false })
-    .order('due_date', { ascending: true, nullsFirst: false })
-    .order('created_at', { ascending: false })
-    .limit(500)
+  function taskQuery(assignedScopeAssigneeIds: string[]) {
+    let query = supabase.from('tasks').select(TASK_SUMMARY_SELECT)
+      .order('is_urgent', { ascending: false })
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(0, TASK_PAGE_SIZE)
 
-  if (scope === 'mine') {
-    query = query.eq('assignee_id', me.id)
-  } else if (scope === 'assigned') {
-    query = query.eq('assigned_by', me.id)
-    query = assignedScopeAssigneeIds.length
-      ? query.in('assignee_id', assignedScopeAssigneeIds)
-      : query.eq('id', '00000000-0000-0000-0000-000000000000')
-  } else if (searchParams.assignee) query = query.eq('assignee_id', searchParams.assignee)
-  if (scope === 'all' && searchParams.assigned_by) query = query.eq('assigned_by', searchParams.assigned_by)
+    if (scope === 'mine') {
+      query = query.eq('assignee_id', me.id)
+    } else if (scope === 'assigned') {
+      query = query.eq('assigned_by', me.id)
+      query = assignedScopeAssigneeIds.length
+        ? query.in('assignee_id', assignedScopeAssigneeIds)
+        : query.eq('id', '00000000-0000-0000-0000-000000000000')
+    } else if (searchParams.assignee) query = query.eq('assignee_id', searchParams.assignee)
+    if (scope === 'all' && searchParams.assigned_by) query = query.eq('assigned_by', searchParams.assigned_by)
 
-  const status = searchParams.status ?? 'all'
-  if (!board) {
-    if (status === 'active') query = query.not('status', 'in', '(completed,cancelled)')
-    else if (status !== 'all') query = query.eq('status', status)
+    if (!board) {
+      if (status === 'active') query = query.not('status', 'in', '(completed,cancelled)')
+      else if (status !== 'all') query = query.eq('status', status)
+    }
+    if (searchParams.client) query = query.eq('client_id', searchParams.client)
+    if (searchParams.dept) query = query.eq('department_id', searchParams.dept)
+    if (searchParams.due) query = query.eq('due_date', searchParams.due)
+    return query
   }
-  if (searchParams.client) query = query.eq('client_id', searchParams.client)
-  if (searchParams.dept) query = query.eq('department_id', searchParams.dept)
-  if (searchParams.due) query = query.eq('due_date', searchParams.due)
 
+  const [lookups, initialTaskResult, myTaskCountResult, allTaskCountResult, assignerResult] = await Promise.all([
+    lookupsPromise,
+    scope === 'assigned' ? Promise.resolve(null) : taskQuery([]),
+    supabase.from('tasks').select('id', { count: 'exact', head: true })
+      .eq('assignee_id', me.id)
+      .not('status', 'in', '(completed,cancelled)'),
+    supabase.from('tasks').select('id', { count: 'exact', head: true }),
+    supabase.rpc('staff_directory'),
+  ])
+
+  const assignedScopeAssigneeIds = taskAssigneeIdsForAssignedScope(me, lookups)
   let assignedCountQuery = supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assigned_by', me.id)
   assignedCountQuery = assignedScopeAssigneeIds.length
     ? assignedCountQuery.in('assignee_id', assignedScopeAssigneeIds)
     : assignedCountQuery.eq('id', '00000000-0000-0000-0000-000000000000')
 
-  const [taskResult, myTaskCountResult, allTaskCountResult, assignedTaskCountResult, assignerResult] = await Promise.all([
-    query,
-    supabase.from('tasks').select('id', { count: 'exact', head: true })
-      .eq('assignee_id', me.id)
-      .not('status', 'in', '(completed,cancelled)'),
-    supabase.from('tasks').select('id', { count: 'exact', head: true }),
+  const [taskResult, assignedTaskCountResult, clientImageUrlByPath] = await Promise.all([
+    initialTaskResult ?? taskQuery(assignedScopeAssigneeIds),
     assignedCountQuery,
-    supabase.rpc('staff_directory'),
+    getClientProfileImageUrls(lookups.clients),
   ])
   if (taskResult.error) throw taskResult.error
   if (myTaskCountResult.error) throw myTaskCountResult.error
   if (allTaskCountResult.error) throw allTaskCountResult.error
   if (assignedTaskCountResult.error) throw assignedTaskCountResult.error
   if (assignerResult.error) throw assignerResult.error
-  const tasks = normalizeTaskSummaryRows((taskResult.data ?? []) as Parameters<typeof normalizeTaskSummaryRows>[0])
+  const hasMoreTasks = (taskResult.data?.length ?? 0) > TASK_PAGE_SIZE
+  const tasks = normalizeTaskSummaryRows((taskResult.data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0])
+  const lastTask = tasks[tasks.length - 1]
+  const initialTaskCursor = hasMoreTasks && lastTask
+    ? { id: lastTask.id, is_urgent: lastTask.is_urgent, due_date: lastTask.due_date, created_at: lastTask.created_at }
+    : null
   const directoryPeople = (assignerResult.data ?? []) as StaffDirectoryEntry[]
   const assigners = taskAssignerFilterPeopleFor(me, lookups).map(person => ({
     value: person.id,
@@ -98,13 +114,19 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     }] as const),
   ])
   const assignOptions = me.role !== 'employee' ? assigneeOptionsFor(me, lookups) : undefined
-  const clientImageUrlByPath = await getClientProfileImageUrls(lookups.clients)
 
   return (
     <TaskSearchProvider
       initialTasks={tasks}
+      initialTaskCursor={initialTaskCursor}
+      initialHasMoreTasks={hasMoreTasks}
       initialNames={names}
       initialTaskAssigners={taskAssigners}
+      initialScopeCounts={{
+        mine: myTaskCountResult.count ?? 0,
+        assigned: assignedTaskCountResult.count ?? 0,
+        all: allTaskCountResult.count ?? 0,
+      }}
       assignOptions={assignOptions}
       editableAssigneeId={me.role === 'super_admin' ? undefined : me.id}
       scope={scope}
@@ -121,11 +143,6 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
           showScope
           showAssigneeFilter={canSeeMore}
           defaultScope={defaultScope}
-          scopeCounts={{
-            mine: myTaskCountResult.count ?? 0,
-            assigned: assignedTaskCountResult.count ?? 0,
-            all: allTaskCountResult.count ?? 0,
-          }}
           assigners={assigners}
           clients={lookups.clients.map(client => ({
             value: client.id,

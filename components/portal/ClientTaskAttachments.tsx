@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { errorMessage, formatDate } from '@/lib/utils'
 import type { TaskAttachment, TaskStatus } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 type AttachmentLink = TaskAttachment & { signedUrl: string }
 
@@ -14,6 +15,7 @@ export function ClientTaskAttachments({
   taskId, meId, attachments, status, canUpload = true,
 }: { taskId: string; meId: string; attachments: AttachmentLink[]; status: TaskStatus; canUpload?: boolean }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -81,7 +83,7 @@ export function ClientTaskAttachments({
                  disabled={uploading} onChange={event => {
                    const file = event.currentTarget.files?.[0]
                    event.currentTarget.value = ''
-                   if (file) void upload(file)
+                   if (file) void runOnce('upload-attachment', () => upload(file))
                  }} />
           <Button variant="secondary" size="sm" loading={uploading} disabled={uploading}
                   onClick={() => inputRef.current?.click()}>

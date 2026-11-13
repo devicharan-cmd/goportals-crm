@@ -62,7 +62,9 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
 
   const [taskResult, myTaskCountResult, allTaskCountResult, assignedTaskCountResult, assignerResult] = await Promise.all([
     query,
-    supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assignee_id', me.id),
+    supabase.from('tasks').select('id', { count: 'exact', head: true })
+      .eq('assignee_id', me.id)
+      .not('status', 'in', '(completed,cancelled)'),
     supabase.from('tasks').select('id', { count: 'exact', head: true }),
     assignedCountQuery,
     supabase.rpc('staff_directory'),

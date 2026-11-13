@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/primitives'
 import { cn, formatRelative } from '@/lib/utils'
 import type { Notification } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 const ICONS: Record<string, React.ElementType> = {
   assigned: UserCheck,
@@ -20,6 +21,7 @@ const ICONS: Record<string, React.ElementType> = {
 
 export function NotificationsList({ items, taskHref, ticketHref }: { items: Notification[]; taskHref: string; ticketHref: string }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [busy, setBusy] = useState(false)
   const unread = items.filter(n => !n.is_read)
 
@@ -46,7 +48,7 @@ export function NotificationsList({ items, taskHref, ticketHref }: { items: Noti
       {unread.length > 0 && (
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
           <span className="text-sm text-slate-500">{unread.length} unread</span>
-          <Button size="sm" variant="ghost" loading={busy} onClick={markAll}><CheckCheck className="h-4 w-4" /> Mark all read</Button>
+          <Button size="sm" variant="ghost" loading={busy} onClick={() => void runOnce('mark-all-read', markAll)}><CheckCheck className="h-4 w-4" /> Mark all read</Button>
         </div>
       )}
       <ul className="divide-y divide-slate-100">
@@ -54,7 +56,7 @@ export function NotificationsList({ items, taskHref, ticketHref }: { items: Noti
           const Icon = ICONS[n.type] ?? Bell
           return (
             <li key={n.id}>
-              <button onClick={() => open(n)} className={cn('flex w-full items-start gap-3 px-5 py-4 text-left hover:bg-slate-50', !n.is_read && 'bg-[#EAF4F8]/40')}>
+              <button onClick={() => void runOnce(`open-${n.id}`, () => open(n))} className={cn('flex w-full items-start gap-3 px-5 py-4 text-left hover:bg-slate-50', !n.is_read && 'bg-[#EAF4F8]/40')}>
                 <span className={cn('mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full',
                   n.is_read ? 'bg-slate-100 text-slate-400' : 'bg-[#CFE6EF] text-[#034C68]')}>
                   <Icon className="h-4 w-4" />

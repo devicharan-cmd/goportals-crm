@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
 import { cn, errorMessage, splitTeamName } from '@/lib/utils'
 import type { AppRole } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 /** "Today" / "Yesterday" / "12 Mar" — the separator between days of chat. */
 function dayLabel(iso: string) {
@@ -61,6 +62,7 @@ function MessageMenu({ commentId, table, canDelete, mine, attachments }: {
   attachments: CommentAttachment[]
 }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [open, setOpen] = useState(false)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
@@ -114,7 +116,7 @@ function MessageMenu({ commentId, table, canDelete, mine, attachments }: {
             {canDelete && (
               <button
                 type="button"
-                onClick={remove}
+                onClick={() => void runOnce('delete-comment', remove)}
                 disabled={working}
                 className="mt-2.5 flex w-full items-center gap-1.5 rounded-lg border-t border-slate-100 px-1 pt-2 text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
               >
@@ -131,6 +133,7 @@ function MessageMenu({ commentId, table, canDelete, mine, attachments }: {
 
 function AttachmentMenu({ attachment, canDelete }: { attachment: CommentAttachment; canDelete: boolean }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [open, setOpen] = useState(false)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
@@ -174,7 +177,7 @@ function AttachmentMenu({ attachment, canDelete }: { attachment: CommentAttachme
         <>
           <span className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
           <span className="absolute bottom-full right-0 z-30 mb-1.5 block w-40 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
-            <button type="button" onClick={remove} disabled={working}
+            <button type="button" onClick={() => void runOnce('delete-attachment', remove)} disabled={working}
               className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
               <Trash2 className="h-3.5 w-3.5" /> {working ? 'Deleting…' : 'Delete file'}
             </button>
@@ -207,6 +210,7 @@ export function CommentThread({
   replyNeeded?: boolean
 }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const isStaff = myRole !== 'client'
   const isTicketThread = table === 'ticket_comments'
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -501,7 +505,7 @@ export function CommentThread({
       {lockedNote ? (
         <p className="mt-5 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-500 ring-1 ring-inset ring-slate-200">{lockedNote}</p>
       ) : (
-      <form onSubmit={submit} className="mt-5">
+      <form onSubmit={event => void runOnce('send-comment', () => submit(event))} className="mt-5">
         {requestChanges && (
           <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-inset ring-amber-200">
             <span>Sending this message will request changes and return the task to the team.</span>

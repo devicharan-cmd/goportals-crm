@@ -16,6 +16,7 @@ import { DueDate } from '@/components/ui/badges'
 import { PRIORITY_STYLES, TASK_STATUS_DOT, TASK_STATUS_OPTIONS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { cn, errorMessage, taskCode } from '@/lib/utils'
 import type { TaskSummary, TaskStatus } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 type CardProps = {
   task: TaskSummary
@@ -120,6 +121,7 @@ export function TaskBoard({
   readOnly?: boolean
 }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [tasks, setTasks] = useState(initial)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -128,7 +130,6 @@ export function TaskBoard({
   const canEditTask = (task: TaskSummary) =>
     !readOnly
     && (!editableAssigneeId || task.assignee_id === editableAssigneeId)
-    && (!editableAssigneeId || task.status !== 'cancelled')
   useEffect(() => setTasks(initial), [initial])
 
   const sensors = useSensors(
@@ -185,7 +186,7 @@ export function TaskBoard({
           </button>
         </p>
       )}
-      <DndContext id="task-board" sensors={sensors} onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))} onDragEnd={onDragEnd} onDragCancel={() => setActiveId(null)}>
+      <DndContext id="task-board" sensors={sensors} onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))} onDragEnd={event => void runOnce('drag-update', () => onDragEnd(event))} onDragCancel={() => setActiveId(null)}>
         <div className={cn('-mx-4 grid auto-cols-[minmax(200px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0', tasks.length === 0 && 'min-h-[200px]')}>
           {TASK_STATUS_OPTIONS.map(s => (
             <Column

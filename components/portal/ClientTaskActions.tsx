@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,9 +13,12 @@ export function ClientTaskActions({
   taskId, status, assignedToClient,
 }: { taskId: string; status: TaskStatus; assignedToClient: boolean }) {
   const router = useRouter()
+  const actionInFlight = useRef(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [requestStarted, setRequestStarted] = useState(false)
+  const [approved, setApproved] = useState(false)
+  const [pendingStatusFrom, setPendingStatusFrom] = useState<TaskStatus | null>(null)
 
   useEffect(() => {
     function cancelRequest(event: Event) {
@@ -28,9 +31,16 @@ export function ClientTaskActions({
 
   useEffect(() => {
     if (status !== 'client_review' && status !== 'completed') setRequestStarted(false)
-  }, [status])
+    if (pendingStatusFrom !== null && status !== pendingStatusFrom) setPendingStatusFrom(null)
+    if (status !== 'client_review') {
+      setApproved(false)
+      actionInFlight.current = false
+    }
+  }, [pendingStatusFrom, status])
 
   async function updateStatus(nextStatus: TaskStatus) {
+    if (actionInFlight.current) return
+    actionInFlight.current = true
     setSaving(true)
     setError('')
     const { data, error: updateError } = await createClient().from('tasks')
@@ -39,17 +49,31 @@ export function ClientTaskActions({
       .select('id')
       .maybeSingle()
     setSaving(false)
-    if (updateError) return setError(errorMessage(updateError))
-    if (!data) return setError('This task could not be updated. Refresh the page and try again.')
+    if (updateError) {
+      actionInFlight.current = false
+      return setError(errorMessage(updateError))
+    }
+    if (!data) {
+      actionInFlight.current = false
+      return setError('This task could not be updated. Refresh the page and try again.')
+    }
+    actionInFlight.current = false
+    if (nextStatus !== status) setPendingStatusFrom(status)
     router.refresh()
   }
 
   async function approveTask() {
+    if (actionInFlight.current || approved) return
+    actionInFlight.current = true
     setSaving(true)
     setError('')
     const { error: actionError } = await createClient().rpc('client_approve_task', { p_task_id: taskId })
     setSaving(false)
-    if (actionError) return setError(errorMessage(actionError))
+    if (actionError) {
+      actionInFlight.current = false
+      return setError(errorMessage(actionError))
+    }
+    setApproved(true)
     router.refresh()
   }
 
@@ -73,21 +97,23 @@ export function ClientTaskActions({
         </p>
         <div className="flex flex-nowrap gap-2">
           {status === 'client_review' && (
-            <Button size="sm" className="w-[118px] shrink-0 whitespace-nowrap" loading={saving} disabled={saving} onClick={() => void approveTask()}>
+            <Button size="sm" className="w-[118px] shrink-0 whitespace-nowrap" loading={saving} disabled={saving || approved} onClick={() => void approveTask()}>
               <CheckCircle2 className="h-3.5 w-3.5" /> Approve task
             </Button>
           )}
           <Button
             variant="lime"
             size="sm"
-            disabled={saving || requestStarted}
+            disabled={saving || requestStarted || approved}
             className="shrink-0 whitespace-nowrap text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
             onClick={requestChanges}
           >
             <RotateCcw className="h-3.5 w-3.5" /> Request changes
           </Button>
         </div>
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        {approved
+          ? <p role="status" className="text-sm text-emerald-700">Task approved.</p>
+          : error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       </div>
     )
   }
@@ -101,17 +127,17 @@ export function ClientTaskActions({
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       <div className="flex flex-wrap gap-2">
         {status !== 'ready_for_review' && (
-          <Button variant="secondary" size="sm" loading={saving} disabled={saving}
+          <Button variant="secondary" size="sm" loading={saving || pendingStatusFrom !== null} disabled={saving || pendingStatusFrom !== null}
                   onClick={() => updateStatus('in_progress')}>
             {status === 'in_progress' || status === 'in_system_process' ? 'Continue working' : 'Start task'}
           </Button>
         )}
         {status !== 'ready_for_review' ? (
-          <Button size="sm" loading={saving} disabled={saving} onClick={() => updateStatus('ready_for_review')}>
+          <Button size="sm" loading={saving || pendingStatusFrom !== null} disabled={saving || pendingStatusFrom !== null} onClick={() => updateStatus('ready_for_review')}>
             Submit for review
           </Button>
         ) : (
-          <Button variant="secondary" size="sm" loading={saving} disabled={saving}
+          <Button variant="secondary" size="sm" loading={saving || pendingStatusFrom !== null} disabled={saving || pendingStatusFrom !== null}
                   onClick={() => updateStatus('in_progress')}>
             Continue working
           </Button>

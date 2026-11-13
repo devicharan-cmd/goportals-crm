@@ -7,9 +7,11 @@ import { AuthLayout } from '@/components/layout/AuthLayout'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
 import { PasswordInput } from '@/components/auth/PasswordInput'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 function SetPasswordForm() {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   // 'invite' = first-time setup from an invitation, 'recovery' = password reset.
   const isInvite = useSearchParams().get('flow') === 'invite'
   const [password, setPassword] = useState('')
@@ -70,7 +72,7 @@ function SetPasswordForm() {
           : 'Enter a new password for your GoPortals account.'}
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+      <form onSubmit={event => void runOnce('set-password', () => handleSubmit(event))} className="mt-8 space-y-4">
         {error && <Alert>{error}</Alert>}
         <Field label={isInvite ? 'Password' : 'New password'} hint="At least 8 characters">
           <PasswordInput

@@ -6,10 +6,12 @@ import { Hand } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/utils'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 /** Self-assign an urgent, unassigned task (claim_task RPC — first one wins). */
 export function ClaimButton({ taskId, size = 'sm' }: { taskId: string; size?: 'sm' | 'md' }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -25,7 +27,7 @@ export function ClaimButton({ taskId, size = 'sm' }: { taskId: string; size?: 's
 
   return (
     <span className="inline-flex flex-col items-end gap-1">
-      <Button size={size} variant="lime" loading={loading} onClick={claim}><Hand className="h-4 w-4" /> Pick up</Button>
+      <Button size={size} variant="lime" loading={loading} onClick={event => void runOnce('claim', () => claim(event))}><Hand className="h-4 w-4" /> Pick up</Button>
       {error && <span className="text-xs text-red-600">{error}</span>}
     </span>
   )

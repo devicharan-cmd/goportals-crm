@@ -8,11 +8,13 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { errorMessage, formatDate } from '@/lib/utils'
 import type { TimeLog } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 export function TimeLogPanel({
   taskId, logs, names, meId, estimated,
 }: { taskId: string; logs: TimeLog[]; names: Record<string, string>; meId: string; estimated: number | null }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ hours: '', logged_date: format(new Date(), 'yyyy-MM-dd'), notes: '' })
   const [saving, setSaving] = useState(false)
@@ -62,7 +64,7 @@ export function TimeLogPanel({
       )}
 
       {open ? (
-        <form onSubmit={submit} className="space-y-2 rounded-lg bg-slate-50 p-3">
+        <form onSubmit={event => void runOnce('submit', () => submit(event))} className="space-y-2 rounded-lg bg-slate-50 p-3">
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="grid grid-cols-2 gap-2">
             <input className="form-field h-9" type="number" step="0.25" min="0.25" max="24" required placeholder="Hours"

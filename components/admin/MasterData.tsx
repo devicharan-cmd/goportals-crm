@@ -10,23 +10,27 @@ import { MarketplaceLogo } from '@/components/shared/Marketplace'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { cn, errorMessage } from '@/lib/utils'
 import type { Department, Platform, PlatformCategory, Service } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 type Table = 'platforms' | 'services' | 'departments'
 
 function useSave() {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   async function save(table: Table, id: string | null, fields: Record<string, unknown>) {
-    setBusy(true); setError('')
-    const supabase = createClient()
-    const { error } = id
-      ? await supabase.from(table).update(fields).eq('id', id)
-      : await supabase.from(table).insert(fields)
-    setBusy(false)
-    if (error) { setError(errorMessage(error)); return false }
-    router.refresh()
-    return true
+    return runOnce(`${table}:${id ?? 'new'}`, async () => {
+      setBusy(true); setError('')
+      const supabase = createClient()
+      const { error } = id
+        ? await supabase.from(table).update(fields).eq('id', id)
+        : await supabase.from(table).insert(fields)
+      setBusy(false)
+      if (error) { setError(errorMessage(error)); return false }
+      router.refresh()
+      return true
+    })
   }
   return { save, error, busy }
 }

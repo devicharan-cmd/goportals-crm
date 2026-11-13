@@ -18,6 +18,7 @@ import { TimezoneSelect } from '@/components/shared/TimezoneSelect'
 import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
 import { showSuccessToast } from '@/lib/ui-toast'
 import type { AppRole, Department, Profile } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 const PROFILE_IMAGE_BUCKET = 'staff-profile-images'
 const PROFILE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -134,6 +135,7 @@ export function StaffProfileSettings({
   reportingPeople = [],
 }: StaffProfileSettingsProps) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const isSuperAdmin = actorRole === 'super_admin'
   const canEditProfile = isOwnProfile || isSuperAdmin || actorRole === 'manager'
   const canChangeRole = isSuperAdmin && (isOwnProfile || actorId !== profile.id)
@@ -962,7 +964,7 @@ export function StaffProfileSettings({
                       Discard
                     </button>
                     <Button
-                      onClick={handleSave}
+                      onClick={() => void runOnce('save-profile', handleSave)}
                       loading={saving}
                       className="px-6 py-2.5 rounded-xl font-semibold shadow-sm"
                     >
@@ -1008,12 +1010,12 @@ export function StaffProfileSettings({
           {imageError && <Alert>{imageError}</Alert>}
           <div className="flex flex-wrap justify-end gap-2">
             {currentImage && !selectedImage && (
-              <Button type="button" variant="ghost" className="mr-auto text-red-600 hover:bg-red-50 hover:text-red-700" onClick={removeImage} loading={imageBusy}>
+              <Button type="button" variant="ghost" className="mr-auto text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => void runOnce('remove-image', removeImage)} loading={imageBusy}>
                 <Trash2 className="h-4 w-4" /> Remove photo
               </Button>
             )}
             <Button type="button" variant="secondary" onClick={cancelImageDialog} disabled={imageBusy}>Cancel</Button>
-            <Button type="button" onClick={uploadImage} loading={imageBusy} disabled={!selectedImage || imageBusy}>
+            <Button type="button" onClick={() => void runOnce('upload-image', uploadImage)} loading={imageBusy} disabled={!selectedImage || imageBusy}>
               {!imageBusy && <Upload className="h-4 w-4" />} Upload photo
             </Button>
           </div>

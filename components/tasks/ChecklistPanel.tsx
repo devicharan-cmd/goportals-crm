@@ -7,9 +7,11 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { cn, errorMessage } from '@/lib/utils'
 import type { TaskChecklistItem } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 export function ChecklistPanel({ taskId, items, canEdit }: { taskId: string; items: TaskChecklistItem[]; canEdit: boolean }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [text, setText] = useState('')
   const [adding, setAdding] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -61,7 +63,7 @@ export function ChecklistPanel({ taskId, items, canEdit }: { taskId: string; ite
             <li key={item.id} className="group flex items-center gap-2">
               <button
                 type="button" role="checkbox" aria-checked={item.is_done}
-                onClick={() => toggle(item)} disabled={!canEdit || busyId === item.id}
+                onClick={() => void runOnce(`item-${item.id}`, () => toggle(item))} disabled={!canEdit || busyId === item.id}
                 className={cn(
                   'flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border transition disabled:opacity-60',
                   item.is_done ? 'border-[#95C12C] bg-[#95C12C]' : 'border-slate-300 bg-white',
@@ -75,7 +77,7 @@ export function ChecklistPanel({ taskId, items, canEdit }: { taskId: string; ite
                   type="button"
                   aria-label={`Delete checklist item: ${item.text}`}
                   title="Delete checklist item"
-                  onClick={() => remove(item.id)}
+                  onClick={() => void runOnce(`item-${item.id}`, () => remove(item.id))}
                   disabled={busyId === item.id}
                   className="shrink-0 text-red-500 transition-colors hover:text-red-700 disabled:opacity-60"
                 >
@@ -88,7 +90,7 @@ export function ChecklistPanel({ taskId, items, canEdit }: { taskId: string; ite
       )}
 
       {canEdit && (
-        <form onSubmit={addItem} className="flex items-center gap-2">
+        <form onSubmit={event => void runOnce('add-item', () => addItem(event))} className="flex items-center gap-2">
           <input className="form-field h-8 flex-1 text-sm" placeholder="Add a checklist item" value={text} onChange={e => setText(e.target.value)} />
           <Button type="submit" size="sm" variant="secondary" loading={adding}><Plus className="h-3.5 w-3.5" /></Button>
         </form>

@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/modal'
 import { Markdown } from '@/components/shared/Markdown'
 import { errorMessage } from '@/lib/utils'
 import type { Agreement } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 const DEFAULT_TITLE = 'GoPortals Service Agreement'
 
@@ -20,6 +21,7 @@ const DEFAULT_TITLE = 'GoPortals Service Agreement'
  */
 export function AgreementEditor({ current, nextVersion }: { current: Agreement | null; nextVersion: string }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const liveForm = () => ({ version: current?.version ?? nextVersion, title: current?.title ?? DEFAULT_TITLE, body: current?.body ?? '' })
   const [form, setForm] = useState(liveForm)
   const [editing, setEditing] = useState(!current)
@@ -122,7 +124,7 @@ export function AgreementEditor({ current, nextVersion }: { current: Agreement |
         </p>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setConfirm(false)} disabled={busy}>Cancel</Button>
-          <Button loading={busy} onClick={publish}>Yes, publish</Button>
+          <Button loading={busy} onClick={() => void runOnce('publish-agreement', publish)}>Yes, publish</Button>
         </div>
       </Modal>
     </div>

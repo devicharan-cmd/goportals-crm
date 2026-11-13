@@ -7,6 +7,7 @@ import { errorMessage } from '@/lib/utils'
 import type { TaskStatus } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import { TaskPropertySelect } from '@/components/tasks/TaskPropertySelect'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 const EMPLOYEE_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_system_process', 'ready_for_review']
 
@@ -19,6 +20,7 @@ export function TaskStatusSelect({
   onWarning: (message: string) => void
 }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [value, setValue] = useState(status)
   const [saving, setSaving] = useState(false)
 
@@ -75,7 +77,7 @@ export function TaskStatusSelect({
         value={value}
         options={TASK_STATUS_OPTIONS}
         disabled={saving}
-        onChange={nextStatus => void updateStatus(nextStatus as TaskStatus)}
+        onChange={nextStatus => void runOnce('status', () => updateStatus(nextStatus as TaskStatus))}
       />
     </div>
   )

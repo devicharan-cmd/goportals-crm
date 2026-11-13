@@ -7,9 +7,11 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
 import { PasswordInput } from '@/components/auth/PasswordInput'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 function LoginForm() {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const params = useSearchParams()
   const passwordUpdated = params.get('password-updated') === '1'   // after a reset
   const passwordSet = params.get('password-set') === '1'            // after accepting an invite
@@ -69,7 +71,7 @@ function LoginForm() {
       <h2 className="text-2xl font-bold">Welcome back</h2>
       <p className="mt-1 text-sm text-slate-500">Sign in to your GoPortals workspace.</p>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+      <form onSubmit={event => void runOnce('sign-in', () => handleSubmit(event))} className="mt-8 space-y-4">
         {passwordUpdated && <Alert tone="success">Password updated successfully. Please log in with your new password.</Alert>}
         {passwordSet && <Alert tone="success">Password set successfully. Please log in with your new password.</Alert>}
         {error && <Alert>{error}</Alert>}

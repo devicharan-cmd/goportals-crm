@@ -16,6 +16,7 @@ import type { BillingType, Client, ClientInternal, Platform, Service } from '@/t
 import { InternationalPhoneField } from '@/components/shared/InternationalPhoneField'
 import { TimezoneSelect } from '@/components/shared/TimezoneSelect'
 import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 let draftKeySeq = 0
 const newDraftKey = () => `d${++draftKeySeq}`
@@ -33,6 +34,7 @@ export function ClientFormModal({
   client, internal, canEditInternal, platforms = [], services = [],
 }: { client?: Client; internal?: ClientInternal | null; canEditInternal: boolean; platforms?: Platform[]; services?: Service[] }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const isEdit = !!client
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -203,7 +205,7 @@ export function ClientFormModal({
       <Modal open={open} onClose={() => setOpen(false)} size="lg"
              title={isEdit ? 'Edit client' : 'Add a client'}
              description={isEdit ? undefined : 'Create the brand and (optionally) email its contact a portal invite.'}>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={event => void runOnce('submit', () => handleSubmit(event))} className="space-y-5">
           {error && <Alert>{error}</Alert>}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Company / brand name" required className="sm:col-span-2">

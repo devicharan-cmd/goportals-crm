@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 export default function ForgotPasswordPage() {
+  const runOnce = useSingleFlight()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -37,7 +39,7 @@ export default function ForgotPasswordPage() {
     <>
       <h2 className="text-2xl font-bold">Reset your password</h2>
       <p className="mt-1 text-sm text-slate-500">We&apos;ll email you a link to set a new password.</p>
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+      <form onSubmit={event => void runOnce('password-reset-email', () => handleSubmit(event))} className="mt-8 space-y-4">
         {error && <Alert>{error}</Alert>}
         {sent && (
           <Alert tone="success">

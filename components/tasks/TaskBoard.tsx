@@ -123,11 +123,12 @@ export function TaskBoard({
   const [tasks, setTasks] = useState(initial)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const allowedStatuses = editableStatuses ?? TASK_STATUS_OPTIONS.map(status => status.value)
+  const allowedStatuses = (editableStatuses ?? TASK_STATUS_OPTIONS.map(status => status.value))
+    .filter(status => status !== 'changes_requested')
   const canEditTask = (task: TaskSummary) =>
     !readOnly
     && (!editableAssigneeId || task.assignee_id === editableAssigneeId)
-    && (!editableAssigneeId || !['client_review', 'completed', 'cancelled'].includes(task.status))
+    && (!editableAssigneeId || task.status !== 'cancelled')
   useEffect(() => setTasks(initial), [initial])
 
   const sensors = useSensors(
@@ -140,7 +141,16 @@ export function TaskBoard({
     const id = String(e.active.id)
     const to = e.over?.id as TaskStatus | undefined
     const task = tasks.find(t => t.id === id)
-    if (!task || !to || !canEditTask(task) || !allowedStatuses.includes(to) || task.status === to) return
+    if (!task || !to || !canEditTask(task) || task.status === to) return
+
+    if (to === 'changes_requested') {
+      setError('Only the client can request changes from the client portal.')
+      return
+    }
+    if (!allowedStatuses.some(status => status === to)) {
+      setError('You do not have permission to move this task to that status.')
+      return
+    }
 
     const prev = tasks
     setTasks(ts => ts.map(t => (t.id === id ? { ...t, status: to } : t)))
@@ -186,7 +196,7 @@ export function TaskBoard({
               assignOptions={assignOptions}
               hrefBase={hrefBase}
               scope={scope}
-              canDrop={!readOnly && allowedStatuses.includes(s.value)}
+              canDrop={!readOnly}
               canEditTask={canEditTask}
               tasks={tasks.filter(t => t.status === s.value)}
             />

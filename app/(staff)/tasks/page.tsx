@@ -104,6 +104,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       initialNames={names}
       initialTaskAssigners={taskAssigners}
       assignOptions={assignOptions}
+      editableAssigneeId={me.role === 'super_admin' ? undefined : me.id}
       scope={scope}
       status={status}
       client={searchParams.client ?? ''}

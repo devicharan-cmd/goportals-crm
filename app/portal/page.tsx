@@ -36,7 +36,7 @@ export default async function PortalHome() {
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium text-[#BADA5E]">Welcome back{me.full_name ? `, ${me.full_name.split(' ')[0]}` : ''}</p>
-            <h1 className="mt-1 text-2xl font-bold text-white sm:text-3xl">{client?.company_name}</h1>
+            <h1 className="portal-hero-title mt-1 text-2xl font-bold text-white sm:text-3xl">{client?.company_name}</h1>
             <p className="mt-1 text-sm text-[#CFE6EF]">Track every ticket your GoPortals team is working on.</p>
           </div>
           <ButtonLink href="/portal/tickets/new" variant="lime" size="lg"><Plus className="h-4 w-4" /> New ticket</ButtonLink>

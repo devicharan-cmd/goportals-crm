@@ -18,7 +18,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         <p className="relative text-sm font-semibold uppercase tracking-[0.2em] text-[#A5CD3F]">GoPortals</p>
 
         <div className="relative max-w-md">
-          <h1 className="font-sans text-5xl font-extrabold leading-[1.05] text-white">
+          <h1 className="auth-hero-title font-sans text-5xl font-extrabold leading-[1.05] text-white">
             Go beyond <span className="text-[#A5CD3F]">limit.</span>
           </h1>
           <p className="mt-4 text-lg text-[#CFE6EF]">

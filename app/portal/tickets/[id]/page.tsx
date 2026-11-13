@@ -119,9 +119,6 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
           <TicketOverviewCard
             ticketNumber={ticketCode(ticket.ticket_number)}
             subject={ticket.subject}
-            clientName={ticket.client?.company_name ?? null}
-            platformName={ticket.ecommerce_account?.platform?.name ?? null}
-            accountName={ticket.ecommerce_account?.account_name ?? null}
             category={TICKET_CATEGORY_LABELS[ticket.category]}
             urgent={ticket.is_urgent}
             status={ticketStatus}
@@ -187,6 +184,7 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
                 </dd>
               </div>
               {[
+                ['Client', ticket.client?.company_name ?? null],
                 ['Account', ticket.ecommerce_account
                   ? <MarketplaceAccountLabel platformName={ticket.ecommerce_account.platform?.name ?? null} accountName={ticket.ecommerce_account.account_name} size="sm" />
                   : null],

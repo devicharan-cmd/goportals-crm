@@ -97,9 +97,6 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
           <TicketOverviewCard
             ticketNumber={ticketCode(ticket.ticket_number)}
             subject={ticket.subject}
-            clientName={ticket.client?.company_name ?? null}
-            platformName={ticket.ecommerce_account?.platform?.name ?? null}
-            accountName={ticket.ecommerce_account?.account_name ?? null}
             category={TICKET_CATEGORY_LABELS[ticket.category]}
             urgent={ticket.is_urgent}
             status={ticket.status}
@@ -159,6 +156,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
               clientAssignee={clientAssignee}
               meId={me.id}
               hasLinkedTasks={tasksFromTicket.length > 0}
+              canChangeStatus={['super_admin', 'manager', 'team_lead'].includes(me.role)}
             />
           </Card>
           <Card>

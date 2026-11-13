@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { MoreHorizontal, Trash2, Globe, Lock, MessageSquare, Send } from 'lucide-react'
+import Image from 'next/image'
+import { MoreHorizontal, Trash2, Globe, Lock, MessageSquare, Send, Paperclip, X, FileText, RotateCcw, ImagePlay } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
@@ -26,14 +27,38 @@ function clockTime(iso: string) {
   return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }).format(new Date(iso))
 }
 
-type CommentLike = { id: string; author_id: string | null; body: string; is_internal: boolean; created_at: string }
+type CommentLike = {
+  id: string
+  author_id: string | null
+  body: string
+  is_internal: boolean
+  is_change_request?: boolean
+  created_at: string
+}
+type CommentAttachment = {
+  id: string
+  comment_id: string | null
+  uploaded_by: string | null
+  storage_path: string
+  file_name: string
+  mime_type: string | null
+  size_bytes: number | null
+  signedUrl: string
+  downloadUrl: string
+}
+
+const DOCUMENT_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv', 'txt', 'rtf', 'odt', 'ods', 'odp'])
+const MEDIA_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'bmp', 'mp4', 'webm', 'mov'])
+const DOCUMENT_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.rtf,.odt,.ods,.odp'
+const MEDIA_ACCEPT = '.jpg,.jpeg,.png,.webp,.bmp,.mp4,.webm,.mov'
 
 /** Task-comment actions. Ticket conversations intentionally have no per-message menu. */
-function MessageMenu({ commentId, table, canDelete, mine }: {
+function MessageMenu({ commentId, table, canDelete, mine, attachments }: {
   commentId: string
   table: 'task_comments'
   canDelete: boolean
   mine: boolean
+  attachments: CommentAttachment[]
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -48,7 +73,17 @@ function MessageMenu({ commentId, table, canDelete, mine }: {
   async function remove() {
     setWorking(true)
     setError('')
-    const { error } = await createClient().from(table).delete().eq('id', commentId)
+    const client = createClient()
+    if (attachments.length) {
+      const { error: storageError } = await client.storage.from('task-files')
+        .remove(attachments.map(attachment => attachment.storage_path))
+      if (storageError) {
+        setWorking(false)
+        setError(errorMessage(storageError))
+        return
+      }
+    }
+    const { error } = await client.from(table).delete().eq('id', commentId)
     setWorking(false)
     if (error) return setError(errorMessage(error))
     setOpen(false)
@@ -94,14 +129,72 @@ function MessageMenu({ commentId, table, canDelete, mine }: {
   )
 }
 
+function AttachmentMenu({ attachment, canDelete }: { attachment: CommentAttachment; canDelete: boolean }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [working, setWorking] = useState(false)
+  const [error, setError] = useState('')
+
+  async function remove() {
+    setWorking(true)
+    setError('')
+    const client = createClient()
+    const { error: storageError } = await client.storage.from('task-files').remove([attachment.storage_path])
+    if (storageError) {
+      setWorking(false)
+      setError(errorMessage(storageError))
+      return
+    }
+    const { error: rowError } = await client.from('task_attachments').delete().eq('id', attachment.id)
+    setWorking(false)
+    if (rowError) {
+      setError(errorMessage(rowError))
+      return
+    }
+    setOpen(false)
+    router.refresh()
+  }
+
+  if (!canDelete) return null
+  return (
+    <span className="relative inline-flex items-center">
+      <button
+        type="button"
+        onClick={() => setOpen(value => !value)}
+        aria-label="File options"
+        title="File options"
+        className={cn(
+          'rounded p-0.5 text-slate-400 transition hover:bg-slate-200/60 hover:text-slate-700',
+          open ? 'bg-slate-200/70 text-slate-700' : 'opacity-0 group-hover/file:opacity-100',
+        )}
+      >
+        <MoreHorizontal className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <>
+          <span className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <span className="absolute bottom-full right-0 z-30 mb-1.5 block w-40 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+            <button type="button" onClick={remove} disabled={working}
+              className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
+              <Trash2 className="h-3.5 w-3.5" /> {working ? 'Deleting…' : 'Delete file'}
+            </button>
+            {error && <span className="mt-1 block text-[11px] text-red-600">{error}</span>}
+          </span>
+        </>
+      )}
+    </span>
+  )
+}
+
 export function CommentThread({
-  taskId, comments, names, roles, avatarUrls, meId, myRole, table = 'task_comments', idField = 'task_id', lockedNote, bounded = false, replyNeeded = false,
+  taskId, comments, names, roles, avatarUrls, meId, myRole, attachments = [], table = 'task_comments', idField = 'task_id', lockedNote, bounded = false, replyNeeded = false,
 }: {
   taskId: string
   comments: CommentLike[]
   names: Record<string, string>
   roles?: Record<string, AppRole>
   avatarUrls?: Record<string, string | null>
+  attachments?: CommentAttachment[]
   meId: string
   myRole: AppRole
   table?: 'task_comments' | 'ticket_comments'
@@ -117,6 +210,9 @@ export function CommentThread({
   const isStaff = myRole !== 'client'
   const isTicketThread = table === 'ticket_comments'
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const documentInputRef = useRef<HTMLInputElement | null>(null)
+  const mediaInputRef = useRef<HTMLInputElement | null>(null)
   const readMarkedRef = useRef(new Set<string>())
   const readInFlightRef = useRef(new Set<string>())
   const canChoose = isTicketThread && (myRole === 'super_admin' || myRole === 'manager')
@@ -125,6 +221,22 @@ export function CommentThread({
   const [filter, setFilter] = useState<'all' | 'public' | 'team'>('all')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [requestChanges, setRequestChanges] = useState(false)
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false)
+
+  useEffect(() => {
+    if (isTicketThread || myRole !== 'client') return
+    function focusRequestComposer(event: Event) {
+      const detail = (event as CustomEvent<{ taskId: string }>).detail
+      if (detail?.taskId !== taskId) return
+      setRequestChanges(true)
+      document.getElementById('conversation')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      window.setTimeout(() => textareaRef.current?.focus(), 250)
+    }
+    window.addEventListener('task-request-changes', focusRequestComposer)
+    return () => window.removeEventListener('task-request-changes', focusRequestComposer)
+  }, [isTicketThread, myRole, taskId])
 
   const willBePublic = myRole === 'client' ? true
     : myRole === 'employee' || (isTicketThread && myRole === 'team_lead') ? false
@@ -168,24 +280,95 @@ export function CommentThread({
   }, [comments, filter, isTicketThread])
   const shown = comments.filter(c => filter === 'all' || (filter === 'public' ? !c.is_internal : c.is_internal))
 
+  function addSelectedFiles(event: React.ChangeEvent<HTMLInputElement>, allowedExtensions: Set<string>) {
+    const selected = Array.from(event.target.files ?? [])
+    const accepted = selected.filter(file => {
+      const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+      return allowedExtensions.has(extension)
+        && !file.type.startsWith('audio/')
+        && file.type.toLowerCase() !== 'image/gif'
+    })
+    const rejected = selected.filter(file => !accepted.includes(file))
+    if (rejected.length) {
+      setError(`GIF, audio, and unsupported file types cannot be attached: ${rejected.map(file => file.name).join(', ')}`)
+    } else {
+      setError('')
+    }
+    if (accepted.length) setPendingFiles(files => [...files, ...accepted])
+    event.target.value = ''
+  }
+
   async function submit(e?: React.FormEvent) {
     e?.preventDefault()
-    if (!body.trim()) return
+    if (!body.trim() && pendingFiles.length === 0) return
     setSaving(true)
     setError('')
     const client = createClient()
-    const { error } = table === 'ticket_comments'
-      ? await client.rpc('send_ticket_comment', {
-          p_ticket_id: taskId,
-          p_body: body.trim(),
-          p_is_internal: !willBePublic,
-        })
-      : await client.from(table).insert({
-          [idField]: taskId, author_id: meId, body: body.trim(), is_internal: !willBePublic,
-        })
+    const uploaded: { file: File; path: string }[] = []
+    for (const file of pendingFiles) {
+      const safeName = file.name.replace(/[\\/]/g, '_')
+      const path = `${taskId}/chat/${meId}/${crypto.randomUUID()}-${safeName}`
+      const { error: uploadError } = await client.storage.from('task-files').upload(path, file, {
+        contentType: file.type || 'application/octet-stream',
+        upsert: false,
+      })
+      if (uploadError) {
+        const { error: cleanupError } = uploaded.length
+          ? await client.storage.from('task-files').remove(uploaded.map(item => item.path))
+          : { error: null }
+        setSaving(false)
+        setError(cleanupError
+          ? `${errorMessage(uploadError)} Uploaded files could not be cleaned up; contact GoPortals support.`
+          : errorMessage(uploadError))
+        return
+      }
+      uploaded.push({ file, path })
+    }
+
+    let sendError: string | null = null
+    if (table === 'ticket_comments') {
+      const { error: commentError } = await client.rpc('send_ticket_comment', {
+        p_ticket_id: taskId,
+        p_body: body.trim(),
+        p_is_internal: !willBePublic,
+      })
+      if (commentError) sendError = errorMessage(commentError)
+    } else {
+      const attachmentData = uploaded.map(({ file, path }) => ({
+        storage_path: path,
+        file_name: file.name,
+        mime_type: file.type || null,
+        size_bytes: file.size,
+      }))
+      const { error: commentError } = requestChanges && myRole === 'client'
+        ? await client.rpc('client_request_task_changes', {
+            p_task_id: taskId,
+            p_feedback: body.trim(),
+            p_attachments: attachmentData,
+          })
+        : await client.rpc('send_task_comment', {
+            p_task_id: taskId,
+            p_body: body.trim(),
+            p_is_internal: !willBePublic,
+            p_attachments: attachmentData,
+          })
+      if (commentError) sendError = errorMessage(commentError)
+    }
+
+    if (sendError) {
+      const { error: cleanupError } = uploaded.length
+        ? await client.storage.from('task-files').remove(uploaded.map(item => item.path))
+        : { error: null }
+      setSaving(false)
+      setError(cleanupError
+        ? `${sendError} Uploaded files could not be cleaned up; contact GoPortals support.`
+        : sendError)
+      return
+    }
     setSaving(false)
-    if (error) return setError(errorMessage(error))
     setBody('')
+    setPendingFiles([])
+    setRequestChanges(false)
     if (table === 'ticket_comments' && myRole === 'client' && replyNeeded) {
       window.dispatchEvent(new CustomEvent('ticket-client-replied', { detail: { ticketId: taskId } }))
     }
@@ -254,13 +437,54 @@ export function CommentThread({
                           ? 'bg-[#045E80] text-white ring-[#045E80]'
                           : 'bg-white text-slate-700 ring-slate-200',
                       newBlock && (mine ? 'rounded-br-md' : 'rounded-bl-md'))}>
-                      <p className="whitespace-pre-wrap break-words">{c.body}</p>
+                      {c.is_change_request && (
+                        <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 ring-1 ring-inset ring-orange-200">
+                          <RotateCcw className="h-3 w-3" /> Change request
+                        </span>
+                      )}
+                      {c.body.trim() && <p className="whitespace-pre-wrap break-words">{c.body}</p>}
+                      {attachments.filter(attachment => attachment.comment_id === c.id).map(attachment => {
+                        const isImage = attachment.mime_type?.startsWith('image/')
+                        const isVideo = attachment.mime_type?.startsWith('video/')
+                        return (
+                          <div key={attachment.id} className="group/file mt-2 flex min-w-0 items-start gap-2">
+                            {isImage ? (
+                              <div className="min-w-0">
+                                <a href={attachment.signedUrl} target="_blank" rel="noreferrer" className="relative block h-64 w-64 max-w-full">
+                                  <Image src={attachment.signedUrl} alt={attachment.file_name} fill unoptimized sizes="(max-width: 640px) 100vw, 256px"
+                                    className="rounded-lg object-contain" />
+                                </a>
+                                <a href={attachment.downloadUrl} download={attachment.file_name} className="mt-1 block max-w-64 truncate text-xs underline">
+                                  {attachment.file_name}
+                                </a>
+                              </div>
+                            ) : isVideo ? (
+                              <div className="min-w-0">
+                                <video src={attachment.signedUrl} controls preload="metadata" className="max-h-64 max-w-full rounded-lg" />
+                                <a href={attachment.downloadUrl} download={attachment.file_name} className="mt-1 block max-w-64 truncate text-xs underline">
+                                  {attachment.file_name}
+                                </a>
+                              </div>
+                            ) : (
+                              <a href={attachment.downloadUrl} download={attachment.file_name}
+                                className="flex min-w-0 items-center gap-2 rounded-lg bg-black/5 px-2.5 py-2 text-inherit hover:bg-black/10">
+                                <FileText className="h-4 w-4 shrink-0" />
+                                <span className="min-w-0 truncate text-xs font-medium">{attachment.file_name}</span>
+                              </a>
+                            )}
+                            {!isTicketThread && (
+                              <AttachmentMenu attachment={attachment} canDelete={attachment.uploaded_by === meId} />
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                     <span className={cn('mt-0.5 flex items-center gap-1.5 px-1 text-[11px] text-slate-400', mine && 'flex-row-reverse')}>
                       <span suppressHydrationWarning>{clockTime(c.created_at)}</span>
-                      {!isTicketThread && (
+                      {!isTicketThread && mine && (
                         <MessageMenu commentId={c.id} table="task_comments"
-                                     mine={mine} canDelete={mine || myRole === 'super_admin'} />
+                                     mine={mine} canDelete={mine}
+                                     attachments={attachments.filter(attachment => attachment.comment_id === c.id)} />
                       )}
                       {isStaff && isTicketThread && (c.is_internal
                         ? <span className="inline-flex items-center gap-0.5 font-medium text-amber-700"><Lock className="h-2.5 w-2.5" /> Team only</span>
@@ -278,11 +502,76 @@ export function CommentThread({
         <p className="mt-5 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-500 ring-1 ring-inset ring-slate-200">{lockedNote}</p>
       ) : (
       <form onSubmit={submit} className="mt-5">
+        {requestChanges && (
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-inset ring-amber-200">
+            <span>Sending this message will request changes and return the task to the team.</span>
+            <button type="button" onClick={() => {
+              setRequestChanges(false)
+              window.dispatchEvent(new CustomEvent('task-request-changes-cancelled', { detail: { taskId } }))
+            }} className="rounded p-0.5 hover:bg-amber-100" aria-label="Cancel request changes">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
         {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
+        {!isTicketThread && pendingFiles.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {pendingFiles.map((file, index) => (
+              <span key={`${file.name}-${file.lastModified}-${index}`} className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs text-slate-700">
+                <FileText className="h-3.5 w-3.5 shrink-0" />
+                <span className="max-w-48 truncate">{file.name}</span>
+                <button type="button" onClick={() => setPendingFiles(files => files.filter((_, fileIndex) => fileIndex !== index))}
+                  className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700" aria-label={`Remove ${file.name}`}>
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         {/* Composer sits in one rounded bar with the send button, like a chat. */}
         <div className={cn('flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm transition focus-within:border-[#63A9C4] focus-within:ring-2 focus-within:ring-[#0A6F94]/20',
           !willBePublic && 'border-amber-200 bg-amber-50/60 focus-within:border-amber-300 focus-within:ring-amber-500/20')}>
+          {!isTicketThread && (
+            <div className="relative mb-0.5">
+              <input ref={documentInputRef} type="file" multiple accept={DOCUMENT_ACCEPT} className="hidden"
+                onChange={event => addSelectedFiles(event, DOCUMENT_EXTENSIONS)} />
+              <input ref={mediaInputRef} type="file" multiple accept={MEDIA_ACCEPT} className="hidden"
+                onChange={event => addSelectedFiles(event, MEDIA_EXTENSIONS)} />
+              <button type="button" onClick={() => setAttachmentMenuOpen(open => !open)} disabled={saving}
+                className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-[#045E80] disabled:opacity-50"
+                aria-label="Attach files" aria-expanded={attachmentMenuOpen} title="Attach files">
+                <Paperclip className="h-4 w-4" />
+              </button>
+              {attachmentMenuOpen && (
+                <>
+                  <button type="button" className="fixed inset-0 z-20 cursor-default" aria-label="Close attachment menu"
+                    onClick={() => setAttachmentMenuOpen(false)} />
+                  <div className="absolute bottom-full left-0 z-30 mb-2 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                    <button type="button" onClick={() => {
+                      setAttachmentMenuOpen(false)
+                      documentInputRef.current?.click()
+                    }} className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50">
+                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#045E80]" />
+                      <span className="min-w-0">
+                        <span className="block font-medium">Document</span>
+                      </span>
+                    </button>
+                    <button type="button" onClick={() => {
+                      setAttachmentMenuOpen(false)
+                      mediaInputRef.current?.click()
+                    }} className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50">
+                      <ImagePlay className="mt-0.5 h-4 w-4 shrink-0 text-[#045E80]" />
+                      <span className="min-w-0">
+                        <span className="block font-medium">Photos & videos</span>
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <textarea
+            ref={textareaRef}
             rows={1}
             value={body}
             onChange={e => {
@@ -303,7 +592,8 @@ export function CommentThread({
             className={cn('max-h-40 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-2.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0',
               body ? 'overflow-y-auto' : 'overflow-hidden')}
           />
-          <Button type="submit" size="sm" loading={saving} disabled={!body.trim()}
+          <Button type="submit" size="sm" loading={saving}
+                  disabled={!body.trim() && pendingFiles.length === 0}
                   className="h-9 w-9 flex-shrink-0 rounded-full p-0" aria-label="Send message">
             {!saving && <Send className="h-4 w-4" />}
           </Button>

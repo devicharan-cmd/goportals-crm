@@ -227,6 +227,9 @@ button[aria-haspopup="listbox"]:focus {
   background-color: #fff;
   box-shadow: 0 1px 2px 0 rgb(2 43 59 / 0.04), 0 1px 3px 0 rgb(2 43 59 / 0.06);
 }
+.task-overview-card {
+  border-left: 5px solid #0d9488;
+}
 
 @media print {
   aside, header, .no-print { display: none; }

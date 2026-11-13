@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import type { AppRole } from '@/types/database'
-import { ROLE_STYLES } from '@/lib/constants'
+import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
 
 export function Card({ className, children, id }: { className?: string; children: React.ReactNode; id?: string }) {
   return <div id={id} className={cn('content-card', className)}>{children}</div>
@@ -110,6 +110,29 @@ export function Avatar({ name, src, role, size = 'md', className }: { name: stri
       {src && !imageFailed
         ? <img src={src} alt="" className="h-full w-full rounded-[inherit] object-cover" onError={() => setImageFailed(true)} />
         : getInitials(name)}
+    </span>
+  )
+}
+
+export function StaffIdentity({ name, src, role, roleLabel, className }: {
+  name: string | null | undefined
+  src?: string | null
+  role?: AppRole
+  roleLabel?: string
+  className?: string
+}) {
+  const subtitle = roleLabel ?? (role ? ROLE_LABELS[role] : null)
+  return (
+    <span className={cn('flex min-w-0 items-start gap-2 text-sm text-slate-800', className)}>
+      <Avatar name={name} src={src} role={role} size="xs" className="mt-0.5" />
+      <span className="min-w-0">
+        <span className="block truncate">{name || '—'}</span>
+        {subtitle && (
+          <span className="block -mt-0.5 truncate text-[10px] leading-tight text-slate-500">
+            ({subtitle})
+          </span>
+        )}
+      </span>
     </span>
   )
 }

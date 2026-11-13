@@ -1,6 +1,5 @@
 import { Download, FileText, Flame, Truck } from 'lucide-react'
 import { Card } from '@/components/ui/primitives'
-import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
 import { TicketCode } from '@/components/tickets/TicketCode'
 import type { TaskPriority, TicketStatus } from '@/types/database'
 import type { AttachmentLink } from '@/components/shared/TicketAttachmentsList'
@@ -36,9 +35,6 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 export function TicketOverviewCard({
   ticketNumber,
   subject,
-  clientName,
-  platformName,
-  accountName,
   category,
   urgent,
   status,
@@ -51,9 +47,6 @@ export function TicketOverviewCard({
 }: {
   ticketNumber: string
   subject: string
-  clientName: string | null
-  platformName: string | null
-  accountName: string | null
   category: string
   urgent: boolean
   status: TicketStatus
@@ -93,13 +86,6 @@ export function TicketOverviewCard({
           </span>
         </div>
         <h1 className="mt-2.5 font-sans text-[22px] font-semibold leading-7 text-[#0F172A]">{subject}</h1>
-        {(clientName || platformName || accountName) && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-medium leading-5 text-[#526987]">
-            {clientName && <span className="font-semibold">{clientName}</span>}
-            {clientName && (platformName || accountName) && <span aria-hidden="true">·</span>}
-            {(platformName || accountName) && <MarketplaceAccountLabel platformName={platformName} accountName={accountName} size="compact" />}
-          </div>
-        )}
       </header>
 
       {(requestFields.length > 0 || emptyRequestMessage) && (

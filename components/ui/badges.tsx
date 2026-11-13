@@ -1,4 +1,4 @@
-import { Flame } from 'lucide-react'
+import { CalendarDays, Flame } from 'lucide-react'
 import { cn, dueLabel, dueState } from '@/lib/utils'
 import {
   ACCOUNT_STATUS_STYLES, PRIORITY_STYLES, SERVICE_STATUS_LABELS, SERVICE_STATUS_STYLES,
@@ -30,9 +30,9 @@ export function PriorityBadge({ priority }: { priority: TaskPriority }) {
   return <Badge className={cn('font-bold', PRIORITY_STYLES[priority])}>{priority}</Badge>
 }
 
-export function UrgentBadge() {
+export function UrgentBadge({ className }: { className?: string }) {
   return (
-    <Badge className="rounded-md border border-red-700 bg-gradient-to-r from-red-600 to-red-700 px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-white ring-red-700">
+    <Badge className={cn('rounded-md border border-red-700 bg-gradient-to-r from-red-600 to-red-700 px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-white ring-red-700', className)}>
       <Flame className="h-3 w-3" /> Urgent
     </Badge>
   )
@@ -58,4 +58,27 @@ const DUE_STYLES = {
 
 export function DueDate({ date, status, className }: { date: string | null; status?: TaskStatus; className?: string }) {
   return <span className={cn('text-xs', DUE_STYLES[dueState(date, status)], className)} suppressHydrationWarning>{dueLabel(date, status)}</span>
+}
+
+const DUE_BACKGROUND_STYLES = {
+  overdue: 'bg-red-50',
+  today: 'bg-red-50',
+  soon: 'bg-amber-50',
+  ok: 'bg-slate-100',
+  none: 'bg-slate-100',
+  completed: 'bg-[#F5FAE8]',
+  cancelled: 'bg-slate-100',
+}
+
+export function DueDatePill({ date, status, className }: { date: string | null; status?: TaskStatus; className?: string }) {
+  const state = dueState(date, status)
+  return (
+    <span
+      className={cn('inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs', DUE_STYLES[state], DUE_BACKGROUND_STYLES[state], className)}
+      suppressHydrationWarning
+    >
+      <CalendarDays aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+      {dueLabel(date, status)}
+    </span>
+  )
 }

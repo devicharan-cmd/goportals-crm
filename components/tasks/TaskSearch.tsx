@@ -16,6 +16,7 @@ type TaskSearchContextValue = {
   names: Record<string, string>
   taskAssigners: Record<string, TaskAssignerInfo>
   assignOptions?: AssigneeOption[]
+  editableAssigneeId?: string
   query: string
   scope: 'mine' | 'assigned' | 'all'
   status: string
@@ -32,6 +33,7 @@ export function TaskSearchProvider({
   initialNames,
   initialTaskAssigners,
   assignOptions,
+  editableAssigneeId,
   scope,
   status,
   client,
@@ -46,6 +48,7 @@ export function TaskSearchProvider({
   initialNames: Record<string, string>
   initialTaskAssigners: Record<string, TaskAssignerInfo>
   assignOptions?: AssigneeOption[]
+  editableAssigneeId?: string
   scope: 'mine' | 'assigned' | 'all'
   status: string
   client: string
@@ -95,7 +98,7 @@ export function TaskSearchProvider({
 
   const handleSearch = useCallback((value: string) => setQuery(value), [])
   const value: TaskSearchContextValue = {
-    tasks, names, taskAssigners, assignOptions, query, scope, status, board, searching, error, setQuery: handleSearch,
+    tasks, names, taskAssigners, assignOptions, editableAssigneeId, query, scope, status, board, searching, error, setQuery: handleSearch,
   }
 
   return <TaskSearchContext.Provider value={value}>{children}</TaskSearchContext.Provider>
@@ -128,7 +131,13 @@ export function TaskSearchResults() {
       {search.error && <Alert>{search.error}</Alert>}
       {search.searching && <span className="sr-only" role="status">Searching tasks</span>}
       {search.board ? (
-        <TaskBoard tasks={search.tasks} names={search.names} assignOptions={search.assignOptions} scope={search.scope} />
+        <TaskBoard
+          tasks={search.tasks}
+          names={search.names}
+          assignOptions={search.assignOptions}
+          scope={search.scope}
+          editableAssigneeId={search.editableAssigneeId}
+        />
       ) : (
         <Card className="overflow-hidden">
           <TaskTable

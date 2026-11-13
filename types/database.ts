@@ -244,12 +244,14 @@ export interface TaskComment {
   author_id: string | null
   body: string
   is_internal: boolean
+  is_change_request: boolean
   created_at: string
 }
 
 export interface TaskAttachment {
   id: string
   task_id: string
+  comment_id: string | null
   uploaded_by: string | null
   storage_path: string
   file_name: string

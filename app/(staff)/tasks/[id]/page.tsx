@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Clock3 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskPageTitle } from '@/lib/queries'
 import { TaskCode } from '@/components/tasks/TaskCode'
 import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
-import { Badge, PriorityBadge, StatusBadge, UrgentBadge, DueDate } from '@/components/ui/badges'
+import { Badge, PriorityBadge, StatusBadge, UrgentBadge, DueDatePill } from '@/components/ui/badges'
 import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { TaskProperties } from '@/components/tasks/TaskProperties'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
@@ -20,7 +20,7 @@ import { DeleteButton } from '@/components/shared/DeleteButton'
 import { AssignButton } from '@/components/tasks/AssignButton'
 import { TaskEditModal } from '@/components/tasks/TaskEditModal'
 import { ROLE_LABELS, TYPE_LABELS } from '@/lib/constants'
-import { formatDate, formatRelative, taskCode } from '@/lib/utils'
+import { formatDate, formatRelative, taskCode, ticketCode } from '@/lib/utils'
 import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TimeLog } from '@/types/database'
 
 export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
@@ -35,19 +35,43 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const taskId = await resolveTaskId(params.id)
   if (!taskId) notFound()
 
-  const [{ data }, { data: comments }, { data: activity }, { data: logs }, { data: checklist }, lookups] = await Promise.all([
+  const [{ data }, { data: comments }, { data: activity }, { data: logs }, { data: checklist, error: checklistError }, lookups, { data: taskAttachments, error: attachmentsError }] = await Promise.all([
     supabase.from('tasks').select(`${TASK_LIST_SELECT}, service:services(id, name), ticket:tickets(id, ticket_number, subject)`).eq('id', taskId).maybeSingle(),
     supabase.from('task_comments').select('*').eq('task_id', taskId).order('created_at'),
     supabase.from('task_activity').select('*').eq('task_id', taskId).order('created_at', { ascending: false }),
     supabase.from('time_logs').select('*').eq('task_id', taskId).order('logged_date', { ascending: false }),
     supabase.from('task_checklist_items').select('*').eq('task_id', taskId).order('sort_order'),
     getStaffLookups(),
+    supabase.from('task_attachments')
+      .select('id, comment_id, uploaded_by, storage_path, file_name, mime_type, size_bytes')
+      .eq('task_id', taskId)
+      .not('comment_id', 'is', null),
   ])
+  if (checklistError) throw new Error(checklistError.message)
+  if (attachmentsError) throw new Error(attachmentsError.message)
   if (!data) notFound()
   const task = data as TaskListItem & {
     service: { id: string; name: string } | null
     ticket: { id: string; ticket_number: number; subject: string } | null
   }
+  const [signedResult, downloadResult] = taskAttachments?.length
+    ? await Promise.all([
+        supabase.storage.from('task-files').createSignedUrls(taskAttachments.map(file => file.storage_path), 3600),
+        supabase.storage.from('task-files').createSignedUrls(taskAttachments.map(file => file.storage_path), 3600, { download: true }),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }]
+  const { data: signedAttachments, error: signedAttachmentsError } = signedResult
+  const { data: downloadAttachments, error: downloadAttachmentsError } = downloadResult
+  if (signedAttachmentsError) throw new Error(signedAttachmentsError.message)
+  if (downloadAttachmentsError) throw new Error(downloadAttachmentsError.message)
+  const signedUrlByPath = new Map((signedAttachments ?? []).map(file => [file.path, file.signedUrl]))
+  const downloadUrlByPath = new Map((downloadAttachments ?? []).map(file => [file.path, file.signedUrl]))
+  const commentAttachments = (taskAttachments ?? []).map(file => {
+    const signedUrl = signedUrlByPath.get(file.storage_path)
+    const downloadUrl = downloadUrlByPath.get(file.storage_path)
+    if (!signedUrl || !downloadUrl) throw new Error(`Could not create signed URLs for task attachment ${file.file_name}`)
+    return { ...file, signedUrl, downloadUrl }
+  })
   const clientImagePath = task.client?.company_profile_image_path
   const { data: clientImage, error: clientImageError } = clientImagePath
     ? await supabase.storage.from('client-profile-images').createSignedUrl(clientImagePath, 3600)
@@ -90,6 +114,10 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
 
   const details: [string, React.ReactNode][] = [
     ['Task ID', <span key="id" className="font-mono font-semibold text-[#045E80]">{taskCode(task.task_number)}</span>],
+    ['Type', TYPE_LABELS[task.type]],
+    ['Service', task.service?.name ?? '—'],
+    ['Department', task.department?.name ?? '—'],
+    ['Platform', task.platform?.name ? <MarketplacePlatformLabel name={task.platform.name} /> : '—'],
     ['Client', !task.client ? '—' : (
       <span className="inline-flex items-center justify-end gap-2">
         <CompanyAvatar name={task.client.company_name} src={clientImage?.signedUrl} size="xs" />
@@ -98,22 +126,9 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
           : <Link href={`/clients/${task.client.id}`} className="font-medium text-[#034C68] hover:underline">{task.client.company_name}</Link>}
       </span>
     )],
-    ['Type', TYPE_LABELS[task.type]],
-    ['Service', task.service?.name ?? '—'],
-    ['Department', task.department?.name ?? '—'],
-    ['Platform', task.platform?.name ? <MarketplacePlatformLabel name={task.platform.name} /> : '—'],
     ...(task.ticket ? [['Ticket', <Link key="ticket" href={`/tickets/${task.ticket.id}`} className="font-medium text-[#034C68] hover:underline">
-        {task.ticket.subject}
+        {ticketCode(task.ticket.ticket_number)} · {task.ticket.subject}
       </Link>] as [string, React.ReactNode]] : []),
-    ['Created', formatDate(task.created_at)],
-    ['Assigned', task.assigned_at
-      ? <span className="block">
-          <span className="block">{formatDate(task.assigned_at)}</span>
-          <span className="block text-xs text-slate-500">
-            {formatRelative(task.assigned_at)}
-          </span>
-        </span>
-      : '—'],
     ...(task.closed_at ? [['Closed', formatDate(task.closed_at)] as [string, React.ReactNode]] : []),
   ]
 
@@ -143,27 +158,39 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0 space-y-6">
-          <Card className="p-6">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <TaskCode number={task.task_number} />
-              {task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && <UrgentBadge />}
-              <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={TASK_STATUS_STYLES[task.status]} dotClassName={TASK_STATUS_DOT[task.status]} />
-              <PriorityBadge priority={task.priority} />
-              {task.source === 'client' && <Badge className="bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]">Client request</Badge>}
-              <DueDate date={task.due_date} className="ml-auto" />
+          <Card className="task-overview-card p-6">
+            <div className="border-b border-[#E2E8F0] pb-4">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <TaskCode number={task.task_number} />
+                {task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && <UrgentBadge className="border-0 ring-0" />}
+                <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={TASK_STATUS_STYLES[task.status]} dotClassName={TASK_STATUS_DOT[task.status]} />
+                <PriorityBadge priority={task.priority} />
+                {task.source === 'client' && <Badge className="bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]">Client request</Badge>}
+                <DueDatePill date={task.due_date} status={task.status} className="ml-auto" />
+              </div>
+              <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
             </div>
-            <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              {[task.client?.company_name, task.service?.name].filter(Boolean).join(' · ')}
-              {(task.client?.company_name || task.service?.name) && task.platform?.name && ' · '}
-              {task.platform?.name && <MarketplacePlatformLabel name={task.platform.name} />}
-              {task.platform?.name && task.department?.name && ' · '}
-              {task.department?.name}
-              {!task.client?.company_name && !task.service?.name && !task.platform?.name && !task.department?.name && '—'}
-            </p>
-            {task.description
-              ? <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{task.description}</p>
-              : <p className="mt-3 text-sm italic text-slate-400">No description.</p>}
+            <section className="mt-5">
+              <h2 className="mb-3 flex items-center gap-3 text-base font-semibold leading-6 text-slate-900">
+                <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-[#0D9488]" />
+                Description
+              </h2>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700">
+                {task.description
+                  ? <p className="whitespace-pre-wrap">{task.description}</p>
+                  : <p className="italic text-slate-400">No description.</p>}
+              </div>
+            </section>
+            {task.estimated_hours != null && (
+              <div className="mt-5 inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border border-slate-100 bg-white px-2.5 py-1 text-xs text-slate-600 shadow-sm">
+                <Clock3 aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span className="font-medium">Estimated hours</span>
+                <span aria-hidden="true" className="h-5 border-l border-slate-300" />
+                <span className="rounded-full bg-[#D9F4F6] px-2.5 py-0.5 text-sm font-bold leading-5 text-slate-800">
+                  {task.estimated_hours} h
+                </span>
+              </div>
+            )}
             {canClaim && (
               <div className="mt-5 flex items-center justify-between gap-3 rounded-lg bg-red-50 px-4 py-3 ring-1 ring-inset ring-red-200">
                 <p className="text-sm font-medium text-red-800">This urgent task needs an owner.</p>
@@ -188,7 +215,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               <CommentThread taskId={task.id} comments={(comments ?? []) as TaskComment[]} names={names}
                              roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))}
                              avatarUrls={Object.fromEntries(lookups.people.map(p => [p.id, p.avatar_url]))}
-                             meId={me.id} myRole={me.role} bounded />
+                             meId={me.id} myRole={me.role} attachments={commentAttachments} bounded />
             </div>
           </Card>
 
@@ -206,6 +233,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                 avatarUrl: taskAssigner.avatar_url,
                 role: taskAssigner.role,
               } : null}
+              assignedAt={task.assigned_at}
               canChangeStatus={me.role === 'super_admin' || task.assignee_id === me.id}
               canCompleteReview={me.role !== 'employee'}
               canEditPriority={createdByMe || me.role === 'super_admin'}

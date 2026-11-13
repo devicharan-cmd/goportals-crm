@@ -4,22 +4,28 @@ import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
 import { getPortalNames } from '@/lib/portal'
-import { Card, CardHeader } from '@/components/ui/primitives'
-import { PriorityBadge, StatusBadge, DueDate } from '@/components/ui/badges'
+import { Card, CardHeader, StaffIdentity } from '@/components/ui/primitives'
+import { PriorityBadge, StatusBadge, DueDatePill } from '@/components/ui/badges'
 import { CommentThread } from '@/components/tasks/CommentThread'
+import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { ClientTaskActions } from '@/components/portal/ClientTaskActions'
-import { ClientTaskAttachments } from '@/components/portal/ClientTaskAttachments'
 import { ActivityPanel } from '@/components/tasks/ActivityPanel'
+import { TaskCode } from '@/components/tasks/TaskCode'
+import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES } from '@/lib/constants'
-import { formatDate, parseTaskCode, taskCode, ticketCode } from '@/lib/utils'
-import type { TaskActivity, TaskAttachment, TaskComment, TaskSummary } from '@/types/database'
+import { parseTaskCode, ticketCode } from '@/lib/utils'
+import type { AppRole, TaskActivity, TaskComment, TaskSummary } from '@/types/database'
 
 type PortalTask = TaskSummary & {
   description: string | null
   created_at: string
+  service: { name: string } | null
+  department: { name: string } | null
   ticket_id: string | null
   ticket: { id: string; ticket_number: number; subject: string } | null
 }
+
+type PortalStaff = { id: string; full_name: string | null; avatar_url: string | null; role: AppRole }
 
 export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
@@ -43,24 +49,44 @@ export default async function PortalTaskDetailPage(props: { params: Promise<{ id
   const task = data as PortalTask
   const resolvedTaskId = task.id
 
-  const [{ data: comments, error: commentsError }, { data: attachments, error: attachmentsError }, { data: activity, error: activityError }, names, { data: staffDirectory }] = await Promise.all([
+  const [{ data: comments, error: commentsError }, { data: activity, error: activityError }, names, { data: staffDirectory }, { data: taskAttachments, error: attachmentsError }] = await Promise.all([
     supabase.from('task_comments').select('*').eq('task_id', resolvedTaskId).order('created_at'),
-    supabase.from('task_attachments').select('*').eq('task_id', resolvedTaskId).order('created_at'),
     supabase.from('task_activity').select('*').eq('task_id', resolvedTaskId).order('created_at', { ascending: false }),
     getPortalNames(me),
     supabase.rpc('staff_directory'),
+    supabase.from('task_attachments')
+      .select('id, comment_id, uploaded_by, storage_path, file_name, mime_type, size_bytes')
+      .eq('task_id', resolvedTaskId)
+      .not('comment_id', 'is', null),
   ])
   if (commentsError) throw new Error(commentsError.message)
-  if (attachmentsError) throw new Error(attachmentsError.message)
   if (activityError) throw new Error(activityError.message)
-  const attachmentLinks = await Promise.all(((attachments ?? []) as TaskAttachment[]).map(async attachment => {
-    const { data: signed, error } = await supabase.storage.from('task-files').createSignedUrl(attachment.storage_path, 3600)
-    if (error) throw new Error(error.message)
-    return { ...attachment, signedUrl: signed.signedUrl }
-  }))
+  if (attachmentsError) throw new Error(attachmentsError.message)
+  const [signedResult, downloadResult] = taskAttachments?.length
+    ? await Promise.all([
+        supabase.storage.from('task-files').createSignedUrls(taskAttachments.map(file => file.storage_path), 3600),
+        supabase.storage.from('task-files').createSignedUrls(taskAttachments.map(file => file.storage_path), 3600, { download: true }),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }]
+  const { data: signedAttachments, error: signedAttachmentsError } = signedResult
+  const { data: downloadAttachments, error: downloadAttachmentsError } = downloadResult
+  if (signedAttachmentsError) throw new Error(signedAttachmentsError.message)
+  if (downloadAttachmentsError) throw new Error(downloadAttachmentsError.message)
+  const signedUrlByPath = new Map((signedAttachments ?? []).map(file => [file.path, file.signedUrl]))
+  const downloadUrlByPath = new Map((downloadAttachments ?? []).map(file => [file.path, file.signedUrl]))
+  const commentAttachments = (taskAttachments ?? []).map(file => {
+    const signedUrl = signedUrlByPath.get(file.storage_path)
+    const downloadUrl = downloadUrlByPath.get(file.storage_path)
+    if (!signedUrl || !downloadUrl) throw new Error(`Could not create signed URLs for task attachment ${file.file_name}`)
+    return { ...file, signedUrl, downloadUrl }
+  })
   const commentNames = { ...names, [me.id]: me.full_name || me.email }
   const clientComments = (comments ?? []) as TaskComment[]
   const assignedToClient = task.assignee_id === me.id
+  const portalStaff = (staffDirectory ?? []) as PortalStaff[]
+  const assignee = portalStaff.find(person => person.id === task.assignee_id)
+  const assigner = portalStaff.find(person => person.id === task.assigned_by)
+  const ticketLabel = task.ticket ? `${ticketCode(task.ticket.ticket_number)} · ${task.ticket.subject}` : null
 
   return (
     <>
@@ -72,66 +98,53 @@ export default async function PortalTaskDetailPage(props: { params: Promise<{ id
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0 space-y-6">
-          <Card className="p-6">
+          <Card className="task-overview-card p-6">
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs font-semibold text-[#045E80]">{taskCode(task.task_number)}</span>
-              <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={TASK_STATUS_STYLES[task.status]} dotClassName={TASK_STATUS_DOT[task.status]} />
+              <TaskCode number={task.task_number} />
+              <StatusBadge
+                label={TASK_STATUS_LABELS[task.status]}
+                className={`${TASK_STATUS_STYLES[task.status]}${task.status === 'changes_requested' ? ' !bg-orange-50 !text-orange-700 !ring-orange-200' : ''}`}
+                dotClassName={`${TASK_STATUS_DOT[task.status]}${task.status === 'changes_requested' ? ' !bg-orange-500' : ''}`}
+              />
               <PriorityBadge priority={task.priority} />
-              <DueDate date={task.due_date} status={task.status} className="ml-auto" />
+              <DueDatePill date={task.due_date} status={task.status} className="ml-auto" />
             </div>
-            <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
-            {task.ticket && (
-              <Link href={`/portal/tickets/${task.ticket.id}`} className="mt-2 inline-block text-sm font-medium text-[#034C68] hover:underline">
-                <span className="font-mono font-semibold text-[#045E80]">{ticketCode(task.ticket.ticket_number)}</span> · {task.ticket.subject}
-              </Link>
-            )}
-            {task.description
-              ? <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{task.description}</p>
-              : <p className="mt-3 text-sm italic text-slate-400">
-                  {assignedToClient ? 'No additional instructions.' : 'Additional task details are not available in the client portal.'}
-                </p>}
+            <div className="border-b border-[#E2E8F0] pb-4">
+              <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
+            </div>
+            <section className="mt-5">
+              <h2 className="mb-3 flex items-center gap-3 text-base font-semibold leading-6 text-slate-900">
+                <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-[#0D9488]" />
+                Description
+              </h2>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700">
+                {task.description
+                  ? <p className="whitespace-pre-wrap">{task.description}</p>
+                  : <p className="italic text-slate-400">No description.</p>}
+              </div>
+            </section>
           </Card>
 
-          <Card>
+          <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader
-              title={`Files (${attachmentLinks.length})`}
-              description={assignedToClient ? 'Upload documents or images requested by the GoPortals team.' : 'Files shared with you for this task.'}
+              title={`Discussion (${clientComments.length})`}
+              description="Messages here are visible to you and the GoPortals team."
             />
-            <ClientTaskAttachments taskId={task.id} meId={me.id} attachments={attachmentLinks} status={task.status} canUpload={assignedToClient} />
+            <div className={CONVERSATION_CONTENT_CLASS}>
+              <CommentThread
+                taskId={task.id}
+                comments={clientComments}
+                names={commentNames}
+                avatarUrls={Object.fromEntries(((staffDirectory ?? []) as { id: string; avatar_url: string | null }[]).map(person => [person.id, person.avatar_url]))}
+                meId={me.id}
+                myRole="client"
+                attachments={commentAttachments}
+                bounded
+              />
+            </div>
           </Card>
 
           <ActivityPanel activity={(activity ?? []) as TaskActivity[]} names={commentNames} audience="client" />
-
-          <Card id="conversation" className="overflow-hidden">
-            <CardHeader
-              title={`Discussion (${clientComments.length})`}
-              description={assignedToClient ? 'Messages here are visible to you and the GoPortals team.' : 'Public updates and your review feedback.'}
-            />
-            <div className="p-5">
-              {assignedToClient ? (
-                <CommentThread
-                  taskId={task.id}
-                  comments={clientComments}
-                  names={commentNames}
-                  avatarUrls={Object.fromEntries(((staffDirectory ?? []) as { id: string; avatar_url: string | null }[]).map(person => [person.id, person.avatar_url]))}
-                  meId={me.id}
-                  myRole="client"
-                />
-              ) : clientComments.length > 0 ? (
-                <ul className="space-y-3">
-                  {clientComments.map(comment => (
-                    <li key={comment.id} className="rounded-lg bg-slate-50 px-3 py-2">
-                      <p className="text-xs font-medium text-slate-500">{comment.author_id ? commentNames[comment.author_id] ?? 'GoPortals team' : 'GoPortals team'}</p>
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{comment.body}</p>
-                      <p className="mt-1 text-[11px] text-slate-400">{formatDate(comment.created_at)}</p>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-slate-500">The GoPortals team is handling this task. If it reaches Client review, you can approve it or request changes here.</p>
-              )}
-            </div>
-          </Card>
         </div>
 
         <div className="space-y-6">
@@ -142,13 +155,55 @@ export default async function PortalTaskDetailPage(props: { params: Promise<{ id
           <Card>
             <CardHeader title="Task details" />
             <dl className="divide-y divide-slate-100 text-sm">
+              {task.ticket && (
+                <div className="flex justify-between gap-3 px-5 py-2.5">
+                  <dt className="shrink-0 text-slate-500">Ticket</dt>
+                  <dd className="min-w-0 text-right">
+                    <Link href={`/portal/tickets/${task.ticket.id}`} className="font-medium text-[#034C68] hover:underline">
+                      {ticketLabel}
+                    </Link>
+                  </dd>
+                </div>
+              )}
               <div className="flex justify-between gap-3 px-5 py-2.5">
-                <dt className="text-slate-500">Client</dt>
-                <dd className="text-right text-slate-800">{task.client?.company_name ?? '—'}</dd>
+                <dt className="text-slate-500">Service</dt>
+                <dd className="text-right text-slate-800">{task.service?.name ?? '—'}</dd>
               </div>
               <div className="flex justify-between gap-3 px-5 py-2.5">
-                <dt className="text-slate-500">Created</dt>
-                <dd className="text-right text-slate-800">{formatDate(task.created_at)}</dd>
+                <dt className="text-slate-500">Department</dt>
+                <dd className="text-right text-slate-800">{task.department?.name ?? '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-3 px-5 py-2.5">
+                <dt className="text-slate-500">Platform</dt>
+                <dd className="text-right text-slate-800">
+                  {task.platform?.name ? <MarketplacePlatformLabel name={task.platform.name} /> : '—'}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3 px-5 py-2.5">
+                <dt className="text-slate-500">Assignee</dt>
+                <dd className="min-w-0 text-right text-slate-800">
+                  {assignee ? (
+                    <StaffIdentity
+                      name={assignee.full_name || 'GoPortals team'}
+                      src={assignee.avatar_url}
+                      role={assignee.role}
+                      className="justify-end text-right"
+                    />
+                  ) : 'GoPortals team'}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3 px-5 py-2.5">
+                <dt className="shrink-0 text-slate-500">Assigned by</dt>
+                <dd className="min-w-0 text-right text-slate-800">
+                  {assigner ? (
+                    <StaffIdentity
+                      name={assigner.full_name || 'GoPortals team'}
+                      src={assigner.avatar_url}
+                      role={assigner.role}
+                      className="justify-end text-right"
+                    />
+                  ) : '—'}
+                </dd>
               </div>
             </dl>
           </Card>

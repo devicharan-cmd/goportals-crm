@@ -71,8 +71,14 @@ export function ChecklistPanel({ taskId, items, canEdit }: { taskId: string; ite
               </button>
               <span className={cn('flex-1 text-sm', item.is_done ? 'text-slate-400 line-through' : 'text-slate-800')}>{item.text}</span>
               {canEdit && (
-                <button type="button" onClick={() => remove(item.id)} disabled={busyId === item.id}
-                        className="invisible text-slate-300 hover:text-red-600 group-hover:visible disabled:opacity-60">
+                <button
+                  type="button"
+                  aria-label={`Delete checklist item: ${item.text}`}
+                  title="Delete checklist item"
+                  onClick={() => remove(item.id)}
+                  disabled={busyId === item.id}
+                  className="shrink-0 text-red-500 transition-colors hover:text-red-700 disabled:opacity-60"
+                >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}

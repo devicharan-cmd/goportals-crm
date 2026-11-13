@@ -82,9 +82,10 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const scopedTasksContext = searchParams.scope === 'mine' || searchParams.scope === 'assigned' || searchParams.scope === 'all'
   const myTasksContext = searchParams.scope === 'mine'
   const assignedByMeContext = searchParams.scope === 'assigned' && task.assigned_by === me.id
-  const canManageTask = me.role === 'super_admin'
+  const createdByMe = task.created_by === me.id
+  const canManageTask = createdByMe || (me.role === 'super_admin'
     ? searchParams.scope === 'all' || assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext)
-    : assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext)
+    : assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext))
   const tasksHref = scopedTasksContext ? `/tasks?scope=${searchParams.scope}` : '/tasks'
 
   const details: [string, React.ReactNode][] = [
@@ -121,7 +122,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
       <div className="mb-4 flex items-center justify-between gap-3">
         <Link href={tasksHref} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
         <div className="flex items-center gap-2">
-          {canManageTask && me.role === 'super_admin' && <DeleteButton table="tasks" id={task.id} redirectTo={tasksHref} variant="danger" />}
+          {canManageTask && (me.role === 'super_admin' || createdByMe) && <DeleteButton table="tasks" id={task.id} redirectTo={tasksHref} variant="danger" />}
           {canManageTask && me.role !== 'employee' && <AssignButton taskId={task.id} currentId={task.assignee_id} options={assignees} />}
           {canManageTask && (
             <TaskEditModal
@@ -149,7 +150,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={TASK_STATUS_STYLES[task.status]} dotClassName={TASK_STATUS_DOT[task.status]} />
               <PriorityBadge priority={task.priority} />
               {task.source === 'client' && <Badge className="bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]">Client request</Badge>}
-              <DueDate date={task.due_date} status={task.status} className="ml-auto !text-red-600" />
+              <DueDate date={task.due_date} className="ml-auto" />
             </div>
             <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
             <p className="mt-1 text-sm text-slate-500">
@@ -207,6 +208,8 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               } : null}
               canChangeStatus={me.role === 'super_admin' || task.assignee_id === me.id}
               canCompleteReview={me.role !== 'employee'}
+              canEditPriority={createdByMe || me.role === 'super_admin'}
+              canEditUrgent={createdByMe || me.role === 'super_admin'}
             />
           </Card>
           <Card>

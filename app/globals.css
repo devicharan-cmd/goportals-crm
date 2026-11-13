@@ -11,6 +11,10 @@ h1, h2 {
   letter-spacing: -0.025em;
   color: #0f172a;
 }
+.auth-hero-title,
+.portal-hero-title {
+  color: #fff;
+}
 h3 {
   font-family: var(--font-inter), system-ui, sans-serif;
   color: #0f172a;

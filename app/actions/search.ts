@@ -2,8 +2,8 @@
 
 import { requireClient, requireRole, requireStaff } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { TASK_STATUS_OPTIONS } from '@/lib/constants'
-import { getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
+import { TASK_PAGE_SIZE, TASK_STATUS_OPTIONS } from '@/lib/constants'
+import { getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, TASK_SUMMARY_SELECT, type TaskAssignerInfo, type TaskPageCursor } from '@/lib/queries'
 import { parseTaskCode, parseTicketCode } from '@/lib/utils'
 import type { Client, TaskSummary, Ticket } from '@/types/database'
 
@@ -26,11 +26,33 @@ function safeSearchText(value: string) {
   return value.trim().replace(/[%_,()]/g, ' ')
 }
 
-export async function searchTasks(value: string, filters: TaskSearchFilters): Promise<{
+function taskCursorFilter(cursor: TaskPageCursor): string {
+  const taskOrderAfter = cursor.due_date
+    ? `or(due_date.gt.${cursor.due_date},due_date.is.null,and(due_date.eq.${cursor.due_date},or(created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.gt.${cursor.id}))))`
+    : `and(due_date.is.null,or(created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.gt.${cursor.id})))`
+  const sameUrgencyOrder = `and(is_urgent.eq.${cursor.is_urgent},${taskOrderAfter})`
+  return cursor.is_urgent
+    ? `is_urgent.eq.false,${sameUrgencyOrder}`
+    : `and(is_urgent.eq.false,${taskOrderAfter})`
+}
+
+function isValidTaskPageCursor(cursor: TaskPageCursor) {
+  return typeof cursor.id === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cursor.id)
+    && typeof cursor.is_urgent === 'boolean'
+    && (cursor.due_date === null || /^\d{4}-\d{2}-\d{2}$/.test(cursor.due_date))
+    && typeof cursor.created_at === 'string'
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(cursor.created_at)
+}
+
+export async function searchTasks(value: string, filters: TaskSearchFilters, cursor: TaskPageCursor | null = null): Promise<{
   tasks: TaskSummary[]
   names: Record<string, string>
   taskAssigners: Record<string, TaskAssignerInfo>
+  hasMore: boolean
+  nextCursor: TaskPageCursor | null
 }> {
+  if (cursor && !isValidTaskPageCursor(cursor)) throw new Error('Invalid task page cursor')
   const me = await requireStaff()
   const supabase = await createClient()
   const queryText = safeSearchText(value)
@@ -44,7 +66,10 @@ export async function searchTasks(value: string, filters: TaskSearchFilters): Pr
     .order('is_urgent', { ascending: false })
     .order('due_date', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
-    .limit(500)
+    .order('id', { ascending: true })
+    .range(0, TASK_PAGE_SIZE)
+
+  if (cursor) query = query.or(taskCursorFilter(cursor))
 
   if (filters.scope === 'mine' && !isExactTaskSearch) query = query.eq('assignee_id', me.id)
   else if (filters.scope === 'assigned') {
@@ -69,7 +94,12 @@ export async function searchTasks(value: string, filters: TaskSearchFilters): Pr
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
-  const tasks = normalizeTaskSummaryRows((data ?? []) as Parameters<typeof normalizeTaskSummaryRows>[0])
+  const hasMore = (data?.length ?? 0) > TASK_PAGE_SIZE
+  const tasks = normalizeTaskSummaryRows((data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0])
+  const lastTask = tasks[tasks.length - 1]
+  const nextCursor = hasMore && lastTask
+    ? { id: lastTask.id, is_urgent: lastTask.is_urgent, due_date: lastTask.due_date, created_at: lastTask.created_at }
+    : null
   const assigneeIds = Array.from(new Set(tasks.flatMap(task => task.assignee_id ? [task.assignee_id] : [])))
   const taskAssignerIds = Array.from(new Set(tasks.flatMap(task => task.assigned_by ? [task.assigned_by] : [])))
   const [peopleResult, taskAssignersResult] = await Promise.all([
@@ -87,7 +117,7 @@ export async function searchTasks(value: string, filters: TaskSearchFilters): Pr
     person.id,
     { name: person.full_name || person.email, role: person.role, avatarUrl: person.avatar_url },
   ]))
-  return { tasks, names: nameMap(peopleResult.data ?? []), taskAssigners }
+  return { tasks, names: nameMap(peopleResult.data ?? []), taskAssigners, hasMore, nextCursor }
 }
 
 export async function searchPortalTickets(value: string, status: 'open' | 'done'): Promise<Ticket[]> {

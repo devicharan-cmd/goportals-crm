@@ -23,17 +23,21 @@ export default async function PortalTicketsPage(props: { searchParams: Promise<{
   let query = supabase.from('tickets').select('*').order('created_at', { ascending: false })
   if (tab === 'open') query = query.neq('status', 'closed')
   if (tab === 'done') query = query.eq('status', 'closed')
-  const { data, error } = await query
-  if (error) throw error
-  const tickets = (data ?? []) as Ticket[]
-  const [{ count: openCount }, { count: closedCount }] = await Promise.all([
+  const [ticketResult, openCountResult, closedCountResult, unseenResult] = await Promise.all([
+    query,
     supabase.from('tickets').select('id', { count: 'exact', head: true }).neq('status', 'closed'),
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('status', 'closed'),
+    // Counted for this reader alone: somebody else opening a ticket must not
+    // clear the badge on everyone's list.
+    supabase.rpc('my_unread_ticket_messages'),
   ])
-  const ticketCounts = { open: openCount ?? 0, done: closedCount ?? 0 }
-  // Counted for this reader alone: somebody else opening a ticket must not
-  // clear the badge on everyone's list.
-  const { data: unseen } = await supabase.rpc('my_unread_ticket_messages')
+  if (ticketResult.error) throw ticketResult.error
+  const tickets = (ticketResult.data ?? []) as Ticket[]
+  const ticketCounts = {
+    open: openCountResult.count ?? 0,
+    done: closedCountResult.count ?? 0,
+  }
+  const unseen = unseenResult.data
   let unreadByTicket: Record<string, number> = {}
   if (unseen) {
     unreadByTicket = Object.fromEntries(((unseen as { ticket_id: string; unread: number }[]).map(r => [r.ticket_id, r.unread])))

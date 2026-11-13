@@ -9,7 +9,7 @@ import type { AppRole } from '@/types/database'
 type Option = { value: string; label: string; avatarUrl?: string | null; role?: AppRole }
 
 export function TaskFilters({
-  clients, people, departments, showScope, showAssigneeFilter, defaultScope = 'mine', scopeCounts, assigners, action,
+  clients, people, departments, showScope, showAssigneeFilter, defaultScope = 'mine', assigners, action,
 }: {
   clients: Option[]
   people: Option[]
@@ -17,7 +17,6 @@ export function TaskFilters({
   showScope: boolean
   showAssigneeFilter: boolean
   defaultScope?: 'mine' | 'all'
-  scopeCounts: { mine: number; assigned: number; all: number }
   assigners: Option[]
   action?: React.ReactNode
 }) {
@@ -79,7 +78,7 @@ export function TaskFilters({
     <TaskFilterToolbar
       scope={scope}
       onScopeChange={setScope}
-      scopeCounts={scopeCounts}
+      scopeCounts={taskSearch.scopeCounts}
       showScope={showScope}
       showAssignedScope
       view={view}

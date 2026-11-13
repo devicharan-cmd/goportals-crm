@@ -54,12 +54,21 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     service: { id: string; name: string } | null
     ticket: { id: string; ticket_number: number; subject: string } | null
   }
-  const [signedResult, downloadResult] = taskAttachments?.length
-    ? await Promise.all([
+  const clientImagePath = task.client?.company_profile_image_path
+  const attachmentUrlsPromise = taskAttachments?.length
+    ? Promise.all([
         supabase.storage.from('task-files').createSignedUrls(taskAttachments.map(file => file.storage_path), 3600),
         supabase.storage.from('task-files').createSignedUrls(taskAttachments.map(file => file.storage_path), 3600, { download: true }),
       ])
-    : [{ data: [], error: null }, { data: [], error: null }]
+    : Promise.resolve(null)
+  const clientImagePromise = clientImagePath
+    ? supabase.storage.from('client-profile-images').createSignedUrl(clientImagePath, 3600)
+    : Promise.resolve({ data: null, error: null })
+  const [attachmentUrlResults, clientImageResult] = await Promise.all([attachmentUrlsPromise, clientImagePromise])
+  const [signedResult, downloadResult] = attachmentUrlResults ?? [
+    { data: [], error: null },
+    { data: [], error: null },
+  ]
   const { data: signedAttachments, error: signedAttachmentsError } = signedResult
   const { data: downloadAttachments, error: downloadAttachmentsError } = downloadResult
   if (signedAttachmentsError) throw new Error(signedAttachmentsError.message)
@@ -72,10 +81,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     if (!signedUrl || !downloadUrl) throw new Error(`Could not create signed URLs for task attachment ${file.file_name}`)
     return { ...file, signedUrl, downloadUrl }
   })
-  const clientImagePath = task.client?.company_profile_image_path
-  const { data: clientImage, error: clientImageError } = clientImagePath
-    ? await supabase.storage.from('client-profile-images').createSignedUrl(clientImagePath, 3600)
-    : { data: null, error: null }
+  const { data: clientImage, error: clientImageError } = clientImageResult
   if (clientImageError) throw clientImageError
   const names = nameMap(lookups.people)
   const taskAssigner = task.assigned_by

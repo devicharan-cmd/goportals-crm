@@ -110,6 +110,7 @@ function Column({ status, label, tasks, names, assignOptions, hrefBase, scope, c
 /** Kanban: drag between columns to change status (DB triggers log activity + notify). */
 export function TaskBoard({
   tasks: initial, names, assignOptions, hrefBase = '/tasks', scope, editableAssigneeId, editableStatuses, readOnly = false,
+  onMyTasksCountChange,
 }: {
   tasks: TaskSummary[]
   names: Record<string, string>
@@ -119,6 +120,7 @@ export function TaskBoard({
   editableAssigneeId?: string
   editableStatuses?: TaskStatus[]
   readOnly?: boolean
+  onMyTasksCountChange?: (delta: number) => void
 }) {
   const router = useRouter()
   const runOnce = useSingleFlight()
@@ -155,9 +157,16 @@ export function TaskBoard({
 
     const prev = tasks
     setTasks(ts => ts.map(t => (t.id === id ? { ...t, status: to } : t)))
+    const wasCountedInMyTasks = !TASK_TERMINAL_STATUSES.includes(task.status)
+    const willBeCountedInMyTasks = !TASK_TERMINAL_STATUSES.includes(to)
+    const myTaskCountDelta = scope === 'mine' && wasCountedInMyTasks !== willBeCountedInMyTasks
+      ? willBeCountedInMyTasks ? 1 : -1
+      : 0
+    onMyTasksCountChange?.(myTaskCountDelta)
     const { error } = await createClient().from('tasks').update({ status: to }).eq('id', id)
     if (error) {
       setTasks(prev)
+      onMyTasksCountChange?.(-myTaskCountDelta)
       setError(errorMessage(error).replace(
         'Move the task to In review before Client review',
         'Move the task to Company review before Client review',

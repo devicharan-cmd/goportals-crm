@@ -30,6 +30,7 @@ export const TASK_STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'completed',          label: 'Completed' },
   { value: 'cancelled',          label: 'Cancelled' },
 ]
+export const TASK_PAGE_SIZE = 50
 export const TASK_STATUS_LABELS = Object.fromEntries(TASK_STATUS_OPTIONS.map(s => [s.value, s.label])) as Record<TaskStatus, string>
 
 export const TASK_STATUS_STYLES: Record<TaskStatus, string> = {

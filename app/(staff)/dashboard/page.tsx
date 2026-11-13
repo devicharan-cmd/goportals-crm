@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { AlarmClock, CheckSquare, Flame, Inbox, Plus, ShieldCheck, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { getStaffLookups, nameMap, profileIdsSharingDepartment, TASK_LIST_SELECT, TICKET_LIST_SELECT } from '@/lib/queries'
+import { nameMap, TASK_LIST_SELECT, TICKET_LIST_SELECT } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader, EmptyState, StatCard } from '@/components/ui/primitives'
 import { DueDate, PriorityBadge } from '@/components/ui/badges'
@@ -42,7 +42,7 @@ export default async function DashboardPage() {
   const isEmployee = me.role === 'employee'
   const today = todayDateKey()
 
-  const [mine, myOpenCountResult, dueTodayCountResult, dueTodayTasksResult, urgent, requests, approvals, people, allWorking, allDone, myCompleted, lookups] = await Promise.all([
+  const dashboardDataPromise = Promise.all([
     supabase.from('tasks').select(TASK_LIST_SELECT).eq('assignee_id', me.id).not('status', 'in', '(completed,cancelled)')
       .order('due_date', { ascending: true, nullsFirst: false }).limit(50),
     supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assignee_id', me.id)
@@ -77,8 +77,44 @@ export default async function DashboardPage() {
       ? supabase.from('tasks').select(TASK_LIST_SELECT).eq('assignee_id', me.id).eq('status', 'completed')
           .order('closed_at', { ascending: false, nullsFirst: false }).limit(15)
       : Promise.resolve({ data: [] }),
-    isTeamLead ? getStaffLookups() : Promise.resolve(null),
   ])
+
+  const teamLeadDataPromise = isTeamLead
+    ? (async () => {
+        const [peopleResult, membershipsResult] = await Promise.all([
+          supabase.from('profiles').select('id, full_name, email, avatar_url, role, weekly_capacity_hours'),
+          supabase.from('department_members').select('department_id, profile_id'),
+        ])
+        if (peopleResult.error) throw peopleResult.error
+        if (membershipsResult.error) throw membershipsResult.error
+
+        const memberships = membershipsResult.data ?? []
+        const myDepartmentIds = new Set(
+          memberships.filter(member => member.profile_id === me.id).map(member => member.department_id),
+        )
+        const departmentMemberIds = new Set(
+          memberships
+            .filter(member => member.profile_id !== me.id && myDepartmentIds.has(member.department_id))
+            .map(member => member.profile_id),
+        )
+        const peopleById = new Map((peopleResult.data ?? []).map(person => [person.id, person]))
+        const deptMateIds = Array.from(departmentMemberIds)
+          .filter(id => peopleById.get(id)?.role === 'employee')
+        const deptTasksResult = deptMateIds.length
+          ? await supabase.from('tasks').select(TASK_LIST_SELECT).in('assignee_id', deptMateIds)
+              .not('status', 'in', '(completed,cancelled)')
+              .order('due_date', { ascending: true, nullsFirst: false }).limit(100)
+          : { data: [], error: null }
+        if (deptTasksResult.error) throw deptTasksResult.error
+
+        return { people: peopleResult.data ?? [], deptMateIds, deptTasks: deptTasksResult.data ?? [] }
+      })()
+    : Promise.resolve(null)
+
+  const [
+    [mine, myOpenCountResult, dueTodayCountResult, dueTodayTasksResult, urgent, requests, approvals, people, allWorking, allDone, myCompleted],
+    teamLeadData,
+  ] = await Promise.all([dashboardDataPromise, teamLeadDataPromise])
 
   const myTasks = (mine.data ?? []) as TaskListItem[]
   const urgentTasks = (urgent.data ?? []) as TaskListItem[]
@@ -101,22 +137,12 @@ export default async function DashboardPage() {
   const readyForReviewTasks = myTasks.filter(t => t.status === 'ready_for_review')
 
   // Team leads only see tasks assigned to their department.
-  const deptMateIds = isTeamLead && lookups
-    ? Array.from(profileIdsSharingDepartment(me.id, lookups)).filter(id => lookups.people.find(p => p.id === id)?.role === 'employee')
-    : []
-
-  const [deptTasksRes] = await Promise.all([
-    deptMateIds.length
-      ? supabase.from('tasks').select(TASK_LIST_SELECT).in('assignee_id', deptMateIds).not('status', 'in', '(completed,cancelled)')
-          .order('due_date', { ascending: true, nullsFirst: false }).limit(100)
-      : Promise.resolve({ data: [] }),
-  ])
-
-  const teamTasks = (deptTasksRes.data ?? []) as TaskListItem[]
+  const deptMateIds = teamLeadData?.deptMateIds ?? []
+  const teamTasks = (teamLeadData?.deptTasks ?? []) as TaskListItem[]
   const pendingReviews = teamTasks.filter(t => t.status === 'ready_for_review')
-  const workload = isTeamLead && lookups
+  const workload = isTeamLead && teamLeadData
     ? deptMateIds.map(id => {
-        const person = lookups.people.find(p => p.id === id)!
+        const person = teamLeadData.people.find(p => p.id === id)!
         const openTasks = teamTasks.filter(t => t.assignee_id === id)
         const hours = openTasks.reduce((s, t) => s + Number(t.estimated_hours ?? 3), 0)
         return { id, name: person.full_name || person.email, avatarUrl: person.avatar_url, open: openTasks.length, hours,

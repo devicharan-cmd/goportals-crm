@@ -10,7 +10,9 @@ export const TASK_LIST_SELECT =
 
 /** Only the fields used by the staff task table and board. */
 export const TASK_SUMMARY_SELECT =
-  'id, task_number, title, status, priority, is_urgent, source, due_date, assignee_id, assigned_by, client:clients(company_name), platform:platforms(name), department:departments(name)'
+  'id, task_number, title, status, priority, is_urgent, source, due_date, created_at, assignee_id, assigned_by, client:clients(company_name), platform:platforms(name), department:departments(name)'
+
+export type TaskPageCursor = Pick<TaskSummary, 'id' | 'is_urgent' | 'due_date' | 'created_at'>
 
 type TaskSummaryRow = Omit<TaskSummary, 'client' | 'platform' | 'department'> & {
   client: TaskSummary['client'] | TaskSummary['client'][]
@@ -165,7 +167,7 @@ export function profileIdsSharingDepartment(profileId: string, lookups: StaffLoo
 }
 
 /** Direct and nested staff reporting descendants for a profile. */
-export function profileIdsReportingTo(profileId: string, lookups: StaffLookups): Set<string> {
+export function profileIdsReportingTo(profileId: string, lookups: Pick<StaffLookups, 'people'>): Set<string> {
   const descendants = new Set<string>()
   const pending = [profileId]
 

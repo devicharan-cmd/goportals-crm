@@ -231,6 +231,7 @@ export interface TaskSummary {
   is_urgent: boolean
   source: TaskSource
   due_date: string | null
+  created_at: string
   assignee_id: string | null
   assigned_by: string | null
   client: { company_name: string } | null

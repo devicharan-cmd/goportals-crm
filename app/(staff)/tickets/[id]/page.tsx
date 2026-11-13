@@ -39,19 +39,24 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
   if (!data) notFound()
 
   const clientImagePath = data.client?.company_profile_image_path
-  const { data: clientImage, error: clientImageError } = clientImagePath
-    ? await supabase.storage.from('client-profile-images').createSignedUrl(clientImagePath, 3600)
-    : { data: null, error: null }
+  const clientImagePromise = clientImagePath
+    ? supabase.storage.from('client-profile-images').createSignedUrl(clientImagePath, 3600)
+    : Promise.resolve({ data: null, error: null })
+  const [relatedData, clientImageResult] = await Promise.all([
+    Promise.all([
+      supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
+      supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
+      getStaffLookups(),
+      getTicketAttachments(ticketId),
+      supabase.from('tasks').select(TASK_LIST_SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: false }),
+      supabase.rpc('ticket_task_assignees', { p_ticket_id: ticketId }),
+    ]),
+    clientImagePromise,
+  ])
+  const { data: clientImage, error: clientImageError } = clientImageResult
   if (clientImageError) throw clientImageError
 
-  const [{ data: comments }, { data: activity }, lookups, attachments, { data: linkedTasks }, { data: workerRows, error: workersError }] = await Promise.all([
-    supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
-    supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
-    getStaffLookups(),
-    getTicketAttachments(ticketId),
-    supabase.from('tasks').select(TASK_LIST_SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: false }),
-    supabase.rpc('ticket_task_assignees', { p_ticket_id: ticketId }),
-  ])
+  const [{ data: comments }, { data: activity }, lookups, attachments, { data: linkedTasks }, { data: workerRows, error: workersError }] = relatedData
   if (workersError) throw new Error(`Could not load ticket workers: ${workersError.message}`)
   const ticket = data as Ticket & {
     client: { id: string; company_name: string; contact_name: string | null; owner_id: string | null; company_profile_image_path: string | null } | null

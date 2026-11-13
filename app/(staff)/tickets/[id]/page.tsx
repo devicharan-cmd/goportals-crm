@@ -14,7 +14,7 @@ import { RevealableValue } from '@/components/shared/RevealableValue'
 import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
 import { TicketProperties } from '@/components/tickets/TicketProperties'
 import { ActivityPanel } from '@/components/tasks/ActivityPanel'
-import { formatDate, ticketCode } from '@/lib/utils'
+import { formatDate, formatDateTime, ticketCode } from '@/lib/utils'
 import type { AppRole, TaskListItem, Ticket, TicketActivity, TicketComment } from '@/types/database'
 import { ROLE_LABELS } from '@/lib/constants'
 import { TicketOverviewCard } from '@/components/tickets/TicketOverviewCard'
@@ -173,7 +173,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
                   ? <MarketplaceAccountLabel platformName={ticket.ecommerce_account.platform?.name ?? null} accountName={ticket.ecommerce_account.account_name} size="sm" />
                   : '—'],
                 ['Raised by', raisedByName],
-                ['Created', formatDate(ticket.created_at)],
+                ['Created', formatDateTime(ticket.created_at)],
                 ...(ticket.closed_at ? [['Closed', formatDate(ticket.closed_at)] as [string, React.ReactNode]] : []),
               ].map(([k, v]) => (
                 <div key={k as string} className="flex justify-between gap-3 px-5 py-2.5"><dt className="text-slate-500">{k}</dt><dd className="text-right text-slate-800">{v}</dd></div>

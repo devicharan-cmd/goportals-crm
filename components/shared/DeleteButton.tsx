@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { errorMessage } from '@/lib/utils'
 import { showErrorToast, showSuccessToast } from '@/lib/ui-toast'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 export function DeleteButton({
   table, id, redirectTo, label = 'Delete', variant = 'ghost', description, confirmationTitle, confirmLabel,
@@ -22,6 +23,7 @@ export function DeleteButton({
   confirmLabel?: string
 }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -79,7 +81,7 @@ export function DeleteButton({
         {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <div className="flex justify-end gap-2">
           <Button variant="secondary" size="sm" disabled={loading} onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="danger" size="sm" loading={loading} onClick={remove}>{confirmLabel ?? `Delete ${itemName}`}</Button>
+          <Button variant="danger" size="sm" loading={loading} onClick={() => void runOnce('delete', remove)}>{confirmLabel ?? `Delete ${itemName}`}</Button>
         </div>
       </Modal>
     </>

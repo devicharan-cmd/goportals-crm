@@ -14,6 +14,7 @@ import type { Client } from '@/types/database'
 import { InternationalPhoneField } from '@/components/shared/InternationalPhoneField'
 import { TimezoneSelect } from '@/components/shared/TimezoneSelect'
 import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 /**
  * Client edits their own basic details + address only. Platform/service/price are
@@ -26,6 +27,7 @@ const PROFILE_IMAGE_BUCKET = 'client-profile-images'
 
 export function PortalProfileForm({ client, imageUrl }: { client: Client; imageUrl?: string | null }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const savedForm = () => ({
     company_name:        client.company_name,
     gstin:                client.gstin ?? '',
@@ -236,7 +238,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
         </div>
       </section>
 
-      <form onSubmit={submit} className="content-card min-w-0 space-y-6 p-5 sm:p-6">
+      <form onSubmit={event => void runOnce('save-profile', () => submit(event))} className="content-card min-w-0 space-y-6 p-5 sm:p-6">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert tone="success">Saved.</Alert>}
         <fieldset disabled={!editing} className="space-y-6">
@@ -307,12 +309,12 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
           {imageError && <Alert>{imageError}</Alert>}
           <div className="flex justify-end gap-2">
             {currentImage && !selectedImage && (
-              <Button type="button" variant="ghost" className="mr-auto text-red-600 hover:bg-red-50 hover:text-red-700" onClick={removeLogo} loading={imageBusy}>
+              <Button type="button" variant="ghost" className="mr-auto text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => void runOnce('remove-logo', removeLogo)} loading={imageBusy}>
                 <Trash2 className="mr-2 h-4 w-4" /> Remove logo
               </Button>
             )}
             <Button type="button" variant="secondary" onClick={cancelLogoUpload} disabled={imageBusy}>Cancel</Button>
-            <Button type="button" onClick={uploadLogo} loading={imageBusy} disabled={!selectedImage || imageBusy}>
+            <Button type="button" onClick={() => void runOnce('upload-logo', uploadLogo)} loading={imageBusy} disabled={!selectedImage || imageBusy}>
               {!imageBusy && <Upload className="mr-2 h-4 w-4" />} Upload logo
             </Button>
           </div>

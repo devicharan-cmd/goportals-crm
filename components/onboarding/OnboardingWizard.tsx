@@ -16,6 +16,7 @@ import type { Agreement, Client, Platform, PlatformCategory, Service } from '@/t
 import { InternationalPhoneField } from '@/components/shared/InternationalPhoneField'
 import { TimezoneSelect } from '@/components/shared/TimezoneSelect'
 import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 const STEPS = [
   { key: 'company',   label: 'Company',   icon: Building2 },
@@ -48,6 +49,7 @@ type Props = {
 export function OnboardingWizard(props: Props) {
   const { profile, client, platforms, services, agreement, agreementLoadFailed, agreementOnly } = props
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const steps = agreementOnly
     ? STEPS.filter(s => s.key === 'agreement')
     : STEPS
@@ -318,7 +320,7 @@ export function OnboardingWizard(props: Props) {
             {step > 0 ? (
               <Button variant="ghost" onClick={() => { setError(''); setStep(s => s - 1) }}><ArrowLeft className="h-4 w-4" /> Back</Button>
             ) : <span />}
-            <Button onClick={next} loading={saving} disabled={current === 'agreement' && (!agreement || !agreed)} size="lg">
+            <Button onClick={() => void runOnce('continue-onboarding', next)} loading={saving} disabled={current === 'agreement' && (!agreement || !agreed)} size="lg">
               {current === 'agreement' ? 'Accept & finish' : 'Continue'} {current !== 'agreement' && <ArrowRight className="h-4 w-4" />}
             </Button>
           </div>

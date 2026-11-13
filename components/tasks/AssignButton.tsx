@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/primitives'
 import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 import { cn, errorMessage } from '@/lib/utils'
 
 import type { AssigneeOption } from '@/lib/queries'
@@ -27,6 +28,7 @@ export function AssignButton({
   disabled?: boolean
 }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [selected, setSelected] = useState<string | null>(currentId)
@@ -130,7 +132,7 @@ export function AssignButton({
           ) : <span />}
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button loading={saving} disabled={selected === currentId} onClick={save}>Save</Button>
+            <Button loading={saving} disabled={selected === currentId} onClick={() => void runOnce('save', save)}>Save</Button>
           </div>
         </div>
       </Modal>, document.body)}

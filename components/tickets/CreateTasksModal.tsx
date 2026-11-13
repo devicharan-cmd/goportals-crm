@@ -17,6 +17,7 @@ import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TYPE_OPTIONS } from '@/lib/constant
 import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
 import type { AssigneeOption } from '@/lib/queries'
 import type { DeadlineType, Department, Platform, Service, TaskPriority, TaskType, Ticket } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 type Row = {
   title: string
@@ -229,6 +230,7 @@ export function CreateTasksModal({
   hasLinkedTasks: boolean
 }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<Row[]>([emptyRow(ticket)])
   const [saving, setSaving] = useState(false)
@@ -547,7 +549,7 @@ export function CreateTasksModal({
           </p>
           <div className="ml-auto flex items-center gap-2">
             <Button variant="secondary" size="lg" className="rounded-xl" disabled={saving} onClick={closeModal}>Cancel</Button>
-            <Button loading={saving} size="lg" className="rounded-xl bg-[#045E80] shadow-md hover:bg-[#034C68]" onClick={submit}>
+            <Button loading={saving} size="lg" className="rounded-xl bg-[#045E80] shadow-md hover:bg-[#034C68]" onClick={() => void runOnce('create-tasks', submit)}>
               {!saving && <Check className="h-4 w-4" />}
               Create {rows.length > 1 ? `${rows.length} tasks` : 'task'}
             </Button>

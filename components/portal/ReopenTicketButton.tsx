@@ -6,10 +6,12 @@ import { RotateCcw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/utils'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 /** The client requests changes to a closed ticket; the RPC reopens its completed tasks. */
 export function ReopenTicketButton({ ticketId }: { ticketId: string }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [open, setOpen] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [loading, setLoading] = useState(false)
@@ -45,7 +47,7 @@ export function ReopenTicketButton({ ticketId }: { ticketId: string }) {
         placeholder="Tell us what's missing or needs fixing..."
       />
       <div className="flex items-center gap-2">
-        <Button size="sm" variant="secondary" loading={loading} disabled={!feedback.trim()} onClick={reopen}><RotateCcw className="h-3.5 w-3.5" /> Send back</Button>
+        <Button size="sm" variant="secondary" loading={loading} disabled={!feedback.trim()} onClick={() => void runOnce('reopen', reopen)}><RotateCcw className="h-3.5 w-3.5" /> Send back</Button>
         <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={loading}>Cancel</Button>
         {error && <span className="text-xs text-red-600">{error}</span>}
       </div>

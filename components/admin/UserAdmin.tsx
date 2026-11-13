@@ -15,6 +15,7 @@ import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
 import { cn, errorMessage, formatRelative } from '@/lib/utils'
 import { showErrorToast, showSuccessToast } from '@/lib/ui-toast'
 import type { AccountStatus, AppRole, Department, Invite, StaffRole } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 export type StaffRow = {
   id: string; full_name: string; email: string; role: StaffRole; status: AccountStatus
@@ -328,6 +329,7 @@ function CardAccountList({ accounts }: { accounts: UnlinkedClientAccount[] }) {
 
 function UnlinkedClientAccountRow({ account }: { account: UnlinkedClientAccount }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -374,7 +376,7 @@ function UnlinkedClientAccountRow({ account }: { account: UnlinkedClientAccount 
         {error && <Alert tone="error">{error}</Alert>}
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="secondary" size="sm" disabled={busy} onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="danger" size="sm" loading={busy} onClick={remove}>Delete account and data</Button>
+          <Button variant="danger" size="sm" loading={busy} onClick={() => void runOnce('delete-account', remove)}>Delete account and data</Button>
         </div>
       </Modal>
     </li>
@@ -434,6 +436,7 @@ export function StaffProfileCard({ row, departments, canEdit, actorId }: {
 }) {
   const departmentsById = new Map(departments.map(department => [department.id, department.name]))
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [menuOpen, setMenuOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -570,7 +573,7 @@ export function StaffProfileCard({ row, departments, canEdit, actorId }: {
             {deleteError && <Alert tone="error">{deleteError}</Alert>}
             <div className="flex justify-end gap-2">
               <Button variant="secondary" disabled={deleting} onClick={() => setDeleteOpen(false)}>Cancel</Button>
-              <Button variant="danger" loading={deleting} onClick={deleteStaffAccount}>
+              <Button variant="danger" loading={deleting} onClick={() => void runOnce('delete-staff-account', deleteStaffAccount)}>
                 <Trash2 className="h-4 w-4" />
                 Permanently delete
               </Button>
@@ -593,6 +596,7 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
   row: StaffRow; departments: Department[]; isMe: boolean; actorRole: AppRole
 }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const supabase = createClient()
@@ -604,21 +608,25 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
   const canEditName = canEditProfile || isMe
 
   async function update(fields: Record<string, unknown>) {
-    setBusy(true); setError('')
-    const { error } = await supabase.from('profiles').update(fields).eq('id', row.id)
-    setBusy(false)
-    if (error) setError(errorMessage(error))
-    router.refresh()
+    await runOnce(`update-profile-${Object.keys(fields).sort().join('-')}`, async () => {
+      setBusy(true); setError('')
+      const { error } = await supabase.from('profiles').update(fields).eq('id', row.id)
+      setBusy(false)
+      if (error) setError(errorMessage(error))
+      router.refresh()
+    })
   }
 
   async function toggleDept(deptId: string) {
-    setBusy(true); setError('')
-    const { error } = row.departmentIds.includes(deptId)
-      ? await supabase.from('department_members').delete().eq('department_id', deptId).eq('profile_id', row.id)
-      : await supabase.from('department_members').insert({ department_id: deptId, profile_id: row.id })
-    setBusy(false)
-    if (error) setError(errorMessage(error))
-    router.refresh()
+    await runOnce(`toggle-department-${deptId}`, async () => {
+      setBusy(true); setError('')
+      const { error } = row.departmentIds.includes(deptId)
+        ? await supabase.from('department_members').delete().eq('department_id', deptId).eq('profile_id', row.id)
+        : await supabase.from('department_members').insert({ department_id: deptId, profile_id: row.id })
+      setBusy(false)
+      if (error) setError(errorMessage(error))
+      router.refresh()
+    })
   }
 
   return (
@@ -700,6 +708,7 @@ export function InviteStaffButton({
 }: { departments: Department[]; roles?: StaffRole[]; reportingPeople: ReportingPerson[] }) {
   const onlyEmployees = roles.length === 1 && roles[0] === 'employee'
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -729,7 +738,7 @@ export function InviteStaffButton({
     <>
       <Button size="sm" onClick={() => { setOpen(true); setMsg(null); setErrors({}); setTouched({}) }}><UserPlus className="h-3.5 w-3.5" /> {onlyEmployees ? 'Add employee' : 'Invite team member'}</Button>
       <Modal open={open} onClose={() => setOpen(false)} title={onlyEmployees ? 'Add an employee' : 'Invite a team member'} description="They'll get an email to set their password.">
-        <form onSubmit={submit} className="space-y-4" noValidate spellCheck={false}>
+        <form onSubmit={event => void runOnce('invite-staff', () => submit(event))} className="space-y-4" noValidate spellCheck={false}>
           {msg && <Alert tone={msg.ok ? 'success' : 'error'}>{msg.text}</Alert>}
           <Field label="Full name" required error={errors.full_name} errorId="staff-invite-name-error">
             <input className={inviteInputClass(!!errors.full_name)} aria-invalid={!!errors.full_name} aria-describedby={errors.full_name ? 'staff-invite-name-error' : undefined} value={form.full_name}
@@ -837,6 +846,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
        { value: 'manager', label: 'Manager' }, { value: 'super_admin', label: 'Super Admin' }]
     : [{ value: 'employee', label: 'Employee' }, { value: 'team_lead', label: 'Team Lead' }]
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -890,7 +900,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
                : 'Add their contact email. They’ll complete their company profile after setting a password.'}
              dialogClassName="flex max-h-[92vh] flex-col overflow-hidden"
              bodyClassName="!py-3 flex min-h-0 flex-1 flex-col overflow-hidden">
-        <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col" noValidate>
+        <form onSubmit={event => void runOnce('invite-user', () => submit(event))} className="flex min-h-0 flex-1 flex-col" noValidate>
           <div className="min-h-0 flex-1 -mr-6 overflow-y-auto">
             <div className="mr-6 space-y-4">
           {msg && <Alert tone={msg.ok ? 'success' : 'error'}>{msg.text}</Alert>}
@@ -1022,6 +1032,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
 // ─── Pending invites ─────────────────────────────────────────
 export function PendingInvites({ invites }: { invites: Invite[] }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [busy, setBusy] = useState<string | null>(null)
   async function cancel(id: string) {
     setBusy(id)
@@ -1042,7 +1053,7 @@ export function PendingInvites({ invites }: { invites: Invite[] }) {
             </div>
             <Badge className={cn('border bg-white transition-colors', ROLE_STYLES[i.role].badge)}>{ROLE_LABELS[i.role]}</Badge>
             {expired && <Badge className="bg-red-50 text-red-700 ring-red-200">Expired</Badge>}
-            <button onClick={() => cancel(i.id)} disabled={busy === i.id} className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600" aria-label="Cancel invite">
+            <button onClick={() => void runOnce(`cancel-invite-${i.id}`, () => cancel(i.id))} disabled={busy === i.id} className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600" aria-label="Cancel invite">
               <X className="h-4 w-4" />
             </button>
           </li>

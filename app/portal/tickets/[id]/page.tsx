@@ -165,26 +165,7 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
           <Card>
             <CardHeader title="Details" />
             <dl className="divide-y divide-slate-100 text-sm">
-              <div className="flex items-center justify-between gap-3 px-5 py-2.5">
-                <dt className="text-slate-500">Handled by</dt>
-                <dd>
-                  {handledBy.length > 0
-                    ? <span className="flex flex-col items-end gap-1">
-                        {handledBy.map(person => (
-                          <span key={person.id} className="inline-flex items-center gap-2">
-                            <Avatar name={person.name} src={person.avatarUrl} role={person.avatarRole} size="xs" />
-                            <span>
-                              {person.name}
-                              {person.role && <span className="ml-1 text-[11px] font-normal text-slate-500">({person.role})</span>}
-                            </span>
-                          </span>
-                        ))}
-                      </span>
-                    : <span className="text-slate-400">{ticketStatus === 'unassigned' ? 'Being assigned' : 'GoPortals team'}</span>}
-                </dd>
-              </div>
               {[
-                ['Client', ticket.client?.company_name ?? null],
                 ['Account', ticket.ecommerce_account
                   ? <MarketplaceAccountLabel platformName={ticket.ecommerce_account.platform?.name ?? null} accountName={ticket.ecommerce_account.account_name} size="sm" />
                   : null],
@@ -194,6 +175,26 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
                 <div key={index} className="flex justify-between gap-3 px-5 py-2.5"><dt className="text-slate-500">{k}</dt><dd className="text-right text-slate-800">{v}</dd></div>
               ))}
             </dl>
+          </Card>
+          <Card>
+            <CardHeader title="Working on this ticket" />
+            {handledBy.length > 0 ? (
+              <ul className="divide-y divide-slate-100">
+                {handledBy.map(person => (
+                  <li key={person.id} className="flex items-center gap-3 px-5 py-3">
+                    <Avatar name={person.name} src={person.avatarUrl} role={person.avatarRole} size="md" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-slate-800">{person.name}</span>
+                      {person.role && <span className="block truncate text-xs text-slate-500">{person.role}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-5 py-3 text-sm text-slate-500">
+                {ticketStatus === 'unassigned' ? 'This ticket is being assigned.' : 'No one has been assigned a task on this ticket yet.'}
+              </p>
+            )}
           </Card>
         </div>
       </div>

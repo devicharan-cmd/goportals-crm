@@ -15,6 +15,7 @@ import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TICKET_STATUS_LABELS, TYPE_OPTIONS 
 import { TICKET_CATEGORY_BY_VALUE } from '@/lib/ticket-categories'
 import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
 import type { AppRole, Department, DeadlineType, Platform, Service, Task, TaskPriority, TaskType, TicketStatus } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 type Option = { id: string; name: string; avatarUrl?: string | null; employeeId?: string; role?: string; avatarRole?: AppRole }
 type TicketOption = {
@@ -145,6 +146,7 @@ function ticketRequestSummary(ticket: TicketOption, platforms: Platform[]) {
 
 export function TaskForm(p: TaskFormProps) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const t = p.task
   const currentTicketId = t?.ticket_id ?? null
   const [form, setForm] = useState({
@@ -329,7 +331,7 @@ export function TaskForm(p: TaskFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className={p.modalLayout ? 'flex min-h-0 flex-1 flex-col' : 'content-card space-y-5 p-5 sm:p-6'}>
+    <form onSubmit={event => void runOnce('submit', () => handleSubmit(event))} className={p.modalLayout ? 'flex min-h-0 flex-1 flex-col' : 'content-card space-y-5 p-5 sm:p-6'}>
       <div data-modal-content={p.modalLayout ? '' : undefined} className={p.modalLayout ? 'min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-7' : ''}>
       <TaskFormCard enabled={!!p.modalLayout}>
       {p.modalLayout && <TaskFormCardTitle />}

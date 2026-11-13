@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { errorMessage } from '@/lib/utils'
 import type { AssigneeOption } from '@/lib/queries'
 import type { Department, Platform, Service, Ticket, TicketStatus } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 /** Staff ticket properties and permitted inline controls. */
 export function TicketProperties({
@@ -22,6 +23,7 @@ export function TicketProperties({
   canChangeStatus: boolean
 }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [savingStatus, setSavingStatus] = useState(false)
   const [statusError, setStatusError] = useState('')
   const isClosed = ticket.status === 'closed'
@@ -58,7 +60,7 @@ export function TicketProperties({
         {canChangeStatus ? (
           <SearchableSelect
             value={ticket.status}
-            onChange={event => void changeStatus(event.target.value as TicketStatus)}
+            onChange={event => void runOnce('status', () => changeStatus(event.target.value as TicketStatus))}
             disabled={savingStatus}
             aria-label="Ticket status"
             className="w-full"

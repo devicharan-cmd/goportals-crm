@@ -13,19 +13,23 @@ import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { BILLING_LABELS, SERVICE_STATUS_STYLES } from '@/lib/constants'
 import { cn, errorMessage, formatINR } from '@/lib/utils'
 import type { BillingType, ClientServiceStatus, Department, EcommerceAccountStatus, Platform, Service } from '@/types/database'
+import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 function useMutation() {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   async function run(fn: () => PromiseLike<{ error: unknown }>) {
-    setBusy(true)
-    setError('')
-    const { error } = await fn()
-    setBusy(false)
-    if (error) setError(errorMessage(error))
-    else router.refresh()
-    return !error
+    return runOnce('client-editor-mutation', async () => {
+      setBusy(true)
+      setError('')
+      const { error } = await fn()
+      setBusy(false)
+      if (error) setError(errorMessage(error))
+      else router.refresh()
+      return !error
+    })
   }
   return { busy, error, run }
 }
@@ -311,6 +315,7 @@ export function ClientStatusSelect({ clientId, status }: { clientId: string; sta
 // ─── Give an existing client a portal login ──────────────────
 export function InviteLoginButton({ clientId, email, name }: { clientId: string; email: string | null; name: string | null }) {
   const router = useRouter()
+  const runOnce = useSingleFlight()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ email: email ?? '', full_name: name ?? '' })
   const [busy, setBusy] = useState(false)
@@ -337,7 +342,7 @@ export function InviteLoginButton({ clientId, email, name }: { clientId: string;
       <Button size="sm" variant="secondary" onClick={() => setOpen(true)}><Mail className="h-3.5 w-3.5" /> Invite to portal</Button>
       <Modal open={open} onClose={() => setOpen(false)} title="Invite to client portal"
              description="They'll get an email to set a password, then accept the agreement.">
-        <form onSubmit={send} className="space-y-4">
+        <form onSubmit={event => void runOnce('send-invite', () => send(event))} className="space-y-4">
           {msg && <p className={cn('rounded-lg px-3 py-2 text-sm', msg.tone === 'ok' ? 'bg-[#F5FAE8] text-[#465B17]' : 'bg-red-50 text-red-700')}>{msg.text}</p>}
           <div>
             <label className="form-field-label">Name</label>

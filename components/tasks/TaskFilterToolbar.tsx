@@ -12,7 +12,7 @@ import type { AppRole } from '@/types/database'
 type Option = { value: string; label: string; avatarUrl?: string | null; role?: AppRole }
 
 export function TaskFilterToolbar({
-  scope, onScopeChange, scopeCounts, showScope = true, showAssignedScope = false, view, onViewChange, status, onStatusChange,
+  scope, onScopeChange, scopeCounts, scopeLoading = false, showScope = true, showAssignedScope = false, view, onViewChange, status, onStatusChange,
   clients = [], client = '', onClientChange, showClientFilter = false,
   people = [], assignee = '', onAssigneeChange, showAssigneeFilter = false,
   assigners = [], assignedBy = '', onAssignedByChange, showAssignedByFilter = false,
@@ -22,6 +22,7 @@ export function TaskFilterToolbar({
   scope: 'mine' | 'assigned' | 'all'
   onScopeChange: (scope: 'mine' | 'assigned' | 'all') => void
   scopeCounts: { mine: number; assigned: number; all: number }
+  scopeLoading?: boolean
   showScope?: boolean
   showAssignedScope?: boolean
   view: 'board' | 'list'
@@ -98,9 +99,11 @@ export function TaskFilterToolbar({
             <button
               key={option.value}
               type="button"
+              disabled={scopeLoading}
+              aria-pressed={scope === option.value}
               onClick={() => onScopeChange(option.value)}
               className={cn(
-                'relative flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 pr-6 text-xs transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none',
+                'relative flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 pr-6 text-xs transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none disabled:cursor-wait disabled:opacity-70',
                 scope === option.value
                   ? 'bg-[#034C68] font-semibold text-white shadow-[0_2px_5px_rgba(2,43,59,0.2)]'
                   : 'bg-white font-medium text-slate-800',

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { CircleCheck, Plus, TicketCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
+import { TICKET_PAGE_SIZE } from '@/lib/constants'
 import { ButtonLink } from '@/components/ui/button'
 import { TicketSearchField, TicketSearchProvider, TicketSearchResults } from '@/components/shared/TicketSearch'
 import { cn } from '@/lib/utils'
@@ -16,11 +17,14 @@ const TABS = [
 
 export default async function PortalTicketsPage(props: { searchParams: Promise<{ status?: string }> }) {
   const searchParams = await props.searchParams
-  await requireClient()
+  const me = await requireClient()
   const supabase = await createClient()
   const tab = TABS.find(item => item.key === searchParams.status)?.key ?? 'open'
 
-  let query = supabase.from('tickets').select('*').order('created_at', { ascending: false })
+  let query = supabase.from('tickets').select('*')
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: true })
+    .range(0, TICKET_PAGE_SIZE)
   if (tab === 'open') query = query.neq('status', 'closed')
   if (tab === 'done') query = query.eq('status', 'closed')
   const [ticketResult, openCountResult, closedCountResult, unseenResult] = await Promise.all([
@@ -32,7 +36,15 @@ export default async function PortalTicketsPage(props: { searchParams: Promise<{
     supabase.rpc('my_unread_ticket_messages'),
   ])
   if (ticketResult.error) throw ticketResult.error
-  const tickets = (ticketResult.data ?? []) as Ticket[]
+  for (const result of [openCountResult, closedCountResult, unseenResult]) {
+    if (result.error) throw result.error
+  }
+  const hasMoreTickets = (ticketResult.data?.length ?? 0) > TICKET_PAGE_SIZE
+  const tickets = (ticketResult.data ?? []).slice(0, TICKET_PAGE_SIZE) as Ticket[]
+  const lastTicket = tickets[tickets.length - 1]
+  const initialTicketCursor = hasMoreTickets && lastTicket
+    ? { id: lastTicket.id, created_at: lastTicket.created_at }
+    : null
   const ticketCounts = {
     open: openCountResult.count ?? 0,
     done: closedCountResult.count ?? 0,
@@ -44,7 +56,15 @@ export default async function PortalTicketsPage(props: { searchParams: Promise<{
   }
 
   return (
-    <TicketSearchProvider initialTickets={tickets} audience="client" status={tab} unreadByTicket={unreadByTicket}>
+    <TicketSearchProvider
+      initialTickets={tickets}
+      initialHasMoreTickets={hasMoreTickets}
+      initialTicketCursor={initialTicketCursor}
+      audience="client"
+      status={tab}
+      unreadByTicket={unreadByTicket}
+      realtimeUserId={me.id}
+    >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="grid h-9 min-w-0 grid-cols-2 gap-px rounded-xl border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)]">
           {TABS.map(item => (

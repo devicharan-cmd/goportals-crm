@@ -3,21 +3,21 @@ import { ClipboardList, CheckCircle2, Clock, Inbox, TimerOff } from 'lucide-reac
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
 import { nameMap } from '@/lib/queries'
-import { dateKeyInTimeZone } from '@/lib/utils'
 import { Card, CardHeader, PageHeader, StatCard } from '@/components/ui/primitives'
 import { PrintButton } from '@/components/shared/PrintButton'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
-import type { Task } from '@/types/database'
 
 export const metadata = { title: 'Reports' }
 
-type TicketRow = {
-  id: string; client_id: string; status: string; created_at: string; closed_at: string | null
-  client: { company_name: string } | null
-}
-
-type Row = Pick<Task, 'id' | 'client_id' | 'assignee_id' | 'status' | 'due_date' | 'created_at' | 'closed_at' | 'source'> & {
-  client: { company_name: string } | null
+type ReportSummary = {
+  tickets_raised: number
+  tickets_closed: number
+  hours_logged: number
+  tasks_created: number
+  tasks_completed: number
+  tasks_completed_late: number
+  by_person: { profile_id: string; done: number; late: number; hours: number }[]
+  by_client: { client_id: string | null; company_name: string | null; created: number; done: number; tickets: number }[]
 }
 
 export default async function ReportsPage(props: { searchParams: Promise<{ month?: string }> }) {
@@ -28,63 +28,30 @@ export default async function ReportsPage(props: { searchParams: Promise<{ month
   const month = /^\d{4}-\d{2}$/.test(searchParams.month ?? '') ? searchParams.month! : format(new Date(), 'yyyy-MM')
   const start = startOfMonth(parse(month, 'yyyy-MM', new Date()))
   const end = endOfMonth(start)
-  const from = start.toISOString()
-  const to = end.toISOString()
-
-  // Tasks created OR closed in the month (RLS limits managers to their scope).
-  const [{ data }, { data: ticketData }, { data: logs }, { data: people }] = await Promise.all([
-    supabase.from('tasks')
-      .select('id, client_id, assignee_id, status, due_date, created_at, closed_at, source, client:clients(company_name)')
-      .or(`and(created_at.gte.${from},created_at.lte.${to}),and(closed_at.gte.${from},closed_at.lte.${to})`),
-    // Tickets are what the client actually sees, so the month has to count them too.
-    supabase.from('tickets')
-      .select('id, client_id, status, created_at, closed_at, client:clients(company_name)')
-      .or(`and(created_at.gte.${from},created_at.lte.${to}),and(closed_at.gte.${from},closed_at.lte.${to})`),
-    supabase.from('time_logs').select('profile_id, hours').gte('logged_date', format(start, 'yyyy-MM-dd')).lte('logged_date', format(end, 'yyyy-MM-dd')),
+  const [{ data: summaryData, error: summaryError }, { data: people, error: peopleError }] = await Promise.all([
+    supabase.rpc('monthly_report_summary', {
+      p_from: start.toISOString(),
+      p_to: end.toISOString(),
+      p_log_from: format(start, 'yyyy-MM-dd'),
+      p_log_to: format(end, 'yyyy-MM-dd'),
+    }),
     supabase.from('profiles').select('id, full_name, email'),
   ])
-  const tasks = (data ?? []) as unknown as Row[]
-  const tickets = (ticketData ?? []) as unknown as TicketRow[]
+  if (summaryError) throw summaryError
+  if (peopleError) throw peopleError
+  const summary = summaryData as ReportSummary
   const names = nameMap(people ?? [])
-  const inMonth = (d: string | null) => !!d && new Date(d) >= start && new Date(d) <= end
-
-  const created = tasks.filter(t => inMonth(t.created_at))
-  const closed = tasks.filter(t => inMonth(t.closed_at))
-  const completedAfterDue = (task: Row) => !!task.due_date && !!task.closed_at
-    && dateKeyInTimeZone(new Date(task.closed_at)) > task.due_date
-  const closedLate = closed.filter(completedAfterDue)
-  const totalHours = (logs ?? []).reduce((s, l: { hours: number }) => s + Number(l.hours), 0)
-
-  const byPerson = new Map<string, { done: number; late: number; hours: number }>()
-  closed.forEach(t => {
-    if (!t.assignee_id) return
-    const r = byPerson.get(t.assignee_id) ?? { done: 0, late: 0, hours: 0 }
-    r.done++
-    if (completedAfterDue(t)) r.late++
-    byPerson.set(t.assignee_id, r)
-  })
-  ;(logs ?? []).forEach((l: { profile_id: string | null; hours: number }) => {
-      if (!l.profile_id) return
-      const r = byPerson.get(l.profile_id) ?? { done: 0, late: 0, hours: 0 }
-      r.hours += Number(l.hours)
-      byPerson.set(l.profile_id, r)
-    })
-
-  const ticketsRaised = tickets.filter(t => inMonth(t.created_at))
-  const ticketsClosed = tickets.filter(t => inMonth(t.closed_at))
-
-  const byClient = new Map<string, { name: string; created: number; done: number; tickets: number }>()
-  tasks.forEach(t => {
-    const r = byClient.get(t.client_id) ?? { name: t.client?.company_name ?? '—', created: 0, done: 0, tickets: 0 }
-    if (inMonth(t.created_at)) r.created++
-    if (inMonth(t.closed_at)) r.done++
-    byClient.set(t.client_id, r)
-  })
-  tickets.forEach(t => {
-    const r = byClient.get(t.client_id) ?? { name: t.client?.company_name ?? '—', created: 0, done: 0, tickets: 0 }
-    if (inMonth(t.created_at)) r.tickets++
-    byClient.set(t.client_id, r)
-  })
+  const byPerson = new Map(summary.by_person.map(row => [row.profile_id, {
+    done: Number(row.done),
+    late: Number(row.late),
+    hours: Number(row.hours),
+  }]))
+  const byClient = summary.by_client.map(row => ({
+    name: row.company_name ?? '—',
+    created: Number(row.created),
+    done: Number(row.done),
+    tickets: Number(row.tickets),
+  }))
 
   const monthOptions = Array.from({ length: 12 }, (_, i) => format(addMonths(new Date(), -i), 'yyyy-MM'))
 
@@ -107,12 +74,12 @@ export default async function ReportsPage(props: { searchParams: Promise<{ month
       />
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <StatCard label="Tickets raised" value={ticketsRaised.length} icon={<ClipboardList className="h-5 w-5" />} tone="brand" />
-        <StatCard label="Tickets closed" value={ticketsClosed.length} icon={<CheckCircle2 className="h-5 w-5" />} tone="lime" />
-        <StatCard label="Hours logged" value={Math.round(totalHours * 10) / 10} icon={<Clock className="h-5 w-5" />} tone="amber" />
-        <StatCard label="Tasks created" value={created.length} icon={<Inbox className="h-5 w-5" />} />
-        <StatCard label="Tasks completed" value={closed.length} icon={<CheckCircle2 className="h-5 w-5" />} tone="lime" />
-        <StatCard label="Completed late" value={closedLate.length} icon={<TimerOff className="h-5 w-5" />} tone={closedLate.length ? 'red' : 'lime'} />
+        <StatCard label="Tickets raised" value={Number(summary.tickets_raised)} icon={<ClipboardList className="h-5 w-5" />} tone="brand" />
+        <StatCard label="Tickets closed" value={Number(summary.tickets_closed)} icon={<CheckCircle2 className="h-5 w-5" />} tone="lime" />
+        <StatCard label="Hours logged" value={Math.round(Number(summary.hours_logged) * 10) / 10} icon={<Clock className="h-5 w-5" />} tone="amber" />
+        <StatCard label="Tasks created" value={Number(summary.tasks_created)} icon={<Inbox className="h-5 w-5" />} />
+        <StatCard label="Tasks completed" value={Number(summary.tasks_completed)} icon={<CheckCircle2 className="h-5 w-5" />} tone="lime" />
+        <StatCard label="Completed late" value={Number(summary.tasks_completed_late)} icon={<TimerOff className="h-5 w-5" />} tone={summary.tasks_completed_late ? 'red' : 'lime'} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -143,15 +110,15 @@ export default async function ReportsPage(props: { searchParams: Promise<{ month
               <th className="px-5 py-2.5">Client</th><th className="px-3 py-2.5 text-right">Created</th><th className="px-3 py-2.5 text-right">Tickets</th><th className="px-5 py-2.5 text-right">Done</th>
             </tr></thead>
             <tbody className="divide-y divide-slate-100">
-              {Array.from(byClient.values()).sort((a, b) => b.created - a.created).map(r => (
-                <tr key={r.name}>
+              {byClient.sort((a, b) => b.created - a.created).map((r, index) => (
+                <tr key={`${r.name}-${index}`}>
                   <td className="px-5 py-2.5 font-medium text-slate-800">{r.name}</td>
                   <td className="px-3 py-2.5 text-right">{r.created}</td>
                   <td className="px-3 py-2.5 text-right">{r.tickets}</td>
                   <td className="px-5 py-2.5 text-right">{r.done}</td>
                 </tr>
               ))}
-              {byClient.size === 0 && <tr><td colSpan={4} className="px-5 py-6 text-center text-slate-400">No activity this month</td></tr>}
+              {byClient.length === 0 && <tr><td colSpan={4} className="px-5 py-6 text-center text-slate-400">No activity this month</td></tr>}
             </tbody>
           </table>
         </Card>

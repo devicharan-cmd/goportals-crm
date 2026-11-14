@@ -18,20 +18,57 @@ export default async function UrgentPage() {
   const me = await requireStaff()
   const canSeeTickets = ['super_admin', 'manager', 'team_lead'].includes(me.role)
   const supabase = await createClient()
-  const [{ data: taskData }, { data: ticketData }, { data: people }, { data: profileRows }] = await Promise.all([
-    supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).not('status', 'in', '(completed,cancelled)')
-      .order('priority').order('created_at'),
-    canSeeTickets
-      ? supabase.from('tickets').select('*, client:clients(id, company_name)').eq('is_urgent', true).neq('status', 'closed')
-          .order('created_at')
-      : Promise.resolve({ data: [] }),
+  const taskPromise = (async () => {
+    const rows: TaskListItem[] = []
+    let afterId: string | null = null
+    while (true) {
+      let query = supabase.from('tasks').select(TASK_LIST_SELECT)
+        .eq('is_urgent', true)
+        .not('status', 'in', '(completed,cancelled)')
+        .order('id', { ascending: true })
+        .limit(1000)
+      if (afterId) query = query.gt('id', afterId)
+      const { data, error } = await query
+      if (error) throw error
+      const page = (data ?? []) as TaskListItem[]
+      rows.push(...page)
+      if (page.length < 1000) break
+      afterId = page[page.length - 1].id
+    }
+    return rows.sort((a, b) => a.priority.localeCompare(b.priority)
+      || a.created_at.localeCompare(b.created_at)
+      || a.id.localeCompare(b.id))
+  })()
+  const ticketPromise = (async () => {
+    const rows: (Ticket & { client: { id: string; company_name: string } | null })[] = []
+    if (!canSeeTickets) return rows
+    let afterId: string | null = null
+    while (true) {
+      let query = supabase.from('tickets').select('*, client:clients(id, company_name)')
+        .eq('is_urgent', true)
+        .neq('status', 'closed')
+        .order('id', { ascending: true })
+        .limit(1000)
+      if (afterId) query = query.gt('id', afterId)
+      const { data, error } = await query
+      if (error) throw error
+      const page = (data ?? []) as (Ticket & { client: { id: string; company_name: string } | null })[]
+      rows.push(...page)
+      if (page.length < 1000) break
+      afterId = page[page.length - 1].id
+    }
+    return rows.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+  })()
+  const [tasks, tickets, peopleResult, profileResult] = await Promise.all([
+    taskPromise,
+    ticketPromise,
     supabase.rpc('staff_directory'),
     supabase.from('profiles').select('id, avatar_url'),
   ])
-  const tasks = (taskData ?? []) as TaskListItem[]
-  const tickets = (ticketData ?? []) as (Ticket & { client: { id: string; company_name: string } | null })[]
-  const names = Object.fromEntries((people ?? []).map((p: { id: string; full_name: string }) => [p.id, p.full_name]))
-  const avatarUrls = Object.fromEntries((profileRows ?? []).map((p: { id: string; avatar_url: string | null }) => [p.id, p.avatar_url]))
+  if (peopleResult.error) throw peopleResult.error
+  if (profileResult.error) throw profileResult.error
+  const names = Object.fromEntries((peopleResult.data ?? []).map((p: { id: string; full_name: string }) => [p.id, p.full_name]))
+  const avatarUrls = Object.fromEntries((profileResult.data ?? []).map((p: { id: string; avatar_url: string | null }) => [p.id, p.avatar_url]))
   const openTasks = tasks.filter(t => !t.assignee_id)
   const takenTasks = tasks.filter(t => t.assignee_id)
   const openTickets = tickets.filter(t => t.status === 'unassigned')

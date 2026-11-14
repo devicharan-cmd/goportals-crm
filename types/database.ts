@@ -11,6 +11,7 @@ export type TicketStatus = 'unassigned' | 'assigned' | 'closed'
 export type TaskPriority  = 'P1' | 'P2' | 'P3' | 'P4'
 export type TaskType      = 'task' | 'issue' | 'request' | 'grievance'
 export type TaskSource    = 'internal' | 'client'
+export type TaskVisibility = 'public' | 'private'
 export type DeadlineType  = 'today' | 'this_week' | 'this_month'
 export type EcommerceAccountStatus = 'active' | 'inactive'
 export type AddressInputMethod     = 'map' | 'manual'
@@ -189,7 +190,7 @@ export interface Invite {
 export interface Task {
   id: string
   task_number: number          // shown as GP-<n> (migration 010)
-  client_id: string
+  client_id: string | null
   title: string
   description: string | null
   type: TaskType
@@ -197,6 +198,7 @@ export interface Task {
   priority: TaskPriority
   is_urgent: boolean
   source: TaskSource
+  visibility: TaskVisibility
   department_id: string | null
   platform_id: string | null
   service_id: string | null
@@ -230,6 +232,7 @@ export interface TaskSummary {
   priority: TaskPriority
   is_urgent: boolean
   source: TaskSource
+  visibility: TaskVisibility
   due_date: string | null
   created_at: string
   assignee_id: string | null

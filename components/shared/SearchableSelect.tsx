@@ -49,6 +49,11 @@ export function SearchableSelect({
   dropdownMinWidth,
   dropdownMaxHeight = 320,
   dropdownHeading,
+  dropdownHeadingDivider = false,
+  dropdownFooter,
+  keepOpenOnSelect,
+  hideChevron = false,
+  onClose,
   compactOptions = false,
   denseOptions = false,
   'aria-label': ariaLabel,
@@ -72,6 +77,11 @@ export function SearchableSelect({
   dropdownMinWidth?: number
   dropdownMaxHeight?: number
   dropdownHeading?: string
+  dropdownHeadingDivider?: boolean
+  dropdownFooter?: ReactNode
+  keepOpenOnSelect?: (value: string) => boolean
+  hideChevron?: boolean
+  onClose?: () => void
   compactOptions?: boolean
   denseOptions?: boolean
   'aria-label'?: string
@@ -154,11 +164,13 @@ export function SearchableSelect({
       if (!(target instanceof Node)) return
       if (buttonRef.current?.contains(target) || dropdownRef.current?.contains(target)) return
       setOpen(false)
+      onClose?.()
     }
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.stopPropagation()
         setOpen(false)
+        onClose?.()
       }
     }
     document.addEventListener('mousedown', closeOnOutsideClick)
@@ -167,13 +179,15 @@ export function SearchableSelect({
       document.removeEventListener('mousedown', closeOnOutsideClick)
       document.removeEventListener('keydown', closeOnEscape)
     }
-  }, [open])
+  }, [onClose, open])
 
   function choose(nextValue: string) {
     if (controlledValue === undefined) setUncontrolledValue(nextValue)
     setValidationError(false)
     onChange?.({ target: { value: nextValue }, currentTarget: { value: nextValue } })
-    setOpen(false)
+    if (!keepOpenOnSelect?.(nextValue)) {
+      setOpen(false)
+    }
   }
 
   return (
@@ -213,20 +227,27 @@ export function SearchableSelect({
         aria-required={required}
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen(current => !current)}
+        onClick={() => {
+          if (open) {
+            setOpen(false)
+            onClose?.()
+          } else {
+            setOpen(true)
+          }
+        }}
       >
         <span className="min-w-0 flex-1 truncate">{selected ? (selected.selectedContent ?? selected.content ?? selected.label) : placeholder || ''}</span>
-        <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
+        {!hideChevron && <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />}
       </button>
       {validationError && <span className="sr-only">Please select an option.</span>}
       {open && position && typeof document !== 'undefined' && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed z-[1200] overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+          className="fixed z-[1200] flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
           style={{ left: position.left, top: position.top, width: position.width, maxHeight: position.maxHeight }}
         >
           {dropdownHeading && (
-            <p className="px-3 pb-2 pt-1 text-sm font-medium text-slate-600">{dropdownHeading}</p>
+            <p className={cn('px-3 pb-2 pt-1 text-sm font-medium text-slate-600', dropdownHeadingDivider && 'mb-1 border-b border-slate-100 pb-2')}>{dropdownHeading}</p>
           )}
           {searchable && (
             <div className="relative mb-2">
@@ -246,7 +267,7 @@ export function SearchableSelect({
             role="listbox"
             aria-label={ariaLabel}
             className={cn(compactOptions ? 'space-y-2' : 'space-y-1', 'overflow-y-auto')}
-            style={{ maxHeight: Math.max(0, position.maxHeight - (searchable ? 60 : 8) - (dropdownHeading ? 28 : 0)) }}
+            style={{ maxHeight: Math.max(0, position.maxHeight - (searchable ? 60 : 8) - (dropdownHeading ? 28 : 0) - (dropdownFooter ? 72 : 0)) }}
           >
             {filteredOptions.map(option => {
               const active = option.value === value
@@ -270,6 +291,7 @@ export function SearchableSelect({
             })}
             {filteredOptions.length === 0 && <p className="px-3 py-4 text-center text-sm text-slate-500">{emptyMessage}</p>}
           </div>
+          {dropdownFooter && <div className="mt-2 shrink-0 border-t border-slate-100 pt-2">{dropdownFooter}</div>}
         </div>,
         document.body,
       )}

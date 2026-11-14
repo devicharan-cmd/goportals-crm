@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ClipboardList } from 'lucide-react'
+import { ClipboardList, LockKeyhole } from 'lucide-react'
 import { Avatar, EmptyState } from '@/components/ui/primitives'
 import { dueState, formatDate, taskCode } from '@/lib/utils'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
@@ -117,6 +117,11 @@ export function TaskTable({
                     <span className={`${showAssignedBy ? '' : 'col-start-2'} flex min-w-0 items-center gap-2`}>
                       {t.is_urgent && !TASK_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
                       <span className="truncate font-medium text-slate-900">{t.title}</span>
+                      {t.visibility === 'private' && (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200">
+                          <LockKeyhole aria-hidden="true" className="h-3 w-3" /> Private
+                        </span>
+                      )}
                     </span>
                     <span className={`${showAssignedBy ? '' : 'col-start-2'} flex min-w-0 items-center gap-1 truncate text-xs text-slate-400`}>
                       {t.department?.name}
@@ -213,6 +218,11 @@ export function TaskTable({
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {t.is_urgent && !TASK_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
                 <StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} />
+                {t.visibility === 'private' && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-1 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200">
+                    <LockKeyhole aria-hidden="true" className="h-3 w-3" /> Private
+                  </span>
+                )}
                 {showClient && t.client && <span className="text-xs text-slate-500">{t.client.company_name}</span>}
                 <TaskDueDisplay task={t} className="ml-auto" />
               </div>

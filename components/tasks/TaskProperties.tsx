@@ -53,6 +53,7 @@ export function TaskProperties({
           ? <TaskStatusSelect
               taskId={task.id}
               status={task.status as TaskStatus}
+              visibility={task.visibility}
               canCompleteReview={canCompleteReview}
               onWarning={setStatusWarning}
             />

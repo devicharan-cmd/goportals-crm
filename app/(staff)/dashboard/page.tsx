@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { AlarmClock, CheckSquare, Flame, Inbox, Plus, ShieldCheck, Users } from 'lucide-react'
+import { AlarmClock, CheckSquare, Flame, Inbox, LockKeyhole, Plus, ShieldCheck, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 import { nameMap, TASK_LIST_SELECT, TICKET_LIST_SELECT } from '@/lib/queries'
@@ -219,7 +219,10 @@ export default async function DashboardPage() {
                   <li key={t.id} className="flex items-center gap-3 px-5 py-3">
                     <Link href={`/tasks/${t.id}`} className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>{t.title}</p>
-                      <p className="truncate text-xs text-slate-500">{t.client?.company_name} · <DueDate date={t.due_date} status={t.status} /></p>
+                      <p className="flex items-center gap-1.5 truncate text-xs text-slate-500">
+                        <span className="truncate">{t.client?.company_name} · <DueDate date={t.due_date} status={t.status} /></span>
+                        {t.visibility === 'private' && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200" title="Visible only to authorized internal staff"><LockKeyhole aria-hidden="true" className="h-3 w-3" />Private</span>}
+                      </p>
                     </Link>
                     <ClaimButton taskId={t.id} />
                   </li>

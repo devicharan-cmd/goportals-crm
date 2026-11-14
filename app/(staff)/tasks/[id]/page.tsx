@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Clock3 } from 'lucide-react'
+import { ArrowLeft, Clock3, FileText, Paperclip } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskPageTitle } from '@/lib/queries'
@@ -44,8 +44,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     getStaffLookups(),
     supabase.from('task_attachments')
       .select('id, comment_id, uploaded_by, storage_path, file_name, mime_type, size_bytes')
-      .eq('task_id', taskId)
-      .not('comment_id', 'is', null),
+      .eq('task_id', taskId),
   ])
   if (checklistError) throw new Error(checklistError.message)
   if (attachmentsError) throw new Error(attachmentsError.message)
@@ -81,6 +80,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     if (!signedUrl || !downloadUrl) throw new Error(`Could not create signed URLs for task attachment ${file.file_name}`)
     return { ...file, signedUrl, downloadUrl }
   })
+  const taskFileAttachments = commentAttachments.filter(file => file.comment_id === null)
   const { data: clientImage, error: clientImageError } = clientImageResult
   if (clientImageError) throw clientImageError
   const names = nameMap(lookups.people)
@@ -171,6 +171,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                 {task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && <UrgentBadge className="border-0 ring-0" />}
                 <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={TASK_STATUS_STYLES[task.status]} dotClassName={TASK_STATUS_DOT[task.status]} />
                 <PriorityBadge priority={task.priority} />
+                {task.visibility === 'private' && <Badge className="bg-violet-50 text-violet-700 ring-violet-200">Private · Internal only</Badge>}
                 {task.source === 'client' && <Badge className="bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]">Client request</Badge>}
                 <DueDatePill date={task.due_date} status={task.status} className="ml-auto" />
               </div>
@@ -187,6 +188,32 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                   : <p className="italic text-slate-400">No description.</p>}
               </div>
             </section>
+            {taskFileAttachments.length > 0 && (
+              <section className="mt-5" aria-labelledby="task-attachments-heading">
+                <h2 id="task-attachments-heading" className="mb-3 flex items-center gap-3 text-base font-semibold leading-6 text-slate-900">
+                  <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-[#0D9488]" />
+                  Attachments
+                </h2>
+                <ul className="space-y-2">
+                  {taskFileAttachments.map(file => (
+                    <li key={file.id}>
+                      <a
+                        href={file.signedUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100"
+                      >
+                        {file.mime_type?.startsWith('image/')
+                          ? <Paperclip aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />
+                          : <FileText aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />}
+                        <span className="min-w-0 flex-1 truncate" title={file.file_name}>{file.file_name}</span>
+                        <span className="shrink-0 text-xs text-slate-500">Open file</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             {task.estimated_hours != null && (
               <div className="mt-5 inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border border-slate-100 bg-white px-2.5 py-1 text-xs text-slate-600 shadow-sm">
                 <Clock3 aria-hidden="true" className="h-4 w-4 shrink-0" />
@@ -216,7 +243,9 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
 
           <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader title={`Discussion (${(comments ?? []).length})`}
-                        description="Visible to the GoPortals team. Clients do not see tasks — reply on the ticket instead." />
+                        description={task.visibility === 'private'
+                          ? 'This private task and its discussion are visible only to authorized staff.'
+                          : 'Public tasks are visible to the selected client. Internal messages remain staff-only.'} />
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread taskId={task.id} comments={(comments ?? []) as TaskComment[]} names={names}
                              roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))}

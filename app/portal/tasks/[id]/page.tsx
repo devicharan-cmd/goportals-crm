@@ -128,7 +128,7 @@ export default async function PortalTaskDetailPage(props: { params: Promise<{ id
           <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader
               title={`Discussion (${clientComments.length})`}
-              description="Messages here are visible to you and the GoPortals team."
+              description="Public tasks and messages are visible to you and the GoPortals team."
             />
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread

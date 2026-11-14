@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { MoreHorizontal, Trash2, Globe, Lock, MessageSquare, Send, Paperclip, X, FileText, RotateCcw, ImagePlay } from 'lucide-react'
+import { MoreHorizontal, Trash2, Globe, Lock, MessageSquare, Send, X, FileText, RotateCcw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
+import { AttachmentPicker } from '@/components/shared/AttachmentPicker'
 import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
 import { cn, errorMessage, splitTeamName } from '@/lib/utils'
 import type { AppRole } from '@/types/database'
@@ -47,11 +48,6 @@ type CommentAttachment = {
   signedUrl: string
   downloadUrl: string
 }
-
-const DOCUMENT_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv', 'txt', 'rtf', 'odt', 'ods', 'odp'])
-const MEDIA_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'bmp', 'mp4', 'webm', 'mov'])
-const DOCUMENT_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.rtf,.odt,.ods,.odp'
-const MEDIA_ACCEPT = '.jpg,.jpeg,.png,.webp,.bmp,.mp4,.webm,.mov'
 
 /** Task-comment actions. Ticket conversations intentionally have no per-message menu. */
 function MessageMenu({ commentId, table, canDelete, mine, attachments }: {
@@ -215,8 +211,6 @@ export function CommentThread({
   const isTicketThread = table === 'ticket_comments'
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const documentInputRef = useRef<HTMLInputElement | null>(null)
-  const mediaInputRef = useRef<HTMLInputElement | null>(null)
   const readMarkedRef = useRef(new Set<string>())
   const readInFlightRef = useRef(new Set<string>())
   const canChoose = isTicketThread && (myRole === 'super_admin' || myRole === 'manager')
@@ -227,7 +221,6 @@ export function CommentThread({
   const [error, setError] = useState('')
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [requestChanges, setRequestChanges] = useState(false)
-  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false)
 
   useEffect(() => {
     if (isTicketThread || myRole !== 'client') return
@@ -283,24 +276,6 @@ export function CommentThread({
     return () => { cancelled = true; observer.disconnect() }
   }, [comments, filter, isTicketThread])
   const shown = comments.filter(c => filter === 'all' || (filter === 'public' ? !c.is_internal : c.is_internal))
-
-  function addSelectedFiles(event: React.ChangeEvent<HTMLInputElement>, allowedExtensions: Set<string>) {
-    const selected = Array.from(event.target.files ?? [])
-    const accepted = selected.filter(file => {
-      const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
-      return allowedExtensions.has(extension)
-        && !file.type.startsWith('audio/')
-        && file.type.toLowerCase() !== 'image/gif'
-    })
-    const rejected = selected.filter(file => !accepted.includes(file))
-    if (rejected.length) {
-      setError(`GIF, audio, and unsupported file types cannot be attached: ${rejected.map(file => file.name).join(', ')}`)
-    } else {
-      setError('')
-    }
-    if (accepted.length) setPendingFiles(files => [...files, ...accepted])
-    event.target.value = ''
-  }
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault()
@@ -536,43 +511,17 @@ export function CommentThread({
         <div className={cn('flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm transition focus-within:border-[#63A9C4] focus-within:ring-2 focus-within:ring-[#0A6F94]/20',
           !willBePublic && 'border-amber-200 bg-amber-50/60 focus-within:border-amber-300 focus-within:ring-amber-500/20')}>
           {!isTicketThread && (
-            <div className="relative mb-0.5">
-              <input ref={documentInputRef} type="file" multiple accept={DOCUMENT_ACCEPT} className="hidden"
-                onChange={event => addSelectedFiles(event, DOCUMENT_EXTENSIONS)} />
-              <input ref={mediaInputRef} type="file" multiple accept={MEDIA_ACCEPT} className="hidden"
-                onChange={event => addSelectedFiles(event, MEDIA_EXTENSIONS)} />
-              <button type="button" onClick={() => setAttachmentMenuOpen(open => !open)} disabled={saving}
-                className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-[#045E80] disabled:opacity-50"
-                aria-label="Attach files" aria-expanded={attachmentMenuOpen} title="Attach files">
-                <Paperclip className="h-4 w-4" />
-              </button>
-              {attachmentMenuOpen && (
-                <>
-                  <button type="button" className="fixed inset-0 z-20 cursor-default" aria-label="Close attachment menu"
-                    onClick={() => setAttachmentMenuOpen(false)} />
-                  <div className="absolute bottom-full left-0 z-30 mb-2 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                    <button type="button" onClick={() => {
-                      setAttachmentMenuOpen(false)
-                      documentInputRef.current?.click()
-                    }} className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50">
-                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#045E80]" />
-                      <span className="min-w-0">
-                        <span className="block font-medium">Document</span>
-                      </span>
-                    </button>
-                    <button type="button" onClick={() => {
-                      setAttachmentMenuOpen(false)
-                      mediaInputRef.current?.click()
-                    }} className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50">
-                      <ImagePlay className="mt-0.5 h-4 w-4 shrink-0 text-[#045E80]" />
-                      <span className="min-w-0">
-                        <span className="block font-medium">Photos & videos</span>
-                      </span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+            <AttachmentPicker
+              disabled={saving}
+              onFilesSelected={(accepted, rejected) => {
+                if (rejected.length) {
+                  setError(`GIF, audio, and unsupported file types cannot be attached: ${rejected.map(file => file.name).join(', ')}`)
+                } else {
+                  setError('')
+                }
+                if (accepted.length) setPendingFiles(files => [...files, ...accepted])
+              }}
+            />
           )}
           <textarea
             ref={textareaRef}

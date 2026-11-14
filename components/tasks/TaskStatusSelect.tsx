@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUS_OPTIONS } from '@/lib/constants'
 import { errorMessage } from '@/lib/utils'
-import type { TaskStatus } from '@/types/database'
+import type { TaskStatus, TaskVisibility } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import { TaskPropertySelect } from '@/components/tasks/TaskPropertySelect'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
@@ -12,10 +12,11 @@ import { useSingleFlight } from '@/components/shared/useSingleFlight'
 const EMPLOYEE_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_system_process', 'ready_for_review']
 
 export function TaskStatusSelect({
-  taskId, status, canCompleteReview, onWarning,
+  taskId, status, visibility, canCompleteReview, onWarning,
 }: {
   taskId: string
   status: TaskStatus
+  visibility: TaskVisibility
   canCompleteReview: boolean
   onWarning: (message: string) => void
 }) {
@@ -27,6 +28,10 @@ export function TaskStatusSelect({
   useEffect(() => setValue(status), [status])
 
   async function updateStatus(nextStatus: TaskStatus) {
+    if (visibility === 'private' && (nextStatus === 'client_review' || nextStatus === 'changes_requested')) {
+      onWarning('Private tasks cannot enter Client review or Changes requested.')
+      return
+    }
     if (nextStatus === 'changes_requested') {
       onWarning('Only the client can request changes from the client portal.')
       return
@@ -75,7 +80,9 @@ export function TaskStatusSelect({
       <TaskPropertySelect
         label="Change task status"
         value={value}
-        options={TASK_STATUS_OPTIONS}
+        options={TASK_STATUS_OPTIONS.filter(option =>
+          visibility !== 'private' || (option.value !== 'client_review' && option.value !== 'changes_requested'),
+        )}
         disabled={saving}
         onChange={nextStatus => void runOnce('status', () => updateStatus(nextStatus as TaskStatus))}
       />

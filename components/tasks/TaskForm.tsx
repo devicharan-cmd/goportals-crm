@@ -539,8 +539,7 @@ export function TaskForm(p: TaskFormProps) {
       return
     }
     if (scheduledCreate) {
-      if (p.onSaved) p.onSaved()
-      else router.push('/tasks?scheduled=1')
+      router.push('/tasks?scheduled=1')
     } else if (p.mode === 'create') router.push(`/tasks/${savedTaskId}`)
     router.refresh()
   }

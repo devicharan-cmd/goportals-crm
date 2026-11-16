@@ -323,17 +323,6 @@ export interface Ticket {
   updated_at: string
 }
 
-export interface TicketComment {
-  id: string
-  ticket_id: string
-  author_id: string | null
-  body: string
-  is_internal: boolean
-  created_at: string
-  /** When the other side read it — drives the sent / seen ticks (migration 070). */
-  seen_at: string | null
-}
-
 export interface TicketActivity extends ActivityEntry {
   ticket_id: string
 }

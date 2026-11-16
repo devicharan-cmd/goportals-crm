@@ -8,16 +8,13 @@ import { getTicketAttachments, resolveTicketId, ticketPageTitle } from '@/lib/qu
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader } from '@/components/ui/primitives'
-import { ClientReplyBadge } from '@/components/portal/ClientTicketStatus'
-import { CommentThread } from '@/components/tasks/CommentThread'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
 import { ActivityPanel } from '@/components/tasks/ActivityPanel'
-import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { formatDate, formatDateTime, splitTeamName, ticketCode } from '@/lib/utils'
-import type { AppRole, TicketActivity, TicketComment, Ticket, TicketStatus } from '@/types/database'
+import type { AppRole, TicketActivity, Ticket, TicketStatus } from '@/types/database'
 import { TicketOverviewCard } from '@/components/tickets/TicketOverviewCard'
 
 export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
@@ -33,25 +30,26 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
   if (!ticketId) notFound()
   const [
     { data },
-    { data: comments },
     { data: activity },
     names,
     attachments,
     { data: platforms },
     { data: staffDirectory },
     { data: assignmentSummary, error: assignmentSummaryError },
+    { data: canDeleteTicket, error: canDeleteTicketError },
   ] = await Promise.all([
     supabase.from('tickets').select('*, client:clients(company_name), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))').eq('id', ticketId).maybeSingle(),
-    supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
     supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
     getPortalNames(me),
     getTicketAttachments(ticketId),
     supabase.from('platforms').select('id, name'),
     supabase.rpc('staff_directory'),
     supabase.rpc('client_ticket_assignment_summary', { p_ticket_id: ticketId }),
+    supabase.rpc('client_can_delete_ticket', { p_ticket_id: ticketId }),
   ])
   if (!data) notFound()
   if (assignmentSummaryError) throw assignmentSummaryError
+  if (canDeleteTicketError) throw canDeleteTicketError
   const ticket = data as Ticket & {
     client: { company_name: string } | null
     ecommerce_account: { account_name: string; platform: { name: string } | null } | null
@@ -59,18 +57,7 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
   const summary = (assignmentSummary as { status: TicketStatus; staff_assignee_ids: string[] }[] | null)?.[0]
   if (!summary) throw new Error('Could not load ticket assignment details')
   const ticketStatus = summary.status
-  const ticketComments = (comments ?? []) as TicketComment[]
   const staff = (staffDirectory ?? []) as { id: string; full_name: string | null; avatar_url: string | null; role: AppRole }[]
-  const latestPublicMessage = ticketComments.slice().reverse().find(comment => !comment.is_internal)
-  const replyAuthor = latestPublicMessage?.author_id
-    ? staff.find(person => person.id === latestPublicMessage.author_id && ['manager', 'super_admin'].includes(person.role))
-    : undefined
-  // The client never reads a staff member's own name: getPortalNames() is the
-  // one place that decides what they are called, so the badge and the
-  // conversation say the same thing.
-  const replyAuthorName = replyAuthor && latestPublicMessage?.author_id
-    ? names[latestPublicMessage.author_id] ?? 'GoPortals team'
-    : null
   const handledBy = summary.staff_assignee_ids.flatMap(id => {
     const person = staff.find(entry => entry.id === id)
     if (!person) return []
@@ -92,6 +79,7 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
       }
     })
   const canEdit = ticketStatus === 'unassigned' && ticket.created_by === me.id
+  const canDelete = canDeleteTicket === true
   const workUnderWay = ticketStatus === 'assigned'
 
   return (
@@ -102,15 +90,17 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
           {canEdit
             ? <ButtonLink href={`/portal/tickets/${ticket.id}/edit`} variant="secondary" size="sm"><Pencil className="h-3.5 w-3.5" /> Edit</ButtonLink>
             : ticket.created_by === me.id && workUnderWay && (
-                <span className="inline-flex items-center gap-1 text-xs text-slate-400"><Lock className="h-3.5 w-3.5" /> Work has started — add a comment to request changes</span>
+                <span className="inline-flex items-center gap-1 text-xs text-slate-400"><Lock className="h-3.5 w-3.5" /> Work has started</span>
               )}
-          <DeleteButton
-            table="tickets"
-            id={ticket.id}
-            redirectTo="/portal/tickets"
-            label="Delete ticket"
-            description="You can delete your ticket at any status, including while it is being worked on or after it is closed. This permanently removes the ticket, its comments, attachment records, and activity history. Any linked team tasks remain but are detached from this ticket."
-          />
+          {canDelete && (
+            <DeleteButton
+              table="tickets"
+              id={ticket.id}
+              redirectTo="/portal/tickets"
+              label="Delete ticket"
+              description="You can delete your ticket only while it is unassigned and has no linked team tasks. This permanently removes the ticket, its attachment records, and activity history."
+            />
+          )}
         </div>
       </div>
 
@@ -127,31 +117,12 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
             description={ticket.description}
             attachments={attachments}
           >
-            {replyAuthorName && (
-              <div className="mt-4">
-                <ClientReplyBadge ticketId={ticket.id} authorName={replyAuthorName} />
-              </div>
-            )}
             {ticketStatus === 'closed' && (
               <div className="mt-4">
                 <ReopenTicketButton ticketId={ticket.id} />
               </div>
             )}
           </TicketOverviewCard>
-
-          <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
-            <CardHeader title="Conversation" description="Messages with the GoPortals team" />
-            <div className={CONVERSATION_CONTENT_CLASS}>
-              <CommentThread taskId={ticket.id} comments={ticketComments} names={names} meId={me.id} myRole="client"
-                              table="ticket_comments" idField="ticket_id"
-                              avatarUrls={Object.fromEntries(staff.map(person => [person.id, person.avatar_url]))}
-                              bounded
-                              replyNeeded={!!replyAuthorName}
-                              lockedNote={ticketStatus === 'closed'
-                                ? 'This ticket is closed. Request changes above to reopen its tasks.'
-                                : undefined} />
-            </div>
-          </Card>
 
           {/* Assignment is internal staffing. 068 keeps new rows off the
               client's trail; rows logged before it would read "GoPortals

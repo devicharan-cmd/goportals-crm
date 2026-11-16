@@ -49,7 +49,7 @@ type CommentAttachment = {
   downloadUrl: string
 }
 
-/** Task-comment actions. Ticket conversations intentionally have no per-message menu. */
+/** Task-comment actions. */
 function MessageMenu({ commentId, table, canDelete, mine, attachments }: {
   commentId: string
   table: 'task_comments'
@@ -186,7 +186,7 @@ function AttachmentMenu({ attachment, canDelete }: { attachment: CommentAttachme
 }
 
 export function CommentThread({
-  taskId, comments, names, roles, avatarUrls, meId, myRole, attachments = [], table = 'task_comments', idField = 'task_id', lockedNote, bounded = false, replyNeeded = false,
+  taskId, comments, names, roles, avatarUrls, meId, myRole, attachments = [], lockedNote, bounded = false,
 }: {
   taskId: string
   comments: CommentLike[]
@@ -196,34 +196,22 @@ export function CommentThread({
   attachments?: CommentAttachment[]
   meId: string
   myRole: AppRole
-  table?: 'task_comments' | 'ticket_comments'
-  idField?: 'task_id' | 'ticket_id'
   /** Shown instead of the composer when the thread takes no more replies. */
   lockedNote?: string
-  /** Keep ticket conversations a fixed height and scroll messages inside them. */
   bounded?: boolean
-  /** Whether this client reply is expected to clear the awaiting-client state. */
-  replyNeeded?: boolean
 }) {
   const router = useRouter()
   const runOnce = useSingleFlight()
-  const isStaff = myRole !== 'client'
-  const isTicketThread = table === 'ticket_comments'
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const readMarkedRef = useRef(new Set<string>())
-  const readInFlightRef = useRef(new Set<string>())
-  const canChoose = isTicketThread && (myRole === 'super_admin' || myRole === 'manager')
   const [body, setBody] = useState('')
-  const [isPublic, setIsPublic] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'public' | 'team'>('all')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [requestChanges, setRequestChanges] = useState(false)
 
   useEffect(() => {
-    if (isTicketThread || myRole !== 'client') return
+    if (myRole !== 'client') return
     function focusRequestComposer(event: Event) {
       const detail = (event as CustomEvent<{ taskId: string }>).detail
       if (detail?.taskId !== taskId) return
@@ -233,49 +221,16 @@ export function CommentThread({
     }
     window.addEventListener('task-request-changes', focusRequestComposer)
     return () => window.removeEventListener('task-request-changes', focusRequestComposer)
-  }, [isTicketThread, myRole, taskId])
+  }, [myRole, taskId])
 
   const willBePublic = myRole === 'client' ? true
-    : myRole === 'employee' || (isTicketThread && myRole === 'team_lead') ? false
-    : isPublic
+    : myRole !== 'employee'
 
   // Newest message in view on open and after sending, like any chat.
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [comments.length, filter])
-
-  // A message is read only when its bubble is actually visible in the
-  // conversation viewport. One reader must never clear another reader's badge.
-  useEffect(() => {
-    const root = scrollRef.current
-    if (!isTicketThread || !root) return
-    let cancelled = false
-    const observer = new IntersectionObserver(entries => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue
-        const commentId = (entry.target as HTMLElement).dataset.ticketCommentId
-        if (!commentId || readMarkedRef.current.has(commentId) || readInFlightRef.current.has(commentId)) continue
-        readInFlightRef.current.add(commentId)
-        void (async () => {
-          for (let attempt = 0; attempt < 3 && !cancelled; attempt += 1) {
-            const { error } = await createClient().rpc('mark_ticket_message_seen', { p_comment_id: commentId })
-            if (cancelled) break
-            if (!error) {
-              readMarkedRef.current.add(commentId)
-              break
-            }
-            if (attempt < 2) await new Promise(resolve => window.setTimeout(resolve, 750 * (attempt + 1)))
-          }
-          readInFlightRef.current.delete(commentId)
-        })()
-      }
-    }, { root, threshold: 0.2 })
-
-    root.querySelectorAll<HTMLElement>('[data-ticket-comment-id]').forEach(node => observer.observe(node))
-    return () => { cancelled = true; observer.disconnect() }
-  }, [comments, filter, isTicketThread])
-  const shown = comments.filter(c => filter === 'all' || (filter === 'public' ? !c.is_internal : c.is_internal))
+  }, [comments.length])
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault()
@@ -304,35 +259,25 @@ export function CommentThread({
       uploaded.push({ file, path })
     }
 
-    let sendError: string | null = null
-    if (table === 'ticket_comments') {
-      const { error: commentError } = await client.rpc('send_ticket_comment', {
-        p_ticket_id: taskId,
-        p_body: body.trim(),
-        p_is_internal: !willBePublic,
-      })
-      if (commentError) sendError = errorMessage(commentError)
-    } else {
-      const attachmentData = uploaded.map(({ file, path }) => ({
-        storage_path: path,
-        file_name: file.name,
-        mime_type: file.type || null,
-        size_bytes: file.size,
-      }))
-      const { error: commentError } = requestChanges && myRole === 'client'
-        ? await client.rpc('client_request_task_changes', {
-            p_task_id: taskId,
-            p_feedback: body.trim(),
-            p_attachments: attachmentData,
-          })
-        : await client.rpc('send_task_comment', {
-            p_task_id: taskId,
-            p_body: body.trim(),
-            p_is_internal: !willBePublic,
-            p_attachments: attachmentData,
-          })
-      if (commentError) sendError = errorMessage(commentError)
-    }
+    const attachmentData = uploaded.map(({ file, path }) => ({
+      storage_path: path,
+      file_name: file.name,
+      mime_type: file.type || null,
+      size_bytes: file.size,
+    }))
+    const { error: commentError } = requestChanges && myRole === 'client'
+      ? await client.rpc('client_request_task_changes', {
+          p_task_id: taskId,
+          p_feedback: body.trim(),
+          p_attachments: attachmentData,
+        })
+      : await client.rpc('send_task_comment', {
+          p_task_id: taskId,
+          p_body: body.trim(),
+          p_is_internal: !willBePublic,
+          p_attachments: attachmentData,
+        })
+    const sendError = commentError ? errorMessage(commentError) : null
 
     if (sendError) {
       const { error: cleanupError } = uploaded.length
@@ -348,41 +293,23 @@ export function CommentThread({
     setBody('')
     setPendingFiles([])
     setRequestChanges(false)
-    if (table === 'ticket_comments' && myRole === 'client' && replyNeeded) {
-      window.dispatchEvent(new CustomEvent('ticket-client-replied', { detail: { ticketId: taskId } }))
-    }
     router.refresh()
   }
 
   return (
     <div className={bounded ? 'flex h-full min-h-0 flex-col' : undefined}>
-      {isStaff && isTicketThread && comments.length > 0 && (
-        <div className="mb-4 inline-flex rounded-lg bg-slate-100 p-1 text-xs font-medium">
-          {([
-            ['all', `All (${comments.length})`],
-            ['public', `Public (${comments.filter(c => !c.is_internal).length})`],
-            ['team', `Team only (${comments.filter(c => c.is_internal).length})`],
-          ] as const).map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setFilter(k)}
-                    className={cn('rounded-md px-2.5 py-1', filter === k ? 'bg-white text-[#034C68] shadow-sm' : 'text-slate-500 hover:text-slate-800')}>
-              {l}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {shown.length === 0 ? (
+      {comments.length === 0 ? (
         <p className={cn('flex items-center gap-2 py-6 text-sm text-slate-400', bounded && 'min-h-0 flex-1 justify-center')}>
-          <MessageSquare className="h-4 w-4" /> {comments.length ? 'No comments in this view.' : 'No messages yet — say hello.'}
+          <MessageSquare className="h-4 w-4" /> No messages yet — say hello.
         </p>
       ) : (
         <div ref={scrollRef} className={cn('space-y-1 overflow-y-auto overscroll-contain scroll-smooth pr-1', bounded ? 'min-h-0 flex-1' : 'max-h-[26rem]')}>
-          {shown.map((c, i) => {
+          {comments.map((c, i) => {
             const author = c.author_id ?? ''
             const role = roles?.[author]
             const [senderName, senderQualifier] = splitTeamName(names[author] ?? '')
             const mine = author === meId
-            const prev = shown[i - 1]
+            const prev = comments[i - 1]
             const newDay = !prev || dayLabel(prev.created_at) !== dayLabel(c.created_at)
             const newBlock = newDay || prev?.author_id !== c.author_id || prev?.is_internal !== c.is_internal
             return (
@@ -408,8 +335,7 @@ export function CommentThread({
                         {role && <span className={ROLE_STYLES[role].text}>{ROLE_LABELS[role]}</span>}
                       </span>
                     )}
-                    <div data-ticket-comment-id={isTicketThread && !mine && !c.is_internal ? c.id : undefined}
-                      className={cn('rounded-2xl px-3.5 py-2 text-sm shadow-sm ring-1 ring-inset transition-shadow hover:shadow-md',
+                    <div className={cn('rounded-2xl px-3.5 py-2 text-sm shadow-sm ring-1 ring-inset transition-shadow hover:shadow-md',
                       c.is_internal
                         ? 'bg-amber-50 text-amber-900 ring-amber-200'
                         : mine
@@ -451,23 +377,18 @@ export function CommentThread({
                                 <span className="min-w-0 truncate text-xs font-medium">{attachment.file_name}</span>
                               </a>
                             )}
-                            {!isTicketThread && (
-                              <AttachmentMenu attachment={attachment} canDelete={attachment.uploaded_by === meId} />
-                            )}
+                            <AttachmentMenu attachment={attachment} canDelete={attachment.uploaded_by === meId} />
                           </div>
                         )
                       })}
                     </div>
                     <span className={cn('mt-0.5 flex items-center gap-1.5 px-1 text-[11px] text-slate-400', mine && 'flex-row-reverse')}>
                       <span suppressHydrationWarning>{clockTime(c.created_at)}</span>
-                      {!isTicketThread && mine && (
+                      {mine && (
                         <MessageMenu commentId={c.id} table="task_comments"
                                      mine={mine} canDelete={mine}
                                      attachments={attachments.filter(attachment => attachment.comment_id === c.id)} />
                       )}
-                      {isStaff && isTicketThread && (c.is_internal
-                        ? <span className="inline-flex items-center gap-0.5 font-medium text-amber-700"><Lock className="h-2.5 w-2.5" /> Team only</span>
-                        : <span className="inline-flex items-center gap-0.5 font-medium text-[#045E80]"><Globe className="h-2.5 w-2.5" /> Public</span>)}
                     </span>
                   </div>
                 </div>
@@ -493,7 +414,7 @@ export function CommentThread({
           </div>
         )}
         {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
-        {!isTicketThread && pendingFiles.length > 0 && (
+        {pendingFiles.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
             {pendingFiles.map((file, index) => (
               <span key={`${file.name}-${file.lastModified}-${index}`} className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs text-slate-700">
@@ -510,19 +431,17 @@ export function CommentThread({
         {/* Composer sits in one rounded bar with the send button, like a chat. */}
         <div className={cn('flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm transition focus-within:border-[#63A9C4] focus-within:ring-2 focus-within:ring-[#0A6F94]/20',
           !willBePublic && 'border-amber-200 bg-amber-50/60 focus-within:border-amber-300 focus-within:ring-amber-500/20')}>
-          {!isTicketThread && (
-            <AttachmentPicker
-              disabled={saving}
-              onFilesSelected={(accepted, rejected) => {
-                if (rejected.length) {
-                  setError(`GIF, audio, and unsupported file types cannot be attached: ${rejected.map(file => file.name).join(', ')}`)
-                } else {
-                  setError('')
-                }
-                if (accepted.length) setPendingFiles(files => [...files, ...accepted])
-              }}
-            />
-          )}
+          <AttachmentPicker
+            disabled={saving}
+            onFilesSelected={(accepted, rejected) => {
+              if (rejected.length) {
+                setError(`GIF, audio, and unsupported file types cannot be attached: ${rejected.map(file => file.name).join(', ')}`)
+              } else {
+                setError('')
+              }
+              if (accepted.length) setPendingFiles(files => [...files, ...accepted])
+            }}
+          />
           <textarea
             ref={textareaRef}
             rows={1}
@@ -538,9 +457,7 @@ export function CommentThread({
             }}
             placeholder={
               myRole === 'client' ? 'Write a message to the GoPortals team…'
-              : !isTicketThread ? 'Write a note for the team…'
-              : willBePublic ? 'Write a reply the client will see…'
-              : 'Write a note for the team (client won’t see this)…'
+              : 'Write a note for the team…'
             }
             className={cn('max-h-40 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-2.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0',
               body ? 'overflow-y-auto' : 'overflow-hidden')}
@@ -552,26 +469,11 @@ export function CommentThread({
           </Button>
         </div>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          {canChoose ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-lg bg-slate-100 p-1 text-xs font-medium" role="radiogroup" aria-label="Who can see this comment">
-                <button type="button" role="radio" aria-checked={!isPublic} onClick={() => setIsPublic(false)}
-                        className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1', !isPublic ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500')}>
-                  <Lock className="h-3 w-3" /> Team only
-                </button>
-                <button type="button" role="radio" aria-checked={isPublic} onClick={() => setIsPublic(true)}
-                        className={cn('inline-flex items-center gap-1 rounded-md px-2.5 py-1', isPublic ? 'bg-white text-[#034C68] shadow-sm' : 'text-slate-500')}>
-                  <Globe className="h-3 w-3" /> Public (client can see)
-                </button>
-              </div>
-            </div>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-              {myRole === 'employee'
-                ? <><Lock className="h-3 w-3 text-amber-600" /> Visible to the GoPortals team only</>
-                : <><Globe className="h-3 w-3" /> Visible to the GoPortals team</>}
-            </span>
-          )}
+          <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+            {myRole === 'employee'
+              ? <><Lock className="h-3 w-3 text-amber-600" /> Visible to the GoPortals team only</>
+              : <><Globe className="h-3 w-3" /> Visible to the GoPortals team</>}
+          </span>
           <span className="text-[11px] text-slate-400">Enter to send · Shift + Enter for a new line</span>
         </div>
       </form>

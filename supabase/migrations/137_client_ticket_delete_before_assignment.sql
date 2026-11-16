@@ -25,7 +25,13 @@ drop policy if exists tickets_delete on public.tickets;
 create policy tickets_delete on public.tickets
   for delete to authenticated
   using (
-    is_super_admin()
-    or auth_role() = 'admin'::app_role
-    or public.client_can_delete_ticket(id)
+    -- Hard block for ALL roles: ticket must still be 'new' with zero tasks
+    status = 'new'::public.ticket_status
+    and not exists (select 1 from public.tasks t where t.ticket_id = id)
+    -- AND the caller must be authorized
+    and (
+      is_super_admin()
+      or auth_role()::text = 'admin'
+      or public.client_can_delete_ticket(id)
+    )
   );

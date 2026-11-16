@@ -6,16 +6,15 @@ import { requireRole } from '@/lib/auth'
 import { assigneeOptionsFor, getStaffLookups, getTicketAttachments, nameMap, resolveTicketId, TASK_LIST_SELECT, ticketPageTitle } from '@/lib/queries'
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { DeleteButton } from '@/components/shared/DeleteButton'
-import { CommentThread } from '@/components/tasks/CommentThread'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { Alert, Avatar, Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
-import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
 import { TicketProperties } from '@/components/tickets/TicketProperties'
+import { CloseTicketButton } from '@/components/tickets/CloseTicketButton'
 import { ActivityPanel } from '@/components/tasks/ActivityPanel'
 import { formatDate, formatDateTime, ticketCode } from '@/lib/utils'
-import type { AppRole, TaskListItem, Ticket, TicketActivity, TicketComment } from '@/types/database'
+import type { AppRole, TaskListItem, Ticket, TicketActivity } from '@/types/database'
 import { ROLE_LABELS } from '@/lib/constants'
 import { TicketOverviewCard } from '@/components/tickets/TicketOverviewCard'
 
@@ -44,7 +43,6 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
     : Promise.resolve({ data: null, error: null })
   const [relatedData, clientImageResult] = await Promise.all([
     Promise.all([
-      supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at'),
       supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
       getStaffLookups(),
       getTicketAttachments(ticketId),
@@ -56,7 +54,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
   const { data: clientImage, error: clientImageError } = clientImageResult
   if (clientImageError) throw clientImageError
 
-  const [{ data: comments }, { data: activity }, lookups, attachments, { data: linkedTasks }, { data: workerRows, error: workersError }] = relatedData
+  const [{ data: activity }, lookups, attachments, { data: linkedTasks }, { data: workerRows, error: workersError }] = relatedData
   if (workersError) throw new Error(`Could not load ticket workers: ${workersError.message}`)
   const ticket = data as Ticket & {
     client: { id: string; company_name: string; contact_name: string | null; owner_id: string | null; company_profile_image_path: string | null } | null
@@ -88,12 +86,13 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
     ? ticket.client?.contact_name?.trim() || createdByName
     : createdByName
   const assignees = assigneeOptionsFor(me, lookups)
+  const canDelete = (me.role === 'super_admin' || me.role === 'manager') && ticket.status === 'unassigned' && tasksFromTicket.length === 0
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
         <Link href="/tickets" className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tickets</Link>
         <div className="flex items-center gap-2">
-          {me.role === 'super_admin' && <DeleteButton table="tickets" id={ticket.id} redirectTo="/tickets" label="Delete ticket" variant="danger" />}
+          {canDelete && <DeleteButton table="tickets" id={ticket.id} redirectTo="/tickets" label="Delete ticket" variant="danger" />}
         </div>
       </div>
 
@@ -132,21 +131,6 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
             )}
           </Card>
 
-          <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
-            <CardHeader title={`Discussion (${(comments ?? []).length})`}
-                        description={['super_admin', 'manager'].includes(me.role) ? 'Choose "Team only" or "Public" for each comment. Client messages are always public.' : 'Your comments are visible to the team only.'} />
-            <div className={CONVERSATION_CONTENT_CLASS}>
-              <CommentThread taskId={ticket.id} comments={(comments ?? []) as TicketComment[]} names={names}
-                             roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))}
-                             avatarUrls={Object.fromEntries(lookups.people.map(p => [p.id, p.avatar_url]))}
-                             meId={me.id} myRole={me.role}
-                             table="ticket_comments" idField="ticket_id" bounded
-                             lockedNote={ticket.status === 'closed'
-                               ? 'This ticket is closed. Messages can no longer be sent.'
-                               : undefined} />
-            </div>
-          </Card>
-
           <ActivityPanel activity={(activity ?? []) as TicketActivity[]} names={names} kind="ticket" />
         </div>
 
@@ -180,10 +164,18 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
                   : '—'],
                 ['Raised by', raisedByName],
                 ['Created', formatDateTime(ticket.created_at)],
-                ...(ticket.closed_at ? [['Closed', formatDate(ticket.closed_at)] as [string, React.ReactNode]] : []),
+                ...(ticket.status === 'closed' ? [['Closed', formatDateTime(ticket.closed_at ?? ticket.updated_at)] as [string, React.ReactNode]] : []),
               ].map(([k, v]) => (
                 <div key={k as string} className="flex justify-between gap-3 px-5 py-2.5"><dt className="text-slate-500">{k}</dt><dd className="text-right text-slate-800">{v}</dd></div>
               ))}
+              {ticket.status !== 'closed' && ['super_admin', 'manager'].includes(me.role) && (
+                <div className="flex items-center justify-between gap-3 px-5 py-2.5">
+                  <dt className="text-slate-500">Action</dt>
+                  <dd className="text-right">
+                    <CloseTicketButton ticketId={ticket.id} ticketCode={ticketCode(ticket.ticket_number)} />
+                  </dd>
+                </div>
+              )}
             </dl>
           </Card>
           <Card>

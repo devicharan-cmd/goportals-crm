@@ -17,7 +17,7 @@ const TABS = [
 
 export default async function PortalTicketsPage(props: { searchParams: Promise<{ status?: string }> }) {
   const searchParams = await props.searchParams
-  const me = await requireClient()
+  await requireClient()
   const supabase = await createClient()
   const tab = TABS.find(item => item.key === searchParams.status)?.key ?? 'open'
 
@@ -27,16 +27,13 @@ export default async function PortalTicketsPage(props: { searchParams: Promise<{
     .range(0, TICKET_PAGE_SIZE)
   if (tab === 'open') query = query.neq('status', 'closed')
   if (tab === 'done') query = query.eq('status', 'closed')
-  const [ticketResult, openCountResult, closedCountResult, unseenResult] = await Promise.all([
+  const [ticketResult, openCountResult, closedCountResult] = await Promise.all([
     query,
     supabase.from('tickets').select('id', { count: 'exact', head: true }).neq('status', 'closed'),
     supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('status', 'closed'),
-    // Counted for this reader alone: somebody else opening a ticket must not
-    // clear the badge on everyone's list.
-    supabase.rpc('my_unread_ticket_messages'),
   ])
   if (ticketResult.error) throw ticketResult.error
-  for (const result of [openCountResult, closedCountResult, unseenResult]) {
+  for (const result of [openCountResult, closedCountResult]) {
     if (result.error) throw result.error
   }
   const hasMoreTickets = (ticketResult.data?.length ?? 0) > TICKET_PAGE_SIZE
@@ -49,12 +46,6 @@ export default async function PortalTicketsPage(props: { searchParams: Promise<{
     open: openCountResult.count ?? 0,
     done: closedCountResult.count ?? 0,
   }
-  const unseen = unseenResult.data
-  let unreadByTicket: Record<string, number> = {}
-  if (unseen) {
-    unreadByTicket = Object.fromEntries(((unseen as { ticket_id: string; unread: number }[]).map(r => [r.ticket_id, r.unread])))
-  }
-
   return (
     <TicketSearchProvider
       initialTickets={tickets}
@@ -62,8 +53,6 @@ export default async function PortalTicketsPage(props: { searchParams: Promise<{
       initialTicketCursor={initialTicketCursor}
       audience="client"
       status={tab}
-      unreadByTicket={unreadByTicket}
-      realtimeUserId={me.id}
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="grid h-9 min-w-0 grid-cols-2 gap-px rounded-xl border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)]">

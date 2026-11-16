@@ -38,16 +38,16 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         onClick={e => e.stopPropagation()}
-        className={cn('max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] sm:rounded-2xl',
+        className={cn('max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white text-left [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] sm:rounded-2xl',
           size === 'md' ? 'sm:max-w-md' : size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-5xl',
           dialogClassName)}
       >
-        <div className={cn('flex flex-shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-6 py-4', headerClassName)}>
-          <div className="flex min-w-0 items-start gap-4">
+        <div className={cn('flex flex-shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-6 py-4 text-left', headerClassName)}>
+          <div className="flex min-w-0 items-start gap-4 text-left">
             {headerIcon}
-            <div className="min-w-0">
-              <h2 className={cn('text-base font-semibold', titleClassName)}>{title}</h2>
-              {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
+            <div className="min-w-0 text-left">
+              <h2 className={cn('text-base font-semibold text-left', titleClassName)}>{title}</h2>
+              {description && <p className="mt-0.5 text-sm text-slate-500 text-left">{description}</p>}
             </div>
           </div>
           <button
@@ -58,7 +58,7 @@ export function Modal({
             <X className={cn('h-5 w-5', closeIconClassName)} />
           </button>
         </div>
-        <div className={cn('px-6 py-5', bodyClassName)}>{children}</div>
+        <div className={cn('px-6 py-5 text-left', bodyClassName)}>{children}</div>
       </div>
     </div>
   )

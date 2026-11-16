@@ -8,7 +8,7 @@ import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-c
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { TaskTable } from '@/components/tasks/TaskTable'
-import { Avatar, Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
+import { Alert, Avatar, Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
@@ -24,8 +24,8 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
   return { title: await ticketPageTitle(params.id) }
 }
 
-export default async function StaffTicketDetailPage(props: { params: Promise<{ id: string }> }) {
-  const params = await props.params
+export default async function StaffTicketDetailPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ scheduled?: string }> }) {
+  const [params, searchParams] = await Promise.all([props.params, props.searchParams])
   const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
   const ticketId = await resolveTicketId(params.id)
@@ -122,6 +122,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
             attachments={attachments}
           />
 
+          {searchParams.scheduled === '1' && <Alert tone="success">Task schedule saved. Scheduled tasks will appear here after their first assignment runs.</Alert>}
           <Card className="overflow-hidden">
             <CardHeader title={`Tasks from this ticket (${tasksFromTicket.length})`} />
             {tasksFromTicket.length > 0 ? (

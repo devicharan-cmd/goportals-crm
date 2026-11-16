@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, LockKeyhole, X } from 'lucide-react'
+import { AlertTriangle, CalendarClock, LockKeyhole, X } from 'lucide-react'
 import {
   DndContext, DragOverlay, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors,
   type DragEndEvent, type DragStartEvent,
@@ -42,6 +42,7 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
           <span className={cn('inline-flex shrink-0 items-center rounded-md px-1.5 py-0 text-[10px] font-bold leading-4 ring-1 ring-inset', PRIORITY_STYLES[task.priority])}>
             {task.priority}
           </span>
+          {task.is_scheduled && <span title="Scheduled task" className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-indigo-700 ring-1 ring-inset ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3 w-3" />Scheduled</span>}
         </span>
         {task.platform?.name && (
           <span className="min-w-0 flex-1 overflow-hidden text-right text-[11px] text-slate-400">

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ClipboardList, LockKeyhole } from 'lucide-react'
+import { CalendarClock, ClipboardList, LockKeyhole } from 'lucide-react'
 import { Avatar, EmptyState } from '@/components/ui/primitives'
 import { dueState, formatDate, taskCode } from '@/lib/utils'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
@@ -122,6 +122,7 @@ export function TaskTable({
                           <LockKeyhole aria-hidden="true" className="h-3 w-3" /> Private
                         </span>
                       )}
+                      {t.is_scheduled && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3 w-3" />Scheduled</span>}
                     </span>
                     <span className={`${showAssignedBy ? '' : 'col-start-2'} flex min-w-0 items-center gap-1 truncate text-xs text-slate-400`}>
                       {t.department?.name}
@@ -223,6 +224,7 @@ export function TaskTable({
                     <LockKeyhole aria-hidden="true" className="h-3 w-3" /> Private
                   </span>
                 )}
+                {t.is_scheduled && <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3 w-3" />Scheduled</span>}
                 {showClient && t.client && <span className="text-xs text-slate-500">{t.client.company_name}</span>}
                 <TaskDueDisplay task={t} className="ml-auto" />
               </div>

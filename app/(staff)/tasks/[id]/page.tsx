@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Clock3, FileText, Paperclip } from 'lucide-react'
+import { ArrowLeft, CalendarClock, Clock3, FileText, Paperclip } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskPageTitle } from '@/lib/queries'
@@ -19,6 +19,7 @@ import { ClaimButton } from '@/components/tasks/ClaimButton'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { AssignButton } from '@/components/tasks/AssignButton'
 import { TaskEditModal } from '@/components/tasks/TaskEditModal'
+import { TaskScheduleControl } from '@/components/tasks/TaskScheduleControl'
 import { ROLE_LABELS, TYPE_LABELS } from '@/lib/constants'
 import { formatDate, formatRelative, taskCode, ticketCode } from '@/lib/utils'
 import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TimeLog } from '@/types/database'
@@ -35,7 +36,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const taskId = await resolveTaskId(params.id)
   if (!taskId) notFound()
 
-  const [{ data }, { data: comments }, { data: activity }, { data: logs }, { data: checklist, error: checklistError }, lookups, { data: taskAttachments, error: attachmentsError }] = await Promise.all([
+  const [{ data }, { data: comments }, { data: activity }, { data: logs }, { data: checklist, error: checklistError }, lookups, { data: taskAttachments, error: attachmentsError }, { data: taskSchedule, error: scheduleError }] = await Promise.all([
     supabase.from('tasks').select(`${TASK_LIST_SELECT}, service:services(id, name), ticket:tickets(id, ticket_number, subject)`).eq('id', taskId).maybeSingle(),
     supabase.from('task_comments').select('*').eq('task_id', taskId).order('created_at'),
     supabase.from('task_activity').select('*').eq('task_id', taskId).order('created_at', { ascending: false }),
@@ -45,9 +46,13 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     supabase.from('task_attachments')
       .select('id, comment_id, uploaded_by, storage_path, file_name, mime_type, size_bytes')
       .eq('task_id', taskId),
+    supabase.from('task_schedules')
+      .select('enabled, repeat_type, interval_days')
+      .eq('task_id', taskId).maybeSingle(),
   ])
   if (checklistError) throw new Error(checklistError.message)
   if (attachmentsError) throw new Error(attachmentsError.message)
+  if (scheduleError) throw new Error(scheduleError.message)
   if (!data) notFound()
   const task = data as TaskListItem & {
     service: { id: string; name: string } | null
@@ -117,6 +122,13 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     ? searchParams.scope === 'all' || assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext)
     : assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext))
   const tasksHref = scopedTasksContext ? `/tasks?scope=${searchParams.scope}` : '/tasks'
+  const scheduleCanManage = task.status !== 'completed' && task.status !== 'cancelled'
+    && (me.role === 'super_admin' || task.assignee_id === me.id || task.created_by === me.id)
+  const scheduleRepeatLabel = taskSchedule?.repeat_type === 'weekly'
+    ? 'For a week'
+    : taskSchedule?.repeat_type === 'custom'
+      ? `Every ${taskSchedule.interval_days} days`
+      : 'Daily'
 
   const details: [string, React.ReactNode][] = [
     ['Task ID', <span key="id" className="font-mono font-semibold text-[#045E80]">{taskCode(task.task_number)}</span>],
@@ -164,6 +176,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0 space-y-6">
+          {task.is_scheduled && taskSchedule && <TaskScheduleControl taskId={task.id} enabled={taskSchedule.enabled} repeatLabel={scheduleRepeatLabel} canManage={scheduleCanManage} />}
           <Card className="task-overview-card p-6">
             <div className="border-b border-[#E2E8F0] pb-4">
               <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -172,6 +185,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                 <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={TASK_STATUS_STYLES[task.status]} dotClassName={TASK_STATUS_DOT[task.status]} />
                 <PriorityBadge priority={task.priority} />
                 {task.visibility === 'private' && <Badge className="bg-violet-50 text-violet-700 ring-violet-200">Private · Internal only</Badge>}
+                {task.is_scheduled && <Badge className="gap-1 bg-indigo-50 text-indigo-700 ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3.5 w-3.5" />Scheduled</Badge>}
                 {task.source === 'client' && <Badge className="bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]">Client request</Badge>}
                 <DueDatePill date={task.due_date} status={task.status} className="ml-auto" />
               </div>

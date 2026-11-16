@@ -394,6 +394,13 @@ export function TaskForm(p: TaskFormProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const scheduledCreate = p.mode === 'create' && scheduleEnabled
+    const schedulerMissing = scheduledCreate && (
+      !scheduleRepeat
+      || (scheduleRepeat === 'custom' && (!scheduleCustomDays || Number(scheduleCustomDays) < 2))
+      || !scheduleTime
+      || !scheduleStartDate
+    )
     const titleMissing = !form.title.trim()
     setTitleError(titleMissing ? 'Enter a task title.' : '')
     const assigneeMissing = p.mode === 'create' && !form.assignee_id
@@ -401,7 +408,7 @@ export function TaskForm(p: TaskFormProps) {
     const ticketMissing = !form.ticket_id
     setTicketError(ticketMissing ? 'Select a ticket or choose No ticket (standalone).' : '')
     const visibilityMissing = standaloneSelected && !form.visibility
-    const deadlineMissing = deadlineRequired && !form.due_date
+    const deadlineMissing = deadlineRequired && !scheduledCreate && !form.due_date
     setDeadlineError(deadlineMissing ? 'Please select a deadline before saving the task.' : '')
     const clientMissing = ((standaloneSelected && form.visibility === 'public') || ticketLinked) && !form.client_id
     if (clientMissing) {
@@ -412,8 +419,10 @@ export function TaskForm(p: TaskFormProps) {
     } else {
       setClientError('')
     }
-    setError(visibilityMissing ? 'Choose Public or Private task visibility.' : '')
-    if (titleMissing || assigneeMissing || clientMissing || deadlineMissing || ticketMissing || visibilityMissing) {
+    setError(schedulerMissing
+      ? 'Choose a repeat schedule, time, and start date to enable Task Scheduler.'
+      : visibilityMissing ? 'Choose Public or Private task visibility.' : '')
+    if (titleMissing || assigneeMissing || clientMissing || deadlineMissing || ticketMissing || visibilityMissing || schedulerMissing) {
       if (titleMissing) document.getElementById(p.modalLayout ? 'edit-task-title' : 'create-task-title')?.focus()
       else if (ticketMissing) document.querySelector<HTMLButtonElement>('[aria-label="Ticket"]')?.focus()
       else if (clientMissing) document.querySelector<HTMLButtonElement>('[aria-label="Client"]')?.focus()
@@ -442,41 +451,81 @@ export function TaskForm(p: TaskFormProps) {
     }
 
     const supabase = createClient()
-    const { data, error } = p.mode === 'create'
-      ? await supabase.from('tasks').insert(payload).select('id').single()
-      : await supabase.from('tasks').update(payload).eq('id', t!.id).select('id').single()
-
-    if (error) {
-      setError(errorMessage(error))
-      setSaving(false)
-      return
+    const taskId = scheduledCreate ? crypto.randomUUID() : undefined
+    let scheduleId: string | null = null
+    let savedTaskId: string
+    if (scheduledCreate) {
+      const { data: createdSchedule, error: scheduleError } = await supabase.rpc('create_task_schedule', {
+        p_task_id: taskId,
+        p_task_payload: { ...payload, due_date: null, deadline_type: null },
+        p_repeat_type: scheduleRepeat,
+        p_interval_days: scheduleRepeat === 'custom' ? Number(scheduleCustomDays) : null,
+        p_start_date: scheduleStartDate,
+        p_schedule_time: scheduleTime,
+      })
+      if (scheduleError || !createdSchedule) {
+        setError(errorMessage(scheduleError ?? new Error('Could not save the task schedule.')))
+        setSaving(false)
+        return
+      }
+      scheduleId = createdSchedule as string
+      savedTaskId = taskId!
+    } else {
+      const { data, error } = p.mode === 'create'
+        ? await supabase.from('tasks').insert(payload).select('id').single()
+        : await supabase.from('tasks').update(payload).eq('id', t!.id).select('id').single()
+      if (error || !data) {
+        setError(errorMessage(error ?? new Error('Could not save the task.')))
+        setSaving(false)
+        return
+      }
+      savedTaskId = data.id
     }
     if (files.length > 0) {
       let uploadedCount = 0
+      const uploadedPaths: string[] = []
       for (const file of files) {
         const safeName = file.name.replace(/[\\/]/g, '_')
-        const path = `${data.id}/${crypto.randomUUID()}-${safeName}`
+        const path = `${savedTaskId}/${crypto.randomUUID()}-${safeName}`
         const { error: storageError } = await supabase.storage.from('task-files').upload(path, file)
         if (storageError) {
-          setFiles(files.slice(uploadedCount))
-          setError(`Task saved, but "${file.name}" could not be uploaded: ${errorMessage(storageError)}`)
+          if (scheduledCreate) {
+            if (uploadedPaths.length) await supabase.storage.from('task-files').remove(uploadedPaths)
+            await supabase.rpc('discard_task_schedule_setup', { p_schedule_id: scheduleId })
+          }
+          setFiles(scheduledCreate ? files : files.slice(uploadedCount))
+          setError(`${scheduledCreate ? 'Schedule saved, but' : 'Task saved, but'} "${file.name}" could not be uploaded: ${errorMessage(storageError)}`)
           setSaving(false)
           return
         }
-        const { error: attachmentError } = await supabase.from('task_attachments').insert({
-          task_id: data.id,
-          uploaded_by: p.meId,
-          storage_path: path,
-          file_name: file.name,
-          mime_type: file.type || null,
-          size_bytes: file.size,
-        })
+        uploadedPaths.push(path)
+        const { error: attachmentError } = scheduledCreate
+          ? await supabase.from('task_schedule_attachments').insert({
+              schedule_id: scheduleId,
+              uploaded_by: p.meId,
+              storage_path: path,
+              file_name: file.name,
+              mime_type: file.type || null,
+              size_bytes: file.size,
+            })
+          : await supabase.from('task_attachments').insert({
+              task_id: savedTaskId,
+              uploaded_by: p.meId,
+              storage_path: path,
+              file_name: file.name,
+              mime_type: file.type || null,
+              size_bytes: file.size,
+            })
         if (attachmentError) {
           const { error: cleanupError } = await supabase.storage.from('task-files').remove([path])
-          setFiles(files.slice(uploadedCount))
+          if (scheduledCreate) {
+            if (uploadedPaths.length > 1) await supabase.storage.from('task-files').remove(uploadedPaths.slice(0, -1))
+            await supabase.rpc('discard_task_schedule_setup', { p_schedule_id: scheduleId })
+          }
+          setFiles(scheduledCreate ? files : files.slice(uploadedCount))
           setError(cleanupError
-            ? `Task saved, but "${file.name}" could not be attached: ${errorMessage(attachmentError)} The uploaded file could not be cleaned up.`
-            : `Task saved, but "${file.name}" could not be attached: ${errorMessage(attachmentError)}`)
+            ? `${scheduledCreate ? 'Schedule saved' : 'Task saved'}, but "${file.name}" could not be attached: ${errorMessage(attachmentError)} The uploaded file could not be cleaned up.`
+            : `${scheduledCreate ? 'Schedule saved, but' : 'Task saved, but'} "${file.name}" could not be attached: ${errorMessage(attachmentError)}`)
           setSaving(false)
           return
         }
@@ -489,7 +538,10 @@ export function TaskForm(p: TaskFormProps) {
       router.refresh()
       return
     }
-    router.push(`/tasks/${data.id}`)
+    if (scheduledCreate) {
+      if (p.onSaved) p.onSaved()
+      else router.push('/tasks?scheduled=1')
+    } else if (p.mode === 'create') router.push(`/tasks/${savedTaskId}`)
     router.refresh()
   }
 
@@ -779,7 +831,7 @@ export function TaskForm(p: TaskFormProps) {
             </div>
           </section>
 
-          <section className="border-t border-slate-200 pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0" aria-labelledby="task-scheduler-label">
+          {p.mode === 'create' && <section className="border-t border-slate-200 pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0" aria-labelledby="task-scheduler-label">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
                 <CalendarDays aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-[#045E80]" />
@@ -1101,21 +1153,21 @@ export function TaskForm(p: TaskFormProps) {
                 )}
               </div>
             </div>
-          </section>
+          </section>}
         </div>
       )}
 
-      {p.modalLayout && <TaskSectionHeader section="deadline" required={deadlineRequired} />}
+      {p.modalLayout && <TaskSectionHeader section="deadline" required={deadlineRequired && !(p.mode === 'create' && scheduleEnabled)} />}
       <div>
         {!p.modalLayout && (
           <label className="form-field-label">
-            Deadline {deadlineRequired && <span className="text-red-500">*</span>}
+            Deadline {deadlineRequired && !(p.mode === 'create' && scheduleEnabled) && <span className="text-red-500">*</span>}
           </label>
         )}
         {!canEditAssignment && <p className="mb-1 text-xs text-slate-500">Only managers can change the due date.</p>}
         <div className="flex flex-wrap items-center gap-2">
           {DEADLINE_OPTIONS.map(d => (
-            <button key={d.value} type="button" disabled={!canEditAssignment} onClick={() => pickDeadline(d.value)}
+            <button key={d.value} type="button" disabled={!canEditAssignment || (p.mode === 'create' && scheduleEnabled)} onClick={() => pickDeadline(d.value)}
                     className={cn('rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition disabled:cursor-not-allowed disabled:opacity-50',
                       p.modalLayout && 'inline-flex h-7 items-center rounded-full px-3 text-xs',
                       form.deadline_type === d.value ? 'bg-[#045E80] text-white ring-[#045E80]' : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50')}>
@@ -1123,12 +1175,12 @@ export function TaskForm(p: TaskFormProps) {
             </button>
           ))}
           <input id="task-deadline-date" type="date"
-                 aria-label={`Deadline${deadlineRequired ? ' (required)' : ''}`}
-                 aria-required={deadlineRequired} aria-invalid={!!deadlineError}
+                 aria-label={`Deadline${deadlineRequired && !(p.mode === 'create' && scheduleEnabled) ? ' (required)' : ''}`}
+                 aria-required={deadlineRequired && !(p.mode === 'create' && scheduleEnabled)} aria-invalid={!!deadlineError}
                  aria-describedby={deadlineError ? 'task-deadline-error' : undefined}
                  className={cn('form-field task-deadline-date h-8 py-1', deadlineError && 'border-red-400 focus:border-red-500',
                    p.modalLayout && 'h-7 rounded-full px-3 py-1 text-xs leading-4')}
-                 value={form.due_date} disabled={!canEditAssignment}
+                 value={form.due_date} disabled={!canEditAssignment || (p.mode === 'create' && scheduleEnabled)}
                  onChange={e => {
                    setDeadlineError('')
                    setForm(f => ({ ...f, due_date: e.target.value, deadline_type: '' }))

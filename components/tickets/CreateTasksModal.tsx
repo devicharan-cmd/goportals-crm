@@ -3,7 +3,7 @@
 import { createPortal } from 'react-dom'
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, Flame, Info, Layers3, Plus, Search, Trash2 } from 'lucide-react'
+import { CalendarClock, Check, ChevronDown, Flame, Info, Layers3, Plus, Search, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
@@ -33,6 +33,11 @@ type Row = {
   estimated_hours: string
   is_urgent: boolean
   files: File[]
+  schedule_enabled: boolean
+  schedule_repeat: '' | 'daily' | 'weekly' | 'custom'
+  schedule_custom_days: string
+  schedule_time: string
+  schedule_start_date: string
 }
 type DropdownPosition = { left: number; top: number; width: number; maxHeight: number }
 type RowField = 'title' | 'description' | 'assignee_id' | 'due_date' | 'priority'
@@ -212,6 +217,11 @@ function emptyRow(ticket: Ticket): Row {
     estimated_hours: '',
     is_urgent: false,
     files: [],
+    schedule_enabled: false,
+    schedule_repeat: '',
+    schedule_custom_days: '',
+    schedule_time: '',
+    schedule_start_date: '',
   }
 }
 
@@ -237,6 +247,7 @@ export function CreateTasksModal({
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [createdTaskIds, setCreatedTaskIds] = useState<string[] | null>(null)
+  const [scheduleIds, setScheduleIds] = useState<(string | null)[] | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, boolean>>({})
   const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false)
   const assigneeOptions: AssigneeChoice[] = [
@@ -249,6 +260,7 @@ export function CreateTasksModal({
     setError('')
     setFieldErrors({})
     setCreatedTaskIds(null)
+    setScheduleIds(null)
     setUploadedFiles({})
     setAssigneeDropdownOpen(false)
     setOpen(true)
@@ -300,7 +312,11 @@ export function CreateTasksModal({
         if (!row.title.trim()) errors[`${index}.title`] = 'Enter a task title.'
         if (!row.description.trim()) errors[`${index}.description`] = 'Add a description.'
         if (!row.assignee_id) errors[`${index}.assignee_id`] = 'Select an assignee.'
-        if (!row.due_date) errors[`${index}.due_date`] = 'Select a due date.'
+        if (!row.schedule_enabled && !row.due_date) errors[`${index}.due_date`] = 'Select a due date.'
+        if (row.schedule_enabled && (!row.schedule_repeat || !row.schedule_time || !row.schedule_start_date
+          || (row.schedule_repeat === 'custom' && (!row.schedule_custom_days || Number(row.schedule_custom_days) < 2)))) {
+          errors[`${index}.schedule`] = 'Choose a repeat schedule, time, and start date.'
+        }
         if (!row.priority) errors[`${index}.priority`] = 'Select a priority.'
       })
       setFieldErrors(errors)
@@ -312,8 +328,7 @@ export function CreateTasksModal({
     let taskIds = createdTaskIds
     if (!taskIds) {
       const newTaskIds = rows.map(() => crypto.randomUUID())
-      const { error: insertError } = await supabase.from('tasks').insert(
-        rows.map((r, i) => ({
+      const immediateRows = rows.flatMap((r, i) => r.schedule_enabled ? [] : [{
           id: newTaskIds[i],
           client_id: ticket.client_id,
           ticket_id: ticket.id,
@@ -329,16 +344,48 @@ export function CreateTasksModal({
           deadline_type: r.deadline_type || null,
           estimated_hours: r.estimated_hours ? Number(r.estimated_hours) : null,
           is_urgent: r.is_urgent,
-        })),
-      )
-      if (insertError) {
-        setSaving(false)
-        setError(errorMessage(insertError))
-        return
+        }])
+      if (immediateRows.length) {
+        const { error: insertError } = await supabase.from('tasks').insert(immediateRows)
+        if (insertError) {
+          setSaving(false)
+          setError(errorMessage(insertError))
+          return
+        }
       }
       taskIds = newTaskIds
       setCreatedTaskIds(newTaskIds)
     }
+
+    const activeScheduleIds: (string | null)[] = [...(scheduleIds ?? rows.map(() => null))]
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index]
+      if (!row.schedule_enabled || activeScheduleIds[index]) continue
+      const { data: scheduleId, error: scheduleError } = await supabase.rpc('create_task_schedule', {
+          p_task_id: taskIds[index],
+          p_task_payload: {
+            title: row.title.trim(), description: row.description.trim() || null,
+            client_id: ticket.client_id, ticket_id: ticket.id, visibility: 'public',
+            type: row.type, priority: row.priority, is_urgent: row.is_urgent,
+            service_id: row.service_id || null, department_id: row.department_id || null,
+            platform_id: row.platform_id || null, assignee_id: row.assignee_id,
+            estimated_hours: row.estimated_hours ? Number(row.estimated_hours) : null,
+            due_date: null, deadline_type: null,
+          },
+          p_repeat_type: row.schedule_repeat,
+          p_interval_days: row.schedule_repeat === 'custom' ? Number(row.schedule_custom_days) : null,
+          p_start_date: row.schedule_start_date,
+          p_schedule_time: row.schedule_time,
+      })
+      if (scheduleError || !scheduleId) {
+        setScheduleIds(activeScheduleIds)
+        setSaving(false)
+        setError(`Could not schedule Task ${index + 1}: ${errorMessage(scheduleError ?? new Error('Schedule was not saved.'))}`)
+        return
+      }
+      activeScheduleIds[index] = scheduleId as string
+    }
+    setScheduleIds(activeScheduleIds)
 
     let uploadError = ''
     for (let index = 0; index < rows.length; index += 1) {
@@ -356,14 +403,15 @@ export function CreateTasksModal({
           break
         }
 
-        const { error: attachmentError } = await supabase.from('task_attachments').insert({
-          task_id: taskIds[index],
-          uploaded_by: meId,
-          storage_path: path,
-          file_name: file.name,
-          mime_type: file.type || null,
-          size_bytes: file.size,
-        })
+        const { error: attachmentError } = row.schedule_enabled
+          ? await supabase.from('task_schedule_attachments').insert({
+              schedule_id: activeScheduleIds[index], uploaded_by: meId, storage_path: path,
+              file_name: file.name, mime_type: file.type || null, size_bytes: file.size,
+            })
+          : await supabase.from('task_attachments').insert({
+              task_id: taskIds[index], uploaded_by: meId, storage_path: path,
+              file_name: file.name, mime_type: file.type || null, size_bytes: file.size,
+            })
         if (attachmentError) {
           const { error: cleanupError } = await supabase.storage.from('task-files').remove([path])
           uploadError = cleanupError
@@ -383,7 +431,8 @@ export function CreateTasksModal({
     }
 
     setOpen(false)
-    if (taskIds.length === 1) router.push(`/tasks/${taskIds[0]}`)
+    if (rows.some(row => row.schedule_enabled)) router.push(`/tickets/${ticket.id}?scheduled=1`)
+    else if (taskIds.length === 1) router.push(`/tasks/${taskIds[0]}`)
     else router.refresh()
   }
 
@@ -500,11 +549,11 @@ export function CreateTasksModal({
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   {DEADLINE_OPTIONS.map(deadline => (
-                    <button key={deadline.value} type="button" disabled={!!createdTaskIds}
+                    <button key={deadline.value} type="button" disabled={!!createdTaskIds || r.schedule_enabled}
                             onClick={() => update(i, r.deadline_type === deadline.value
                               ? { deadline_type: '', due_date: '' }
                               : { deadline_type: deadline.value, due_date: dueDateFor(deadline.value) })}
-                            className={cn('inline-flex h-7 items-center rounded-full px-3 text-xs font-medium ring-1 ring-inset transition disabled:opacity-50',
+                            className={cn('inline-flex h-8 items-center rounded-full px-3 text-xs font-medium ring-1 ring-inset transition disabled:opacity-50',
                               r.deadline_type === deadline.value
                                 ? 'bg-[#045E80] text-white ring-[#045E80]'
                                 : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50')}>
@@ -512,13 +561,80 @@ export function CreateTasksModal({
                     </button>
                   ))}
                   <input id={`task-due_date-${i}`} type="date"
-                         aria-invalid={!!fieldError(i, 'due_date')} required disabled={!!createdTaskIds}
-                         className={`form-field h-7 w-auto rounded-full px-3 py-1 text-xs leading-4 ${fieldError(i, 'due_date') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
+                         aria-invalid={!!fieldError(i, 'due_date')} required disabled={!!createdTaskIds || r.schedule_enabled}
+                         className={`form-field h-8 w-[176px] min-w-[160px] flex-none rounded-full bg-white px-3 py-1 text-xs leading-4 ${fieldError(i, 'due_date') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
                          value={r.due_date}
                          onChange={e => update(i, { due_date: e.target.value, deadline_type: '' })} />
                 </div>
                 {fieldErrorText(i, 'due_date')}
               </div>
+              <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                <label className="mb-3 flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <CalendarClock aria-hidden="true" className="h-4 w-4 text-[#045E80]" /> Task Scheduler
+                  </span>
+                  <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
+                    Enable Schedule
+                    <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-[#045E80] focus:ring-[#045E80]"
+                      checked={r.schedule_enabled} disabled={!!createdTaskIds}
+                      onChange={event => update(i, { schedule_enabled: event.target.checked })} />
+                  </span>
+                </label>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="min-w-0 text-xs font-medium text-slate-600">
+                    Repeat
+                    <SearchableSelect
+                      className="form-field mt-1 h-9 w-full rounded-xl text-sm"
+                      value={r.schedule_repeat}
+                      disabled={!r.schedule_enabled || !!createdTaskIds}
+                      placeholder="Select schedule"
+                      dropdownMinWidth={200}
+                      options={[
+                        { value: '', text: 'Select schedule', label: 'Select schedule' },
+                        { value: 'daily', text: 'Daily', label: 'Daily' },
+                        { value: 'weekly', text: 'For a week', label: 'For a week' },
+                        { value: 'custom', text: 'Custom', label: 'Custom', selectedLabel: r.schedule_custom_days ? `${r.schedule_custom_days} day` : 'Custom' },
+                      ]}
+                      keepOpenOnSelect={value => value === 'custom'}
+                      onClose={() => {
+                        if (r.schedule_repeat === 'custom' && (!r.schedule_custom_days || Number(r.schedule_custom_days) < 2)) {
+                          update(i, { schedule_repeat: '', schedule_custom_days: '' })
+                        }
+                      }}
+                      onChange={event => {
+                        const repeat = event.target.value as Row['schedule_repeat']
+                        update(i, { schedule_repeat: repeat, schedule_custom_days: repeat === 'custom' ? (r.schedule_custom_days || '2') : '' })
+                      }}
+                      dropdownFooter={r.schedule_repeat === 'custom' ? (
+                        <div>
+                          <label htmlFor={`task-schedule-days-${i}`} className="mb-1 block text-xs font-medium text-slate-600">Repeat every</label>
+                          <div className="flex h-9 overflow-hidden rounded-lg">
+                            <input id={`task-schedule-days-${i}`} type="number" min={2} step={1} value={r.schedule_custom_days}
+                              disabled={!!createdTaskIds} aria-label="Repeat every number of days"
+                              onChange={event => {
+                                const days = event.target.value
+                                update(i, { schedule_custom_days: !days || Number(days) < 2 ? '' : days })
+                              }} className="form-field h-9 min-w-0 flex-1 rounded-r-none" />
+                            <span className="flex h-9 items-center border border-l-0 border-slate-300 bg-slate-50 px-3 text-sm text-slate-600">day</span>
+                          </div>
+                        </div>
+                      ) : undefined}
+                    />
+                  </label>
+                  <label className="min-w-0 text-xs font-medium text-slate-600">Time
+                    <input type="time" value={r.schedule_time} disabled={!r.schedule_enabled || !!createdTaskIds}
+                      onChange={event => update(i, { schedule_time: event.target.value })}
+                      className="form-field mt-1 h-9 w-full rounded-xl text-sm disabled:bg-slate-50 disabled:text-slate-500" />
+                  </label>
+                  <label className="min-w-0 text-xs font-medium text-slate-600">Start date
+                    <input type="date" value={r.schedule_start_date} min={new Date().toLocaleDateString('en-CA')}
+                      disabled={!r.schedule_enabled || !!createdTaskIds}
+                      onChange={event => update(i, { schedule_start_date: event.target.value })}
+                      className="form-field mt-1 h-9 w-full rounded-xl text-sm disabled:bg-slate-50 disabled:text-slate-500" />
+                  </label>
+                </div>
+                {fieldErrors[`${i}.schedule`] && <p role="alert" className="mt-2 text-xs font-medium text-red-600">{fieldErrors[`${i}.schedule`]}</p>}
+              </section>
               {canMarkUrgent && (
                 <label className={cn('mt-3 inline-flex w-fit cursor-pointer items-center gap-2 text-sm',
                   r.is_urgent ? 'font-medium text-red-700' : 'text-slate-600',

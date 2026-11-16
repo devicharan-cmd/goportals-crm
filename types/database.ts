@@ -199,6 +199,7 @@ export interface Task {
   is_urgent: boolean
   source: TaskSource
   visibility: TaskVisibility
+  is_scheduled: boolean
   department_id: string | null
   platform_id: string | null
   service_id: string | null
@@ -233,6 +234,7 @@ export interface TaskSummary {
   is_urgent: boolean
   source: TaskSource
   visibility: TaskVisibility
+  is_scheduled: boolean
   due_date: string | null
   created_at: string
   assignee_id: string | null

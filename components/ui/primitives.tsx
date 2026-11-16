@@ -1,7 +1,7 @@
  'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { isValidElement, useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import type { AppRole } from '@/types/database'
@@ -75,12 +75,16 @@ export function Alert({ tone = 'error', children }: { tone?: 'error' | 'success'
 }
 
 export function Field({
-  label, hint, error, errorId, required, className, children,
-}: { label?: string; hint?: string; error?: string; errorId?: string; required?: boolean; className?: string; children: React.ReactNode }) {
+  label, hint, error, errorId, required, className, htmlFor, children,
+}: { label?: string; hint?: string; error?: string; errorId?: string; required?: boolean; className?: string; htmlFor?: string; children: React.ReactNode }) {
+  let resolvedHtmlFor = htmlFor
+  if (!resolvedHtmlFor && isValidElement(children) && typeof children.props === 'object' && children.props !== null && 'id' in children.props) {
+    resolvedHtmlFor = (children.props as { id?: string }).id
+  }
   return (
     <div className={className}>
       {label && (
-        <label className="form-field-label">
+        <label htmlFor={resolvedHtmlFor} className="form-field-label">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}

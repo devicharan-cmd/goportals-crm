@@ -158,7 +158,7 @@ export function TicketSearchResults() {
           hrefBase={search.audience === 'client' ? '/portal/tickets' : '/tickets'}
           showClient={search.audience === 'staff'}
           audience={search.audience}
-          empty={{ title: search.queryEmptyTitle }}
+          empty={{ title: search.queryEmptyTitle, description: search.queryEmptyDescription }}
         />
         {search.hasMoreTickets && (
           <div className="flex justify-center p-4">
@@ -186,5 +186,12 @@ function useTicketSearch() {
         : value.status === 'unassigned'
           ? 'No unassigned tickets'
           : 'No open tickets',
+    queryEmptyDescription: value.query
+      ? 'Try adjusting your search terms or clearing the filter.'
+      : value.status === 'done' || value.status === 'closed'
+        ? 'Closed tickets will appear here once resolved.'
+        : value.audience === 'client'
+          ? 'You have no open tickets right now. Raise a new request whenever you need support.'
+          : undefined,
   }
 }

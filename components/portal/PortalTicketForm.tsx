@@ -59,25 +59,27 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
     // A hidden conditional field must not be required, or the browser blocks
     // submission on a control nobody can see.
     const isRequired = !!f.required && isVisible(f.showIf)
+    const fieldId = `ticket-field-${f.key}`
     return (
-      <Field key={f.key} label={f.label} required={f.required} className={f.type === 'textarea' ? 'sm:col-span-2' : undefined}>
+      <Field key={f.key} label={f.label} htmlFor={fieldId} required={f.required} className={f.type === 'textarea' ? 'sm:col-span-2' : undefined}>
         {f.type === 'textarea' ? (
-          <textarea className="form-field min-h-[90px]" required={isRequired} value={details[f.key] ?? ''} placeholder={f.placeholder}
+          <textarea id={fieldId} className="form-field min-h-[90px]" required={isRequired} value={details[f.key] ?? ''} placeholder={f.placeholder}
                     onChange={e => setField(f.key, e.target.value)} />
         ) : f.type === 'select' ? (
-          <SearchableSelect className="form-field" required={isRequired} value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)} placeholder="Select…">
+          <SearchableSelect id={fieldId} className="form-field" required={isRequired} value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)} placeholder="Select…">
             <option value="">Select…</option>
             {f.options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </SearchableSelect>
         ) : f.type === 'platform' ? (
           <MarketplacePlatformSelect
+            id={fieldId}
             platforms={platforms}
             value={details[f.key] ?? ''}
             placeholder="Select a platform…"
             onChange={value => setField(f.key, value)}
           />
         ) : (
-          <input className="form-field" required={isRequired}
+          <input id={fieldId} className="form-field" required={isRequired}
                  type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
                  value={details[f.key] ?? ''} placeholder={f.placeholder} onChange={e => setField(f.key, e.target.value)}
                  autoComplete={f.type === 'password' ? 'new-password' : undefined} />
@@ -191,14 +193,15 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
 
       {def && (
         <>
-          <Field label="Subject" required>
-            <input className="form-field" required autoFocus value={subject} onChange={e => setSubject(e.target.value)}
+          <Field label="Subject" htmlFor="ticket-subject" required>
+            <input id="ticket-subject" className="form-field" required autoFocus value={subject} onChange={e => setSubject(e.target.value)}
                    placeholder="Short summary of your ticket" />
           </Field>
 
           {scopedAccounts.length > 0 && accountMode !== 'hidden' && (
-            <Field label="E-commerce account" required={accountMode === 'required'}>
+            <Field label="E-commerce account" htmlFor="ticket-ecommerce-account" required={accountMode === 'required'}>
               <MarketplaceAccountSelect
+                id="ticket-ecommerce-account"
                 accounts={scopedAccounts}
                 value={accountId}
                 onChange={setAccountId}
@@ -292,8 +295,8 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
           )}
 
           {!def.hideDescription && (
-            <Field label={def.descriptionLabel ?? 'Description'} required={descriptionRequired} hint="Anything else that helps us move faster.">
-              <textarea className="form-field min-h-[110px]" required={descriptionRequired} value={description} onChange={e => setDescription(e.target.value)} />
+            <Field label={def.descriptionLabel ?? 'Description'} htmlFor="ticket-description" required={descriptionRequired} hint="Anything else that helps us move faster.">
+              <textarea id="ticket-description" className="form-field min-h-[110px]" required={descriptionRequired} value={description} onChange={e => setDescription(e.target.value)} />
             </Field>
           )}
 

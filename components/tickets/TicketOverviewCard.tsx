@@ -42,6 +42,7 @@ export function TicketOverviewCard({
   requestFields,
   emptyRequestMessage,
   description,
+  descriptionHeading,
   attachments,
   children,
 }: {
@@ -54,6 +55,7 @@ export function TicketOverviewCard({
   requestFields: TicketOverviewField[]
   emptyRequestMessage?: string
   description: string | null
+  descriptionHeading?: string
   attachments: AttachmentLink[]
   children?: React.ReactNode
 }) {
@@ -112,14 +114,16 @@ export function TicketOverviewCard({
         </section>
       )}
 
-      <section className="mt-5">
-        <SectionHeading>Description</SectionHeading>
-        <div className="rounded-[14px] border border-[#DCE5EF] bg-[#F8FAFC] px-3 py-2.5 text-[15px] font-normal leading-[22px] text-[#172033] md:px-4">
-          {(description || 'No description.').split(/\n\s*\n/).map((paragraph, index, paragraphs) => (
-            <p key={index} className={`whitespace-pre-wrap ${index < paragraphs.length - 1 ? 'mb-4' : ''}`}>{paragraph}</p>
-          ))}
-        </div>
-      </section>
+      {description && (
+        <section className="mt-5">
+          <SectionHeading>{descriptionHeading ?? 'Description'}</SectionHeading>
+          <div className="rounded-[14px] border border-[#DCE5EF] bg-[#F8FAFC] px-3 py-2.5 text-[15px] font-normal leading-[22px] text-[#172033] md:px-4">
+            {description.split(/\n\s*\n/).map((paragraph, index, paragraphs) => (
+              <p key={index} className={`whitespace-pre-wrap ${index < paragraphs.length - 1 ? 'mb-4' : ''}`}>{paragraph}</p>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="mt-5">
         <SectionHeading>Attachments</SectionHeading>

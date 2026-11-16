@@ -54,7 +54,7 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
   const isManager = ['super_admin', 'manager'].includes(me.role)
   const isSuperAdmin = me.role === 'super_admin'
   const teamRows = (team ?? []) as ClientTeamRow[]
-  const canEdit = isManager
+  const canEdit = isSuperAdmin
   const allTasks = (tasks ?? []) as TaskListItem[]
   const openTasks = allTasks.filter(t => !TASK_TERMINAL_STATUSES.includes(t.status))
   const doneTasks = allTasks.filter(t => TASK_TERMINAL_STATUSES.includes(t.status))

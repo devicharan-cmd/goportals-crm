@@ -134,14 +134,14 @@ export function PortalTaskList({
             empty={{
               title: scope === 'mine' ? 'No tasks assigned to you yet'
                 : scope === 'assigned' ? 'No tasks assigned by you'
-                  : 'No tasks linked to your tickets yet',
+                : 'No tasks for your client yet',
               description: search || filtered
                 ? 'Try changing or clearing the filters.'
                 : scope === 'mine'
                   ? 'Tasks assigned to your client account will appear here.'
                   : scope === 'assigned'
                     ? 'Tasks you assigned will appear here.'
-                    : 'Tasks created for your tickets will appear here.',
+                    : 'Public tasks for your client and tasks created for your tickets will appear here.',
             }}
           />
         </Card>

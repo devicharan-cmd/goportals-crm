@@ -1,11 +1,11 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, CalendarClock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
 import { getPortalNames } from '@/lib/portal'
 import { Card, CardHeader, StaffIdentity } from '@/components/ui/primitives'
-import { PriorityBadge, StatusBadge, DueDatePill } from '@/components/ui/badges'
+import { Badge, PriorityBadge, StatusBadge, DueDatePill } from '@/components/ui/badges'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { ClientTaskActions } from '@/components/portal/ClientTaskActions'
@@ -107,6 +107,7 @@ export default async function PortalTaskDetailPage(props: { params: Promise<{ id
                 dotClassName={`${TASK_STATUS_DOT[task.status]}${task.status === 'changes_requested' ? ' !bg-orange-500' : ''}`}
               />
               <PriorityBadge priority={task.priority} />
+              {task.is_scheduled && <Badge className="gap-1 bg-indigo-50 text-indigo-700 ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3.5 w-3.5" />Scheduled</Badge>}
               <DueDatePill date={task.due_date} status={task.status} className="ml-auto" />
             </div>
             <div className="border-b border-[#E2E8F0] pb-4">
@@ -128,7 +129,7 @@ export default async function PortalTaskDetailPage(props: { params: Promise<{ id
           <Card id="conversation" className={CONVERSATION_PANEL_CLASS}>
             <CardHeader
               title={`Discussion (${clientComments.length})`}
-              description="Messages here are visible to you and the GoPortals team."
+              description="Public tasks and messages are visible to you and the GoPortals team."
             />
             <div className={CONVERSATION_CONTENT_CLASS}>
               <CommentThread

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Flame } from 'lucide-react'
+import { Flame, LockKeyhole } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 import { TASK_LIST_SELECT } from '@/lib/queries'
@@ -18,20 +18,57 @@ export default async function UrgentPage() {
   const me = await requireStaff()
   const canSeeTickets = ['super_admin', 'manager', 'team_lead'].includes(me.role)
   const supabase = await createClient()
-  const [{ data: taskData }, { data: ticketData }, { data: people }, { data: profileRows }] = await Promise.all([
-    supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).not('status', 'in', '(completed,cancelled)')
-      .order('priority').order('created_at'),
-    canSeeTickets
-      ? supabase.from('tickets').select('*, client:clients(id, company_name)').eq('is_urgent', true).neq('status', 'closed')
-          .order('created_at')
-      : Promise.resolve({ data: [] }),
+  const taskPromise = (async () => {
+    const rows: TaskListItem[] = []
+    let afterId: string | null = null
+    while (true) {
+      let query = supabase.from('tasks').select(TASK_LIST_SELECT)
+        .eq('is_urgent', true)
+        .not('status', 'in', '(completed,cancelled)')
+        .order('id', { ascending: true })
+        .limit(1000)
+      if (afterId) query = query.gt('id', afterId)
+      const { data, error } = await query
+      if (error) throw error
+      const page = (data ?? []) as TaskListItem[]
+      rows.push(...page)
+      if (page.length < 1000) break
+      afterId = page[page.length - 1].id
+    }
+    return rows.sort((a, b) => a.priority.localeCompare(b.priority)
+      || a.created_at.localeCompare(b.created_at)
+      || a.id.localeCompare(b.id))
+  })()
+  const ticketPromise = (async () => {
+    const rows: (Ticket & { client: { id: string; company_name: string } | null })[] = []
+    if (!canSeeTickets) return rows
+    let afterId: string | null = null
+    while (true) {
+      let query = supabase.from('tickets').select('*, client:clients(id, company_name)')
+        .eq('is_urgent', true)
+        .neq('status', 'closed')
+        .order('id', { ascending: true })
+        .limit(1000)
+      if (afterId) query = query.gt('id', afterId)
+      const { data, error } = await query
+      if (error) throw error
+      const page = (data ?? []) as (Ticket & { client: { id: string; company_name: string } | null })[]
+      rows.push(...page)
+      if (page.length < 1000) break
+      afterId = page[page.length - 1].id
+    }
+    return rows.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+  })()
+  const [tasks, tickets, peopleResult, profileResult] = await Promise.all([
+    taskPromise,
+    ticketPromise,
     supabase.rpc('staff_directory'),
     supabase.from('profiles').select('id, avatar_url'),
   ])
-  const tasks = (taskData ?? []) as TaskListItem[]
-  const tickets = (ticketData ?? []) as (Ticket & { client: { id: string; company_name: string } | null })[]
-  const names = Object.fromEntries((people ?? []).map((p: { id: string; full_name: string }) => [p.id, p.full_name]))
-  const avatarUrls = Object.fromEntries((profileRows ?? []).map((p: { id: string; avatar_url: string | null }) => [p.id, p.avatar_url]))
+  if (peopleResult.error) throw peopleResult.error
+  if (profileResult.error) throw profileResult.error
+  const names = Object.fromEntries((peopleResult.data ?? []).map((p: { id: string; full_name: string }) => [p.id, p.full_name]))
+  const avatarUrls = Object.fromEntries((profileResult.data ?? []).map((p: { id: string; avatar_url: string | null }) => [p.id, p.avatar_url]))
   const openTasks = tasks.filter(t => !t.assignee_id)
   const takenTasks = tasks.filter(t => t.assignee_id)
   const openTickets = tickets.filter(t => t.status === 'unassigned')
@@ -98,7 +135,10 @@ export default async function UrgentPage() {
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>
                     <PriorityBadge priority={t.priority} />
-                    <p className="truncate font-semibold text-slate-900">{t.title}</p>
+                    <p className="truncate font-semibold text-slate-900">
+                      {t.title}
+                      {t.visibility === 'private' && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200" title="Visible only to authorized internal staff"><LockKeyhole aria-hidden="true" className="h-3 w-3" />Private</span>}
+                    </p>
                   </div>
                   <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-slate-500">
                     {[t.client?.company_name, t.department?.name].filter(Boolean).join(' · ')}
@@ -126,7 +166,10 @@ export default async function UrgentPage() {
                 <Link href={`/tasks/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                   <Avatar name={names[t.assignee_id!]} src={avatarUrls[t.assignee_id!]} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>{t.title}</p>
+                    <p className="truncate text-sm font-medium text-slate-900">
+                      <span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>{t.title}
+                      {t.visibility === 'private' && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200" title="Visible only to authorized internal staff"><LockKeyhole aria-hidden="true" className="h-3 w-3" />Private</span>}
+                    </p>
                     <p className="text-xs text-slate-500">{names[t.assignee_id!] ?? '—'} · {t.client?.company_name}</p>
                   </div>
                   <StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} />

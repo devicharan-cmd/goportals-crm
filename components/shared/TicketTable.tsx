@@ -41,7 +41,7 @@ function UnreadMessages({ count }: { count: number }) {
 }
 
 export function TicketTable({
-  tickets, hrefBase = '/portal/tickets', showClient = false, empty, audience = 'staff', unreadByTicket,
+  tickets, hrefBase = '/portal/tickets', showClient = false, empty, audience = 'staff', unreadByTicket, realtimeUserId,
 }: {
   tickets: TicketListItem[]
   hrefBase?: string
@@ -51,28 +51,103 @@ export function TicketTable({
   audience?: 'staff' | 'client'
   /** Unread message count per ticket id; omit to show none. */
   unreadByTicket?: Record<string, number>
+  realtimeUserId?: string
 }) {
   const router = useRouter()
   const [liveUnreadByTicket, setLiveUnreadByTicket] = useState(unreadByTicket ?? {})
   const showMessages = unreadByTicket !== undefined
 
-  // Keep the per-reader message badges current while this list remains open.
-  // The database RPC is the authority; polling refreshes only counts and never
-  // changes the read state, which is cleared by opening the conversation.
   useEffect(() => {
-    if (!showMessages) return
+    setLiveUnreadByTicket(unreadByTicket ?? {})
+  }, [unreadByTicket])
+
+  useEffect(() => {
+    if (!showMessages || !realtimeUserId) return
     const supabase = createClient()
     let disposed = false
-    const refresh = async () => {
-      const { data, error } = await supabase.rpc('my_unread_ticket_messages')
-      if (disposed || error || !data) return
-      const next = Object.fromEntries((data as { ticket_id: string; unread: number }[]).map(row => [row.ticket_id, row.unread]))
-      setLiveUnreadByTicket(next)
+    let refreshing = false
+    let refreshPending = false
+    let refreshTimer: number | undefined
+
+    const scheduleRefresh = () => {
+      if (disposed || document.visibilityState !== 'visible') return
+      window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(() => {
+        void refresh()
+      }, 200)
     }
-    void refresh()
-    const interval = window.setInterval(() => void refresh(), 5000)
-    return () => { disposed = true; window.clearInterval(interval) }
-  }, [showMessages])
+
+    const refresh = async () => {
+      if (disposed || document.visibilityState !== 'visible') return
+      if (refreshing) {
+        refreshPending = true
+        return
+      }
+      refreshing = true
+      try {
+        const { data, error } = await supabase.rpc('my_unread_ticket_messages')
+        if (error) {
+          console.error('Unable to refresh unread ticket message counts:', error)
+          return
+        }
+        if (disposed) return
+        const rows = (data ?? []) as { ticket_id: string; unread: number }[]
+        const next = Object.fromEntries(rows.map(row => [row.ticket_id, row.unread]))
+        setLiveUnreadByTicket(current => {
+          const currentKeys = Object.keys(current)
+          const nextKeys = Object.keys(next)
+          if (currentKeys.length === nextKeys.length && nextKeys.every(key => current[key] === next[key])) {
+            return current
+          }
+          return next
+        })
+      } catch (error) {
+        if (!disposed) console.error('Unable to refresh unread ticket message counts:', error)
+      } finally {
+        refreshing = false
+        if (refreshPending) {
+          refreshPending = false
+          scheduleRefresh()
+        }
+      }
+    }
+
+    const channel = supabase
+      .channel(`ticket-unread:${realtimeUserId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'ticket_comments',
+      }, payload => {
+        const comment = payload.new as { author_id: string | null; is_internal: boolean }
+        if (comment.author_id !== realtimeUserId && !comment.is_internal) scheduleRefresh()
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'ticket_comment_reads',
+        filter: `profile_id=eq.${realtimeUserId}`,
+      }, scheduleRefresh)
+      .subscribe((status, error) => {
+        if (disposed) return
+        if (status === 'SUBSCRIBED') scheduleRefresh()
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.error('Ticket unread realtime subscription failed:', error ?? status)
+        }
+      })
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') scheduleRefresh()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      disposed = true
+      window.clearTimeout(refreshTimer)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      void supabase.removeChannel(channel)
+    }
+  }, [realtimeUserId, showMessages])
 
   const statusLabels = audience === 'client' ? TICKET_STATUS_LABELS_CLIENT : TICKET_STATUS_LABELS
   if (tickets.length === 0) {

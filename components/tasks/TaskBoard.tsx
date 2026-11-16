@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, X } from 'lucide-react'
+import { AlertTriangle, CalendarClock, LockKeyhole, X } from 'lucide-react'
 import {
   DndContext, DragOverlay, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors,
   type DragEndEvent, type DragStartEvent,
@@ -42,6 +42,7 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
           <span className={cn('inline-flex shrink-0 items-center rounded-md px-1.5 py-0 text-[10px] font-bold leading-4 ring-1 ring-inset', PRIORITY_STYLES[task.priority])}>
             {task.priority}
           </span>
+          {task.is_scheduled && <span title="Scheduled task" className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-indigo-700 ring-1 ring-inset ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3 w-3" />Scheduled</span>}
         </span>
         {task.platform?.name && (
           <span className="min-w-0 flex-1 overflow-hidden text-right text-[11px] text-slate-400">
@@ -50,7 +51,14 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
         )}
       </div>
       <p className="text-sm font-medium leading-snug text-slate-900">{task.title}</p>
-      <p className="mt-1 truncate text-xs text-slate-500">{task.client?.company_name}</p>
+      <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-xs text-slate-500">
+        <span className="truncate">{task.client?.company_name}</span>
+        {task.visibility === 'private' && (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200">
+            <LockKeyhole aria-hidden="true" className="h-3 w-3" /> Private
+          </span>
+        )}
+      </p>
       <DueDate date={task.due_date} status={task.status} className="mt-2 block" />
     </>
   )
@@ -148,6 +156,10 @@ export function TaskBoard({
 
     if (to === 'changes_requested') {
       setError('Only the client can request changes from the client portal.')
+      return
+    }
+    if (task.visibility === 'private' && to === 'client_review') {
+      setError('Private tasks cannot be moved to Client review. Complete them through the internal workflow.')
       return
     }
     if (!allowedStatuses.some(status => status === to)) {

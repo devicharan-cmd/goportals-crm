@@ -24,6 +24,7 @@ export function TaskFilters({
   const pathname = usePathname()
   const params = useSearchParams()
   const taskSearch = useTaskSearch()
+  const { changeScope, scope: activeScope } = taskSearch
   const [searchInput, setSearchInput] = useState('')
 
   useEffect(() => {
@@ -43,26 +44,49 @@ export function TaskFilters({
   }
 
   const view = params.get('view') === 'list' ? 'list' : 'board'
-  const scope = params.get('scope') === 'mine' || params.get('scope') === 'assigned'
-    ? params.get('scope') as 'mine' | 'assigned'
-    : params.get('scope') === 'all' ? 'all' : defaultScope
   const status = params.get('status') ?? 'all'
   const client = params.get('client') ?? ''
   const assignee = params.get('assignee') ?? ''
   const assignedBy = params.get('assigned_by') ?? ''
   const department = params.get('dept') ?? ''
   const due = params.get('due') ?? ''
+  const scopeParam = params.get('scope')
+  const urlScope = scopeParam === 'assigned' ? 'assigned' : scopeParam === 'all' ? 'all' : 'mine'
   const filtered = Boolean(searchInput || taskSearch.query)
     || ['status', 'client', 'assignee', 'assigned_by', 'dept', 'due'].some(key => params.get(key))
 
+  useEffect(() => {
+    if (urlScope === activeScope) return
+    changeScope(urlScope, {
+      status,
+      client,
+      assignee,
+      assignedBy,
+      department,
+      due,
+      board: view === 'board',
+    })
+  }, [activeScope, assignee, assignedBy, changeScope, client, department, due, status, urlScope, view])
+
   function setScope(value: 'mine' | 'assigned' | 'all') {
+    if (value === activeScope) return
     const next = new URLSearchParams(params.toString())
     next.delete('q')
     if (value !== 'all') next.delete('assignee')
     if (value !== 'all') next.delete('assigned_by')
     if (value === defaultScope) next.delete('scope')
     else next.set('scope', value)
-    router.push(`${pathname}?${next.toString()}`)
+    const search = next.toString()
+    window.history.pushState(null, '', search ? `${pathname}?${search}` : pathname)
+    changeScope(value, {
+      status,
+      client,
+      assignee: value === 'all' ? assignee : '',
+      assignedBy: value === 'all' ? assignedBy : '',
+      department,
+      due,
+      board: view === 'board',
+    })
   }
 
   function clearFilters() {
@@ -76,9 +100,10 @@ export function TaskFilters({
 
   return (
     <TaskFilterToolbar
-      scope={scope}
+      scope={activeScope}
       onScopeChange={setScope}
       scopeCounts={taskSearch.scopeCounts}
+      scopeLoading={taskSearch.scopeChanging}
       showScope={showScope}
       showAssignedScope
       view={view}

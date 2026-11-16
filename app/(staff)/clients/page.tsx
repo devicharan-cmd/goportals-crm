@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
+import { CLIENT_PAGE_SIZE } from '@/lib/constants'
 import { Card } from '@/components/ui/primitives'
 import { ClientFormModal } from '@/components/clients/ClientFormModal'
-import { ClientSearchField, ClientSearchProvider, ClientSearchResults } from '@/components/clients/ClientSearchList'
-import { SearchableSelect } from '@/components/shared/SearchableSelect'
+import { ClientSearchField, ClientSearchProvider, ClientSearchResults, ClientStatusFilter } from '@/components/clients/ClientSearchList'
 import { nameMap } from '@/lib/queries'
 import type { Client, Platform, Service } from '@/types/database'
 
@@ -18,56 +18,63 @@ export default async function ClientsPage(props: { searchParams: Promise<{ statu
   const me = await requireRole(['super_admin', 'manager'])
   const supabase = await createClient()
 
+  const status = searchParams.status === 'active' || searchParams.status === 'pending'
+    || searchParams.status === 'suspended' || searchParams.status === 'rejected'
+    ? searchParams.status
+    : ''
   let query = supabase.from('clients')
     .select('*, client_team(profile_id)')
     .order('company_name')
-  if (searchParams.status) query = query.eq('status', searchParams.status)
+    .order('id')
+    .range(0, CLIENT_PAGE_SIZE)
+  if (status) query = query.eq('status', status)
 
-  const [{ data }, { data: openTasks }, { data: openTickets }, { data: people }, { data: platforms }, { data: services }] = await Promise.all([
+  const [
+    { data, error: clientsError },
+    { data: workCounts, error: workCountsError },
+    { data: people, error: peopleError },
+    { data: platforms, error: platformsError },
+    { data: services, error: servicesError },
+  ] = await Promise.all([
     query,
-    supabase.from('tasks').select('client_id').not('status', 'in', '(completed,cancelled)'),
-    supabase.from('tickets').select('client_id').neq('status', 'closed'),
+    supabase.rpc('client_open_work_counts'),
     supabase.from('profiles').select('id, full_name, email, avatar_url'),
     supabase.from('platforms').select('*').order('sort_order'),
     supabase.from('services').select('*').order('sort_order'),
   ])
-  const clients = (data ?? []) as Row[]
+  for (const error of [clientsError, workCountsError, peopleError, platformsError, servicesError]) {
+    if (error) throw error
+  }
+  const hasMoreClients = (data?.length ?? 0) > CLIENT_PAGE_SIZE
+  const clients = (data ?? []).slice(0, CLIENT_PAGE_SIZE) as Row[]
   const imagePaths = clients.filter(c => c.company_profile_image_path).map(c => c.company_profile_image_path!)
-  const { data: signedImages } = imagePaths.length
+  const { data: signedImages, error: imageError } = imagePaths.length
     ? await supabase.storage.from('client-profile-images').createSignedUrls(imagePaths, 3600)
-    : { data: [] }
+    : { data: [], error: null }
+  if (imageError) throw imageError
   const imageUrlByPath = Object.fromEntries((signedImages ?? []).map(image => [image.path, image.signedUrl]))
   const names = nameMap(people ?? [])
   const avatarUrls = Object.fromEntries((people ?? []).map(person => [person.id, person.avatar_url]))
-  // Open work means both: a client raising tickets but having no tasks yet
-  // used to read as "0 open".
-  const openCount = [...(openTasks ?? []), ...(openTickets ?? [])]
-    .reduce<Record<string, number>>((acc, row: { client_id: string }) => {
-      acc[row.client_id] = (acc[row.client_id] ?? 0) + 1
-      return acc
-    }, {})
+  const openCount = Object.fromEntries((workCounts ?? []).map((row: {
+    client_id: string
+    open_task_count: number
+    open_ticket_count: number
+  }) => [row.client_id, Number(row.open_task_count) + Number(row.open_ticket_count)]))
 
   return (
     <ClientSearchProvider
       initialClients={clients}
+      initialHasMoreClients={hasMoreClients}
+      initialClientOffset={CLIENT_PAGE_SIZE}
       initialImageUrlByPath={imageUrlByPath}
       names={names}
       avatarUrls={avatarUrls}
-      status={searchParams.status === 'active' || searchParams.status === 'pending' || searchParams.status === 'suspended' || searchParams.status === 'rejected' ? searchParams.status : ''}
+      status={status}
       openCount={openCount}
     >
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <ClientSearchField />
-        <form className="flex flex-wrap gap-2" action="/clients">
-          <SearchableSelect name="status" defaultValue={searchParams.status ?? ''} className="form-field h-9 w-auto py-1.5" aria-label="Client status">
-            <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="pending">Pending</option>
-            <option value="suspended">Suspended</option>
-            <option value="rejected">Rejected</option>
-          </SearchableSelect>
-          <button className="rounded-lg bg-slate-100 px-3 text-sm font-medium text-slate-700 hover:bg-slate-200">Filter</button>
-        </form>
+        <ClientStatusFilter status={status} />
         {/* Outside the search form: the modal has its own form inside. */}
         {['super_admin', 'manager'].includes(me.role) && <ClientFormModal canEditInternal platforms={(platforms ?? []) as Platform[]} services={(services ?? []) as Service[]} />}
       </div>

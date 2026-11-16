@@ -1,12 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { Building2 } from 'lucide-react'
 import { searchClients } from '@/app/actions/search'
 import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
+import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { AccountStatusBadge } from '@/components/ui/badges'
 import { Alert, Avatar, CompanyAvatar, EmptyState } from '@/components/ui/primitives'
+import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/utils'
 import { STAGE_LABELS } from '@/lib/constants'
 import type { Client } from '@/types/database'
@@ -21,13 +24,18 @@ type ClientSearchContextValue = {
   openCount: Record<string, number>
   error: string
   searching: boolean
+  hasMoreClients: boolean
+  loadingMoreClients: boolean
   setQuery: (query: string) => void
+  loadMoreClients: () => void
 }
 
 const ClientSearchContext = createContext<ClientSearchContextValue | null>(null)
 
 export function ClientSearchProvider({
   initialClients,
+  initialHasMoreClients,
+  initialClientOffset,
   initialImageUrlByPath,
   names,
   avatarUrls,
@@ -36,6 +44,8 @@ export function ClientSearchProvider({
   children,
 }: {
   initialClients: ClientRow[]
+  initialHasMoreClients: boolean
+  initialClientOffset: number
   initialImageUrlByPath: Record<string, string>
   names: Record<string, string>
   avatarUrls: Record<string, string | null>
@@ -48,14 +58,22 @@ export function ClientSearchProvider({
   const [imageUrlByPath, setImageUrlByPath] = useState(initialImageUrlByPath)
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState('')
+  const [hasMoreClients, setHasMoreClients] = useState(initialHasMoreClients)
+  const [nextOffset, setNextOffset] = useState<number | null>(initialHasMoreClients ? initialClientOffset : null)
+  const [loadingMoreClients, setLoadingMoreClients] = useState(false)
+  const requestId = useRef(0)
 
   const setSearch = useCallback((value: string) => setQuery(value), [])
 
   useEffect(() => {
+    const currentRequestId = ++requestId.current
     let active = true
+    setLoadingMoreClients(false)
     if (!query) {
       setClients(initialClients)
       setImageUrlByPath(initialImageUrlByPath)
+      setHasMoreClients(initialHasMoreClients)
+      setNextOffset(initialHasMoreClients ? initialClientOffset : null)
       setSearching(false)
       setError('')
       return () => { active = false }
@@ -68,6 +86,8 @@ export function ClientSearchProvider({
         if (!active) return
         setClients(result.clients)
         setImageUrlByPath(result.imageUrlByPath)
+        setHasMoreClients(result.hasMore)
+        setNextOffset(result.nextOffset)
       })
       .catch(searchError => {
         if (active) setError(errorMessage(searchError))
@@ -77,10 +97,37 @@ export function ClientSearchProvider({
       })
 
     return () => { active = false }
-  }, [initialClients, initialImageUrlByPath, query, status])
+  }, [initialClientOffset, initialClients, initialHasMoreClients, initialImageUrlByPath, query, status])
+
+  const loadMoreClients = useCallback(() => {
+    if (loadingMoreClients || searching || !hasMoreClients || nextOffset === null) return
+    const currentRequestId = requestId.current
+    setLoadingMoreClients(true)
+    setError('')
+    void searchClients(query, status, nextOffset)
+      .then(result => {
+        if (requestId.current !== currentRequestId) return
+        setClients(current => {
+          const existingIds = new Set(current.map(client => client.id))
+          return [...current, ...result.clients.filter(client => !existingIds.has(client.id))]
+        })
+        setImageUrlByPath(current => ({ ...current, ...result.imageUrlByPath }))
+        setHasMoreClients(result.hasMore)
+        setNextOffset(result.nextOffset)
+      })
+      .catch(loadError => {
+        if (requestId.current === currentRequestId) setError(errorMessage(loadError))
+      })
+      .finally(() => {
+        if (requestId.current === currentRequestId) setLoadingMoreClients(false)
+      })
+  }, [hasMoreClients, loadingMoreClients, nextOffset, query, searching, status])
 
   return (
-    <ClientSearchContext.Provider value={{ clients, imageUrlByPath, names, avatarUrls, openCount, error, searching, setQuery: setSearch }}>
+    <ClientSearchContext.Provider value={{
+      clients, imageUrlByPath, names, avatarUrls, openCount, error, searching,
+      hasMoreClients, loadingMoreClients, setQuery: setSearch, loadMoreClients,
+    }}>
       {children}
     </ClientSearchContext.Provider>
   )
@@ -98,8 +145,44 @@ export function ClientSearchField() {
   )
 }
 
+export function ClientStatusFilter({ status }: { status: ClientStatus }) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const [selectedStatus, setSelectedStatus] = useState<ClientStatus>(status)
+
+  useEffect(() => setSelectedStatus(status), [status])
+
+  function applyFilter(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const nextUrl = selectedStatus
+      ? `${pathname}?status=${encodeURIComponent(selectedStatus)}`
+      : pathname
+    router.push(nextUrl, { scroll: false })
+  }
+
+  return (
+    <form onSubmit={applyFilter} className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+      <SearchableSelect
+        value={selectedStatus}
+        onChange={event => setSelectedStatus(event.target.value as ClientStatus)}
+        className="form-field h-9 w-auto min-w-0 flex-1 py-1.5 sm:w-56 sm:flex-none"
+        aria-label="Client status"
+      >
+        <option value="">All statuses</option>
+        <option value="active">Active</option>
+        <option value="pending">Pending</option>
+        <option value="suspended">Suspended</option>
+        <option value="rejected">Rejected</option>
+      </SearchableSelect>
+      <Button type="submit" variant="secondary" className="h-9 shrink-0 bg-slate-100 px-3 text-slate-700 ring-0 shadow-none hover:bg-slate-200">
+        Filter
+      </Button>
+    </form>
+  )
+}
+
 export function ClientSearchResults() {
-  const { clients, imageUrlByPath, names, avatarUrls, openCount, error, searching } = useClientSearch()
+  const { clients, imageUrlByPath, names, avatarUrls, openCount, error, searching, hasMoreClients, loadingMoreClients, loadMoreClients } = useClientSearch()
   return (
     <>
       {error && <Alert>{error}</Alert>}
@@ -138,6 +221,13 @@ export function ClientSearchResults() {
             )
           })}
         </ul>
+      )}
+      {hasMoreClients && (
+        <div className="flex justify-center border-t border-slate-100 p-4">
+          <Button variant="secondary" loading={loadingMoreClients} onClick={loadMoreClients}>
+            Load more clients
+          </Button>
+        </div>
       )}
     </>
   )

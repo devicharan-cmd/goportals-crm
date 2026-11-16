@@ -8,8 +8,8 @@ import { InviteStaffButton } from '@/components/admin/UserAdmin'
 import { Avatar, Card, EmptyState } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { ROLE_LABELS } from '@/lib/constants'
-import { capacityColor, capacityTextColor, cn, dueState } from '@/lib/utils'
-import type { Department, StaffRole, Task } from '@/types/database'
+import { capacityColor, capacityTextColor, cn, todayDateKey } from '@/lib/utils'
+import type { Department, StaffRole } from '@/types/database'
 
 export const metadata = { title: 'Team' }
 
@@ -19,25 +19,36 @@ const TABS = [
   { key: 'inactive', label: 'Not active', icon: UserX },
 ] as const
 
+type TeamTaskSummaryRow = {
+  profile_id: string
+  open_task_count: number
+  open_estimated_hours: number
+  overdue_task_count: number
+  completed_this_month: number
+}
+
 export default async function TeamPage(props: { searchParams: Promise<{ show?: string }> }) {
   const searchParams = await props.searchParams
   const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
-  const monthStart = new Date();monthStart.setDate(1);monthStart.setHours(0, 0, 0, 0)
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
   const [
     { data: peopleData, error: peopleError },
     { data: departmentData, error: departmentError },
     { data: departmentMemberData, error: departmentMemberError },
-    { data },
-    { data: doneData },
+    { data: taskSummaryData, error: taskSummaryError },
   ] = await Promise.all([
     supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to'),
     supabase.from('departments').select('*').order('sort_order'),
     supabase.from('department_members').select('department_id, profile_id, is_lead'),
-    supabase.from('tasks').select('assignee_id, estimated_hours, status, due_date').not('status', 'in', '(completed,cancelled)').not('assignee_id', 'is', null),
-    supabase.from('tasks').select('assignee_id').eq('status', 'completed').gte('closed_at', monthStart.toISOString()).not('assignee_id', 'is', null),
+    supabase.rpc('team_task_summary', {
+      p_month_start: monthStart.toISOString(),
+      p_today: todayDateKey(),
+    }),
   ])
-  for (const error of [peopleError, departmentError, departmentMemberError]) {
+  for (const error of [peopleError, departmentError, departmentMemberError, taskSummaryError]) {
     if (error) throw error
   }
   const lookups = {
@@ -45,12 +56,23 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
     departments: (departmentData ?? []) as Department[],
     departmentMembers: (departmentMemberData ?? []) as DepartmentMember[],
   }
-  const tasks = (data ?? []) as Pick<Task, 'assignee_id' | 'estimated_hours' | 'status' | 'due_date'>[]
-  const doneThisMonth = (doneData ?? []).reduce<Record<string, number>>((acc, t: { assignee_id: string }) => {
-    acc[t.assignee_id] = (acc[t.assignee_id] ?? 0) + 1
-    return acc
-  }, {})
+  const taskStatsByPerson = new Map<string, { open: number; hours: number; overdue: number; done: number }>(
+    (taskSummaryData ?? []).map((row: TeamTaskSummaryRow) => [row.profile_id, {
+      open: Number(row.open_task_count),
+      hours: Number(row.open_estimated_hours),
+      overdue: Number(row.overdue_task_count),
+      done: Number(row.completed_this_month),
+    }]),
+  )
   const deptName = Object.fromEntries(lookups.departments.map(d => [d.id, d.name]))
+  const departmentsByPerson = new Map<string, string[]>()
+  for (const member of lookups.departmentMembers) {
+    const departmentName = deptName[member.department_id]
+    if (!departmentName) continue
+    const departments = departmentsByPerson.get(member.profile_id) ?? []
+    departments.push(departmentName)
+    departmentsByPerson.set(member.profile_id, departments)
+  }
 
   // Super Admin sees all staff. Managers and Team Leads see only their reporting hierarchy.
   // Active and not-active people are both listed.
@@ -60,17 +82,17 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
       ? p.role !== 'client'
       : p.role !== 'client' && reportingIds.has(p.id))
   const everyone = visible.map(p => {
-    const mine = tasks.filter(t => t.assignee_id === p.id)
-    const hours = mine.reduce((s, t) => s + Number(t.estimated_hours ?? 3), 0)
+    const taskStats = taskStatsByPerson.get(p.id) ?? { open: 0, hours: 0, overdue: 0, done: 0 }
+    const hours = taskStats.hours
     return {
       ...p,
       active: p.status === 'active',
-      open: mine.length,
-      done: doneThisMonth[p.id] ?? 0,
-      overdue: mine.filter(t => dueState(t.due_date, t.status) === 'overdue').length,
+      open: taskStats.open,
+      done: taskStats.done,
+      overdue: taskStats.overdue,
       hours,
       pct: Math.round((hours / (p.weekly_capacity_hours || 40)) * 100),
-      depts: lookups.departmentMembers.filter(m => m.profile_id === p.id).map(m => deptName[m.department_id]).filter(Boolean),
+      depts: departmentsByPerson.get(p.id) ?? [],
     }
   })
 

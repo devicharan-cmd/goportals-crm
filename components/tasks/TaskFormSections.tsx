@@ -13,7 +13,7 @@ export function TaskFormCardTitle({ title = 'Task 1', action }: { title?: string
   )
 }
 
-export function TaskSectionHeader({ section }: { section: 'basic' | 'configuration' | 'deadline' }) {
+export function TaskSectionHeader({ section, required = false }: { section: 'basic' | 'configuration' | 'deadline'; required?: boolean }) {
   const sections = {
     basic: { title: 'Basic Information', Icon: ClipboardList },
     configuration: { title: 'Task Configuration', Icon: Settings2 },
@@ -26,6 +26,7 @@ export function TaskSectionHeader({ section }: { section: 'basic' | 'configurati
       <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#EAF4F8] px-3 py-1.5 text-sm font-semibold text-[#033B51]">
         <Icon aria-hidden="true" className="h-4 w-4 text-[#034C68]" />
         {title}
+        {required && <span className="text-red-500">*</span>}
       </span>
     </div>
   )

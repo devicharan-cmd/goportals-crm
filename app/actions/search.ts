@@ -2,15 +2,21 @@
 
 import { requireClient, requireRole, requireStaff } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { TASK_PAGE_SIZE, TASK_STATUS_OPTIONS } from '@/lib/constants'
+import { CLIENT_PAGE_SIZE, TASK_PAGE_SIZE, TASK_STATUS_OPTIONS, TICKET_PAGE_SIZE } from '@/lib/constants'
 import { getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, TASK_SUMMARY_SELECT, type TaskAssignerInfo, type TaskPageCursor } from '@/lib/queries'
 import { parseTaskCode, parseTicketCode } from '@/lib/utils'
 import type { Client, TaskSummary, Ticket } from '@/types/database'
 
 type TicketStatusFilter = 'unassigned' | 'assigned' | 'closed'
+type StaffTicketCursor = Pick<Ticket, 'id' | 'created_at'>
 type ClientStatusFilter = '' | 'active' | 'pending' | 'suspended' | 'rejected'
 type ClientSearchRow = Client & { client_team: { profile_id: string }[] }
-type StaffTicketSearchRow = Ticket & { client: { id: string; company_name: string } | null }
+type StaffTicketSearchRow = Ticket & { client: {
+  id: string
+  company_name: string
+  company_profile_image_path: string | null
+  company_profile_image_signed_url?: string | null
+} | null }
 type TaskSearchFilters = {
   scope: 'mine' | 'assigned' | 'all'
   status: string
@@ -120,12 +126,23 @@ export async function searchTasks(value: string, filters: TaskSearchFilters, cur
   return { tasks, names: nameMap(peopleResult.data ?? []), taskAssigners, hasMore, nextCursor }
 }
 
-export async function searchPortalTickets(value: string, status: 'open' | 'done'): Promise<Ticket[]> {
+export async function searchPortalTickets(value: string, status: 'open' | 'done', cursor: StaffTicketCursor | null = null): Promise<{
+  tickets: Ticket[]
+  hasMore: boolean
+  nextCursor: StaffTicketCursor | null
+}> {
   if (!['open', 'done'].includes(status)) throw new Error('Invalid ticket status filter')
+  if (cursor && !isValidTicketPageCursor(cursor)) throw new Error('Invalid ticket page cursor')
   await requireClient()
   const supabase = await createClient()
   const queryText = safeSearchText(value)
-  let query = supabase.from('tickets').select('*').order('created_at', { ascending: false })
+  let query = supabase.from('tickets').select('*')
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: true })
+    .range(0, TICKET_PAGE_SIZE)
+  if (cursor) {
+    query = query.or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.gt.${cursor.id})`)
+  }
   const ticketNumber = parseTicketCode(queryText)
   if (ticketNumber) query = query.eq('ticket_number', ticketNumber)
   else if (queryText) query = query.ilike('subject', `%${queryText}%`)
@@ -135,18 +152,41 @@ export async function searchPortalTickets(value: string, status: 'open' | 'done'
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
-  return (data ?? []) as Ticket[]
+  const hasMore = (data?.length ?? 0) > TICKET_PAGE_SIZE
+  const tickets = (data ?? []).slice(0, TICKET_PAGE_SIZE) as Ticket[]
+  const lastTicket = tickets[tickets.length - 1]
+  return {
+    tickets,
+    hasMore,
+    nextCursor: hasMore && lastTicket ? { id: lastTicket.id, created_at: lastTicket.created_at } : null,
+  }
 }
 
-export async function searchStaffTickets(value: string, status: TicketStatusFilter): Promise<StaffTicketSearchRow[]> {
+function isValidTicketPageCursor(cursor: StaffTicketCursor) {
+  return typeof cursor.id === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cursor.id)
+    && typeof cursor.created_at === 'string'
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(cursor.created_at)
+}
+
+export async function searchStaffTickets(value: string, status: TicketStatusFilter, cursor: StaffTicketCursor | null = null): Promise<{
+  tickets: StaffTicketSearchRow[]
+  hasMore: boolean
+  nextCursor: StaffTicketCursor | null
+}> {
   if (!['unassigned', 'assigned', 'closed'].includes(status)) throw new Error('Invalid ticket status filter')
+  if (cursor && !isValidTicketPageCursor(cursor)) throw new Error('Invalid ticket page cursor')
   await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
   const queryText = safeSearchText(value)
   let query = supabase.from('tickets')
-    .select('*, client:clients(id, company_name)')
+    .select('*, client:clients(id, company_name, company_profile_image_path)')
     .order('created_at', { ascending: false })
-    .limit(200)
+    .order('id', { ascending: true })
+    .range(0, TICKET_PAGE_SIZE)
+  if (cursor) {
+    query = query.or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.gt.${cursor.id})`)
+  }
   const ticketNumber = parseTicketCode(queryText)
   if (ticketNumber) query = query.eq('ticket_number', ticketNumber)
   else if (queryText) query = query.ilike('subject', `%${queryText}%`)
@@ -154,29 +194,59 @@ export async function searchStaffTickets(value: string, status: TicketStatusFilt
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
-  return (data ?? []) as StaffTicketSearchRow[]
+  const hasMore = (data?.length ?? 0) > TICKET_PAGE_SIZE
+  const tickets = (data ?? []).slice(0, TICKET_PAGE_SIZE) as StaffTicketSearchRow[]
+  const imagePaths = Array.from(new Set(tickets.flatMap(ticket =>
+    ticket.client?.company_profile_image_path ? [ticket.client.company_profile_image_path] : [],
+  )))
+  const { data: signedImages, error: imageError } = imagePaths.length
+    ? await supabase.storage.from('client-profile-images').createSignedUrls(imagePaths, 3600)
+    : { data: [], error: null }
+  if (imageError) throw new Error(imageError.message)
+  const imageUrlByPath = Object.fromEntries((signedImages ?? []).map(image => [image.path, image.signedUrl]))
+  const ticketsWithClientImages = tickets.map(ticket => ({
+    ...ticket,
+    client: ticket.client ? {
+      ...ticket.client,
+      company_profile_image_signed_url: ticket.client.company_profile_image_path
+        ? imageUrlByPath[ticket.client.company_profile_image_path] ?? null
+        : null,
+    } : null,
+  }))
+  const lastTicket = tickets[tickets.length - 1]
+  return {
+    tickets: ticketsWithClientImages,
+    hasMore,
+    nextCursor: hasMore && lastTicket ? { id: lastTicket.id, created_at: lastTicket.created_at } : null,
+  }
 }
 
-export async function searchClients(value: string, status: ClientStatusFilter): Promise<{
+export async function searchClients(value: string, status: ClientStatusFilter, offset = 0): Promise<{
   clients: ClientSearchRow[]
   imageUrlByPath: Record<string, string>
+  hasMore: boolean
+  nextOffset: number | null
 }> {
   if (!['', 'active', 'pending', 'suspended', 'rejected'].includes(status)) {
     throw new Error('Invalid client status filter')
   }
+  if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Invalid client page offset')
   await requireRole(['super_admin', 'manager'])
   const supabase = await createClient()
   const queryText = safeSearchText(value)
   let query = supabase.from('clients')
     .select('*, client_team(profile_id)')
     .order('company_name')
+    .order('id')
+    .range(offset, offset + CLIENT_PAGE_SIZE)
   if (queryText) query = query.ilike('company_name', `%${queryText}%`)
   if (status) query = query.eq('status', status)
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
 
-  const clients = (data ?? []) as ClientSearchRow[]
+  const hasMore = (data?.length ?? 0) > CLIENT_PAGE_SIZE
+  const clients = (data ?? []).slice(0, CLIENT_PAGE_SIZE) as ClientSearchRow[]
   const imagePaths = clients.flatMap(client => client.company_profile_image_path ? [client.company_profile_image_path] : [])
   const { data: signedImages, error: imageError } = imagePaths.length
     ? await supabase.storage.from('client-profile-images').createSignedUrls(imagePaths, 3600)
@@ -186,5 +256,7 @@ export async function searchClients(value: string, status: ClientStatusFilter): 
   return {
     clients,
     imageUrlByPath: Object.fromEntries((signedImages ?? []).map(image => [image.path, image.signedUrl ?? ''])),
+    hasMore,
+    nextOffset: hasMore ? offset + clients.length : null,
   }
 }

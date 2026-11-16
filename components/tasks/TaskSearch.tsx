@@ -20,15 +20,30 @@ type TaskSearchContextValue = {
   editableAssigneeId?: string
   query: string
   scope: 'mine' | 'assigned' | 'all'
+  scopeChanging: boolean
   status: string
   board: boolean
   searching: boolean
   error: string
   setQuery: (query: string) => void
+  changeScope: (
+    scope: 'mine' | 'assigned' | 'all',
+    filters: Omit<TaskSearchFilters, 'scope'>,
+  ) => void
   adjustMyTaskCount: (delta: number) => void
   loadMoreTasks: () => void
   hasMoreTasks: boolean
   loadingMoreTasks: boolean
+}
+
+type TaskSearchFilters = {
+  status: string
+  client: string
+  assignee: string
+  assignedBy: string
+  department: string
+  due: string
+  board: boolean
 }
 
 const TaskSearchContext = createContext<TaskSearchContextValue | null>(null)
@@ -74,12 +89,15 @@ export function TaskSearchProvider({
   const [tasks, setTasks] = useState(initialTasks)
   const [names, setNames] = useState(initialNames)
   const [taskAssigners, setTaskAssigners] = useState(initialTaskAssigners)
+  const [activeScope, setActiveScope] = useState(scope)
+  const [scopeFilterOverrides, setScopeFilterOverrides] = useState<Omit<TaskSearchFilters, 'scope'> | null>(null)
   const [hasMoreTasks, setHasMoreTasks] = useState(initialHasMoreTasks)
   const [nextTaskCursor, setNextTaskCursor] = useState(initialTaskCursor)
   const [loadingMoreTasks, setLoadingMoreTasks] = useState(false)
   const [serverScopeCounts, setServerScopeCounts] = useState(initialScopeCounts)
   const [pendingMyTaskCountDelta, setPendingMyTaskCountDelta] = useState(0)
   const [searching, setSearching] = useState(false)
+  const [scopeChanging, setScopeChanging] = useState(false)
   const [error, setError] = useState('')
   const taskRequestId = useRef(0)
   const previousServerMineCount = useRef(initialScopeCounts.mine)
@@ -95,16 +113,21 @@ export function TaskSearchProvider({
   }, [initialAllCount, initialAssignedCount, initialMineCount, pendingMyTaskCountDelta])
 
   useEffect(() => {
+    if (scope === activeScope && scopeFilterOverrides) setScopeFilterOverrides(null)
+  }, [activeScope, scope, scopeFilterOverrides])
+
+  useEffect(() => {
     const requestId = ++taskRequestId.current
     let active = true
     setLoadingMoreTasks(false)
-    if (!query) {
+    if (!query && activeScope === scope && !scopeFilterOverrides) {
       setTasks(initialTasks)
       setNames(initialNames)
       setTaskAssigners(initialTaskAssigners)
       setHasMoreTasks(initialHasMoreTasks)
       setNextTaskCursor(initialTaskCursor)
       setSearching(false)
+      setScopeChanging(false)
       setError('')
       return () => {
         active = false
@@ -113,10 +136,13 @@ export function TaskSearchProvider({
     }
 
     setSearching(true)
+    setScopeChanging(activeScope !== scope || scopeFilterOverrides !== null)
+    setTasks([])
     setHasMoreTasks(false)
     setNextTaskCursor(null)
     setError('')
-    void searchTasks(query, { scope, status, client, assignee, assignedBy, department, due, board })
+    const filters = scopeFilterOverrides ?? { status, client, assignee, assignedBy, department, due, board }
+    void searchTasks(query, { ...filters, scope: activeScope })
       .then(result => {
         if (!active) return
         setTasks(result.tasks)
@@ -129,16 +155,32 @@ export function TaskSearchProvider({
         if (active) setError(errorMessage(searchError))
       })
       .finally(() => {
-        if (active) setSearching(false)
+        if (active) {
+          setSearching(false)
+          setScopeChanging(false)
+        }
       })
 
     return () => {
       active = false
       if (taskRequestId.current === requestId) taskRequestId.current += 1
     }
-  }, [assignee, assignedBy, board, client, department, due, initialHasMoreTasks, initialNames, initialTaskAssigners, initialTaskCursor, initialTasks, query, scope, status])
+  }, [activeScope, assignee, assignedBy, board, client, department, due, initialHasMoreTasks, initialNames, initialTaskAssigners, initialTaskCursor, initialTasks, query, scope, scopeFilterOverrides, status])
 
   const handleSearch = useCallback((value: string) => setQuery(value), [])
+  const changeScope = useCallback((
+    nextScope: 'mine' | 'assigned' | 'all',
+    filters: Omit<TaskSearchFilters, 'scope'>,
+  ) => {
+    if (nextScope === activeScope) return
+    setActiveScope(nextScope)
+    setScopeFilterOverrides(nextScope === scope ? null : filters)
+    setScopeChanging(true)
+    setTasks([])
+    setHasMoreTasks(false)
+    setNextTaskCursor(null)
+    setError('')
+  }, [activeScope, scope])
   const adjustMyTaskCount = useCallback((delta: number) => {
     if (delta === 0) return
     setPendingMyTaskCountDelta(current => current + delta)
@@ -148,7 +190,8 @@ export function TaskSearchProvider({
     const requestId = taskRequestId.current
     setLoadingMoreTasks(true)
     setError('')
-    void searchTasks(query, { scope, status, client, assignee, assignedBy, department, due, board }, nextTaskCursor)
+    const filters = scopeFilterOverrides ?? { status, client, assignee, assignedBy, department, due, board }
+    void searchTasks(query, { ...filters, scope: activeScope }, nextTaskCursor)
       .then(result => {
         if (taskRequestId.current !== requestId) return
         setTasks(current => {
@@ -166,14 +209,15 @@ export function TaskSearchProvider({
       .finally(() => {
         if (taskRequestId.current === requestId) setLoadingMoreTasks(false)
       })
-  }, [assignee, assignedBy, board, client, department, due, hasMoreTasks, loadingMoreTasks, nextTaskCursor, query, scope, searching, status])
+  }, [activeScope, assignee, assignedBy, board, client, department, due, hasMoreTasks, loadingMoreTasks, nextTaskCursor, query, scopeFilterOverrides, searching, status])
   const scopeCounts = {
     ...serverScopeCounts,
     mine: Math.max(0, serverScopeCounts.mine + pendingMyTaskCountDelta),
   }
   const value: TaskSearchContextValue = {
-    tasks, names, taskAssigners, scopeCounts, assignOptions, editableAssigneeId, query, scope, status, board, searching, error,
-    setQuery: handleSearch, adjustMyTaskCount, loadMoreTasks, hasMoreTasks, loadingMoreTasks,
+    tasks, names, taskAssigners, scopeCounts, assignOptions, editableAssigneeId, query, scope: activeScope, scopeChanging,
+    status, board, searching, error, setQuery: handleSearch, changeScope, adjustMyTaskCount, loadMoreTasks,
+    hasMoreTasks, loadingMoreTasks,
   }
 
   return <TaskSearchContext.Provider value={value}>{children}</TaskSearchContext.Provider>
@@ -205,7 +249,11 @@ export function TaskSearchResults() {
     <div className="space-y-2">
       {search.error && <Alert>{search.error}</Alert>}
       {search.searching && <span className="sr-only" role="status">Searching tasks</span>}
-      {search.board ? (
+      {search.scopeChanging ? (
+        <div className="flex min-h-32 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500" role="status">
+          Loading {search.scope === 'mine' ? 'your' : search.scope === 'assigned' ? 'assigned' : 'all'} tasks…
+        </div>
+      ) : search.board ? (
         <TaskBoard
           tasks={search.tasks}
           names={search.names}

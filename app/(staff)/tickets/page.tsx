@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { CircleCheck, Layers3, Plus, UsersRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
+import { TICKET_PAGE_SIZE } from '@/lib/constants'
 import { ButtonLink } from '@/components/ui/button'
 import { TicketSearchField, TicketSearchProvider, TicketSearchResults } from '@/components/shared/TicketSearch'
 import type { TicketListItem } from '@/components/shared/TicketTable'
@@ -26,7 +27,8 @@ export default async function StaffTicketsPage(props: { searchParams: Promise<{ 
       .select('*, client:clients(id, company_name, company_profile_image_path)')
       .eq('status', tab)
       .order('created_at', { ascending: false })
-      .limit(200),
+      .order('id', { ascending: true })
+      .range(0, TICKET_PAGE_SIZE),
     ...TABS.map(({ key }) => supabase.from('tickets')
       .select('id', { count: 'exact', head: true })
       .eq('status', key)),
@@ -37,14 +39,21 @@ export default async function StaffTicketsPage(props: { searchParams: Promise<{ 
     if (result.error) throw result.error
   }
   const ticketCounts = Object.fromEntries(TABS.map((item, index) => [item.key, countResults[index].count ?? 0])) as Record<(typeof TABS)[number]['key'], number>
-  const imagePaths = ((data ?? [])
+  const hasMoreTickets = (data?.length ?? 0) > TICKET_PAGE_SIZE
+  const pageTickets = (data ?? []).slice(0, TICKET_PAGE_SIZE)
+  const lastTicket = pageTickets[pageTickets.length - 1]
+  const initialTicketCursor = hasMoreTickets && lastTicket
+    ? { id: lastTicket.id, created_at: lastTicket.created_at }
+    : null
+  const imagePaths = (pageTickets
     .map(ticket => (ticket.client as { company_profile_image_path?: string | null } | null)?.company_profile_image_path)
     .filter((path): path is string => !!path))
-  const { data: signedImages } = imagePaths.length
+  const { data: signedImages, error: imageError } = imagePaths.length
     ? await supabase.storage.from('client-profile-images').createSignedUrls(Array.from(new Set(imagePaths)), 3600)
-    : { data: [] }
+    : { data: [], error: null }
+  if (imageError) throw imageError
   const imageUrlByPath = Object.fromEntries((signedImages ?? []).map(image => [image.path, image.signedUrl]))
-  const ticketsWithClientImages = (data ?? []).map(ticket => {
+  const ticketsWithClientImages = pageTickets.map(ticket => {
     const client = ticket.client as { id: string; company_name: string; company_profile_image_path?: string | null } | null
     return {
       ...ticket,
@@ -60,6 +69,8 @@ export default async function StaffTicketsPage(props: { searchParams: Promise<{ 
   return (
     <TicketSearchProvider
       initialTickets={ticketsWithClientImages}
+      initialHasMoreTickets={hasMoreTickets}
+      initialTicketCursor={initialTicketCursor}
       audience="staff"
       status={tab}
     >

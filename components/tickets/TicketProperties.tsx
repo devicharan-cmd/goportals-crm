@@ -1,48 +1,67 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { CreateTasksModal } from '@/components/tickets/CreateTasksModal'
-import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_STYLES } from '@/lib/constants'
 import { StatusBadge } from '@/components/ui/badges'
 import { createClient } from '@/lib/supabase/client'
-import { errorMessage } from '@/lib/utils'
+import { showErrorToast } from '@/lib/ui-toast'
 import type { AssigneeOption } from '@/lib/queries'
-import type { Department, Platform, Service, Ticket, TicketStatus } from '@/types/database'
-import { useSingleFlight } from '@/components/shared/useSingleFlight'
+import type { Department, Platform, Service, Ticket } from '@/types/database'
 
 /** Staff ticket properties and permitted inline controls. */
 export function TicketProperties({
-  ticket, departments, platforms, services, assignees, canMarkUrgent, clientAssignee, meId, hasLinkedTasks, canChangeStatus,
+  ticket,
+  departments,
+  platforms,
+  services,
+  assignees,
+  canMarkUrgent,
+  clientAssignee,
+  meId,
+  hasLinkedTasks,
 }: {
-  ticket: Ticket; departments: Department[]; platforms: Platform[]; services: Service[]
-  assignees: AssigneeOption[]; canMarkUrgent: boolean
-  clientAssignee?: AssigneeOption; meId: string
+  ticket: Ticket & { client?: { id?: string; company_name?: string; contact_name?: string | null } | null }
+  departments: Department[]
+  platforms: Platform[]
+  services: Service[]
+  assignees: AssigneeOption[]
+  canMarkUrgent: boolean
+  clientAssignee?: AssigneeOption
+  meId: string
   hasLinkedTasks: boolean
   canChangeStatus: boolean
 }) {
   const router = useRouter()
-  const runOnce = useSingleFlight()
-  const [savingStatus, setSavingStatus] = useState(false)
-  const [statusError, setStatusError] = useState('')
   const isClosed = ticket.status === 'closed'
 
-  async function changeStatus(status: TicketStatus) {
-    if (status === ticket.status) return
-    setSavingStatus(true)
-    setStatusError('')
-    const { error } = await createClient().rpc('set_ticket_status', {
-      p_ticket_id: ticket.id,
-      p_status: status,
-    })
-    setSavingStatus(false)
-    if (error) {
-      setStatusError(errorMessage(error))
-      return
+  // Instant notification and redirect if client deletes this ticket while staff is viewing
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`ticket-live-${ticket.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'tickets',
+          filter: `id=eq.${ticket.id}`,
+        },
+        () => {
+          const clientName = ticket.client?.company_name || 'the client'
+          showErrorToast(`This ticket was deleted by ${clientName} and doesn't exist anymore.`)
+          router.push('/tickets')
+          router.refresh()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
-    router.refresh()
-  }
+  }, [ticket.id, ticket.client?.company_name, router])
 
   const row = 'grid grid-cols-[100px_1fr] items-center gap-3'
   const label = 'text-xs font-medium text-slate-500'
@@ -50,32 +69,19 @@ export function TicketProperties({
   return (
     <div className="space-y-3">
       {isClosed && (
-        <p className="rounded-lg bg-[#F5FAE8] px-3 py-2 text-xs text-[#465B17]">
-          This ticket is closed. Reopen it here before adding or relinking tasks. Existing task statuses can still be changed.
+        <p className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
+          This ticket is closed.
         </p>
       )}
 
       <div className={row}>
         <span className={label}>Status</span>
-        {canChangeStatus ? (
-          <SearchableSelect
-            value={ticket.status}
-            onChange={event => void runOnce('status', () => changeStatus(event.target.value as TicketStatus))}
-            disabled={savingStatus}
-            aria-label="Ticket status"
-            className="w-full"
-          >
-            {Object.entries(TICKET_STATUS_LABELS)
-              .filter(([status]) => status !== 'unassigned')
-              .map(([status, statusLabel]) => (
-              <option key={status} value={status}>{statusLabel}</option>
-              ))}
-          </SearchableSelect>
-        ) : (
-          <StatusBadge label={TICKET_STATUS_LABELS[ticket.status]} className={`${TICKET_STATUS_STYLES[ticket.status]} w-fit justify-self-start`} dotClassName={TICKET_STATUS_DOT[ticket.status]} />
-        )}
+        <StatusBadge
+          label={TICKET_STATUS_LABELS[ticket.status]}
+          className={`${TICKET_STATUS_STYLES[ticket.status]} w-fit justify-self-start`}
+          dotClassName={TICKET_STATUS_DOT[ticket.status]}
+        />
       </div>
-      {statusError && <p role="alert" className="text-xs text-red-600">{statusError}</p>}
 
       {!isClosed && (
         <div className="border-t border-slate-100 pt-3">

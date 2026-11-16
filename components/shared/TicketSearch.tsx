@@ -14,8 +14,6 @@ type TicketStatusFilter = TicketStatus | 'open' | 'done' | null
 type SearchContextValue = {
   tickets: TicketListItem[]
   query: string
-  unreadByTicket?: Record<string, number>
-  realtimeUserId?: string
   audience: SearchMode
   status: TicketStatusFilter
   searching: boolean
@@ -38,8 +36,6 @@ export function TicketSearchProvider({
   initialTickets,
   initialHasMoreTickets = false,
   initialTicketCursor = null,
-  unreadByTicket,
-  realtimeUserId,
   audience,
   status,
   children,
@@ -47,8 +43,6 @@ export function TicketSearchProvider({
   initialTickets: TicketListItem[]
   initialHasMoreTickets?: boolean
   initialTicketCursor?: TicketPageCursor | null
-  unreadByTicket?: Record<string, number>
-  realtimeUserId?: string
   audience: SearchMode
   status: TicketStatusFilter
   children: React.ReactNode
@@ -129,7 +123,7 @@ export function TicketSearchProvider({
       })
   }, [audience, hasMoreTickets, loadingMoreTickets, nextTicketCursor, query, searching, status])
   const contextValue: SearchContextValue = {
-    tickets, query, unreadByTicket, realtimeUserId, audience, status,
+    tickets, query, audience, status,
     searching, error, hasMoreTickets, loadingMoreTickets, setQuery: handleSearch, loadMoreTickets,
   }
 
@@ -164,8 +158,6 @@ export function TicketSearchResults() {
           hrefBase={search.audience === 'client' ? '/portal/tickets' : '/tickets'}
           showClient={search.audience === 'staff'}
           audience={search.audience}
-          unreadByTicket={search.unreadByTicket}
-          realtimeUserId={search.realtimeUserId}
           empty={{ title: search.queryEmptyTitle }}
         />
         {search.hasMoreTickets && (

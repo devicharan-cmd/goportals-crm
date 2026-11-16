@@ -1,4 +1,4 @@
-import { CalendarDays, ClipboardList, Settings2 } from 'lucide-react'
+import { CalendarClock, CalendarDays, ClipboardList, Eye, Settings2 } from 'lucide-react'
 
 export function TaskFormCard({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
   return <div className={enabled ? 'rounded-xl border border-slate-200 bg-white p-4 shadow-sm' : 'task-form-fields-stack'}>{children}</div>
@@ -13,17 +13,29 @@ export function TaskFormCardTitle({ title = 'Task 1', action }: { title?: string
   )
 }
 
-export function TaskSectionHeader({ section, required = false }: { section: 'basic' | 'configuration' | 'deadline'; required?: boolean }) {
+export function TaskSectionHeader({
+  section,
+  required = false,
+  className,
+  id,
+}: {
+  section: 'basic' | 'configuration' | 'deadline' | 'scheduler' | 'visibility'
+  required?: boolean
+  className?: string
+  id?: string
+}) {
   const sections = {
     basic: { title: 'Basic Information', Icon: ClipboardList },
     configuration: { title: 'Task Configuration', Icon: Settings2 },
     deadline: { title: 'Deadline', Icon: CalendarDays },
+    scheduler: { title: 'Task Scheduler', Icon: CalendarClock },
+    visibility: { title: 'Task visibility', Icon: Eye },
   }
   const { title, Icon } = sections[section]
 
   return (
-    <div className={`flex items-center gap-2 ${section === 'configuration' || section === 'deadline' ? 'mb-3 mt-4' : 'mb-3'}`}>
-      <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#EAF4F8] px-3 py-1.5 text-sm font-semibold text-[#033B51]">
+    <div className={className ?? `flex items-center gap-2 ${section === 'configuration' || section === 'deadline' || section === 'scheduler' || section === 'visibility' ? 'mb-3 mt-4' : 'mb-3'}`}>
+      <span id={id} className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#EAF4F8] px-3 py-1.5 text-sm font-semibold text-[#033B51]">
         <Icon aria-hidden="true" className="h-4 w-4 text-[#034C68]" />
         {title}
         {required && <span className="text-red-500">*</span>}

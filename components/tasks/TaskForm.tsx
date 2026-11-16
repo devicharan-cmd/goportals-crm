@@ -160,7 +160,7 @@ export function TaskForm(p: TaskFormProps) {
   const [form, setForm] = useState({
     title:           t?.title ?? '',
     description:     t?.description ?? '',
-    client_id:       t?.visibility === 'private' ? '' : t?.client_id ?? p.defaultClientId ?? '',
+    client_id:       t?.visibility === 'private' && !t?.ticket_id ? '' : t?.client_id ?? p.defaultClientId ?? '',
     visibility:      (t?.visibility ?? '') as TaskVisibility | '',
     type:            (t?.type ?? 'task') as TaskType,
     priority:        (t?.priority ?? 'P3') as TaskPriority,
@@ -179,6 +179,8 @@ export function TaskForm(p: TaskFormProps) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [titleError, setTitleError] = useState('')
+  const [descriptionError, setDescriptionError] = useState('')
+  const [priorityError, setPriorityError] = useState('')
   const [clientError, setClientError] = useState('')
   const [ticketError, setTicketError] = useState('')
   const [assigneeError, setAssigneeError] = useState('')
@@ -207,7 +209,7 @@ export function TaskForm(p: TaskFormProps) {
   const deadlineRequired = p.mode === 'create' || canEditAssignment
   const ticketLinked = Boolean(form.ticket_id) && form.ticket_id !== STANDALONE_TICKET_OPTION
   const standaloneSelected = form.ticket_id === STANDALONE_TICKET_OPTION
-  const visibilityLocked = p.mode === 'edit' || !standaloneSelected || ticketLinked
+  const visibilityLocked = p.mode === 'edit' || (!standaloneSelected && !ticketLinked)
   const selectedSchedulerDate = scheduleStartDate ? new Date(`${scheduleStartDate}T12:00:00`) : null
   const scheduleCalendarDays = scheduleCalendarMonth
     ? eachDayOfInterval({
@@ -351,7 +353,7 @@ export function TaskForm(p: TaskFormProps) {
   }, [assigneeOpen])
 
   function pickClient(clientId: string) {
-    if (form.visibility === 'private') return
+    if (form.visibility === 'private' && !ticketLinked) return
     setClientError('')
     // The previously picked ticket almost certainly belonged to the old client.
     setForm(f => ({
@@ -366,7 +368,7 @@ export function TaskForm(p: TaskFormProps) {
     setForm(f => ({
       ...f,
       visibility,
-      ...(visibility === 'private' ? { client_id: '' } : {}),
+      ...(visibility === 'private' && !ticketLinked ? { client_id: '' } : {}),
     }))
   }
 
@@ -402,12 +404,16 @@ export function TaskForm(p: TaskFormProps) {
       || !scheduleStartDate
     )
     const titleMissing = !form.title.trim()
+    const descriptionMissing = p.mode === 'create' && !form.description.trim()
+    const priorityMissing = p.mode === 'create' && !form.priority
     setTitleError(titleMissing ? 'Enter a task title.' : '')
+    setDescriptionError(descriptionMissing ? 'Enter a task description.' : '')
+    setPriorityError(priorityMissing ? 'Select a priority.' : '')
     const assigneeMissing = p.mode === 'create' && !form.assignee_id
     setAssigneeError(assigneeMissing ? 'Please select an assignee before creating the task.' : '')
     const ticketMissing = !form.ticket_id
     setTicketError(ticketMissing ? 'Select a ticket or choose No ticket (standalone).' : '')
-    const visibilityMissing = standaloneSelected && !form.visibility
+    const visibilityMissing = (standaloneSelected || ticketLinked) && !form.visibility
     const deadlineMissing = deadlineRequired && !scheduledCreate && !form.due_date
     setDeadlineError(deadlineMissing ? 'Please select a deadline before saving the task.' : '')
     const clientMissing = ((standaloneSelected && form.visibility === 'public') || ticketLinked) && !form.client_id
@@ -422,8 +428,10 @@ export function TaskForm(p: TaskFormProps) {
     setError(schedulerMissing
       ? 'Choose a repeat schedule, time, and start date to enable Task Scheduler.'
       : visibilityMissing ? 'Choose Public or Private task visibility.' : '')
-    if (titleMissing || assigneeMissing || clientMissing || deadlineMissing || ticketMissing || visibilityMissing || schedulerMissing) {
+    if (titleMissing || descriptionMissing || priorityMissing || assigneeMissing || clientMissing || deadlineMissing || ticketMissing || visibilityMissing || schedulerMissing) {
       if (titleMissing) document.getElementById(p.modalLayout ? 'edit-task-title' : 'create-task-title')?.focus()
+      else if (descriptionMissing) document.getElementById('create-task-description')?.focus()
+      else if (priorityMissing) document.querySelector<HTMLButtonElement>('[aria-label="Priority"]')?.focus()
       else if (ticketMissing) document.querySelector<HTMLButtonElement>('[aria-label="Ticket"]')?.focus()
       else if (clientMissing) document.querySelector<HTMLButtonElement>('[aria-label="Client"]')?.focus()
       else if (deadlineMissing) document.getElementById('task-deadline-date')?.focus()
@@ -437,7 +445,7 @@ export function TaskForm(p: TaskFormProps) {
       description:     form.description.trim() || null,
       client_id:       form.client_id || null,
       ticket_id:       ticketLinked ? form.ticket_id : null,
-      visibility:      ticketLinked ? 'public' : form.visibility,
+      visibility:      form.visibility === 'private' ? 'private' : 'public',
       type:            form.type,
       priority:        form.priority,
       is_urgent:       form.is_urgent,
@@ -584,8 +592,17 @@ export function TaskForm(p: TaskFormProps) {
                    placeholder="e.g. Launch Diwali sponsored ads on Amazon" autoFocus={p.mode === 'create'} />
             {titleError && <p id="create-task-title-error" role="alert" className="mt-1 text-xs font-medium text-red-600">{titleError}</p>}
           </Field>
-          <Field label="Description">
-            <textarea className="form-field min-h-[110px] w-full" value={form.description} onChange={e => set('description', e.target.value)}
+          <Field label="Description" required={p.mode === 'create'} error={descriptionError} errorId="create-task-description-error">
+            <textarea
+                      id="create-task-description"
+                      aria-invalid={Boolean(descriptionError)}
+                      aria-describedby={descriptionError ? 'create-task-description-error' : undefined}
+                      className={cn('form-field min-h-[110px] w-full', descriptionError && 'border-red-400 focus:border-red-500 focus:ring-red-100')}
+                      value={form.description}
+                      onChange={e => {
+                        set('description', e.target.value)
+                        if (e.target.value.trim()) setDescriptionError('')
+                      }}
                       placeholder="Details, links, marketplace case IDs…" />
           </Field>
         </>
@@ -595,13 +612,13 @@ export function TaskForm(p: TaskFormProps) {
       {!p.modalLayout && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.25fr)_minmax(150px,0.45fr)]">
         <Field label="Client" required={(standaloneSelected && form.visibility === 'public') || ticketLinked}
           error={clientError} errorId="task-client-error" hint={form.visibility === 'private'
-          ? 'Private tasks cannot be associated with a client.'
+          ? ticketLinked ? 'Required for the ticket; private task details are hidden from the client.' : 'Private tasks cannot be associated with a client.'
           : form.visibility === 'public' && standaloneSelected
             ? 'Required for public tasks.'
             : ticketLinked
               ? 'Required for ticket-linked tasks.'
               : p.clients.length === 0 ? 'No clients available' : 'Choose a client for public tasks.'}>
-          <FormSelect label="Select client…" value={form.client_id} disabled={form.visibility === 'private'}
+          <FormSelect label="Select client…" value={form.client_id} disabled={form.visibility === 'private' && !ticketLinked}
             invalid={!!clientError} required={(standaloneSelected && form.visibility === 'public') || ticketLinked}
             aria-describedby={clientError ? 'task-client-error' : undefined}
             className={p.modalLayout ? 'h-9 rounded-xl text-sm' : undefined}
@@ -769,11 +786,18 @@ export function TaskForm(p: TaskFormProps) {
             </p>
           )}
         </Field>
-        <Field label="Priority">
+        <Field label="Priority" required={p.mode === 'create'} error={priorityError} errorId="task-priority-error">
           <FormSelect label="Priority" value={form.priority} options={PRIORITY_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
             className={p.modalLayout ? 'h-9 rounded-xl text-sm' : undefined}
             native={p.modalLayout}
-            onChange={value => set('priority', value as TaskPriority)} aria-label="Priority" />
+            onChange={value => {
+              set('priority', value as TaskPriority)
+              if (value) setPriorityError('')
+            }}
+            invalid={!!priorityError}
+            required={p.mode === 'create'}
+            aria-describedby={priorityError ? 'task-priority-error' : undefined}
+            aria-label="Priority" />
         </Field>
         <Field label="Estimated hours">
           <input className={cn('form-field', p.modalLayout && 'h-9 rounded-xl text-sm')} type="number" min="0" step="0.5" value={form.estimated_hours} placeholder="Enter hours" onChange={e => set('estimated_hours', e.target.value)} />
@@ -788,7 +812,7 @@ export function TaskForm(p: TaskFormProps) {
                 <h2 id="task-visibility-label" className="text-sm font-semibold text-slate-800">Task visibility</h2>
                 <p className="mt-0.5 text-xs leading-4 text-slate-500">
                   {ticketLinked
-                    ? 'Ticket tasks remain client-visible.'
+                    ? 'Private ticket tasks are hidden from the client; public tasks are client-visible.'
                     : !standaloneSelected
                       ? 'Choose No ticket (standalone) to set visibility.'
                     : p.mode === 'edit'

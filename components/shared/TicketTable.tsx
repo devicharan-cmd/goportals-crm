@@ -1,16 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { ClipboardList, MessageSquareText } from 'lucide-react'
+import { ClipboardList } from 'lucide-react'
 import { EmptyState } from '@/components/ui/primitives'
 import { CompanyAvatar } from '@/components/ui/primitives'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_LABELS_CLIENT, TICKET_STATUS_STYLES, TICKET_TERMINAL_STATUSES } from '@/lib/constants'
 import { TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { cn, formatDate, ticketCode } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
 import type { Ticket } from '@/types/database'
 
 export type TicketListItem = Ticket & {
@@ -22,26 +19,8 @@ export type TicketListItem = Ticket & {
   } | null
 }
 
-/**
- * Unread messages on a ticket: the count rides the corner of a chat icon, the
- * way the notification bell carries its own. Nothing is shown at zero.
- */
-function UnreadMessages({ count }: { count: number }) {
-  return (
-    <span className="relative inline-flex flex-shrink-0"
-          title={count ? `${count} unread message${count === 1 ? '' : 's'}` : 'Open the conversation'}>
-      <MessageSquareText strokeWidth={2.5} className={cn('h-5 w-5', count ? 'text-slate-700' : 'text-slate-400')} />
-      {count > 0 && (
-        <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#95C12C] px-1 text-[10px] font-bold text-[#011B26]">
-          {count > 9 ? '9+' : count}
-        </span>
-      )}
-    </span>
-  )
-}
-
 export function TicketTable({
-  tickets, hrefBase = '/portal/tickets', showClient = false, empty, audience = 'staff', unreadByTicket, realtimeUserId,
+  tickets, hrefBase = '/portal/tickets', showClient = false, empty, audience = 'staff',
 }: {
   tickets: TicketListItem[]
   hrefBase?: string
@@ -49,106 +28,7 @@ export function TicketTable({
   empty?: { title: string; description?: string; action?: React.ReactNode }
   /** 'client' swaps in the wording a client should read for each status. */
   audience?: 'staff' | 'client'
-  /** Unread message count per ticket id; omit to show none. */
-  unreadByTicket?: Record<string, number>
-  realtimeUserId?: string
 }) {
-  const router = useRouter()
-  const [liveUnreadByTicket, setLiveUnreadByTicket] = useState(unreadByTicket ?? {})
-  const showMessages = unreadByTicket !== undefined
-
-  useEffect(() => {
-    setLiveUnreadByTicket(unreadByTicket ?? {})
-  }, [unreadByTicket])
-
-  useEffect(() => {
-    if (!showMessages || !realtimeUserId) return
-    const supabase = createClient()
-    let disposed = false
-    let refreshing = false
-    let refreshPending = false
-    let refreshTimer: number | undefined
-
-    const scheduleRefresh = () => {
-      if (disposed || document.visibilityState !== 'visible') return
-      window.clearTimeout(refreshTimer)
-      refreshTimer = window.setTimeout(() => {
-        void refresh()
-      }, 200)
-    }
-
-    const refresh = async () => {
-      if (disposed || document.visibilityState !== 'visible') return
-      if (refreshing) {
-        refreshPending = true
-        return
-      }
-      refreshing = true
-      try {
-        const { data, error } = await supabase.rpc('my_unread_ticket_messages')
-        if (error) {
-          console.error('Unable to refresh unread ticket message counts:', error)
-          return
-        }
-        if (disposed) return
-        const rows = (data ?? []) as { ticket_id: string; unread: number }[]
-        const next = Object.fromEntries(rows.map(row => [row.ticket_id, row.unread]))
-        setLiveUnreadByTicket(current => {
-          const currentKeys = Object.keys(current)
-          const nextKeys = Object.keys(next)
-          if (currentKeys.length === nextKeys.length && nextKeys.every(key => current[key] === next[key])) {
-            return current
-          }
-          return next
-        })
-      } catch (error) {
-        if (!disposed) console.error('Unable to refresh unread ticket message counts:', error)
-      } finally {
-        refreshing = false
-        if (refreshPending) {
-          refreshPending = false
-          scheduleRefresh()
-        }
-      }
-    }
-
-    const channel = supabase
-      .channel(`ticket-unread:${realtimeUserId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'ticket_comments',
-      }, payload => {
-        const comment = payload.new as { author_id: string | null; is_internal: boolean }
-        if (comment.author_id !== realtimeUserId && !comment.is_internal) scheduleRefresh()
-      })
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'ticket_comment_reads',
-        filter: `profile_id=eq.${realtimeUserId}`,
-      }, scheduleRefresh)
-      .subscribe((status, error) => {
-        if (disposed) return
-        if (status === 'SUBSCRIBED') scheduleRefresh()
-        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          console.error('Ticket unread realtime subscription failed:', error ?? status)
-        }
-      })
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') scheduleRefresh()
-    }
-    document.addEventListener('visibilitychange', onVisibilityChange)
-
-    return () => {
-      disposed = true
-      window.clearTimeout(refreshTimer)
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-      void supabase.removeChannel(channel)
-    }
-  }, [realtimeUserId, showMessages])
-
   const statusLabels = audience === 'client' ? TICKET_STATUS_LABELS_CLIENT : TICKET_STATUS_LABELS
   if (tickets.length === 0) {
     return <EmptyState icon={<ClipboardList className="h-6 w-6" />} title={empty?.title ?? 'No tickets'} description={empty?.description} action={empty?.action} />
@@ -160,7 +40,6 @@ export function TicketTable({
         <thead>
           <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
             <th className="px-5 py-3.5">Ticket</th>
-            {showMessages && <th className={cn('px-3 py-3.5 text-center whitespace-nowrap', showClient ? 'w-24' : 'w-28')}><span className="sr-only">Messages</span></th>}
             {showClient && <th className="w-36 whitespace-nowrap px-3 py-3.5">Client</th>}
             <th className="w-32 whitespace-nowrap px-3 py-3.5">Category</th>
             <th className="w-32 whitespace-nowrap px-3 py-3.5">Status</th>
@@ -180,18 +59,6 @@ export function TicketTable({
                   </span>
                 </Link>
               </td>
-              {showMessages && (
-                <td className={cn('px-3 py-3.5 text-center whitespace-nowrap', showClient ? 'w-24' : 'w-28')}>
-                  <button
-                    type="button"
-                    onClick={() => router.push(`${hrefBase}/${t.id}`)}
-                    className="inline-flex"
-                    aria-label="Open the ticket"
-                  >
-                    <UnreadMessages count={liveUnreadByTicket[t.id] ?? 0} />
-                  </button>
-                </td>
-              )}
               {showClient && (
                 <td className="w-36 whitespace-nowrap px-3 py-3.5 text-slate-600">
                   {t.client ? (
@@ -222,7 +89,6 @@ export function TicketTable({
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {t.is_urgent && !TICKET_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
                 <StatusBadge label={statusLabels[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} />
-                <UnreadMessages count={liveUnreadByTicket[t.id] ?? 0} />
                 <span className="text-xs text-slate-500">{TICKET_CATEGORY_LABELS[t.category]}</span>
                 {showClient && t.client && (
                   <span className="flex items-center gap-1.5 text-xs text-slate-500">

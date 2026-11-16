@@ -1,9 +1,9 @@
 'use client'
 
 import { createPortal } from 'react-dom'
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarClock, Check, ChevronDown, Flame, Info, Layers3, Plus, Search, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, Flame, Globe2, Info, Layers3, LockKeyhole, Plus, Search, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
@@ -15,8 +15,9 @@ import { AssigneeOptionContent } from '@/components/tasks/AssigneeOptionContent'
 import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } from '@/components/tasks/TaskFormSections'
 import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TYPE_OPTIONS } from '@/lib/constants'
 import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
+import { showErrorToast } from '@/lib/ui-toast'
 import type { AssigneeOption } from '@/lib/queries'
-import type { DeadlineType, Department, Platform, Service, TaskPriority, TaskType, Ticket } from '@/types/database'
+import type { DeadlineType, Department, Platform, Service, TaskPriority, TaskType, TaskVisibility, Ticket } from '@/types/database'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 type Row = {
@@ -30,6 +31,7 @@ type Row = {
   due_date: string
   deadline_type: DeadlineType | ''
   priority: TaskPriority
+  visibility: TaskVisibility | ''
   estimated_hours: string
   is_urgent: boolean
   files: File[]
@@ -40,7 +42,7 @@ type Row = {
   schedule_start_date: string
 }
 type DropdownPosition = { left: number; top: number; width: number; maxHeight: number }
-type RowField = 'title' | 'description' | 'assignee_id' | 'due_date' | 'priority'
+type RowField = 'title' | 'description' | 'assignee_id' | 'due_date' | 'priority' | 'visibility'
 type AssigneeChoice = AssigneeOption
 
 function AssigneeSelect({ id, value, options, onChange, onOpenChange, invalid, disabled }: {
@@ -214,6 +216,7 @@ function emptyRow(ticket: Ticket): Row {
     due_date: '',
     deadline_type: '',
     priority: ticket.priority ?? 'P3',
+    visibility: '',
     estimated_hours: '',
     is_urgent: false,
     files: [],
@@ -229,7 +232,7 @@ function emptyRow(ticket: Ticket): Row {
 export function CreateTasksModal({
   ticket, assignees, clientAssignee, meId, canMarkUrgent, departments, platforms, services, hasLinkedTasks,
 }: {
-  ticket: Ticket
+  ticket: Ticket & { client?: { company_name?: string; contact_name?: string | null } | null }
   assignees: AssigneeOption[]
   clientAssignee?: AssigneeOption
   meId: string
@@ -255,6 +258,8 @@ export function CreateTasksModal({
     ...assignees,
   ]
 
+  const clientName = (ticket as any).client?.company_name || 'the client'
+
   function show() {
     setRows([emptyRow(ticket)])
     setError('')
@@ -265,6 +270,53 @@ export function CreateTasksModal({
     setAssigneeDropdownOpen(false)
     setOpen(true)
   }
+
+  async function handleOpenModal() {
+    if (saving) return
+    const supabase = createClient()
+    const { data: ticketCheck } = await supabase
+      .from('tickets')
+      .select('id')
+      .eq('id', ticket.id)
+      .maybeSingle()
+
+    if (!ticketCheck) {
+      showErrorToast(`This ticket was deleted by ${clientName} and doesn't exist anymore.`)
+      router.push('/tickets')
+      router.refresh()
+      return
+    }
+
+    show()
+  }
+
+  // Real-time listener: if client deletes ticket while modal is open, immediately close, notify, and redirect
+  useEffect(() => {
+    if (!open) return
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`modal-ticket-watch-${ticket.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'tickets',
+          filter: `id=eq.${ticket.id}`,
+        },
+        () => {
+          setOpen(false)
+          showErrorToast(`This ticket was deleted by ${clientName} and doesn't exist anymore.`)
+          router.push('/tickets')
+          router.refresh()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [open, ticket.id, clientName, router])
 
   function closeModal() {
     if (saving) return
@@ -318,6 +370,7 @@ export function CreateTasksModal({
           errors[`${index}.schedule`] = 'Choose a repeat schedule, time, and start date.'
         }
         if (!row.priority) errors[`${index}.priority`] = 'Select a priority.'
+        if (!row.visibility) errors[`${index}.visibility`] = 'Select task visibility (Public or Private).'
       })
       setFieldErrors(errors)
       if (Object.keys(errors).length > 0) return
@@ -325,6 +378,23 @@ export function CreateTasksModal({
 
     setSaving(true)
     const supabase = createClient()
+
+    // Ensure ticket was not deleted by client before creating tasks
+    const { data: ticketCheck } = await supabase
+      .from('tickets')
+      .select('id')
+      .eq('id', ticket.id)
+      .maybeSingle()
+
+    if (!ticketCheck) {
+      setSaving(false)
+      setOpen(false)
+      showErrorToast(`This ticket was deleted by ${clientName} and doesn't exist anymore.`)
+      router.push('/tickets')
+      router.refresh()
+      return
+    }
+
     let taskIds = createdTaskIds
     if (!taskIds) {
       const newTaskIds = rows.map(() => crypto.randomUUID())
@@ -344,10 +414,20 @@ export function CreateTasksModal({
           deadline_type: r.deadline_type || null,
           estimated_hours: r.estimated_hours ? Number(r.estimated_hours) : null,
           is_urgent: r.is_urgent,
+          visibility: r.visibility as TaskVisibility,
         }])
       if (immediateRows.length) {
         const { error: insertError } = await supabase.from('tasks').insert(immediateRows)
         if (insertError) {
+          const { data: exists } = await supabase.from('tickets').select('id').eq('id', ticket.id).maybeSingle()
+          if (!exists) {
+            setSaving(false)
+            setOpen(false)
+            showErrorToast(`This ticket was deleted by ${clientName} and doesn't exist anymore.`)
+            router.push('/tickets')
+            router.refresh()
+            return
+          }
           setSaving(false)
           setError(errorMessage(insertError))
           return
@@ -365,7 +445,7 @@ export function CreateTasksModal({
           p_task_id: taskIds[index],
           p_task_payload: {
             title: row.title.trim(), description: row.description.trim() || null,
-            client_id: ticket.client_id, ticket_id: ticket.id, visibility: 'public',
+            client_id: ticket.client_id, ticket_id: ticket.id, visibility: row.visibility as TaskVisibility,
             type: row.type, priority: row.priority, is_urgent: row.is_urgent,
             service_id: row.service_id || null, department_id: row.department_id || null,
             platform_id: row.platform_id || null, assignee_id: row.assignee_id,
@@ -438,7 +518,7 @@ export function CreateTasksModal({
 
   return (
     <>
-      <Button size="sm" variant="primary" className="w-full" onClick={show} disabled={!hasLinkedTasks}>
+      <Button size="sm" variant="primary" className="w-full" onClick={handleOpenModal} disabled={!hasLinkedTasks}>
         <Plus className="h-3.5 w-3.5" /> Create tasks for {ticketCode(ticket.ticket_number)}
       </Button>
       {!hasLinkedTasks && <p className="mt-2 text-center text-xs text-slate-500">Create the first task from the New Task form.</p>}
@@ -522,7 +602,10 @@ export function CreateTasksModal({
               <TaskFieldsGrid columns="three">
                 <div className="min-w-0">
                   {label(i, 'assignee_id', 'Assignee')}
-                  <AssigneeSelect id={`task-assignee_id-${i}`} value={r.assignee_id} options={assigneeOptions}
+                  <AssigneeSelect id={`task-assignee_id-${i}`} value={r.assignee_id}
+                                  options={r.visibility === 'private'
+                                    ? assigneeOptions.filter(option => option.id !== clientAssignee?.id)
+                                    : assigneeOptions}
                                   onChange={value => update(i, { assignee_id: value })}
                                   onOpenChange={setAssigneeDropdownOpen}
                                   invalid={!!fieldError(i, 'assignee_id')} disabled={!!createdTaskIds} />
@@ -545,6 +628,57 @@ export function CreateTasksModal({
                          onChange={e => update(i, { estimated_hours: e.target.value })} />
                 </div>
               </TaskFieldsGrid>
+              <section className="mt-4" aria-labelledby={`task-visibility-${i}`}>
+                <TaskSectionHeader section="visibility" required id={`task-visibility-${i}`} />
+                <p className="-mt-1 mb-2.5 text-xs leading-4 text-slate-500">
+                  Private tasks are hidden from the client and assigned to staff only; the ticket remains visible.
+                </p>
+                <div className="grid max-w-[26rem] gap-2 sm:grid-cols-2">
+                  {([
+                    { value: 'public', title: 'Public', description: 'Client + authorized staff' },
+                    { value: 'private', title: 'Private', description: 'Authorized staff only' },
+                  ] as const).map(option => {
+                    const selected = r.visibility === option.value
+                    const hasError = !!fieldError(i, 'visibility') && !r.visibility
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={selected}
+                        disabled={!!createdTaskIds}
+                        onClick={() => update(i, {
+                          visibility: option.value,
+                          ...(option.value === 'private' && r.assignee_id === clientAssignee?.id ? { assignee_id: '' } : {}),
+                        })}
+                        className={cn(
+                          'flex min-h-14 min-w-0 items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                          selected
+                            ? 'border-[#045E80] bg-[#EAF4F8] ring-1 ring-inset ring-[#045E80]'
+                            : hasError
+                              ? 'border-red-400 bg-white hover:bg-red-50/20'
+                              : 'border-slate-300 bg-white hover:bg-slate-50',
+                        )}
+                      >
+                        <span className={cn('inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
+                          selected ? 'bg-[#CFE6EF] text-[#034C68]' : 'bg-slate-100 text-slate-600')}>
+                          {option.value === 'public' ? <Globe2 aria-hidden="true" className="h-4 w-4" /> : <LockKeyhole aria-hidden="true" className="h-4 w-4" />}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-xs font-semibold text-slate-900">{option.title}</span>
+                          <span className="block whitespace-nowrap text-[10px] leading-4 text-slate-500">{option.description}</span>
+                        </span>
+                        <span aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0 rounded-full border',
+                          selected
+                            ? 'border-[#045E80] bg-[#045E80] shadow-[inset_0_0_0_3px_white]'
+                            : hasError
+                              ? 'border-red-400'
+                              : 'border-slate-300')} />
+                      </button>
+                    )
+                  })}
+                </div>
+                {fieldErrorText(i, 'visibility')}
+              </section>
               <TaskSectionHeader section="deadline" />
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -562,24 +696,33 @@ export function CreateTasksModal({
                   ))}
                   <input id={`task-due_date-${i}`} type="date"
                          aria-invalid={!!fieldError(i, 'due_date')} required disabled={!!createdTaskIds || r.schedule_enabled}
-                         className={`form-field h-8 w-[176px] min-w-[160px] flex-none rounded-full bg-white px-3 py-1 text-xs leading-4 ${fieldError(i, 'due_date') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
+                         className={`form-field task-deadline-date h-8 min-w-0 flex-none rounded-full bg-white px-3 py-1 text-xs leading-4 ${fieldError(i, 'due_date') ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
                          value={r.due_date}
                          onChange={e => update(i, { due_date: e.target.value, deadline_type: '' })} />
                 </div>
                 {fieldErrorText(i, 'due_date')}
               </div>
-              <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                <label className="mb-3 flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                    <CalendarClock aria-hidden="true" className="h-4 w-4 text-[#045E80]" /> Task Scheduler
-                  </span>
-                  <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-600">
-                    Enable Schedule
-                    <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-[#045E80] focus:ring-[#045E80]"
-                      checked={r.schedule_enabled} disabled={!!createdTaskIds}
-                      onChange={event => update(i, { schedule_enabled: event.target.checked })} />
-                  </span>
-                </label>
+              <section className="mt-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <TaskSectionHeader section="scheduler" className="flex items-center gap-2" />
+                  <label className={cn(
+                    'inline-flex items-center gap-2 text-xs font-medium text-slate-600',
+                    createdTaskIds ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                  )}>
+                    <input
+                      type="checkbox"
+                      checked={r.schedule_enabled}
+                      disabled={!!createdTaskIds}
+                      onChange={event => update(i, { schedule_enabled: event.target.checked })}
+                      className="peer sr-only"
+                    />
+                    <span>Enable Schedule</span>
+                    <span aria-hidden="true" className={cn(
+                      'relative h-6 w-10 rounded-full transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-focus-visible:ring-2 peer-focus-visible:ring-[#045E80] peer-focus-visible:ring-offset-2',
+                      r.schedule_enabled ? 'bg-[#045E80] after:translate-x-4' : 'bg-slate-300 after:translate-x-0',
+                    )} />
+                  </label>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <label className="min-w-0 text-xs font-medium text-slate-600">
                     Repeat

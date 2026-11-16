@@ -35,3 +35,14 @@ yarn-error.log*
 
 # TypeScript build cache
 *.tsbuildinfo
+
+# Testing — test suites, configs, session states, reports, and coverage (never commit)
+tests/
+playwright.config.ts
+vitest.config.ts
+playwright-report/
+test-results/
+coverage/
+.vitest-cache/
+*.test.ts.snap
+.env.test*

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ClipboardList } from 'lucide-react'
 import { EmptyState } from '@/components/ui/primitives'
 import { CompanyAvatar } from '@/components/ui/primitives'
@@ -29,6 +30,7 @@ export function TicketTable({
   /** 'client' swaps in the wording a client should read for each status. */
   audience?: 'staff' | 'client'
 }) {
+  const router = useRouter()
   const statusLabels = audience === 'client' ? TICKET_STATUS_LABELS_CLIENT : TICKET_STATUS_LABELS
   if (tickets.length === 0) {
     return <EmptyState icon={<ClipboardList className="h-6 w-6" />} title={empty?.title ?? 'No tickets'} description={empty?.description} action={empty?.action} />
@@ -49,7 +51,11 @@ export function TicketTable({
         </thead>
         <tbody className="divide-y divide-slate-100">
           {tickets.map(t => (
-            <tr key={t.id} className="group hover:bg-slate-50/80">
+            <tr
+              key={t.id}
+              onClick={() => router.push(`${hrefBase}/${t.id}`)}
+              className="group cursor-pointer hover:bg-slate-50/80 transition-colors"
+            >
               <td className="max-w-md px-5 py-3.5">
                 <Link href={`${hrefBase}/${t.id}`} className="block">
                   <span className="flex items-center gap-2">

@@ -71,7 +71,7 @@ function LoginForm() {
       <h2 className="text-2xl font-bold">Welcome back</h2>
       <p className="mt-1 text-sm text-slate-500">Sign in to your GoPortals workspace.</p>
 
-      <form onSubmit={event => void runOnce('sign-in', () => handleSubmit(event))} className="mt-8 space-y-4">
+      <form action="#" method="post" onSubmit={event => { event.preventDefault(); void runOnce('sign-in', () => handleSubmit(event)) }} className="mt-8 space-y-4">
         {passwordUpdated && <Alert tone="success">Password updated successfully. Please log in with your new password.</Alert>}
         {passwordSet && <Alert tone="success">Password set successfully. Please log in with your new password.</Alert>}
         {error && <Alert>{error}</Alert>}

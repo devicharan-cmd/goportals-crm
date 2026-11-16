@@ -81,16 +81,18 @@ export function MarketplaceAccountLabel({ platformName, accountName, size = 'xs'
   )
 }
 
-function MarketplaceSelect({ value, placeholder, onChange, items, disabled, className }: {
+function MarketplaceSelect({ value, placeholder, onChange, items, disabled, className, id }: {
   value: string
   placeholder: string
   onChange: (value: string) => void
   items: { id: string; label: React.ReactNode; textLabel: string }[]
   disabled?: boolean
   className?: string
+  id?: string
 }) {
   return (
     <SearchableSelect
+      id={id}
       value={value || EMPTY_VALUE}
       onChange={event => onChange(event.target.value === EMPTY_VALUE ? '' : event.target.value)}
       disabled={disabled}
@@ -105,14 +107,16 @@ function MarketplaceSelect({ value, placeholder, onChange, items, disabled, clas
   )
 }
 
-export function MarketplaceAccountSelect({ accounts, value, onChange, placeholder }: {
+export function MarketplaceAccountSelect({ accounts, value, onChange, placeholder, id }: {
   accounts: MarketplaceAccount[]
   value: string
   onChange: (value: string) => void
   placeholder: string
+  id?: string
 }) {
   return (
     <MarketplaceSelect
+      id={id}
       value={value}
       placeholder={placeholder}
       onChange={onChange}
@@ -125,16 +129,18 @@ export function MarketplaceAccountSelect({ accounts, value, onChange, placeholde
   )
 }
 
-export function MarketplacePlatformSelect({ platforms, value, onChange, placeholder, disabled, className }: {
+export function MarketplacePlatformSelect({ platforms, value, onChange, placeholder, disabled, className, id }: {
   platforms: MarketplacePlatform[]
   value: string
   onChange: (value: string) => void
   placeholder: string
   disabled?: boolean
   className?: string
+  id?: string
 }) {
   return (
     <MarketplaceSelect
+      id={id}
       value={value}
       placeholder={placeholder}
       onChange={onChange}

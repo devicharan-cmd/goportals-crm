@@ -76,7 +76,7 @@ export default async function ClientsPage(props: { searchParams: Promise<{ statu
         <ClientSearchField />
         <ClientStatusFilter status={status} />
         {/* Outside the search form: the modal has its own form inside. */}
-        {['super_admin', 'manager'].includes(me.role) && <ClientFormModal canEditInternal platforms={(platforms ?? []) as Platform[]} services={(services ?? []) as Service[]} />}
+        {me.role === 'super_admin' && <ClientFormModal canEditInternal platforms={(platforms ?? []) as Platform[]} services={(services ?? []) as Service[]} />}
       </div>
 
       <Card className="overflow-hidden">

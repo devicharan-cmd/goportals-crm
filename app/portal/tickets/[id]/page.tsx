@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
 import { getPortalNames } from '@/lib/portal'
 import { getTicketAttachments, resolveTicketId, ticketPageTitle } from '@/lib/queries'
-import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
+import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS, type TicketFieldDef } from '@/lib/ticket-categories'
 import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader } from '@/components/ui/primitives'
 import { RevealableValue } from '@/components/shared/RevealableValue'
@@ -65,10 +65,13 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
     return [{ id, name, role, avatarUrl: person.avatar_url, avatarRole: person.role }]
   })
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
-  const requestFields = def.fields
-    .filter(field => (ticket.details as Record<string, string> | null)?.[field.key])
+  const ticketDetails = (ticket.details ?? {}) as Record<string, string>
+  const isFieldVisible = (f: TicketFieldDef) => !f.showIf || ticketDetails[f.showIf.key] === f.showIf.equals
+
+  const categoryFields = def.fields
+    .filter(field => isFieldVisible(field) && ticketDetails[field.key] != null && String(ticketDetails[field.key]).trim() !== '')
     .map(field => {
-      const raw = String((ticket.details as Record<string, string>)[field.key])
+      const raw = String(ticketDetails[field.key])
       const value = field.type === 'select' ? field.options?.find(option => option.value === raw)?.label ?? raw
                   : field.type === 'platform' ? (platforms ?? []).find(platform => platform.id === raw)?.name ?? raw
                   : raw
@@ -78,6 +81,8 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
         value: field.type === 'password' ? <RevealableValue value={value} /> : value,
       }
     })
+
+  const requestFields = categoryFields
   const canEdit = ticketStatus === 'unassigned' && ticket.created_by === me.id
   const canDelete = canDeleteTicket === true
   const workUnderWay = ticketStatus === 'assigned'
@@ -115,6 +120,7 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
             priority={ticket.priority}
             requestFields={requestFields}
             description={ticket.description}
+            descriptionHeading={def.descriptionLabel ?? 'Description'}
             attachments={attachments}
           >
             {ticketStatus === 'closed' && (

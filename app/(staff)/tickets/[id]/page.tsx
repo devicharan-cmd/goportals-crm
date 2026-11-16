@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
 import { assigneeOptionsFor, getStaffLookups, getTicketAttachments, nameMap, resolveTicketId, TASK_LIST_SELECT, ticketPageTitle } from '@/lib/queries'
-import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
+import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS, type TicketFieldDef } from '@/lib/ticket-categories'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { Alert, Avatar, Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
@@ -77,7 +77,20 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
     : undefined
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
   const ticketDetails = (ticket.details ?? {}) as Record<string, string>
-  const detailFields = def.fields.filter(f => ticketDetails[f.key] != null && ticketDetails[f.key] !== '')
+  const isFieldVisible = (f: TicketFieldDef) => !f.showIf || ticketDetails[f.showIf.key] === f.showIf.equals
+  const categoryFields = def.fields
+    .filter(f => isFieldVisible(f) && ticketDetails[f.key] != null && String(ticketDetails[f.key]).trim() !== '')
+    .map(field => {
+      const raw = ticketDetails[field.key]
+      const value = field.type === 'select' ? field.options?.find(option => option.value === raw)?.label ?? raw
+                  : field.type === 'platform' ? lookups.platforms.find(platform => platform.id === raw)?.name ?? raw
+                  : raw
+      return {
+        key: field.key,
+        label: field.label,
+        value: field.type === 'password' ? <RevealableValue value={value} /> : value,
+      }
+    })
   const raisedByProfile = ticket.created_by
     ? lookups.people.find(person => person.id === ticket.created_by)
     : undefined
@@ -105,19 +118,10 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
             urgent={ticket.is_urgent}
             status={ticket.status}
             priority={ticket.priority}
-            requestFields={detailFields.map(field => {
-              const raw = ticketDetails[field.key]
-              const value = field.type === 'select' ? field.options?.find(option => option.value === raw)?.label ?? raw
-                          : field.type === 'platform' ? lookups.platforms.find(platform => platform.id === raw)?.name ?? raw
-                          : raw
-              return {
-                key: field.key,
-                label: field.label,
-                value: field.type === 'password' ? <RevealableValue value={value} /> : value,
-              }
-            })}
+            requestFields={categoryFields}
             emptyRequestMessage="No additional request details were provided."
             description={ticket.description}
+            descriptionHeading={def.descriptionLabel ?? 'Description'}
             attachments={attachments}
           />
 

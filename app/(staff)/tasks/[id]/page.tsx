@@ -104,18 +104,14 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const editClientImageUrlByPath = await getClientProfileImageUrls(editClients)
   const clientAssignees = assignees.filter(option => option.clientId && editClients.some(client => client.id === option.clientId))
   const canClaim = task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
-  const canEditChecklist = me.role !== 'employee' || task.assignee_id === me.id
   const scopedTasksContext = searchParams.scope === 'mine' || searchParams.scope === 'assigned' || searchParams.scope === 'all'
-  const myTasksContext = searchParams.scope === 'mine'
-  const assignedByMeContext = searchParams.scope === 'assigned' && task.assigned_by === me.id
   const createdByMe = task.created_by === me.id
-  const canManageTask = me.role === 'super_admin'
-    || createdByMe
-    || assignedByMeContext
-    || (task.assignee_id !== me.id && !myTasksContext)
+  const canManageTask = task.assigned_by === me.id
+    || (!task.assigned_by && !task.assignee_id && createdByMe)
+  const canEditChecklist = canManageTask || task.assignee_id === me.id
   const tasksHref = scopedTasksContext ? `/tasks?scope=${searchParams.scope}` : '/tasks'
   const scheduleCanManage = task.status !== 'completed' && task.status !== 'cancelled'
-    && (me.role === 'super_admin' || task.assignee_id === me.id || task.created_by === me.id)
+    && canManageTask
   const scheduleRepeatLabel = taskSchedule?.repeat_type === 'weekly'
     ? 'For a week'
     : taskSchedule?.repeat_type === 'custom'
@@ -147,7 +143,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
       <div className="mb-4 flex items-center justify-between gap-3">
         <Link href={tasksHref} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
         <div className="flex items-center gap-2">
-          {canManageTask && (me.role === 'super_admin' || createdByMe) && <DeleteButton table="tasks" id={task.id} redirectTo={tasksHref} variant="danger" />}
+          {canManageTask && <DeleteButton table="tasks" id={task.id} redirectTo={tasksHref} variant="danger" />}
           {canManageTask && me.role !== 'employee' && <AssignButton
             taskId={task.id}
             currentId={task.assignee_id}
@@ -291,10 +287,10 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                 role: taskAssigner.role,
               } : null}
               assignedAt={task.assigned_at}
-              canChangeStatus={me.role === 'super_admin' || task.assignee_id === me.id}
+              canChangeStatus={task.assignee_id === me.id || task.assigned_by === me.id}
               canCompleteReview={me.role !== 'employee'}
-              canEditPriority={createdByMe || me.role === 'super_admin'}
-              canEditUrgent={createdByMe || me.role === 'super_admin'}
+              canEditPriority={canManageTask}
+              canEditUrgent={canManageTask}
             />
           </Card>
           <Card>

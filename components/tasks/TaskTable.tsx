@@ -14,11 +14,11 @@ function TaskDueDisplay({ task, className, rowAligned = false }: { task: TaskSum
 
   return (
     <span className={`${rowAligned ? 'relative block h-14' : 'flex w-fit flex-col items-start gap-0.5'} text-xs ${className ?? ''}`}>
-      <span className={`${rowAligned ? 'absolute left-0 top-[calc(50%-7px)]' : 'block'} ${task.due_date ? 'text-slate-600' : 'text-slate-400'}`}>
+      <span className={`${rowAligned ? 'absolute left-0 top-[calc(50%-7px)]' : 'block'} whitespace-nowrap ${task.due_date ? 'text-slate-600' : 'text-slate-400'}`}>
         {task.due_date ? formatDate(task.due_date) : 'No due date'}
       </span>
       {isOverdue && (
-        <span className={`${rowAligned ? 'absolute left-0 top-[calc(50%+11px)]' : 'block'} rounded-full bg-red-50 px-1.5 py-0.5 text-[11px] font-medium leading-4 text-red-700`}>
+        <span className={`${rowAligned ? 'absolute left-0 top-[calc(50%+11px)]' : 'block'} whitespace-nowrap rounded-full bg-red-50 px-1.5 py-0.5 text-[11px] font-medium leading-4 text-red-700`}>
           Overdue
         </span>
       )}
@@ -77,12 +77,12 @@ export function TaskTable({
             ))
           ) : (
             <>
-              <col style={{ width: showClient && showAssignee ? '26%' : showClient ? '39%' : showAssignee ? '35%' : '45%' }} />
+              <col style={{ width: showClient && showAssignee ? '26%' : showClient ? '39%' : showAssignee ? '31%' : '45%' }} />
           {showClient && <col style={{ width: showAssignee ? '16%' : '18%' }} />}
           <col style={{ width: showClient && showAssignee ? '12%' : showClient ? '14%' : showAssignee ? '15%' : '17%' }} />
           <col style={{ width: showClient && showAssignee ? '10%' : showClient ? '15%' : showAssignee ? '12%' : '18%' }} />
           {showAssignee && <col style={{ width: showClient ? '20%' : '28%' }} />}
-          <col style={{ width: showClient ? (showAssignee ? '16%' : '14%') : showAssignee ? '10%' : '20%' }} />
+          <col style={{ width: showClient ? (showAssignee ? '16%' : '14%') : showAssignee ? '14%' : '20%' }} />
             </>
           )}
         </colgroup>

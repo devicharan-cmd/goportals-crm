@@ -22,7 +22,7 @@ export default async function PortalLayout({ children }: { children: React.React
 
   return (
     <AppShell
-      user={{ name: companyName || me.full_name || me.email, email: me.email, role: me.role, jobTitle: null }}
+      user={{ id: me.id, name: companyName || me.full_name || me.email, email: me.email, role: me.role, jobTitle: null }}
       counts={{ notifications: count ?? 0 }}
       companyName={companyName}
       companyProfileImageUrl={profileImage?.signedUrl}

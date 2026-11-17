@@ -9,7 +9,6 @@ import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader, StatCard } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { TaskTable } from '@/components/tasks/TaskTable'
-import { TeamTaskRealtimeRefresh } from '@/components/team/TeamTaskRealtimeRefresh'
 import { WeeklyDoneChart, type WeekBucket } from '@/components/team/WeeklyDoneChart'
 import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { capacityColor, capacityTextColor, cn, dateKeyInTimeZone, dueState } from '@/lib/utils'
@@ -77,7 +76,6 @@ export default async function EmployeeStatsPage(props: { params: Promise<{ id: s
 
   return (
     <>
-      <TeamTaskRealtimeRefresh profileId={person.id} />
       <Link href="/team" className="mb-4 -ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Team</Link>
 
       {/* Header */}

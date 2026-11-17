@@ -117,7 +117,7 @@ export function PortalTaskList({
           hrefBase="/portal/tasks"
           scope={scope}
           readOnly={scope !== 'mine'}
-          editableAssigneeId={scope === 'mine' ? meId : undefined}
+          editableTaskActorId={scope === 'mine' ? meId : undefined}
           editableStatuses={['todo', 'in_progress', 'in_system_process', 'ready_for_review']}
         />
       ) : (

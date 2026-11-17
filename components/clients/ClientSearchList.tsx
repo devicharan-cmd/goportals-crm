@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2 } from 'lucide-react'
+import { Building2, Mail, MapPin, Phone } from 'lucide-react'
 import { searchClients } from '@/app/actions/search'
 import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
@@ -16,12 +16,13 @@ import type { Client } from '@/types/database'
 
 type ClientRow = Client & { client_team: { profile_id: string }[] }
 type ClientStatus = '' | 'active' | 'pending' | 'suspended' | 'rejected'
+type ClientOpenWorkCount = { tasks: number; tickets: number }
 type ClientSearchContextValue = {
   clients: ClientRow[]
   imageUrlByPath: Record<string, string>
   names: Record<string, string>
   avatarUrls: Record<string, string | null>
-  openCount: Record<string, number>
+  openWorkCounts: Record<string, ClientOpenWorkCount>
   error: string
   searching: boolean
   hasMoreClients: boolean
@@ -40,7 +41,7 @@ export function ClientSearchProvider({
   names,
   avatarUrls,
   status,
-  openCount,
+  openWorkCounts,
   children,
 }: {
   initialClients: ClientRow[]
@@ -50,7 +51,7 @@ export function ClientSearchProvider({
   names: Record<string, string>
   avatarUrls: Record<string, string | null>
   status: ClientStatus
-  openCount: Record<string, number>
+  openWorkCounts: Record<string, ClientOpenWorkCount>
   children: React.ReactNode
 }) {
   const [query, setQuery] = useState('')
@@ -125,7 +126,7 @@ export function ClientSearchProvider({
 
   return (
     <ClientSearchContext.Provider value={{
-      clients, imageUrlByPath, names, avatarUrls, openCount, error, searching,
+      clients, imageUrlByPath, names, avatarUrls, openWorkCounts, error, searching,
       hasMoreClients, loadingMoreClients, setQuery: setSearch, loadMoreClients,
     }}>
       {children}
@@ -182,7 +183,7 @@ export function ClientStatusFilter({ status }: { status: ClientStatus }) {
 }
 
 export function ClientSearchResults() {
-  const { clients, imageUrlByPath, names, avatarUrls, openCount, error, searching, hasMoreClients, loadingMoreClients, loadMoreClients } = useClientSearch()
+  const { clients, imageUrlByPath, names, avatarUrls, openWorkCounts, error, searching, hasMoreClients, loadingMoreClients, loadMoreClients } = useClientSearch()
   return (
     <>
       {error && <Alert>{error}</Alert>}
@@ -193,28 +194,68 @@ export function ClientSearchResults() {
         <ul className="divide-y divide-slate-100">
           {clients.map(client => {
             const team = Array.from(new Set(client.client_team.map(member => member.profile_id)))
+            const work = openWorkCounts[client.id] ?? { tasks: 0, tickets: 0 }
+            const totalOpenWork = work.tasks + work.tickets
+            const locationParts = [client.address_line, client.city, client.state, client.postal_code, client.country]
+              .filter((part): part is string => !!part?.trim())
+              .filter((part, index, parts) => !parts.slice(0, index).some(previous => previous.toLowerCase().includes(part.toLowerCase())))
+            const location = locationParts.join(', ')
             return (
               <li key={client.id}>
-                <Link href={`/clients/${client.id}`} className="flex flex-col gap-3 px-5 py-4 hover:bg-slate-50/80 sm:flex-row sm:items-center">
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                <Link href={`/clients/${client.id}`} className="group flex flex-col gap-4 p-4 transition-colors hover:bg-slate-50/80 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
                     <CompanyAvatar
                       name={client.company_name}
                       src={client.company_profile_image_path ? imageUrlByPath[client.company_profile_image_path] : null}
-                      size="sm"
+                      size="md"
+                      className="h-12 w-12 text-base"
                     />
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-slate-900">{client.company_name}</p>
-                      <p className="truncate text-xs text-slate-500">
-                        {STAGE_LABELS[client.stage]}{client.contact_name ? ` · ${client.contact_name}` : ''}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="min-w-0 break-words font-semibold text-slate-900 group-hover:text-[#034C68]">{client.company_name}</p>
+                        <AccountStatusBadge status={client.status} />
+                        <span className="rounded-full bg-[#EAF4F8] px-2 py-0.5 text-[11px] font-medium text-[#034C68] ring-1 ring-inset ring-[#9FCCDE]">
+                          {STAGE_LABELS[client.stage]}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-500">
+                        {client.contact_name && <span className="font-medium text-slate-700">{client.contact_name}</span>}
+                        {client.contact_email && <span className="inline-flex min-w-0 items-center gap-1.5"><Mail className="h-3.5 w-3.5 shrink-0" /><span className="break-all">{client.contact_email}</span></span>}
+                        {client.contact_phone && <span className="inline-flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 shrink-0" />{client.contact_phone}</span>}
+                        {location && <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 shrink-0" />{location}</span>}
+                        {client.gstin && <span>GSTIN {client.gstin}</span>}
+                        {!client.contact_name && !client.contact_email && !client.contact_phone && !location && (
+                          <span className="italic text-slate-400">No contact details provided</span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4 sm:w-60 sm:justify-end">
-                    <div className="flex -space-x-2">
-                      {team.slice(0, 4).map(id => <Avatar key={id} name={names[id]} src={avatarUrls[id]} size="sm" className="ring-2 ring-white" />)}
+
+                  <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:w-[440px] lg:flex-none">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-slate-500">Open work</span>
+                        <span className="text-sm font-semibold text-slate-900">{totalOpenWork} items</span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {work.tasks} {work.tasks === 1 ? 'task' : 'tasks'} <span aria-hidden="true">·</span> {work.tickets} {work.tickets === 1 ? 'ticket' : 'tickets'}
+                      </p>
                     </div>
-                    <span className="text-xs text-slate-500">{openCount[client.id] ?? 0} open</span>
-                    <AccountStatusBadge status={client.status} />
+                    <div className="min-w-0 rounded-xl border border-slate-100 bg-white px-3 py-2.5">
+                      <p className="text-xs font-medium text-slate-500">Client team</p>
+                      {team.length > 0 ? (
+                        <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                          {team.map(id => (
+                            <li key={id} className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-slate-50 py-0.5 pl-0.5 pr-2 text-xs text-slate-700 ring-1 ring-inset ring-slate-200">
+                              <Avatar name={names[id] ?? 'Unknown teammate'} src={avatarUrls[id]} size="xs" />
+                              <span className="break-words">{names[id] ?? 'Unknown teammate'}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1.5 text-xs text-slate-400">No team assigned</p>
+                      )}
+                    </div>
                   </div>
                 </Link>
               </li>

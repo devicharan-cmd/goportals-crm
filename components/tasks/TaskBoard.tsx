@@ -30,14 +30,14 @@ function BoardDueDate({ date, status }: { date: TaskSummary['due_date']; status:
   const state = dueState(date, status)
   const compactClass = 'mt-2 !rounded-full !px-1.5 !py-0.5 !text-[10px]'
 
-  if (state === 'ok' || state === 'overdue') {
+  if (state === 'ok' || state === 'overdue' || state === 'today') {
     return (
       <DueDatePill
         date={date}
         status={status}
         className={cn(
           compactClass,
-          state === 'overdue'
+          state === 'overdue' || state === 'today'
             ? '!ring-1 !ring-inset !ring-red-200'
             : '!font-semibold !ring-1 !ring-inset !ring-slate-200',
         )}
@@ -138,7 +138,7 @@ function Column({ status, label, tasks, names, assignOptions, hrefBase, scope, c
 
 /** Kanban: drag between columns to change status (DB triggers log activity + notify). */
 export function TaskBoard({
-  tasks: initial, names, assignOptions, hrefBase = '/tasks', scope, editableAssigneeId, editableStatuses, readOnly = false,
+  tasks: initial, names, assignOptions, hrefBase = '/tasks', scope, editableTaskActorId, editableStatuses, readOnly = false,
   onMyTasksCountChange,
 }: {
   tasks: TaskSummary[]
@@ -146,7 +146,7 @@ export function TaskBoard({
   assignOptions?: AssigneeOption[]
   hrefBase?: string
   scope?: 'mine' | 'assigned' | 'all'
-  editableAssigneeId?: string
+  editableTaskActorId?: string
   editableStatuses?: TaskStatus[]
   readOnly?: boolean
   onMyTasksCountChange?: (delta: number) => void
@@ -160,7 +160,9 @@ export function TaskBoard({
     .filter(status => status !== 'changes_requested')
   const canEditTask = (task: TaskSummary) =>
     !readOnly
-    && (!editableAssigneeId || task.assignee_id === editableAssigneeId)
+    && (!editableTaskActorId
+      || task.assignee_id === editableTaskActorId
+      || task.assigned_by === editableTaskActorId)
   useEffect(() => setTasks(initial), [initial])
 
   const sensors = useSensors(

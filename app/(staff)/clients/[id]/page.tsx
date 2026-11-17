@@ -105,21 +105,19 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
         </div>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <div className="min-w-0 space-y-6">
+      <div className="space-y-6">
+        <Card className="overflow-hidden">
+          <CardHeader title={`Open tasks (${openTasks.length})`} />
+          <TaskTable tasks={openTasks} names={names} showClient={false} assignOptions={taskAssigneeOptionsFor(me, lookups)} empty={{ title: 'No open tasks' }} />
+        </Card>
+        {doneTasks.length > 0 && (
           <Card className="overflow-hidden">
-            <CardHeader title={`Open tasks (${openTasks.length})`} />
-            <TaskTable tasks={openTasks} names={names} showClient={false} assignOptions={taskAssigneeOptionsFor(me, lookups)} empty={{ title: 'No open tasks' }} />
+            <CardHeader title={`Completed (${doneTasks.length})`} />
+            <TaskTable tasks={doneTasks.slice(0, 20)} names={names} showClient={false} />
           </Card>
-          {doneTasks.length > 0 && (
-            <Card className="overflow-hidden">
-              <CardHeader title={`Completed (${doneTasks.length})`} />
-              <TaskTable tasks={doneTasks.slice(0, 20)} names={names} showClient={false} />
-            </Card>
-          )}
-        </div>
+        )}
 
-        <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-2">
           {internal && (
             <Card>
               <CardHeader title="Account (internal)" />
@@ -163,7 +161,7 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
             <ClientServicesEditor clientId={client.id} rows={(services ?? []) as ClientServiceRow[]} services={lookups.services} accounts={(accounts ?? []) as EcommerceAccountRow[]} editable={canEdit} />
           </Card>
 
-          <Card>
+          <Card className="lg:col-span-2">
             <CardHeader title="Account" />
             <dl className="divide-y divide-slate-100 text-sm">
               <div className="flex justify-between px-5 py-2.5"><dt className="text-slate-500">Portal login</dt><dd>{client.owner_id ? names[client.owner_id] ?? 'Yes' : <span className="text-slate-400">None</span>}</dd></div>

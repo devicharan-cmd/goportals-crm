@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, CalendarClock, Clock3, FileText, Paperclip } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskAssigneeOptionsFor, taskPageTitle } from '@/lib/queries'
+import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, getTaskAssigneeHistory, nameMap, resolveTaskId, TASK_LIST_SELECT, taskAssigneeOptionsFor, taskPageTitle } from '@/lib/queries'
 import { TaskCode } from '@/components/tasks/TaskCode'
 import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { Badge, PriorityBadge, StatusBadge, UrgentBadge, DueDatePill } from '@/components/ui/badges'
@@ -14,6 +14,7 @@ import { CommentThread } from '@/components/tasks/CommentThread'
 import { ActivityPanel } from '@/components/tasks/ActivityPanel'
 import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import { TimeLogPanel } from '@/components/tasks/TimeLogPanel'
+import { TaskReassignmentHistory } from '@/components/tasks/TaskReassignmentHistory'
 import { ChecklistPanel } from '@/components/tasks/ChecklistPanel'
 import { ClaimButton } from '@/components/tasks/ClaimButton'
 import { DeleteButton } from '@/components/shared/DeleteButton'
@@ -36,7 +37,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const taskId = await resolveTaskId(params.id)
   if (!taskId) notFound()
 
-  const [{ data }, { data: comments }, { data: activity }, { data: logs }, { data: checklist, error: checklistError }, lookups, { data: taskAttachments, error: attachmentsError }, { data: taskSchedule, error: scheduleError }] = await Promise.all([
+  const [{ data }, { data: comments }, { data: activity }, { data: logs }, { data: checklist, error: checklistError }, lookups, { data: taskAttachments, error: attachmentsError }, { data: taskSchedule, error: scheduleError }, { data: reassignmentNotes, error: reassignmentNotesError }] = await Promise.all([
     supabase.from('tasks').select(`${TASK_LIST_SELECT}, service:services(id, name), ticket:tickets(id, ticket_number, subject)`).eq('id', taskId).maybeSingle(),
     supabase.from('task_comments').select('*').eq('task_id', taskId).order('created_at'),
     supabase.from('task_activity').select('*').eq('task_id', taskId).order('created_at', { ascending: false }),
@@ -49,15 +50,23 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     supabase.from('task_schedules')
       .select('enabled, repeat_type, interval_days')
       .eq('task_id', taskId).maybeSingle(),
+    supabase.from('task_assignment_notes').select('task_activity_id, note').eq('task_id', taskId),
   ])
   if (checklistError) throw new Error(checklistError.message)
   if (attachmentsError) throw new Error(attachmentsError.message)
   if (scheduleError) throw new Error(scheduleError.message)
+  if (reassignmentNotesError) throw new Error(reassignmentNotesError.message)
   if (!data) notFound()
   const task = data as TaskListItem & {
     service: { id: string; name: string } | null
     ticket: { id: string; ticket_number: number; subject: string } | null
   }
+  const taskHistory = await getTaskAssigneeHistory(supabase, [task.id])
+  const assigneeHistory = taskHistory.get(task.id) ?? []
+  const isFormerAssignee = task.assignee_id !== me.id
+    && task.assigned_by !== me.id
+    && assigneeHistory.some(assignee => assignee.profile_id === me.id && !assignee.is_current)
+  const noteByActivity = Object.fromEntries((reassignmentNotes ?? []).map(note => [note.task_activity_id, note.note]))
   const clientImagePath = task.client?.company_profile_image_path
   const attachmentUrlsPromise = taskAttachments?.length
     ? Promise.all([
@@ -89,6 +98,16 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const { data: clientImage, error: clientImageError } = clientImageResult
   if (clientImageError) throw clientImageError
   const names = nameMap(lookups.people)
+  const activityNames = Object.fromEntries(assigneeHistory.map(assignee => [assignee.profile_id, assignee.full_name]))
+  const taskActivityNames = { ...names, ...activityNames }
+  const taskActivityRoles = {
+    ...Object.fromEntries(lookups.people.map(person => [person.id, person.role])),
+    ...Object.fromEntries(assigneeHistory.flatMap(assignee => assignee.role ? [[assignee.profile_id, assignee.role]] : [])),
+  }
+  const taskActivityAvatars = {
+    ...Object.fromEntries(lookups.people.map(person => [person.id, person.avatar_url])),
+    ...Object.fromEntries(assigneeHistory.map(assignee => [assignee.profile_id, assignee.avatar_url])),
+  }
   const taskAssigner = task.assigned_by
     ? lookups.people.find(person => person.id === task.assigned_by)
     : undefined
@@ -103,12 +122,12 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   }
   const editClientImageUrlByPath = await getClientProfileImageUrls(editClients)
   const clientAssignees = assignees.filter(option => option.clientId && editClients.some(client => client.id === option.clientId))
-  const canClaim = task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
+  const canClaim = !isFormerAssignee && task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
   const scopedTasksContext = searchParams.scope === 'mine' || searchParams.scope === 'assigned' || searchParams.scope === 'all'
   const createdByMe = task.created_by === me.id
-  const canManageTask = task.assigned_by === me.id
-    || (!task.assigned_by && !task.assignee_id && createdByMe)
-  const canEditChecklist = canManageTask || task.assignee_id === me.id
+  const canManageTask = !isFormerAssignee && (task.assigned_by === me.id
+    || (!task.assigned_by && !task.assignee_id && createdByMe))
+  const canEditChecklist = !isFormerAssignee && (canManageTask || task.assignee_id === me.id)
   const tasksHref = scopedTasksContext ? `/tasks?scope=${searchParams.scope}` : '/tasks'
   const scheduleCanManage = task.status !== 'completed' && task.status !== 'cancelled'
     && canManageTask
@@ -264,14 +283,17 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                           ? 'This private task and its discussion are visible only to authorized staff.'
                           : 'Public tasks are visible to the selected client. Internal messages remain staff-only.'} />
             <div className={CONVERSATION_CONTENT_CLASS}>
-              <CommentThread taskId={task.id} comments={(comments ?? []) as TaskComment[]} names={names}
-                             roles={Object.fromEntries(lookups.people.map(p => [p.id, p.role]))}
-                             avatarUrls={Object.fromEntries(lookups.people.map(p => [p.id, p.avatar_url]))}
-                             meId={me.id} myRole={me.role} attachments={commentAttachments} bounded />
+              <CommentThread taskId={task.id} comments={(comments ?? []) as TaskComment[]} names={taskActivityNames}
+                             roles={taskActivityRoles}
+                             avatarUrls={taskActivityAvatars}
+                             meId={me.id} myRole={me.role} attachments={commentAttachments} bounded readOnly={isFormerAssignee} />
             </div>
           </Card>
 
-          <ActivityPanel activity={(activity ?? []) as TaskActivity[]} names={names} />
+          <ActivityPanel
+            activity={((activity ?? []) as TaskActivity[]).filter(entry => entry.action !== 'created' && entry.action !== 'assignee_changed')}
+            names={taskActivityNames}
+          />
         </div>
 
         <div className="space-y-6">
@@ -280,14 +302,15 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               task={task}
               ticketLabel={task.ticket ? ticketCode(task.ticket.ticket_number) : null}
               assignees={editAssignees}
-              assigneeName={task.assignee_id ? assignees.find(person => person.id === task.assignee_id)?.name ?? names[task.assignee_id] ?? null : null}
+              assigneeName={task.assignee_id ? assignees.find(person => person.id === task.assignee_id)?.name ?? taskActivityNames[task.assignee_id] ?? null : null}
               assignedBy={taskAssigner ? {
                 name: names[taskAssigner.id],
                 avatarUrl: taskAssigner.avatar_url,
                 role: taskAssigner.role,
               } : null}
               assignedAt={task.assigned_at}
-              canChangeStatus={task.assignee_id === me.id || task.assigned_by === me.id}
+              assigneeHistory={assigneeHistory}
+              canChangeStatus={!isFormerAssignee && (task.assignee_id === me.id || task.assigned_by === me.id)}
               canCompleteReview={me.role !== 'employee'}
               canEditPriority={canManageTask}
               canEditUrgent={canManageTask}
@@ -307,9 +330,18 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
           <Card>
             <CardHeader title="Time logged" />
             <div className="p-5">
-              <TimeLogPanel taskId={task.id} logs={(logs ?? []) as TimeLog[]} names={names} meId={me.id} estimated={task.estimated_hours} />
+              <TimeLogPanel taskId={task.id} logs={(logs ?? []) as TimeLog[]} names={taskActivityNames} meId={me.id} estimated={task.estimated_hours} readOnly={isFormerAssignee} />
             </div>
           </Card>
+          <TaskReassignmentHistory
+            activity={(activity ?? []) as TaskActivity[]}
+            names={taskActivityNames}
+            taskId={task.id}
+            createdAt={task.created_at}
+            createdBy={task.created_by}
+            currentAssigneeId={task.assignee_id}
+            notes={noteByActivity}
+          />
         </div>
       </div>
     </>

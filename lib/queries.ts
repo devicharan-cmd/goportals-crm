@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { ROLE_LABELS } from '@/lib/constants'
 import { parseTaskCode, parseTicketCode, taskCode, ticketCode } from '@/lib/utils'
-import type { AppRole, Department, Platform, Profile, Service, StaffDirectoryEntry, TaskSummary } from '@/types/database'
+import type { AppRole, Department, Platform, Profile, Service, StaffDirectoryEntry, TaskAssigneeHistoryItem, TaskSummary } from '@/types/database'
 
 /** Columns + joins used by every task list / board. */
 export const TASK_LIST_SELECT =
@@ -30,6 +30,36 @@ export function normalizeTaskSummaryRows(rows: TaskSummaryRow[]): TaskSummary[] 
     client: firstRelated(client),
     platform: firstRelated(platform),
     department: firstRelated(department),
+  }))
+}
+
+/** Load current and former assignees using the task's assignment activity history. */
+export async function getTaskAssigneeHistory(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  taskIds: string[],
+): Promise<Map<string, TaskAssigneeHistoryItem[]>> {
+  const uniqueTaskIds = Array.from(new Set(taskIds))
+  if (uniqueTaskIds.length === 0) return new Map()
+  const { data, error } = await supabase.rpc('task_assignee_history', { p_task_ids: uniqueTaskIds })
+  if (error) throw new Error(`Could not load task assignee history: ${error.message}`)
+  const historyByTask = new Map<string, TaskAssigneeHistoryItem[]>()
+  for (const item of (data ?? []) as TaskAssigneeHistoryItem[]) {
+    const history = historyByTask.get(item.task_id) ?? []
+    history.push(item)
+    historyByTask.set(item.task_id, history)
+  }
+  return historyByTask
+}
+
+/** Attach current and former assignees to task rows. */
+export async function addTaskAssigneeHistory<T extends { id: string }>(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tasks: T[],
+): Promise<(T & { assignee_history: TaskAssigneeHistoryItem[] })[]> {
+  const historyByTask = await getTaskAssigneeHistory(supabase, tasks.map(task => task.id))
+  return tasks.map(task => ({
+    ...task,
+    assignee_history: historyByTask.get(task.id) ?? [],
   }))
 }
 

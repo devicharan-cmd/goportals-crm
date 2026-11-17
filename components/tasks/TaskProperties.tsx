@@ -7,13 +7,14 @@ import { PRIORITY_OPTIONS, TASK_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatRelative } from '@/lib/utils'
 import type { AssigneeOption } from '@/components/tasks/AssignButton'
 import { TaskStatusSelect } from '@/components/tasks/TaskStatusSelect'
+import { TaskPreviousAssignees } from '@/components/tasks/TaskPreviousAssignees'
 import { TaskPrioritySelect, TaskUrgentToggle } from '@/components/tasks/TaskPropertyControls'
-import type { AppRole, Task, TaskStatus } from '@/types/database'
+import type { AppRole, Task, TaskAssigneeHistoryItem, TaskStatus } from '@/types/database'
 
 /** Task properties and permitted inline controls shown in the task detail sidebar. */
 export function TaskProperties({
   task, ticketLabel, assignees, assigneeName, assignedBy, assignedAt, canChangeStatus = false, canCompleteReview = false,
-  canEditPriority = false, canEditUrgent = false,
+  canEditPriority = false, canEditUrgent = false, assigneeHistory = [],
 }: {
   task: Task
   ticketLabel?: string | null
@@ -21,6 +22,7 @@ export function TaskProperties({
   assigneeName: string | null
   assignedBy?: { name: string; avatarUrl: string | null; role: AppRole } | null
   assignedAt?: string | null
+  assigneeHistory?: TaskAssigneeHistoryItem[]
   canChangeStatus?: boolean
   canCompleteReview?: boolean
   canEditPriority?: boolean
@@ -103,14 +105,17 @@ export function TaskProperties({
 
       <div className={row}>
         <span className={label}>Assignee</span>
-        {task.assignee_id
-          ? <StaffIdentity
-              name={assigneeName}
-              src={currentAssignee?.avatarUrl}
-              role={currentAssignee?.avatarRole}
-              roleLabel={currentAssignee?.role}
-            />
-          : <span className="text-sm italic text-slate-400">Unassigned</span>}
+        <div className="min-w-0 space-y-2">
+          {task.assignee_id
+            ? <StaffIdentity
+                name={assigneeName}
+                src={currentAssignee?.avatarUrl}
+                role={currentAssignee?.avatarRole}
+                roleLabel={currentAssignee?.role}
+              />
+            : <span className="text-sm italic text-slate-400">Unassigned</span>}
+          <TaskPreviousAssignees history={assigneeHistory} />
+        </div>
       </div>
 
       {assignedBy && (

@@ -186,7 +186,7 @@ function AttachmentMenu({ attachment, canDelete }: { attachment: CommentAttachme
 }
 
 export function CommentThread({
-  taskId, comments, names, roles, avatarUrls, meId, myRole, attachments = [], lockedNote, bounded = false,
+  taskId, comments, names, roles, avatarUrls, meId, myRole, attachments = [], lockedNote, bounded = false, readOnly = false,
 }: {
   taskId: string
   comments: CommentLike[]
@@ -199,6 +199,7 @@ export function CommentThread({
   /** Shown instead of the composer when the thread takes no more replies. */
   lockedNote?: string
   bounded?: boolean
+  readOnly?: boolean
 }) {
   const router = useRouter()
   const runOnce = useSingleFlight()
@@ -300,7 +301,7 @@ export function CommentThread({
     <div className={bounded ? 'flex h-full min-h-0 flex-col' : undefined}>
       {comments.length === 0 ? (
         <p className={cn('flex items-center gap-2 py-6 text-sm text-slate-400', bounded && 'min-h-0 flex-1 justify-center')}>
-          <MessageSquare className="h-4 w-4" /> No messages yet — say hello.
+          <MessageSquare className="h-4 w-4" /> {readOnly ? 'No messages yet.' : 'No messages yet — say hello.'}
         </p>
       ) : (
         <div ref={scrollRef} className={cn('space-y-1 overflow-y-auto overscroll-contain scroll-smooth pr-1', bounded ? 'min-h-0 flex-1' : 'max-h-[26rem]')}>
@@ -377,14 +378,14 @@ export function CommentThread({
                                 <span className="min-w-0 truncate text-xs font-medium">{attachment.file_name}</span>
                               </a>
                             )}
-                            <AttachmentMenu attachment={attachment} canDelete={attachment.uploaded_by === meId} />
+                            <AttachmentMenu attachment={attachment} canDelete={!readOnly && attachment.uploaded_by === meId} />
                           </div>
                         )
                       })}
                     </div>
                     <span className={cn('mt-0.5 flex items-center gap-1.5 px-1 text-[11px] text-slate-400', mine && 'flex-row-reverse')}>
                       <span suppressHydrationWarning>{clockTime(c.created_at)}</span>
-                      {mine && (
+                      {mine && !readOnly && (
                         <MessageMenu commentId={c.id} table="task_comments"
                                      mine={mine} canDelete={mine}
                                      attachments={attachments.filter(attachment => attachment.comment_id === c.id)} />
@@ -398,7 +399,11 @@ export function CommentThread({
         </div>
       )}
 
-      {lockedNote ? (
+      {readOnly ? (
+        <p className="mt-5 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-500 ring-1 ring-inset ring-slate-200">
+          You previously worked on this task. You can view its discussion, but cannot add or change messages.
+        </p>
+      ) : lockedNote ? (
         <p className="mt-5 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-500 ring-1 ring-inset ring-slate-200">{lockedNote}</p>
       ) : (
       <form onSubmit={event => void runOnce('send-comment', () => submit(event))} className="mt-5">

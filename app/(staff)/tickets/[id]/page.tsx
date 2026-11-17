@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { assigneeOptionsFor, getStaffLookups, getTicketAttachments, nameMap, resolveTicketId, TASK_LIST_SELECT, ticketPageTitle } from '@/lib/queries'
+import { addTaskAssigneeHistory, assigneeOptionsFor, getStaffLookups, getTicketAttachments, nameMap, resolveTicketId, TASK_LIST_SELECT, ticketPageTitle } from '@/lib/queries'
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS, type TicketFieldDef } from '@/lib/ticket-categories'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { TaskTable } from '@/components/tasks/TaskTable'
@@ -61,7 +61,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
     ecommerce_account: { account_name: string; platform: { name: string } | null } | null
   }
   const names = nameMap(lookups.people)
-  const tasksFromTicket = (linkedTasks ?? []) as TaskListItem[]
+  const tasksFromTicket = await addTaskAssigneeHistory(supabase, (linkedTasks ?? []) as TaskListItem[])
   const ticketWorkers = (workerRows ?? []) as { id: string; full_name: string | null; avatar_url: string | null; role: AppRole }[]
   const clientOwner = ticket.client?.owner_id
     ? lookups.people.find(person => person.id === ticket.client?.owner_id && person.role === 'client' && person.status === 'active')

@@ -4,7 +4,7 @@ import { addWeeks, differenceInHours, format, startOfMonth, startOfWeek } from '
 import { AlarmClock, ArrowLeft, CheckCircle2, Clock, Gauge, ListTodo, Mail, Plus, Target, Timer } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { getStaffLookups, nameMap, profileIdsReportingTo, TASK_LIST_SELECT, taskAssigneeOptionsFor } from '@/lib/queries'
+import { addTaskAssigneeHistory, getStaffLookups, nameMap, profileIdsReportingTo, TASK_LIST_SELECT, taskAssigneeOptionsFor } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader, StatCard } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
@@ -36,7 +36,7 @@ export default async function EmployeeStatsPage(props: { params: Promise<{ id: s
     if (person.id !== me.id && !reporting) redirect('/team')
   }
 
-  const tasks = (taskData ?? []) as TaskListItem[]
+  const tasks = await addTaskAssigneeHistory(supabase, (taskData ?? []) as TaskListItem[])
   const names = nameMap(lookups.people)
   const now = new Date()
   const weekStart = startOfWeek(now, { weekStartsOn: 1 })

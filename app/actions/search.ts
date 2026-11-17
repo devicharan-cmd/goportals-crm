@@ -3,7 +3,7 @@
 import { requireClient, requireRole, requireStaff } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { CLIENT_PAGE_SIZE, TASK_PAGE_SIZE, TASK_STATUS_OPTIONS, TICKET_PAGE_SIZE } from '@/lib/constants'
-import { getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, TASK_SUMMARY_SELECT, type TaskAssignerInfo, type TaskPageCursor } from '@/lib/queries'
+import { addTaskAssigneeHistory, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, TASK_SUMMARY_SELECT, type TaskAssignerInfo, type TaskPageCursor } from '@/lib/queries'
 import { parseTaskCode, parseTicketCode } from '@/lib/utils'
 import type { Client, TaskSummary, Ticket } from '@/types/database'
 
@@ -101,7 +101,10 @@ export async function searchTasks(value: string, filters: TaskSearchFilters, cur
   const { data, error } = await query
   if (error) throw new Error(error.message)
   const hasMore = (data?.length ?? 0) > TASK_PAGE_SIZE
-  const tasks = normalizeTaskSummaryRows((data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0])
+  const tasks = await addTaskAssigneeHistory(
+    supabase,
+    normalizeTaskSummaryRows((data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0]),
+  )
   const lastTask = tasks[tasks.length - 1]
   const nextCursor = hasMore && lastTask
     ? { id: lastTask.id, is_urgent: lastTask.is_urgent, due_date: lastTask.due_date, created_at: lastTask.created_at }

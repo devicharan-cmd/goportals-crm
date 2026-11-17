@@ -37,6 +37,7 @@ export function AssignButton({
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [selected, setSelected] = useState<string | null>(currentId)
+  const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -55,6 +56,7 @@ export function AssignButton({
   function show() {
     setSelected(currentId)
     setQ('')
+    setNote('')
     setError('')
     setOpen(true)
   }
@@ -62,7 +64,14 @@ export function AssignButton({
   async function save() {
     setSaving(true)
     setError('')
-    const { error } = await createClient().from(table).update({ assignee_id: selected }).eq('id', taskId)
+    const supabase = createClient()
+    const { error } = table === 'tasks'
+      ? await supabase.rpc('reassign_task', {
+          p_task_id: taskId,
+          p_assignee_id: selected,
+          p_note: note.trim() || null,
+        })
+      : await supabase.from(table).update({ assignee_id: selected }).eq('id', taskId)
     setSaving(false)
     if (error) return setError(errorMessage(error))
     setOpen(false)
@@ -139,6 +148,20 @@ export function AssignButton({
             </li>
           )}
         </ul>
+
+        {table === 'tasks' && currentId && (
+          <label className="mt-3 block text-sm font-medium text-slate-700">
+            Reassignment note <span className="font-normal text-slate-400">(optional)</span>
+            <textarea
+              className="form-field mt-1.5 min-h-20 w-full resize-y text-sm"
+              maxLength={500}
+              placeholder="Why is this task being reassigned?"
+              value={note}
+              onChange={event => setNote(event.target.value)}
+            />
+            <span className="mt-1 block text-xs font-normal text-slate-400">Visible to staff in task activity.</span>
+          </label>
+        )}
 
         {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 

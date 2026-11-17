@@ -10,6 +10,7 @@ import {
 } from '@dnd-kit/core'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
+import { TaskPreviousAssignees } from '@/components/tasks/TaskPreviousAssignees'
 import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import type { AssigneeOption } from '@/lib/queries'
 import { DueDate, DueDatePill } from '@/components/ui/badges'
@@ -90,10 +91,11 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
       {linked
         ? <Link href={taskHref} draggable={false} className="block p-3 pb-2 hover:bg-slate-50/60">{body}</Link>
         : <div className="p-3 pb-2">{body}</div>}
-      <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
+      <div className="flex min-w-0 flex-col items-start gap-1.5 border-t border-slate-100 px-3 py-2">
         {task.assignee_id
           ? <span className="flex min-w-0 items-center gap-1.5 text-xs text-slate-600"><Avatar name={cardAssigneeName} src={assignee?.avatarUrl} role={assignee?.avatarRole} size="xs" /><span className="truncate">{cardAssigneeName}</span></span>
           : <span className="text-[11px] italic text-slate-400">Unassigned</span>}
+        <TaskPreviousAssignees history={task.assignee_history} compact />
       </div>
     </div>
   )

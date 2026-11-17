@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, FileSignature, Mail, MapPin, MessageCircle, Phone, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { getStaffLookups, nameMap, TASK_LIST_SELECT, taskAssigneeOptionsFor } from '@/lib/queries'
+import { addTaskAssigneeHistory, getStaffLookups, nameMap, TASK_LIST_SELECT, taskAssigneeOptionsFor } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { AccountStatusBadge, Badge } from '@/components/ui/badges'
@@ -55,7 +55,7 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
   const isSuperAdmin = me.role === 'super_admin'
   const teamRows = (team ?? []) as ClientTeamRow[]
   const canEdit = isSuperAdmin
-  const allTasks = (tasks ?? []) as TaskListItem[]
+  const allTasks = await addTaskAssigneeHistory(supabase, (tasks ?? []) as TaskListItem[])
   const openTasks = allTasks.filter(t => !TASK_TERMINAL_STATUSES.includes(t.status))
   const doneTasks = allTasks.filter(t => TASK_TERMINAL_STATUSES.includes(t.status))
   const accepted = (acceptances ?? []) as unknown as { accepted_at: string; agreement: { version: string } | null }[]

@@ -4,6 +4,7 @@ import { Avatar, EmptyState } from '@/components/ui/primitives'
 import { dueState, formatDate, taskCode } from '@/lib/utils'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { AssignButton } from '@/components/tasks/AssignButton'
+import { TaskPreviousAssignees } from '@/components/tasks/TaskPreviousAssignees'
 import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import { ROLE_LABELS, TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import type { AssigneeOption, TaskAssignerInfo } from '@/lib/queries'
@@ -160,37 +161,33 @@ export function TaskTable({
               {showAssignee && (
                 <td className="px-3 py-3">
                   {showAssignedBy ? (
-                    <span className="flex h-14 min-w-0 items-center gap-2 text-slate-700">
+                    <span className="flex min-h-14 min-w-0 flex-col justify-center gap-1 text-slate-700">
                       {t.assignee_id ? (
-                        <>
+                        <span className="flex min-w-0 items-center gap-2">
                           <Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" />
-                          <span className="relative h-14 min-w-0 flex-1">
-                            <span className="absolute left-0 top-1/2 w-full -translate-y-1/2 truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
-                            {assigneeRoles[t.assignee_id] && <span className="absolute left-0 top-[calc(50%+13px)] w-full -translate-y-1/2 truncate text-[10px] text-slate-400">({assigneeRoles[t.assignee_id]})</span>}
-                          </span>
-                        </>
+                          <span className="min-w-0 truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
+                          {assigneeRoles[t.assignee_id] && <span className="shrink-0 text-[10px] text-slate-400">({assigneeRoles[t.assignee_id]})</span>}
+                        </span>
                       ) : <span className="italic text-slate-400">Unassigned</span>}
+                      <TaskPreviousAssignees history={t.assignee_history} compact />
                     </span>
                   ) : (
-                    <div className="relative h-14 min-w-0">
+                    <div className="min-w-0 space-y-1">
                       {t.assignee_id ? (
-                        <span className="absolute left-0 top-1/2 flex w-full min-w-0 -translate-y-1/2 items-center gap-2 text-slate-700">
+                        <span className="flex min-w-0 items-center gap-2 text-slate-700">
                           <Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" />
-                          <span className="flex min-w-0 items-center gap-2">
-                            <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
-                            {assignOptions && !TASK_TERMINAL_STATUSES.includes(t.status) && (
-                              <span className="shrink-0">
-                                <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
-                              </span>
-                            )}
-                          </span>
+                          <span className="min-w-0 truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
+                          {assignOptions && !TASK_TERMINAL_STATUSES.includes(t.status) && (
+                            <span className="shrink-0">
+                              <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
+                            </span>
+                          )}
+                          {assigneeRoles[t.assignee_id] && (
+                            <span className="shrink-0 text-[10px] text-slate-400">({assigneeRoles[t.assignee_id]})</span>
+                          )}
                         </span>
-                      ) : <span className="absolute left-0 top-1/2 -translate-y-1/2 text-xs italic text-slate-400">Unassigned</span>}
-                      {t.assignee_id && assigneeRoles[t.assignee_id] && (
-                        <span className="absolute left-7 top-[calc(50%+18px)] -translate-y-1/2 truncate text-[10px] text-slate-400">
-                          ({assigneeRoles[t.assignee_id]})
-                        </span>
-                      )}
+                      ) : <span className="text-xs italic text-slate-400">Unassigned</span>}
+                      <TaskPreviousAssignees history={t.assignee_history} compact />
                     </div>
                   )}
                 </td>
@@ -246,6 +243,7 @@ export function TaskTable({
                   {t.assignee_id && assigneeRoles[t.assignee_id] && (
                     <span className="ml-7 text-[10px] text-slate-400">({assigneeRoles[t.assignee_id]})</span>
                   )}
+                  <TaskPreviousAssignees history={t.assignee_history} compact />
                 </span>
               </div>
             )}

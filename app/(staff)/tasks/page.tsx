@@ -1,13 +1,13 @@
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeFilterPeopleFor, assigneeOptionsFor, getClientProfileImageUrls, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
+import { assigneeFilterPeopleFor, getClientProfileImageUrls, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, taskAssigneeOptionsFor, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
 import { TASK_PAGE_SIZE } from '@/lib/constants'
 import { ButtonLink } from '@/components/ui/button'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
 import { TaskSearchProvider, TaskSearchResults } from '@/components/tasks/TaskSearch'
 import { Alert } from '@/components/ui/primitives'
-import type { StaffDirectoryEntry, TaskSummary } from '@/types/database'
+import type { TaskSummary } from '@/types/database'
 
 export const metadata = { title: 'Tasks' }
 
@@ -60,14 +60,13 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     return query
   }
 
-  const [lookups, initialTaskResult, myTaskCountResult, allTaskCountResult, assignerResult] = await Promise.all([
+  const [lookups, initialTaskResult, myTaskCountResult, allTaskCountResult] = await Promise.all([
     lookupsPromise,
     scope === 'assigned' ? Promise.resolve(null) : taskQuery([]),
     supabase.from('tasks').select('id', { count: 'exact', head: true })
       .eq('assignee_id', me.id)
       .not('status', 'in', '(completed,cancelled)'),
     supabase.from('tasks').select('id', { count: 'exact', head: true }),
-    supabase.rpc('staff_directory'),
   ])
 
   const assignedScopeAssigneeIds = taskAssigneeIdsForAssignedScope(me, lookups)
@@ -85,14 +84,13 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
   if (myTaskCountResult.error) throw myTaskCountResult.error
   if (allTaskCountResult.error) throw allTaskCountResult.error
   if (assignedTaskCountResult.error) throw assignedTaskCountResult.error
-  if (assignerResult.error) throw assignerResult.error
   const hasMoreTasks = (taskResult.data?.length ?? 0) > TASK_PAGE_SIZE
   const tasks = normalizeTaskSummaryRows((taskResult.data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0])
   const lastTask = tasks[tasks.length - 1]
   const initialTaskCursor = hasMoreTasks && lastTask
     ? { id: lastTask.id, is_urgent: lastTask.is_urgent, due_date: lastTask.due_date, created_at: lastTask.created_at }
     : null
-  const directoryPeople = (assignerResult.data ?? []) as StaffDirectoryEntry[]
+  const directoryPeople = lookups.directoryStaff
   const assigners = taskAssignerFilterPeopleFor(me, lookups).map(person => ({
     value: person.id,
     label: person.full_name || person.email || 'Staff member',
@@ -114,7 +112,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       avatarUrl: person.avatar_url,
     }] as const),
   ])
-  const assignOptions = me.role !== 'employee' ? assigneeOptionsFor(me, lookups) : undefined
+  const assignOptions = me.role !== 'employee' ? taskAssigneeOptionsFor(me, lookups) : undefined
 
   return (
     <TaskSearchProvider

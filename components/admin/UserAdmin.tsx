@@ -27,8 +27,8 @@ export type StaffRow = {
 export type ReportingPerson = { id: string; full_name: string; email: string; avatar_url: string | null; role: StaffRole; status: AccountStatus }
 type ReportingDropdownPosition = { left: number; top: number; width: number; maxHeight: number; openBelow: boolean }
 
-export function StaffDirectory({ rows, departments, canEdit, actorId, inviteButton }: {
-  rows: StaffRow[]; departments: Department[]; canEdit: boolean; actorId: string; inviteButton: ReactNode
+export function StaffDirectory({ rows, departments, canEdit, actorId, actorRole, inviteButton }: {
+  rows: StaffRow[]; departments: Department[]; canEdit: boolean; actorId: string; actorRole: AppRole; inviteButton: ReactNode
 }) {
   const [query, setQuery] = useState('')
   const [role, setRole] = useState('')
@@ -51,9 +51,13 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, inviteButt
   return (
     <>
       <div className="flex flex-col gap-1 border-b border-slate-100 px-5 py-4">
-        <h2 className="text-base font-semibold text-slate-900">Team management ({rows.length})</h2>
+        <h2 className="text-base font-semibold text-slate-900">
+          {actorRole === 'team_lead' ? `Reporting team (${rows.length})` : `Team management (${rows.length})`}
+        </h2>
         <p className="text-xs text-slate-500">
-          Manage team roles, departments, and capacity. Managers can see every department; Team Leads can see and assign within their own.
+          {actorRole === 'team_lead'
+            ? 'View staff profiles in your reporting hierarchy. User invitations are managed by administrators.'
+            : 'Manage team roles, departments, and capacity. Managers can see every department; Team Leads can see and assign within their own.'}
         </p>
       </div>
       <div className="grid grid-cols-1 items-center gap-2 border-b border-slate-100 p-4 sm:grid-cols-[minmax(0,1fr)_130px_150px_auto]">
@@ -65,7 +69,7 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, inviteButt
             onChange={event => setQuery(event.target.value)}
             placeholder="Search team members..."
             aria-label="Search team members"
-            className="form-field h-9 w-full min-w-0 rounded-xl pl-9 text-sm focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none"
+            className="form-field search-input-with-icon h-9 w-full min-w-0 rounded-xl text-sm focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none"
           />
         </label>
         <SearchableSelect
@@ -892,7 +896,13 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
 
   return (
     <>
-      <Button onClick={() => { setForm(emptyInviteUserForm()); setMsg(null); setErrors({}); setTouched({}); setOpen(true) }}><UserPlus className="h-4 w-4" /> Add user</Button>
+      <Button
+        disabled={actorRole === 'team_lead'}
+        title={actorRole === 'team_lead' ? 'Team Leads can view profiles but cannot add users.' : undefined}
+        onClick={() => { setForm(emptyInviteUserForm()); setMsg(null); setErrors({}); setTouched({}); setOpen(true) }}
+      >
+        <UserPlus className="h-4 w-4" /> Add user
+      </Button>
       <Modal open={open} onClose={closeModal}
              title={form.kind === 'staff' ? 'Invite a team member' : 'Invite a client'}
              description={form.kind === 'staff'

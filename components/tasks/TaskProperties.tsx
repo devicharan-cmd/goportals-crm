@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Flame, X } from 'lucide-react'
+import { AlertTriangle, Flame, LockKeyhole, X } from 'lucide-react'
 import { StaffIdentity } from '@/components/ui/primitives'
 import { PRIORITY_OPTIONS, TASK_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatRelative } from '@/lib/utils'
@@ -12,10 +12,11 @@ import type { AppRole, Task, TaskStatus } from '@/types/database'
 
 /** Task properties and permitted inline controls shown in the task detail sidebar. */
 export function TaskProperties({
-  task, assignees, assigneeName, assignedBy, assignedAt, canChangeStatus = false, canCompleteReview = false,
+  task, ticketLabel, assignees, assigneeName, assignedBy, assignedAt, canChangeStatus = false, canCompleteReview = false,
   canEditPriority = false, canEditUrgent = false,
 }: {
   task: Task
+  ticketLabel?: string | null
   assignees: AssigneeOption[]
   assigneeName: string | null
   assignedBy?: { name: string; avatarUrl: string | null; role: AppRole } | null
@@ -31,6 +32,10 @@ export function TaskProperties({
   const value = 'min-w-0 text-sm text-slate-800'
   const currentAssignee = assignees.find(assignee => assignee.id === task.assignee_id)
   const priorityLabel = PRIORITY_OPTIONS.find(option => option.value === task.priority)?.label ?? task.priority
+  const visibilityLabel = task.visibility === 'public' ? 'Public' : task.visibility === 'private' ? 'Private' : '—'
+  const ticketContext = task.ticket_id === null
+    ? 'No ticket (standalone)'
+    : ticketLabel ?? '—'
   return (
     <div className="space-y-3">
       {statusWarning && (
@@ -65,6 +70,35 @@ export function TaskProperties({
         {canEditPriority
           ? <TaskPrioritySelect taskId={task.id} priority={task.priority} />
           : <span className={value}>{priorityLabel}</span>}
+      </div>
+
+      <div className={row}>
+        <span className={label}>Visibility</span>
+        <span className={value}>
+          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${
+            task.visibility === 'public'
+              ? 'bg-teal-50 text-teal-700 ring-teal-200'
+              : task.visibility === 'private'
+                ? 'bg-violet-50 text-violet-700 ring-violet-200'
+                : 'bg-slate-50 text-slate-500 ring-slate-200'
+          }`}>
+            {task.visibility === 'private' && <LockKeyhole aria-hidden="true" className="h-3.5 w-3.5" />}
+            {visibilityLabel}
+          </span>
+        </span>
+      </div>
+
+      <div className={row}>
+        <span className={label}>Ticket</span>
+        <span className={value}>
+          <span className={`inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${
+            ticketContext === '—'
+              ? 'bg-slate-50 text-slate-500 ring-slate-200'
+              : 'bg-sky-50 text-sky-700 ring-sky-200'
+          }`}>
+            {ticketContext}
+          </span>
+        </span>
       </div>
 
       <div className={row}>

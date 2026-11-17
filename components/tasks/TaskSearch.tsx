@@ -1,15 +1,44 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { searchTasks } from '@/app/actions/search'
 import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
 import { TaskBoard } from '@/components/tasks/TaskBoard'
 import { TaskTable } from '@/components/tasks/TaskTable'
+import { createClient } from '@/lib/supabase/client'
+import { showErrorToast } from '@/lib/ui-toast'
 import { Button, ButtonLink } from '@/components/ui/button'
 import { Alert, Card } from '@/components/ui/primitives'
 import type { AssigneeOption, TaskAssignerInfo, TaskPageCursor } from '@/lib/queries'
-import type { TaskSummary } from '@/types/database'
+import type { TaskStatus, TaskSummary } from '@/types/database'
 import { errorMessage } from '@/lib/utils'
+
+type LiveTaskRow = {
+  id?: string
+  status?: TaskStatus
+  assignee_id?: string | null
+  is_urgent?: boolean
+  due_date?: string | null
+  priority?: TaskSummary['priority']
+  title?: string
+  visibility?: TaskSummary['visibility']
+}
+
+function applyLiveTask(current: TaskSummary[], row: LiveTaskRow, eventType: string) {
+  if (!row.id) return current
+  if (eventType === 'DELETE') return current.filter(task => task.id !== row.id)
+  return current.map(task => task.id === row.id ? {
+    ...task,
+    status: row.status ?? task.status,
+    assignee_id: row.assignee_id === undefined ? task.assignee_id : row.assignee_id,
+    is_urgent: row.is_urgent ?? task.is_urgent,
+    due_date: row.due_date === undefined ? task.due_date : row.due_date,
+    priority: row.priority ?? task.priority,
+    title: row.title ?? task.title,
+    visibility: row.visibility ?? task.visibility,
+  } : task)
+}
 
 type TaskSearchContextValue = {
   tasks: TaskSummary[]
@@ -85,6 +114,7 @@ export function TaskSearchProvider({
   board: boolean
   children: React.ReactNode
 }) {
+  const router = useRouter()
   const [query, setQuery] = useState('')
   const [tasks, setTasks] = useState(initialTasks)
   const [names, setNames] = useState(initialNames)
@@ -102,6 +132,59 @@ export function TaskSearchProvider({
   const taskRequestId = useRef(0)
   const previousServerMineCount = useRef(initialScopeCounts.mine)
   const { all: initialAllCount, assigned: initialAssignedCount, mine: initialMineCount } = initialScopeCounts
+
+  useEffect(() => {
+    const supabase = createClient()
+    let active = true
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null
+    const refresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      refreshTimer = setTimeout(() => router.refresh(), 150)
+    }
+
+    // A fixed channel name is dropped when this effect restarts, which is what
+    // dev mode does on load. The other browser then keeps the status it first loaded.
+    void (async () => {
+      try {
+        const { data, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError) throw sessionError
+        if (!active) return
+        if (data.session?.access_token) await supabase.realtime.setAuth(data.session.access_token)
+        if (!active) return
+
+        const nextChannel = supabase
+          .channel(`staff-task-list-${crypto.randomUUID()}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, payload => {
+            const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as LiveTaskRow
+            if (row?.id && payload.eventType !== 'INSERT') {
+              setTasks(current => applyLiveTask(current, row, payload.eventType))
+            }
+            refresh()
+          })
+        channel = nextChannel
+        if (!active) {
+          void supabase.removeChannel(nextChannel)
+          return
+        }
+        nextChannel.subscribe(status => {
+          if (active && (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')) {
+            showErrorToast('Live task updates are unavailable. Refresh to see the latest tasks.')
+          }
+        })
+      } catch (subscriptionError) {
+        if (active) {
+          showErrorToast(`Live task updates are unavailable. ${errorMessage(subscriptionError)}`)
+        }
+      }
+    })()
+
+    return () => {
+      active = false
+      if (refreshTimer) clearTimeout(refreshTimer)
+      if (channel) void supabase.removeChannel(channel)
+    }
+  }, [router])
 
   useEffect(() => {
     const previousMineCount = previousServerMineCount.current

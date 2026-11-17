@@ -44,6 +44,7 @@ export function TaskTable({
 }) {
   const taskHref = (taskId: string) =>
     `${hrefBase}/${taskId}${scope ? `?scope=${scope}` : ''}`
+  const assigneeNames = { ...names, ...Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.name])) }
   const assigneeRoles = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.role]))
   const assigneeAvatarRoles = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.avatarRole]))
   const assigneeAvatarUrls = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.avatarUrl]))
@@ -162,9 +163,9 @@ export function TaskTable({
                     <span className="flex h-14 min-w-0 items-center gap-2 text-slate-700">
                       {t.assignee_id ? (
                         <>
-                          <Avatar name={names[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" />
+                          <Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" />
                           <span className="relative h-14 min-w-0 flex-1">
-                            <span className="absolute left-0 top-1/2 w-full -translate-y-1/2 truncate">{names[t.assignee_id] ?? '—'}</span>
+                            <span className="absolute left-0 top-1/2 w-full -translate-y-1/2 truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
                             {assigneeRoles[t.assignee_id] && <span className="absolute left-0 top-[calc(50%+13px)] w-full -translate-y-1/2 truncate text-[10px] text-slate-400">({assigneeRoles[t.assignee_id]})</span>}
                           </span>
                         </>
@@ -174,12 +175,12 @@ export function TaskTable({
                     <div className="relative h-14 min-w-0">
                       {t.assignee_id ? (
                         <span className="absolute left-0 top-1/2 flex w-full min-w-0 -translate-y-1/2 items-center gap-2 text-slate-700">
-                          <Avatar name={names[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" />
+                          <Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" />
                           <span className="flex min-w-0 items-center gap-2">
-                            <span className="truncate">{names[t.assignee_id] ?? '—'}</span>
+                            <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
                             {assignOptions && !TASK_TERMINAL_STATUSES.includes(t.status) && (
                               <span className="shrink-0">
-                                <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} compact />
+                                <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
                               </span>
                             )}
                           </span>
@@ -198,7 +199,7 @@ export function TaskTable({
               {showReassignColumn && (
                 <td className="px-2 py-3 text-center">
                   {!TASK_TERMINAL_STATUSES.includes(t.status) && (
-                    <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} compact />
+                    <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
                   )}
                 </td>
               )}
@@ -234,11 +235,11 @@ export function TaskTable({
                 <span className="flex min-w-0 flex-col items-start gap-1.5 text-slate-600">
                   <span className="flex min-w-0 items-center gap-1.5">
                   {t.assignee_id
-                    ? <><Avatar name={names[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" /> <span className="truncate">{names[t.assignee_id] ?? '—'}</span></>
+                    ? <><Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" /> <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span></>
                     : <span className="italic text-slate-400">Unassigned</span>}
                   {assignOptions && !showReassignColumn && !TASK_TERMINAL_STATUSES.includes(t.status) && (
                     <span className="shrink-0">
-                      <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} compact />
+                      <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
                     </span>
                   )}
                   </span>
@@ -264,7 +265,7 @@ export function TaskTable({
             )}
             {showReassignColumn && !TASK_TERMINAL_STATUSES.includes(t.status) && (
               <div className="flex justify-end px-4 pb-3">
-                <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} compact />
+                <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
               </div>
             )}
           </li>

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, CalendarClock, Clock3, FileText, Paperclip } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskPageTitle } from '@/lib/queries'
+import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskAssigneeOptionsFor, taskPageTitle } from '@/lib/queries'
 import { TaskCode } from '@/components/tasks/TaskCode'
 import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { Badge, PriorityBadge, StatusBadge, UrgentBadge, DueDatePill } from '@/components/ui/badges'
@@ -20,8 +20,8 @@ import { DeleteButton } from '@/components/shared/DeleteButton'
 import { AssignButton } from '@/components/tasks/AssignButton'
 import { TaskEditModal } from '@/components/tasks/TaskEditModal'
 import { TaskScheduleControl } from '@/components/tasks/TaskScheduleControl'
-import { ROLE_LABELS, TYPE_LABELS } from '@/lib/constants'
-import { formatDate, formatRelative, taskCode, ticketCode } from '@/lib/utils'
+import { TYPE_LABELS } from '@/lib/constants'
+import { dueState, formatDate, formatRelative, taskCode, ticketCode } from '@/lib/utils'
 import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TimeLog } from '@/types/database'
 
 export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
@@ -93,18 +93,8 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     ? lookups.people.find(person => person.id === task.assigned_by)
     : undefined
 
-  const assignees = assigneeOptionsFor(me, lookups)
-  const editAssignees = [...assignees]
-  if (task.assignee_id && !editAssignees.some(person => person.id === task.assignee_id)) {
-    const person = lookups.people.find(candidate => candidate.id === task.assignee_id)
-    editAssignees.unshift({
-      id: task.assignee_id,
-      name: names[task.assignee_id] ?? 'Current assignee',
-      avatarUrl: person?.avatar_url ?? null,
-      role: person ? ROLE_LABELS[person.role] : 'Current assignee',
-      ...(person ? { avatarRole: person.role } : {}),
-    })
-  }
+  const assignees = taskAssigneeOptionsFor(me, lookups)
+  const editAssignees = assigneeOptionsFor(me, lookups)
   let editClients = lookups.clients
   if (me.role === 'team_lead') {
     const deptIds = Array.from(departmentIdsFor(me.id, lookups))
@@ -112,15 +102,17 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     editClients = lookups.clients.filter(client => clientIds.has(client.id) || client.id === task.client_id)
   }
   const editClientImageUrlByPath = await getClientProfileImageUrls(editClients)
+  const clientAssignees = assignees.filter(option => option.clientId && editClients.some(client => client.id === option.clientId))
   const canClaim = task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
   const canEditChecklist = me.role !== 'employee' || task.assignee_id === me.id
   const scopedTasksContext = searchParams.scope === 'mine' || searchParams.scope === 'assigned' || searchParams.scope === 'all'
   const myTasksContext = searchParams.scope === 'mine'
   const assignedByMeContext = searchParams.scope === 'assigned' && task.assigned_by === me.id
   const createdByMe = task.created_by === me.id
-  const canManageTask = createdByMe || (me.role === 'super_admin'
-    ? searchParams.scope === 'all' || assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext)
-    : assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext))
+  const canManageTask = me.role === 'super_admin'
+    || createdByMe
+    || assignedByMeContext
+    || (task.assignee_id !== me.id && !myTasksContext)
   const tasksHref = scopedTasksContext ? `/tasks?scope=${searchParams.scope}` : '/tasks'
   const scheduleCanManage = task.status !== 'completed' && task.status !== 'cancelled'
     && (me.role === 'super_admin' || task.assignee_id === me.id || task.created_by === me.id)
@@ -156,7 +148,17 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
         <Link href={tasksHref} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
         <div className="flex items-center gap-2">
           {canManageTask && (me.role === 'super_admin' || createdByMe) && <DeleteButton table="tasks" id={task.id} redirectTo={tasksHref} variant="danger" />}
-          {canManageTask && me.role !== 'employee' && <AssignButton taskId={task.id} currentId={task.assignee_id} options={assignees} />}
+          {canManageTask && me.role !== 'employee' && <AssignButton
+            taskId={task.id}
+            currentId={task.assignee_id}
+            options={assignees}
+            clientId={task.client_id}
+            allowClientAssignee={task.visibility === 'public'}
+            taskVisibility={task.visibility}
+            ticketLabel={task.ticket
+              ? ticketCode(task.ticket.ticket_number)
+              : task.ticket_id ? null : 'No ticket (standalone)'}
+          />}
           {canManageTask && (
             <TaskEditModal
               task={task}
@@ -166,6 +168,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               clients={editClients}
               clientImageUrlByPath={editClientImageUrlByPath}
               assignees={editAssignees}
+              clientAssignees={clientAssignees}
               departments={lookups.departments}
               platforms={lookups.platforms}
               services={lookups.services}
@@ -187,7 +190,11 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                 {task.visibility === 'private' && <Badge className="bg-violet-50 text-violet-700 ring-violet-200">Private · Internal only</Badge>}
                 {task.is_scheduled && <Badge className="gap-1 bg-indigo-50 text-indigo-700 ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3.5 w-3.5" />Scheduled</Badge>}
                 {task.source === 'client' && <Badge className="bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]">Client request</Badge>}
-                <DueDatePill date={task.due_date} status={task.status} className="ml-auto" />
+                <DueDatePill
+                  date={task.due_date}
+                  status={task.status}
+                  className={dueState(task.due_date, task.status) === 'ok' ? 'ml-auto font-semibold' : 'ml-auto'}
+                />
               </div>
               <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
             </div>
@@ -233,7 +240,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                 <Clock3 aria-hidden="true" className="h-4 w-4 shrink-0" />
                 <span className="font-medium">Estimated hours</span>
                 <span aria-hidden="true" className="h-5 border-l border-slate-300" />
-                <span className="rounded-full bg-[#D9F4F6] px-2.5 py-0.5 text-sm font-bold leading-5 text-slate-800">
+                <span className="rounded-full bg-[#D9F4F6] px-2.5 py-0.5 text-xs font-semibold leading-4 text-slate-800">
                   {task.estimated_hours} h
                 </span>
               </div>
@@ -275,8 +282,9 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
           <Card className="p-5">
             <TaskProperties
               task={task}
+              ticketLabel={task.ticket ? ticketCode(task.ticket.ticket_number) : null}
               assignees={editAssignees}
-              assigneeName={task.assignee_id ? names[task.assignee_id] ?? null : null}
+              assigneeName={task.assignee_id ? assignees.find(person => person.id === task.assignee_id)?.name ?? names[task.assignee_id] ?? null : null}
               assignedBy={taskAssigner ? {
                 name: names[taskAssigner.id],
                 avatarUrl: taskAssigner.avatar_url,

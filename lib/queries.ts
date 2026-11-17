@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { ROLE_LABELS } from '@/lib/constants'
 import { parseTaskCode, parseTicketCode, taskCode, ticketCode } from '@/lib/utils'
-import type { AppRole, Department, Platform, Profile, Service, TaskSummary } from '@/types/database'
+import type { AppRole, Department, Platform, Profile, Service, StaffDirectoryEntry, TaskSummary } from '@/types/database'
 
 /** Columns + joins used by every task list / board. */
 export const TASK_LIST_SELECT =
@@ -10,7 +10,7 @@ export const TASK_LIST_SELECT =
 
 /** Only the fields used by the staff task table and board. */
 export const TASK_SUMMARY_SELECT =
-  'id, task_number, title, status, priority, is_urgent, source, visibility, is_scheduled, due_date, created_at, assignee_id, assigned_by, client:clients(company_name), platform:platforms(name), department:departments(name)'
+  'id, task_number, title, status, priority, is_urgent, source, visibility, is_scheduled, due_date, created_at, client_id, ticket_id, assignee_id, assigned_by, client:clients(company_name), platform:platforms(name), department:departments(name)'
 
 export type TaskPageCursor = Pick<TaskSummary, 'id' | 'is_urgent' | 'due_date' | 'created_at'>
 
@@ -38,12 +38,13 @@ export const TICKET_LIST_SELECT = '*, client:clients(id, company_name)'
 
 export type Person = Pick<Profile, 'id' | 'full_name' | 'email' | 'avatar_url' | 'role' | 'job_title' | 'status' | 'weekly_capacity_hours' | 'created_at' | 'reporting_to'>
 export type TaskAssignerInfo = { name: string; role: AppRole; avatarUrl: string | null }
-export type ClientOption = { id: string; company_name: string; company_profile_image_path: string | null }
+export type ClientOption = { id: string; company_name: string; company_profile_image_path: string | null; owner_id: string | null }
 export type DepartmentMember = { department_id: string; profile_id: string; is_lead: boolean }
 
 export type StaffLookups = {
   people: Person[]               // all profiles staff can see (incl. clients' logins, for names)
   staff: Person[]                // active staff only — assignable
+  directoryStaff: StaffDirectoryEntry[]
   clients: ClientOption[]
   departments: Department[]
   platforms: Platform[]
@@ -64,21 +65,23 @@ export function sortPeopleByRoleAndJoiningDate<T extends Pick<Person, 'id' | 'ro
 
 export async function getStaffLookups(): Promise<StaffLookups> {
   const supabase = await createClient()
-  const [people, clients, departments, platforms, services, members] = await Promise.all([
+  const [people, directory, clients, departments, platforms, services, members] = await Promise.all([
     supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to'),
-    supabase.from('clients').select('id, company_name, company_profile_image_path').order('company_name'),
+    supabase.rpc('staff_directory'),
+    supabase.from('clients').select('id, company_name, company_profile_image_path, owner_id').order('company_name'),
     supabase.from('departments').select('*').order('sort_order'),
     supabase.from('platforms').select('*').order('sort_order'),
     supabase.from('services').select('*').order('sort_order'),
     supabase.from('department_members').select('department_id, profile_id, is_lead'),
   ])
-  for (const result of [people, clients, departments, platforms, services, members]) {
+  for (const result of [people, directory, clients, departments, platforms, services, members]) {
     if (result.error) throw result.error
   }
   const all = sortPeopleByRoleAndJoiningDate((people.data ?? []) as Person[])
   return {
     people: all,
     staff: all.filter(p => p.role !== 'client' && p.status === 'active'),
+    directoryStaff: (directory.data ?? []) as StaffDirectoryEntry[],
     clients: (clients.data ?? []) as ClientOption[],
     departments: (departments.data ?? []) as Department[],
     platforms: (platforms.data ?? []) as Platform[],
@@ -93,23 +96,25 @@ export async function getTaskPageLookups({ includePeople, includeAssignments }: 
   includeAssignments: boolean
 }): Promise<StaffLookups> {
   const supabase = await createClient()
-  const [people, clients, departments, members] = await Promise.all([
+  const [people, directory, clients, departments, members] = await Promise.all([
     includePeople
       ? supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to')
       : Promise.resolve({ data: [], error: null }),
-    supabase.from('clients').select('id, company_name, company_profile_image_path').order('company_name'),
+    includePeople ? supabase.rpc('staff_directory') : Promise.resolve({ data: null, error: null }),
+    supabase.from('clients').select('id, company_name, company_profile_image_path, owner_id').order('company_name'),
     supabase.from('departments').select('*').order('sort_order'),
     includeAssignments
       ? supabase.from('department_members').select('department_id, profile_id, is_lead')
       : Promise.resolve({ data: [], error: null }),
   ])
-  for (const result of [people, clients, departments, members]) {
+  for (const result of [people, directory, clients, departments, members]) {
     if (result.error) throw result.error
   }
   const all = sortPeopleByRoleAndJoiningDate((people.data ?? []) as Person[])
   return {
     people: all,
     staff: all.filter(p => p.role !== 'client' && p.status === 'active'),
+    directoryStaff: (directory.data ?? []) as StaffDirectoryEntry[],
     clients: (clients.data ?? []) as ClientOption[],
     departments: (departments.data ?? []) as Department[],
     platforms: [],
@@ -218,8 +223,11 @@ export function profileIdsInReportingHierarchy(profileId: string, lookups: Staff
 
 /** Staff a user may assign to, grouped for the Tasks "Assigned by me" scope. */
 export function taskAssigneeIdsForAssignedScope(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): string[] {
+  const clientAssigneeIds = lookups.people
+    .filter(person => person.role === 'client')
+    .map(person => person.id)
   if (me.role === 'super_admin') {
-    return lookups.staff.map(person => person.id)
+    return [...activeStaffForSuperAdmin(lookups).map(person => person.id), ...clientAssigneeIds]
   }
 
   const hierarchyIds = profileIdsInReportingHierarchy(me.id, lookups)
@@ -229,18 +237,20 @@ export function taskAssigneeIdsForAssignedScope(me: Pick<Profile, 'id' | 'role'>
 
   if (me.role === 'team_lead') {
     const employeeIds = profileIdsReportingTo(me.id, lookups)
-    return lookups.staff
+    return [...lookups.staff
       .filter(person => (person.role === 'employee' && employeeIds.has(person.id)) || superAdminIds.includes(person.id))
-      .map(person => person.id)
+      .map(person => person.id), ...clientAssigneeIds]
   }
 
-  return lookups.staff
+  return [...lookups.staff
     .filter(person => hierarchyIds.has(person.id) || superAdminIds.includes(person.id))
-    .map(person => person.id)
+    .map(person => person.id), ...(me.role === 'manager' ? clientAssigneeIds : [])]
 }
 
 /** People a user may assign to — mirrors can_assign() in the DB. */
 export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
+  if (me.role === 'super_admin') return activeStaffForSuperAdmin(lookups)
+
   if (me.role === 'manager') {
     const reportIds = profileIdsReportingTo(me.id, lookups)
     return lookups.staff.filter(person =>
@@ -266,7 +276,27 @@ export function nameMap(people: { id: string; full_name: string; email?: string 
   return Object.fromEntries(people.map(p => [p.id, p.full_name || p.email || 'Unknown']))
 }
 
-export type AssigneeOption = { id: string; name: string; avatarUrl?: string | null; role?: string; avatarRole?: AppRole; subtitle?: string; isMe?: boolean }
+export type AssigneeOption = { id: string; name: string; avatarUrl?: string | null; role?: string; avatarRole?: AppRole; subtitle?: string; isMe?: boolean; clientId?: string }
+
+function activeStaffForSuperAdmin(lookups: StaffLookups): Person[] {
+  const staffById = new Map(lookups.staff.map(person => [person.id, person]))
+  for (const person of lookups.directoryStaff) {
+    if (staffById.has(person.id)) continue
+    staffById.set(person.id, {
+      id: person.id,
+      full_name: person.full_name || 'Staff member',
+      email: '',
+      avatar_url: person.avatar_url,
+      role: person.role,
+      job_title: person.job_title,
+      status: 'active',
+      weekly_capacity_hours: 0,
+      created_at: '',
+      reporting_to: null,
+    })
+  }
+  return sortPeopleByRoleAndJoiningDate(Array.from(staffById.values()))
+}
 
 /** Options for the "Change assignee" picker: who I may assign to, with job title + departments. */
 export function assigneeOptionsFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): AssigneeOption[] {
@@ -282,6 +312,28 @@ export function assigneeOptionsFor(me: Pick<Profile, 'id' | 'role'>, lookups: St
                ...lookups.departmentMembers.filter(m => m.profile_id === p.id).map(m => deptName[m.department_id])]
               .filter(Boolean).join(' · '),
   }))
+}
+
+/** Public-task assignees also include each client's active portal account. */
+export function taskAssigneeOptionsFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): AssigneeOption[] {
+  const staffOptions = assigneeOptionsFor(me, lookups)
+
+  const clientOptions = lookups.clients.flatMap(client => {
+    const owner = lookups.people.find(person =>
+      person.id === client.owner_id && person.role === 'client' && person.status === 'active',
+    )
+    return owner ? [{
+      id: owner.id,
+      name: client.company_name,
+      avatarUrl: owner.avatar_url,
+      role: ROLE_LABELS.client,
+      avatarRole: 'client' as const,
+      clientId: client.id,
+      subtitle: 'Client account',
+    }] : []
+  })
+
+  return [...staffOptions, ...clientOptions]
 }
 
 /** Task page URLs accept the UUID or the short ID: /tasks/GP-1024. Returns the UUID (or null). */

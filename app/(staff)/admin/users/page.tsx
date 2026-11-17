@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { requireManager } from '@/lib/auth'
-import { getStaffLookups } from '@/lib/queries'
+import { requireRole } from '@/lib/auth'
+import { getStaffLookups, profileIdsReportingTo } from '@/lib/queries'
 import { Card, CardHeader } from '@/components/ui/primitives'
 import { InviteUserButton, PendingInvites, StaffDirectory, UnlinkedClientAccounts, type StaffRow, type UnlinkedClientAccount } from '@/components/admin/UserAdmin'
 import type { Invite, StaffRole } from '@/types/database'
@@ -8,21 +8,29 @@ import type { Invite, StaffRole } from '@/types/database'
 export const metadata = { title: 'Users & invites' }
 
 export default async function UsersPage() {
-  const me = await requireManager()
-  const [lookups, { data: invites }, { data: profileData, error: profileError }, { data: addressData, error: addressError }] = await Promise.all([
+  const me = await requireRole(['super_admin', 'manager', 'team_lead'])
+  const supabase = await createClient()
+  const [lookups, invitesResult, profileResult, addressResult] = await Promise.all([
     getStaffLookups(),
-    (await createClient()).from('invites').select('*').is('used_at', null).order('created_at', { ascending: false }),
-    (await createClient()).from('profiles').select('id, phone'),
-    (await createClient()).from('staff_profile_details').select('profile_id, current_address, permanent_address'),
+    me.role === 'team_lead'
+      ? Promise.resolve({ data: [], error: null })
+      : supabase.from('invites').select('*').is('used_at', null).order('created_at', { ascending: false }),
+    supabase.from('profiles').select('id, phone'),
+    me.role === 'super_admin'
+      ? supabase.from('staff_profile_details').select('profile_id, current_address, permanent_address')
+      : Promise.resolve({ data: [], error: null }),
   ])
-  if (profileError) throw new Error(`Could not load team contact details: ${profileError.message}`)
-  if (addressError) throw new Error(`Could not load staff profile addresses: ${addressError.message}`)
-  const profileDetails = new Map((profileData ?? []).map(profile => [profile.id, profile]))
-  const addressDetails = new Map((addressData ?? []).map(profile => [profile.profile_id, profile]))
+  if (invitesResult.error) throw new Error(`Could not load pending invites: ${invitesResult.error.message}`)
+  if (profileResult.error) throw new Error(`Could not load team contact details: ${profileResult.error.message}`)
+  if (addressResult.error) throw new Error(`Could not load staff profile addresses: ${addressResult.error.message}`)
+  const profileDetails = new Map((profileResult.data ?? []).map(profile => [profile.id, profile]))
+  const addressDetails = new Map((addressResult.data ?? []).map(profile => [profile.profile_id, profile]))
   const peopleById = new Map(lookups.people.map(person => [person.id, person]))
 
-  const rows: StaffRow[] = lookups.people
-    .filter(p => p.role !== 'client')
+  const reportingIds = me.role === 'team_lead' ? profileIdsReportingTo(me.id, lookups) : null
+  const visiblePeople = lookups.people.filter(p =>
+    p.role !== 'client' && (!reportingIds || reportingIds.has(p.id)))
+  const rows: StaffRow[] = visiblePeople
     .map(p => {
       const reportingPerson = p.reporting_to ? peopleById.get(p.reporting_to) : null
       return {
@@ -35,8 +43,7 @@ export default async function UsersPage() {
         departmentIds: lookups.departmentMembers.filter(m => m.profile_id === p.id).map(m => m.department_id),
       }
     })
-  const reportingPeople = lookups.people
-    .filter(p => p.role !== 'client')
+  const reportingPeople = visiblePeople
     .map(({ id, full_name, email, avatar_url, role, status }) => ({ id, full_name, email, avatar_url, role: role as StaffRole, status }))
 
   let unlinkedClientAccounts: UnlinkedClientAccount[] = []
@@ -52,28 +59,31 @@ export default async function UsersPage() {
   }
 
   return (
-      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <div className={me.role === 'team_lead' ? '' : 'grid gap-6 xl:grid-cols-[1fr_340px]'}>
         <Card className="overflow-hidden">
           <StaffDirectory rows={rows} departments={lookups.departments}
             canEdit={me.role === 'super_admin'}
             actorId={me.id}
+            actorRole={me.role}
             inviteButton={<InviteUserButton departments={lookups.departments} actorRole={me.role} reportingPeople={reportingPeople} />} />
         </Card>
-        <div className="space-y-6">
-          <Card className="h-fit overflow-hidden">
-            <CardHeader title="Pending invites" />
-            <PendingInvites invites={(invites ?? []) as Invite[]} />
-          </Card>
-          {me.role === 'super_admin' && unlinkedClientAccounts.length > 0 && (
+        {me.role !== 'team_lead' && (
+          <div className="space-y-6">
             <Card className="h-fit overflow-hidden">
-              <CardHeader
-                title={`Unlinked client accounts (${unlinkedClientAccounts.length})`}
-                description="These logins have no client company. Super admins can permanently remove an account and its personal data here."
-              />
-              <UnlinkedClientAccounts accounts={unlinkedClientAccounts} />
+              <CardHeader title="Pending invites" />
+              <PendingInvites invites={(invitesResult.data ?? []) as Invite[]} />
             </Card>
-          )}
-        </div>
+            {me.role === 'super_admin' && unlinkedClientAccounts.length > 0 && (
+              <Card className="h-fit overflow-hidden">
+                <CardHeader
+                  title={`Unlinked client accounts (${unlinkedClientAccounts.length})`}
+                  description="These logins have no client company. Super admins can permanently remove an account and its personal data here."
+                />
+                <UnlinkedClientAccounts accounts={unlinkedClientAccounts} />
+              </Card>
+            )}
+          </div>
+        )}
       </div>
   )
 }

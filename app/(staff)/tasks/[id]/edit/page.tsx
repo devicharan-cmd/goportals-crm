@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap } from '@/lib/queries'
+import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, taskAssigneeOptionsFor } from '@/lib/queries'
 import { ROLE_LABELS } from '@/lib/constants'
 import { PageHeader } from '@/components/ui/primitives'
 import { TaskForm } from '@/components/tasks/TaskForm'
@@ -45,14 +45,16 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
   }))
   if (task.assignee_id && !assignees.some(a => a.id === task.assignee_id)) {
     const person = lookups.people.find(p => p.id === task.assignee_id)
-    assignees.unshift({
-      id: task.assignee_id,
-      name: names[task.assignee_id] ?? 'Current assignee',
-      avatarUrl: person?.avatar_url ?? null,
-      employeeId: task.assignee_id,
-      role: person ? ROLE_LABELS[person.role] : 'Current assignee',
-      ...(person ? { avatarRole: person.role } : {}),
-    })
+    if (person?.role !== 'client') {
+      assignees.unshift({
+        id: task.assignee_id,
+        name: names[task.assignee_id] ?? 'Current assignee',
+        avatarUrl: person?.avatar_url ?? null,
+        employeeId: task.assignee_id,
+        role: person ? ROLE_LABELS[person.role] : 'Current assignee',
+        ...(person ? { avatarRole: person.role } : {}),
+      })
+    }
   }
 
   // Same team_lead scoping as the new-task form — but never drop the task's
@@ -64,6 +66,8 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
     clients = lookups.clients.filter(c => clientIds.has(c.id) || c.id === task.client_id)
   }
   const clientImageUrlByPath = await getClientProfileImageUrls(clients)
+  const clientAssignees = taskAssigneeOptionsFor(me, lookups)
+    .filter(option => option.clientId && clients.some(client => client.id === option.clientId))
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -80,6 +84,7 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
         clients={clients}
         clientImageUrlByPath={clientImageUrlByPath}
         assignees={assignees}
+        clientAssignees={clientAssignees}
         departments={lookups.departments}
         platforms={lookups.platforms}
         services={lookups.services}

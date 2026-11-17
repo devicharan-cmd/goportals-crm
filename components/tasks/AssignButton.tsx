@@ -18,6 +18,7 @@ export type { AssigneeOption }
 /** "Change assignee" — pick someone from a searchable list and save straight away. */
 export function AssignButton({
   taskId, currentId, options, variant = 'button', table = 'tasks', compact = false, disabled = false,
+  clientId, allowClientAssignee = false, taskVisibility, ticketLabel,
 }: {
   taskId: string
   currentId: string | null
@@ -26,6 +27,10 @@ export function AssignButton({
   table?: 'tasks' | 'tickets'
   compact?: boolean
   disabled?: boolean
+  clientId?: string | null
+  allowClientAssignee?: boolean
+  taskVisibility?: 'public' | 'private' | null
+  ticketLabel?: string | null
 }) {
   const router = useRouter()
   const runOnce = useSingleFlight()
@@ -37,8 +42,15 @@ export function AssignButton({
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
-    return s ? options.filter(o => `${o.name} ${o.subtitle ?? ''}`.toLowerCase().includes(s)) : options
-  }, [q, options])
+    const available = options.filter(option =>
+      !option.clientId || (allowClientAssignee && option.clientId === clientId),
+    )
+    const prioritized = [
+      ...available.filter(option => option.clientId),
+      ...available.filter(option => !option.clientId),
+    ]
+    return s ? prioritized.filter(o => `${o.name} ${o.subtitle ?? ''}`.toLowerCase().includes(s)) : prioritized
+  }, [q, options, clientId, allowClientAssignee])
 
   function show() {
     setSelected(currentId)
@@ -72,6 +84,12 @@ export function AssignButton({
         description="They'll get a notification straight away."
         size="lg"
       >
+        {table === 'tasks' && (taskVisibility !== undefined || ticketLabel !== undefined) && (
+          <p className="mb-3 text-xs text-slate-500">
+            Visibility: {taskVisibility ? taskVisibility === 'public' ? 'Public' : 'Private' : '—'}
+            {' '}<span aria-hidden="true">·</span>{' '}Ticket: {ticketLabel ?? '—'}
+          </p>
+        )}
         <DebouncedSearchInput
           autoFocus
           delay={200}

@@ -228,6 +228,8 @@ export interface TaskListItem extends Task {
 export interface TaskSummary {
   id: string
   task_number: number
+  client_id?: string | null
+  ticket_id?: string | null
   title: string
   status: TaskStatus
   priority: TaskPriority

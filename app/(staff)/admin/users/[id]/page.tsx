@@ -1,6 +1,6 @@
-import { notFound } from 'next/navigation'
-import { requireManager } from '@/lib/auth'
-import { getStaffLookups } from '@/lib/queries'
+import { notFound, redirect } from 'next/navigation'
+import { requireRole } from '@/lib/auth'
+import { getStaffLookups, profileIdsReportingTo } from '@/lib/queries'
 import { createClient } from '@/lib/supabase/server'
 import { StaffProfileSettings } from '@/components/settings/StaffProfileSettings'
 import { ButtonLink } from '@/components/ui/button'
@@ -11,11 +11,13 @@ export const metadata = { title: 'Staff Profile' }
 
 export default async function StaffProfilePage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
-  const me = await requireManager()
+  const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
   const [profileRes, addressRes, departmentsRes, membershipsRes, lookups] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', params.id).maybeSingle(),
-    supabase.from('staff_profile_details').select('current_address, permanent_address').eq('profile_id', params.id).maybeSingle(),
+    me.role === 'super_admin'
+      ? supabase.from('staff_profile_details').select('current_address, permanent_address').eq('profile_id', params.id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
     supabase.from('departments').select('*').order('sort_order'),
     supabase.from('department_members').select('department_id').eq('profile_id', params.id),
     getStaffLookups(),
@@ -28,6 +30,11 @@ export default async function StaffProfilePage(props: { params: Promise<{ id: st
   if (membershipsRes.error) throw new Error(`Could not load staff department assignments: ${membershipsRes.error.message}`)
 
   const profile = profileRes.data as Profile
+  if (me.role === 'team_lead'
+      && profile.id !== me.id
+      && !profileIdsReportingTo(me.id, lookups).has(profile.id)) {
+    redirect('/admin/users')
+  }
   const departments = (departmentsRes.data ?? []) as Department[]
 
   return (

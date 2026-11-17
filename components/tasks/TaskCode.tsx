@@ -22,7 +22,7 @@ export function TaskCode({ number, className }: { number: number; className?: st
       type="button"
       onClick={copy}
       title="Copy task ID"
-      className={cn('inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-[#045E80] ring-1 ring-inset ring-slate-200 transition hover:bg-slate-200',
+      className={cn('inline-flex items-center gap-1 rounded-md bg-[#EAF4F8] px-2 py-0.5 font-mono text-xs font-semibold text-[#034C68] ring-1 ring-inset ring-[#B7DCE8] transition-colors hover:bg-[#DDF2F7]',
         copied && 'bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]', className)}
     >
       {code}

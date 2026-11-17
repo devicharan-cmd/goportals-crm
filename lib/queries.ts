@@ -314,7 +314,7 @@ export function assigneeOptionsFor(me: Pick<Profile, 'id' | 'role'>, lookups: St
   }))
 }
 
-/** Ticket-task assignees also include the active portal account for each client. */
+/** Public-task assignees also include each client's active portal account. */
 export function taskAssigneeOptionsFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): AssigneeOption[] {
   const staffOptions = assigneeOptionsFor(me, lookups)
 

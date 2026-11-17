@@ -98,6 +98,15 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
   const raisedByName = raisedByProfile?.role === 'client'
     ? ticket.client?.contact_name?.trim() || createdByName
     : createdByName
+  const raisedByAvatar = raisedByProfile?.role === 'client'
+    ? clientImage?.signedUrl ?? raisedByProfile.avatar_url
+    : raisedByProfile?.avatar_url
+  const raisedByValue = (
+    <span className="inline-flex items-center justify-end gap-2">
+      <Avatar name={raisedByName} src={raisedByAvatar} role={raisedByProfile?.role} size="xs" />
+      <span>{raisedByName}</span>
+    </span>
+  )
   const assignees = assigneeOptionsFor(me, lookups)
   const canDelete = (me.role === 'super_admin' || me.role === 'manager') && ticket.status === 'unassigned' && tasksFromTicket.length === 0
   return (
@@ -166,7 +175,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
                 ['Account', ticket.ecommerce_account
                   ? <MarketplaceAccountLabel platformName={ticket.ecommerce_account.platform?.name ?? null} accountName={ticket.ecommerce_account.account_name} size="sm" />
                   : '—'],
-                ['Raised by', raisedByName],
+                ['Raised by', raisedByValue],
                 ['Created', formatDateTime(ticket.created_at)],
                 ...(ticket.status === 'closed' ? [['Closed', formatDateTime(ticket.closed_at ?? ticket.updated_at)] as [string, React.ReactNode]] : []),
               ].map(([k, v]) => (

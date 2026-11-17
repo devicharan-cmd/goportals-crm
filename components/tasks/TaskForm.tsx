@@ -212,9 +212,10 @@ export function TaskForm(p: TaskFormProps) {
   const standaloneSelected = form.ticket_id === STANDALONE_TICKET_OPTION
   const visibilityLocked = p.mode === 'edit'
   const clientAssignee = p.clientAssignees?.find(option => option.clientId === form.client_id)
-  const assigneeOptions = ticketLinked && clientAssignee
+  const canAssignClient = clientAssignee
     && (form.visibility === 'public' || p.mode === 'create')
-    ? [...p.assignees, clientAssignee]
+  const assigneeOptions = canAssignClient
+    ? [clientAssignee, ...p.assignees]
     : p.assignees
   const selectedSchedulerDate = scheduleStartDate ? new Date(`${scheduleStartDate}T12:00:00`) : null
   const scheduleCalendarDays = scheduleCalendarMonth
@@ -389,10 +390,6 @@ export function TaskForm(p: TaskFormProps) {
       ...(ticketId && ticketId !== STANDALONE_TICKET_OPTION
         && p.clientAssignees?.some(option => option.id === f.assignee_id)
         ? { visibility: 'public' as const }
-        : {}),
-      ...((!ticketId || ticketId === STANDALONE_TICKET_OPTION)
-        && p.clientAssignees?.some(option => option.id === f.assignee_id)
-        ? { assignee_id: '' }
         : {}),
     }))
   }

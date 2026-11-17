@@ -36,7 +36,7 @@ const STAFF_NAV: NavGroup[] = [
     label: 'Manager',
     items: [
       { href: '/admin/approvals', label: 'Approvals',  icon: ShieldCheck, roles: ['super_admin'], badge: 'approvals' },
-      { href: '/admin/users',     label: 'Users & invites', icon: UserPlus, roles: ['super_admin', 'manager'] },
+      { href: '/admin/users',     label: 'Users & invites', icon: UserPlus, roles: ['super_admin', 'manager', 'team_lead'] },
       { href: '/admin/settings',  label: 'Platforms & services', icon: Settings2, roles: ['super_admin'] },
       { href: '/admin/agreement', label: 'Agreement',  icon: FileSignature, roles: ['super_admin'] },
     ],

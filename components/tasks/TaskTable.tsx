@@ -180,7 +180,7 @@ export function TaskTable({
                             <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
                             {assignOptions && !TASK_TERMINAL_STATUSES.includes(t.status) && (
                               <span className="shrink-0">
-                                <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={!!t.ticket_id && t.visibility === 'public'} compact />
+                                <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
                               </span>
                             )}
                           </span>
@@ -199,7 +199,7 @@ export function TaskTable({
               {showReassignColumn && (
                 <td className="px-2 py-3 text-center">
                   {!TASK_TERMINAL_STATUSES.includes(t.status) && (
-                    <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={!!t.ticket_id && t.visibility === 'public'} compact />
+                    <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
                   )}
                 </td>
               )}
@@ -239,7 +239,7 @@ export function TaskTable({
                     : <span className="italic text-slate-400">Unassigned</span>}
                   {assignOptions && !showReassignColumn && !TASK_TERMINAL_STATUSES.includes(t.status) && (
                     <span className="shrink-0">
-                      <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={!!t.ticket_id && t.visibility === 'public'} compact />
+                      <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
                     </span>
                   )}
                   </span>
@@ -265,7 +265,7 @@ export function TaskTable({
             )}
             {showReassignColumn && !TASK_TERMINAL_STATUSES.includes(t.status) && (
               <div className="flex justify-end px-4 pb-3">
-                <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={!!t.ticket_id && t.visibility === 'public'} compact />
+                <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
               </div>
             )}
           </li>

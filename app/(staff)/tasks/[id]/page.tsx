@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, CalendarClock, Clock3, FileText, Paperclip } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskAssigneeOptionsFor, taskPageTitle } from '@/lib/queries'
+import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskAssigneeOptionsFor, taskPageTitle } from '@/lib/queries'
 import { TaskCode } from '@/components/tasks/TaskCode'
 import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { Badge, PriorityBadge, StatusBadge, UrgentBadge, DueDatePill } from '@/components/ui/badges'
@@ -21,7 +21,7 @@ import { AssignButton } from '@/components/tasks/AssignButton'
 import { TaskEditModal } from '@/components/tasks/TaskEditModal'
 import { TaskScheduleControl } from '@/components/tasks/TaskScheduleControl'
 import { TYPE_LABELS } from '@/lib/constants'
-import { formatDate, formatRelative, taskCode, ticketCode } from '@/lib/utils'
+import { dueState, formatDate, formatRelative, taskCode, ticketCode } from '@/lib/utils'
 import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TimeLog } from '@/types/database'
 
 export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
@@ -94,7 +94,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     : undefined
 
   const assignees = taskAssigneeOptionsFor(me, lookups)
-  const editAssignees = assignees
+  const editAssignees = assigneeOptionsFor(me, lookups)
   let editClients = lookups.clients
   if (me.role === 'team_lead') {
     const deptIds = Array.from(departmentIdsFor(me.id, lookups))
@@ -102,7 +102,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     editClients = lookups.clients.filter(client => clientIds.has(client.id) || client.id === task.client_id)
   }
   const editClientImageUrlByPath = await getClientProfileImageUrls(editClients)
-  const clientAssignees = editAssignees.filter(option => option.clientId && editClients.some(client => client.id === option.clientId))
+  const clientAssignees = assignees.filter(option => option.clientId && editClients.some(client => client.id === option.clientId))
   const canClaim = task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
   const canEditChecklist = me.role !== 'employee' || task.assignee_id === me.id
   const scopedTasksContext = searchParams.scope === 'mine' || searchParams.scope === 'assigned' || searchParams.scope === 'all'
@@ -153,7 +153,11 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
             currentId={task.assignee_id}
             options={assignees}
             clientId={task.client_id}
-            allowClientAssignee={task.ticket_id !== null && task.visibility === 'public'}
+            allowClientAssignee={task.visibility === 'public'}
+            taskVisibility={task.visibility}
+            ticketLabel={task.ticket
+              ? ticketCode(task.ticket.ticket_number)
+              : task.ticket_id ? null : 'No ticket (standalone)'}
           />}
           {canManageTask && (
             <TaskEditModal
@@ -186,7 +190,11 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                 {task.visibility === 'private' && <Badge className="bg-violet-50 text-violet-700 ring-violet-200">Private · Internal only</Badge>}
                 {task.is_scheduled && <Badge className="gap-1 bg-indigo-50 text-indigo-700 ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3.5 w-3.5" />Scheduled</Badge>}
                 {task.source === 'client' && <Badge className="bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]">Client request</Badge>}
-                <DueDatePill date={task.due_date} status={task.status} className="ml-auto" />
+                <DueDatePill
+                  date={task.due_date}
+                  status={task.status}
+                  className={dueState(task.due_date, task.status) === 'ok' ? 'ml-auto font-semibold' : 'ml-auto'}
+                />
               </div>
               <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
             </div>
@@ -232,7 +240,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                 <Clock3 aria-hidden="true" className="h-4 w-4 shrink-0" />
                 <span className="font-medium">Estimated hours</span>
                 <span aria-hidden="true" className="h-5 border-l border-slate-300" />
-                <span className="rounded-full bg-[#D9F4F6] px-2.5 py-0.5 text-sm font-bold leading-5 text-slate-800">
+                <span className="rounded-full bg-[#D9F4F6] px-2.5 py-0.5 text-xs font-semibold leading-4 text-slate-800">
                   {task.estimated_hours} h
                 </span>
               </div>
@@ -274,6 +282,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
           <Card className="p-5">
             <TaskProperties
               task={task}
+              ticketLabel={task.ticket ? ticketCode(task.ticket.ticket_number) : null}
               assignees={editAssignees}
               assigneeName={task.assignee_id ? assignees.find(person => person.id === task.assignee_id)?.name ?? names[task.assignee_id] ?? null : null}
               assignedBy={taskAssigner ? {

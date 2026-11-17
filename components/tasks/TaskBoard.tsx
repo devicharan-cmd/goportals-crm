@@ -12,9 +12,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
 import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import type { AssigneeOption } from '@/lib/queries'
-import { DueDate } from '@/components/ui/badges'
+import { DueDate, DueDatePill } from '@/components/ui/badges'
 import { PRIORITY_STYLES, TASK_STATUS_DOT, TASK_STATUS_OPTIONS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
-import { cn, errorMessage, taskCode } from '@/lib/utils'
+import { cn, dueState, errorMessage, taskCode } from '@/lib/utils'
 import type { TaskSummary, TaskStatus } from '@/types/database'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
@@ -24,6 +24,27 @@ type CardProps = {
   assignOptions?: AssigneeOption[]
   hrefBase: string
   scope?: 'mine' | 'assigned' | 'all'
+}
+
+function BoardDueDate({ date, status }: { date: TaskSummary['due_date']; status: TaskSummary['status'] }) {
+  const state = dueState(date, status)
+  const compactClass = 'mt-2 !rounded-full !px-1.5 !py-0.5 !text-[10px]'
+
+  if (state === 'ok' || state === 'overdue') {
+    return (
+      <DueDatePill
+        date={date}
+        status={status}
+        className={cn(
+          compactClass,
+          state === 'overdue'
+            ? '!ring-1 !ring-inset !ring-red-200'
+            : '!font-semibold !ring-1 !ring-inset !ring-slate-200',
+        )}
+      />
+    )
+  }
+  return <DueDate date={date} status={status} className="mt-2 block" />
 }
 
 function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: CardProps & { overlay?: boolean; linked?: boolean }) {
@@ -59,7 +80,7 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
           </span>
         )}
       </p>
-      <DueDate date={task.due_date} status={task.status} className="mt-2 block" />
+      <BoardDueDate date={task.due_date} status={task.status} />
     </>
   )
   return (
@@ -224,7 +245,7 @@ export function TaskBoard({
             />
           ))}
         </div>
-        <DragOverlay>{active && <Card task={active} names={names} hrefBase={hrefBase} scope={scope} overlay />}</DragOverlay>
+        <DragOverlay>{active && <Card task={active} names={names} assignOptions={assignOptions} hrefBase={hrefBase} scope={scope} overlay />}</DragOverlay>
       </DndContext>
     </div>
   )

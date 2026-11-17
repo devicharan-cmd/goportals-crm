@@ -110,7 +110,7 @@ export default async function EmployeeStatsPage(props: { params: Promise<{ id: s
             </div>
           </div>
           {active && (
-            <ButtonLink href={`/tasks/new?assignee=${person.id}`}><Plus className="h-4 w-4" /> Assign new task</ButtonLink>
+            <ButtonLink href={`/tasks/new?assignee=${person.id}`} prefetch={false}><Plus className="h-4 w-4" /> Assign new task</ButtonLink>
           )}
         </div>
       </Card>

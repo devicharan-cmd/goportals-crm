@@ -3,7 +3,7 @@
 import { requireClient, requireRole, requireStaff } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { CLIENT_PAGE_SIZE, TASK_PAGE_SIZE, TASK_STATUS_OPTIONS, TICKET_PAGE_SIZE } from '@/lib/constants'
-import { addTaskAssigneeHistory, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, TASK_SUMMARY_SELECT, type TaskAssignerInfo, type TaskPageCursor } from '@/lib/queries'
+import { addTaskAssigneeHistory, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, STAFF_TICKET_LIST_SELECT, taskAssigneeIdsForAssignedScope, TASK_SUMMARY_SELECT, type TaskAssignerInfo, type TaskPageCursor } from '@/lib/queries'
 import { parseTaskCode, parseTicketCode } from '@/lib/utils'
 import type { Client, TaskSummary, Ticket } from '@/types/database'
 
@@ -11,7 +11,7 @@ type TicketStatusFilter = 'unassigned' | 'assigned' | 'closed'
 type StaffTicketCursor = Pick<Ticket, 'id' | 'created_at'>
 type ClientStatusFilter = '' | 'active' | 'pending' | 'suspended' | 'rejected'
 type ClientSearchRow = Client & { client_team: { profile_id: string }[] }
-type StaffTicketSearchRow = Ticket & { client: {
+type StaffTicketSearchRow = Pick<Ticket, 'id' | 'ticket_number' | 'client_id' | 'category' | 'subject' | 'priority' | 'is_urgent' | 'status' | 'created_at'> & { client: {
   id: string
   company_name: string
   company_profile_image_path: string | null
@@ -183,7 +183,7 @@ export async function searchStaffTickets(value: string, status: TicketStatusFilt
   const supabase = await createClient()
   const queryText = safeSearchText(value)
   let query = supabase.from('tickets')
-    .select('*, client:clients(id, company_name, company_profile_image_path)')
+    .select(STAFF_TICKET_LIST_SELECT)
     .order('created_at', { ascending: false })
     .order('id', { ascending: true })
     .range(0, TICKET_PAGE_SIZE)
@@ -198,7 +198,7 @@ export async function searchStaffTickets(value: string, status: TicketStatusFilt
   const { data, error } = await query
   if (error) throw new Error(error.message)
   const hasMore = (data?.length ?? 0) > TICKET_PAGE_SIZE
-  const tickets = (data ?? []).slice(0, TICKET_PAGE_SIZE) as StaffTicketSearchRow[]
+  const tickets = (data ?? []).slice(0, TICKET_PAGE_SIZE) as unknown as StaffTicketSearchRow[]
   const imagePaths = Array.from(new Set(tickets.flatMap(ticket =>
     ticket.client?.company_profile_image_path ? [ticket.client.company_profile_image_path] : [],
   )))

@@ -1,13 +1,15 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { cache } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { addTaskAssigneeHistory, assigneeOptionsFor, getStaffLookups, getTicketAttachments, nameMap, resolveTicketId, TASK_LIST_SELECT, ticketPageTitle } from '@/lib/queries'
+import { addTaskAssigneeHistory, assigneeOptionsFor, getTicketAttachments, getTicketDetailLookups, nameMap, resolveTicketId, TASK_LIST_SELECT } from '@/lib/queries'
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS, type TicketFieldDef } from '@/lib/ticket-categories'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { TaskTable } from '@/components/tasks/TaskTable'
-import { Alert, Avatar, Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
+import { Alert, Avatar, Card, CardHeader } from '@/components/ui/primitives'
+import { SignedClientAvatar } from '@/components/shared/SignedClientAvatar'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
 import { TicketProperties } from '@/components/tickets/TicketProperties'
@@ -20,48 +22,59 @@ import { TicketOverviewCard } from '@/components/tickets/TicketOverviewCard'
 
 export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
-  return { title: await ticketPageTitle(params.id) }
+  const ticketId = await resolveStaffTicketId(params.id)
+  if (!ticketId) return { title: 'Request' }
+  const { data } = await loadStaffTicket(ticketId)
+  return { title: data ? `${ticketCode(data.ticket_number)} · ${data.subject}` : 'Request' }
 }
+
+const resolveStaffTicketId = cache((param: string) => resolveTicketId(param))
+const loadStaffTicket = cache(async (ticketId: string) => {
+  const supabase = await createClient()
+  return await supabase.from('tickets')
+    .select('*, client:clients(id, company_name, contact_name, owner_id, company_profile_image_path), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))')
+    .eq('id', ticketId)
+    .maybeSingle()
+})
 
 export default async function StaffTicketDetailPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ scheduled?: string }> }) {
   const [params, searchParams] = await Promise.all([props.params, props.searchParams])
   const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
-  const ticketId = await resolveTicketId(params.id)
+  const ticketId = await resolveStaffTicketId(params.id)
   if (!ticketId) notFound()
 
-  const { data, error: ticketError } = await supabase.from('tickets')
-    .select('*, client:clients(id, company_name, contact_name, owner_id, company_profile_image_path), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))')
-    .eq('id', ticketId)
-    .maybeSingle()
+  const ticketQueryPromise = loadStaffTicket(ticketId)
+  const tasksWithHistoryPromise = (async () => {
+    const { data: linkedTasks, error: linkedTasksError } = await supabase.from('tasks')
+      .select(TASK_LIST_SELECT)
+      .eq('ticket_id', ticketId)
+      .order('created_at', { ascending: false })
+    if (linkedTasksError) throw linkedTasksError
+    return addTaskAssigneeHistory(supabase, (linkedTasks ?? []) as TaskListItem[])
+  })()
+  const relatedDataPromise = Promise.all([
+    supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
+    getTicketDetailLookups(),
+    getTicketAttachments(ticketId),
+    tasksWithHistoryPromise,
+    supabase.rpc('ticket_task_assignees', { p_ticket_id: ticketId }),
+  ])
+  const [ticketResult, relatedData] = await Promise.all([
+    ticketQueryPromise,
+    relatedDataPromise,
+  ])
+  const { data, error: ticketError } = ticketResult
   if (ticketError) throw ticketError
   if (!data) notFound()
 
-  const clientImagePath = data.client?.company_profile_image_path
-  const clientImagePromise = clientImagePath
-    ? supabase.storage.from('client-profile-images').createSignedUrl(clientImagePath, 3600)
-    : Promise.resolve({ data: null, error: null })
-  const [relatedData, clientImageResult] = await Promise.all([
-    Promise.all([
-      supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
-      getStaffLookups(),
-      getTicketAttachments(ticketId),
-      supabase.from('tasks').select(TASK_LIST_SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: false }),
-      supabase.rpc('ticket_task_assignees', { p_ticket_id: ticketId }),
-    ]),
-    clientImagePromise,
-  ])
-  const { data: clientImage, error: clientImageError } = clientImageResult
-  if (clientImageError) throw clientImageError
-
-  const [{ data: activity }, lookups, attachments, { data: linkedTasks }, { data: workerRows, error: workersError }] = relatedData
+  const [{ data: activity }, lookups, attachments, tasksFromTicket, { data: workerRows, error: workersError }] = relatedData
   if (workersError) throw new Error(`Could not load ticket workers: ${workersError.message}`)
   const ticket = data as Ticket & {
     client: { id: string; company_name: string; contact_name: string | null; owner_id: string | null; company_profile_image_path: string | null } | null
     ecommerce_account: { account_name: string; platform: { name: string } | null } | null
   }
   const names = nameMap(lookups.people)
-  const tasksFromTicket = await addTaskAssigneeHistory(supabase, (linkedTasks ?? []) as TaskListItem[])
   const ticketWorkers = (workerRows ?? []) as { id: string; full_name: string | null; avatar_url: string | null; role: AppRole }[]
   const clientOwner = ticket.client?.owner_id
     ? lookups.people.find(person => person.id === ticket.client?.owner_id && person.role === 'client' && person.status === 'active')
@@ -98,12 +111,12 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
   const raisedByName = raisedByProfile?.role === 'client'
     ? ticket.client?.contact_name?.trim() || createdByName
     : createdByName
-  const raisedByAvatar = raisedByProfile?.role === 'client'
-    ? clientImage?.signedUrl ?? raisedByProfile.avatar_url
-    : raisedByProfile?.avatar_url
+  const raisedByAvatar = raisedByProfile?.avatar_url
   const raisedByValue = (
     <span className="inline-flex items-center justify-end gap-2">
-      <Avatar name={raisedByName} src={raisedByAvatar} role={raisedByProfile?.role} size="xs" />
+      {raisedByProfile?.role === 'client'
+        ? <SignedClientAvatar name={raisedByName} imagePath={ticket.client?.company_profile_image_path ?? null} size="xs" />
+        : <Avatar name={raisedByName} src={raisedByAvatar} role={raisedByProfile?.role} size="xs" />}
       <span>{raisedByName}</span>
     </span>
   )
@@ -112,7 +125,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <Link href="/tickets" className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tickets</Link>
+        <Link href="/tickets" prefetch={false} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tickets</Link>
         <div className="flex items-center gap-2">
           {canDelete && <DeleteButton table="tickets" id={ticket.id} redirectTo="/tickets" label="Delete ticket" variant="danger" />}
         </div>
@@ -168,7 +181,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
               {[
                 ['Client', ticket.client
                   ? <span className="inline-flex items-center justify-end gap-2">
-                      <CompanyAvatar name={ticket.client.company_name} src={clientImage?.signedUrl} size="xs" />
+                      <SignedClientAvatar name={ticket.client.company_name} imagePath={ticket.client.company_profile_image_path} size="xs" company />
                       <Link href={`/clients/${ticket.client.id}`} className="font-medium text-[#034C68] hover:underline">{ticket.client.company_name}</Link>
                     </span>
                   : '—'],

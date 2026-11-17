@@ -3,9 +3,9 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, FileSignature, Mail, MapPin, MessageCircle, Phone, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { addTaskAssigneeHistory, getStaffLookups, nameMap, TASK_LIST_SELECT, taskAssigneeOptionsFor } from '@/lib/queries'
+import { addTaskAssigneeHistory, getTicketDetailLookups, nameMap, TASK_LIST_SELECT, taskAssigneeOptionsFor } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
-import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
+import { Card, CardHeader } from '@/components/ui/primitives'
 import { AccountStatusBadge, Badge } from '@/components/ui/badges'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import { ClientFormModal } from '@/components/clients/ClientFormModal'
@@ -15,6 +15,7 @@ import {
   type EcommerceAccountRow, type ClientServiceRow, type ClientTeamRow,
 } from '@/components/clients/ClientEditors'
 import { DeleteButton } from '@/components/shared/DeleteButton'
+import { SignedClientAvatar } from '@/components/shared/SignedClientAvatar'
 import { STAGE_LABELS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { formatDate, formatINR } from '@/lib/utils'
 import type { Client, ClientInternal, TaskListItem } from '@/types/database'
@@ -25,26 +26,31 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
   const supabase = await createClient()
   const id = params.id
 
-  const [{ data: clientData }, { data: internalData }, { data: accounts }, { data: services }, { data: team }, { data: tasks }, { data: acceptances }, lookups] =
-    await Promise.all([
-      supabase.from('clients').select('*').eq('id', id).maybeSingle(),
-      supabase.from('client_internal').select('*').eq('client_id', id).maybeSingle(),
-      supabase.from('ecommerce_accounts').select('id, platform_id, account_name, seller_id, status').eq('client_id', id).order('created_at'),
-      supabase.from('client_services').select('id, service_id, custom_name, status, ecommerce_account_id, agreed_price, currency, billing_type').eq('client_id', id).order('created_at'),
-      supabase.from('client_team').select('profile_id, department_id').eq('client_id', id),
-      supabase.from('tasks').select(TASK_LIST_SELECT).eq('client_id', id).order('status').order('due_date', { nullsFirst: false }).limit(100),
-      supabase.from('agreement_acceptances').select('accepted_at, agreement:agreements(version)').eq('client_id', id).order('accepted_at', { ascending: false }),
-      getStaffLookups(),
-    ])
+  const tasksWithHistoryPromise = (async () => {
+    const { data, error } = await supabase.from('tasks').select(TASK_LIST_SELECT)
+      .eq('client_id', id).order('status').order('due_date', { nullsFirst: false }).limit(100)
+    if (error) throw error
+    return addTaskAssigneeHistory(supabase, (data ?? []) as TaskListItem[])
+  })()
+  const [
+    { data: clientData }, { data: internalData }, { data: accounts }, { data: services }, { data: team },
+    allTasks, { data: acceptances }, lookups,
+  ] = await Promise.all([
+    supabase.from('clients').select('*').eq('id', id).maybeSingle(),
+    supabase.from('client_internal').select('*').eq('client_id', id).maybeSingle(),
+    supabase.from('ecommerce_accounts').select('id, platform_id, account_name, seller_id, status').eq('client_id', id).order('created_at'),
+    supabase.from('client_services').select('id, service_id, custom_name, status, ecommerce_account_id, agreed_price, currency, billing_type').eq('client_id', id).order('created_at'),
+    supabase.from('client_team').select('profile_id, department_id').eq('client_id', id),
+    tasksWithHistoryPromise,
+    supabase.from('agreement_acceptances').select('accepted_at, agreement:agreements(version)').eq('client_id', id).order('accepted_at', { ascending: false }),
+    getTicketDetailLookups(),
+  ])
   if (!clientData) notFound()
   const client = clientData as Client
   const companyAddressParts = [client.address_line, client.city, client.state, client.postal_code, client.country]
     .filter((part): part is string => !!part?.trim())
     .filter((part, index, parts) => !parts.slice(0, index).some(previous => previous.toLowerCase().includes(part.toLowerCase())))
   const companyAddress = companyAddressParts.join(', ')
-  const { data: companyImage } = client.company_profile_image_path
-    ? await supabase.storage.from('client-profile-images').createSignedUrl(client.company_profile_image_path, 3600)
-    : { data: null }
   const internal = internalData as ClientInternal | null
   const names = nameMap(lookups.people)
 
@@ -55,7 +61,6 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
   const isSuperAdmin = me.role === 'super_admin'
   const teamRows = (team ?? []) as ClientTeamRow[]
   const canEdit = isSuperAdmin
-  const allTasks = await addTaskAssigneeHistory(supabase, (tasks ?? []) as TaskListItem[])
   const openTasks = allTasks.filter(t => !TASK_TERMINAL_STATUSES.includes(t.status))
   const doneTasks = allTasks.filter(t => TASK_TERMINAL_STATUSES.includes(t.status))
   const accepted = (acceptances ?? []) as unknown as { accepted_at: string; agreement: { version: string } | null }[]
@@ -74,7 +79,7 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
       {/* Header */}
       <Card className="mb-6 p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <CompanyAvatar name={client.company_name} src={companyImage?.signedUrl} />
+          <SignedClientAvatar name={client.company_name} imagePath={client.company_profile_image_path} size="md" company />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold">{client.company_name}</h1>
@@ -100,7 +105,7 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
             {isSuperAdmin && client.status !== 'pending' && <ClientStatusSelect clientId={client.id} status={client.status} />}
             {isManager && !client.owner_id && <InviteLoginButton clientId={client.id} email={client.contact_email} name={client.contact_name} />}
             {canEdit && <ClientFormModal client={client} internal={internal} canEditInternal={!!internal} />}
-            <ButtonLink href={`/tasks/new?client_id=${client.id}`} size="sm"><Plus className="h-3.5 w-3.5" /> Task</ButtonLink>
+            <ButtonLink href={`/tasks/new?client_id=${client.id}`} prefetch={false} size="sm"><Plus className="h-3.5 w-3.5" /> Task</ButtonLink>
           </div>
         </div>
       </Card>

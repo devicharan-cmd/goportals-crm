@@ -37,12 +37,12 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         <p className="relative text-xs text-[#9FCCDE]">© {new Date().getFullYear()} GoPortals</p>
       </div>
 
-      <div className="flex items-center justify-center bg-white px-6 py-12">
+      <main className="flex items-center justify-center bg-white px-6 py-12">
         <div className="w-full max-w-sm">
           <Logo className="mb-10 h-10" priority />
           {children}
         </div>
-      </div>
+      </main>
     </div>
   )
 }

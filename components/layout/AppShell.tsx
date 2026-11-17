@@ -19,6 +19,23 @@ import type { AppRole } from '@/types/database'
 
 type NavItem = { href: string; label: string; icon: React.ElementType; roles?: AppRole[]; badge?: 'urgent' | 'approvals' }
 type NavGroup = { label?: string; items: NavItem[] }
+type RealtimeWorkChange = {
+  eventType?: 'INSERT' | 'UPDATE' | 'DELETE'
+  eventKey?: string
+  id?: string
+  ticketId?: string | null
+  previousStatus?: string | null
+  nextStatus?: string | null
+  previousUrgent?: boolean
+  nextUrgent?: boolean
+  previousUnassigned?: boolean
+  nextUnassigned?: boolean
+}
+type RealtimeEvent = {
+  kind: 'tasks' | 'tickets' | 'notifications' | 'clients'
+  changedClientId?: string
+  workChange?: RealtimeWorkChange
+}
 
 const STAFF_NAV: NavGroup[] = [
   {
@@ -76,6 +93,8 @@ export function AppShell({
   const isClient = user.role === 'client'
   const [liveAvatarUrl, setLiveAvatarUrl] = useState<string | null>(isClient ? null : user.avatarUrl ?? null)
   const profileMenuRef = useRef<HTMLDivElement>(null)
+  const pathnameRef = useRef(pathname)
+  pathnameRef.current = pathname
 
   useEffect(() => {
     if (!isClient) setLiveAvatarUrl(user.avatarUrl ?? null)
@@ -83,14 +102,6 @@ export function AppShell({
 
   useEffect(() => {
     if (!user.id || isClient) return
-    const supabase = createClient()
-    let active = true
-
-    void supabase.from('profiles').select('avatar_url').eq('id', user.id).maybeSingle()
-      .then(({ data }) => {
-        if (active) setLiveAvatarUrl(data?.avatar_url ?? null)
-      })
-
     function handleProfileAvatarChange(event: Event) {
       const avatarUrl = (event as CustomEvent<string | null>).detail
       setLiveAvatarUrl(avatarUrl)
@@ -98,7 +109,6 @@ export function AppShell({
     window.addEventListener('gp:profile-avatar-change', handleProfileAvatarChange)
 
     return () => {
-      active = false
       window.removeEventListener('gp:profile-avatar-change', handleProfileAvatarChange)
     }
   }, [isClient, user.id])
@@ -109,41 +119,161 @@ export function AppShell({
     let active = true
     let refreshTimer: ReturnType<typeof setTimeout> | null = null
     let countsTimer: ReturnType<typeof setTimeout> | null = null
+    let lastPageRefreshAt = 0
+    let pageRefreshQueued = false
+    const pendingCountRefreshes = new Set<'notifications' | 'urgent' | 'approvals'>()
+    const changesWhileHidden: RealtimeEvent[] = []
     const supabase = createClient()
     let channel: ReturnType<typeof supabase.channel> | null = null
 
-    const refreshCounts = async () => {
-      const [notifications, urgentTasks, urgentTickets, approvals] = await Promise.all([
-        supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_id', userId).eq('is_read', false),
-        !isClient
-          ? supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
-          : Promise.resolve({ count: 0, error: null }),
-        !isClient && ['super_admin', 'manager', 'team_lead'].includes(user.role)
-          ? supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('is_urgent', true).eq('status', 'unassigned')
-          : Promise.resolve({ count: 0, error: null }),
-        !isClient && user.role === 'super_admin'
-          ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending')
-          : Promise.resolve({ count: 0, error: null }),
-      ])
-      if (!active) return
-      const failed = [notifications, urgentTasks, urgentTickets, approvals].find(result => result.error)
-      if (failed?.error) {
-        showErrorToast(`Live sidebar counts could not be updated. ${errorMessage(failed.error)}`)
+    const refreshCounts = async (kinds: Set<'notifications' | 'urgent' | 'approvals'>) => {
+      const updates: Partial<ShellCounts> = {}
+      const queries: Promise<void>[] = []
+      const addCount = (key: keyof ShellCounts, query: PromiseLike<{ count: number | null; error: { message: string } | null }>) => {
+        queries.push(Promise.resolve(query).then(result => {
+          if (result.error) throw result.error
+          updates[key] = result.count ?? 0
+        }))
+      }
+
+      if (kinds.has('notifications')) {
+        addCount('notifications', supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_id', userId).eq('is_read', false))
+      }
+      if (kinds.has('urgent') && !isClient) {
+        const urgentQueries = [
+          supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)'),
+          ...(['super_admin', 'manager', 'team_lead'].includes(user.role)
+            ? [supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('is_urgent', true).eq('status', 'unassigned')]
+            : []),
+        ]
+        queries.push(Promise.all(urgentQueries).then(results => {
+          const failed = results.find(result => result.error)
+          if (failed?.error) throw failed.error
+          updates.urgent = results.reduce((total, result) => total + (result.count ?? 0), 0)
+        }))
+      }
+      if (kinds.has('approvals') && !isClient && user.role === 'super_admin') {
+        addCount('approvals', supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending'))
+      }
+
+      try {
+        await Promise.all(queries)
+      } catch (error) {
+        if (active) showErrorToast(`Live sidebar counts could not be updated. ${errorMessage(error)}`)
         return
       }
-      setLiveCounts({
-        notifications: notifications.count ?? 0,
-        urgent: (urgentTasks.count ?? 0) + (urgentTickets.count ?? 0),
-        approvals: approvals.count ?? 0,
-      })
+      if (!active) return
+      setLiveCounts(previous => ({ ...previous, ...updates }))
     }
 
-    const scheduleRefresh = () => {
-      if (refreshTimer) clearTimeout(refreshTimer)
-      if (countsTimer) clearTimeout(countsTimer)
-      refreshTimer = setTimeout(() => router.refresh(), 150)
-      countsTimer = setTimeout(() => void refreshCounts(), 150)
+    const schedulePageRefresh = () => {
+      pageRefreshQueued = true
+      if (refreshTimer) return
+      const cooldown = lastPageRefreshAt ? Math.max(0, 500 - (Date.now() - lastPageRefreshAt)) : 250
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null
+        if (!active || !pageRefreshQueued) return
+        pageRefreshQueued = false
+        lastPageRefreshAt = Date.now()
+        router.refresh()
+      }, cooldown)
     }
+    const scheduleCountRefresh = (kind: 'notifications' | 'urgent' | 'approvals') => {
+      pendingCountRefreshes.add(kind)
+      if (countsTimer) clearTimeout(countsTimer)
+      countsTimer = setTimeout(() => {
+        const kinds = new Set(pendingCountRefreshes)
+        pendingCountRefreshes.clear()
+        void refreshCounts(kinds)
+      }, 350)
+    }
+    const routeMatches = (paths: string[]) => paths.some(path => {
+      const currentPath = pathnameRef.current
+      return currentPath === path || currentPath.startsWith(`${path}/`)
+    })
+    const isMatchingDetailRoute = (prefix: '/tasks/' | '/tickets/' | '/portal/tickets/', recordId?: string) => {
+      const currentPath = pathnameRef.current
+      const match = currentPath.match(new RegExp(`^${prefix.replaceAll('/', '\\/')}([^/]+)$`))
+      if (!match || match[1] === 'new' || match[1].endsWith('/edit')) return false
+      return !recordId || match[1] === recordId
+    }
+    const refreshForTaskChange = (change?: RealtimeWorkChange) => {
+      const changesUrgentCount = change
+        ? ([change.previousUrgent, change.nextUrgent].includes(true)
+          && (change.previousUnassigned === true || change.nextUnassigned === true))
+        : true
+      if (changesUrgentCount) scheduleCountRefresh('urgent')
+      if (routeMatches(['/dashboard', '/urgent', '/portal/tasks']) || pathnameRef.current === '/tasks') {
+        schedulePageRefresh()
+        return
+      }
+      if (isMatchingDetailRoute('/tasks/', change?.id)) {
+        schedulePageRefresh()
+        return
+      }
+      if (change?.ticketId && isMatchingDetailRoute('/tickets/', change.ticketId)) schedulePageRefresh()
+    }
+    const refreshForTicketChange = (change?: RealtimeWorkChange) => {
+      if (change) {
+        window.dispatchEvent(new CustomEvent('gp:ticket-count-change', { detail: change }))
+      }
+      const affectsUrgentCount = change
+        ? ([change.previousStatus, change.nextStatus].includes('unassigned')
+          && (change.previousUrgent === true || change.nextUrgent === true))
+        : true
+      if (affectsUrgentCount && !isClient && ['super_admin', 'manager', 'team_lead'].includes(user.role)) scheduleCountRefresh('urgent')
+      const currentPath = pathnameRef.current
+      if (currentPath === '/dashboard' || currentPath === '/urgent') {
+        schedulePageRefresh()
+        return
+      }
+      if (currentPath === '/tickets') {
+        const selectedStatus = new URLSearchParams(window.location.search).get('status') ?? 'unassigned'
+        const unknownUpdateStatus = change?.eventType === 'UPDATE'
+          && (change.previousStatus == null || change.nextStatus == null)
+        const affectsSelectedTab = !!change && [change.previousStatus, change.nextStatus].includes(selectedStatus)
+        if (!change || unknownUpdateStatus || affectsSelectedTab) schedulePageRefresh()
+        return
+      }
+      if (isMatchingDetailRoute('/tickets/', change?.id)) {
+        schedulePageRefresh()
+        return
+      }
+      if (currentPath === '/portal/tickets' || routeMatches(['/portal/tickets/'])) schedulePageRefresh()
+    }
+    const refreshForNotificationChange = () => {
+      scheduleCountRefresh('notifications')
+      if (routeMatches(['/notifications', '/portal/notifications'])) schedulePageRefresh()
+    }
+    const refreshForClientChange = (changedClientId?: string) => {
+      if (!isClient && user.role === 'super_admin') scheduleCountRefresh('approvals')
+      const currentPath = pathnameRef.current
+      const clientDetail = currentPath.match(/^\/clients\/([^/]+)$/)
+      const isRelevantClientPage = currentPath === '/clients'
+        || routeMatches(['/dashboard', '/admin/approvals'])
+        || (!!clientDetail && (!changedClientId || clientDetail[1] === changedClientId))
+      if (isRelevantClientPage) schedulePageRefresh()
+    }
+    const handleRealtimeChange = (kind: RealtimeEvent['kind'], changedClientId?: string, workChange?: RealtimeWorkChange) => {
+      if (document.visibilityState === 'hidden') {
+        // Keep enough payload to decide whether this event affects the page
+        // currently open when the user returns to the browser tab.
+        if (changesWhileHidden.length < 500) changesWhileHidden.push({ kind, changedClientId, workChange })
+        return
+      }
+      if (kind === 'tasks') refreshForTaskChange(workChange)
+      else if (kind === 'tickets') refreshForTicketChange(workChange)
+      else if (kind === 'notifications') refreshForNotificationChange()
+      else refreshForClientChange(changedClientId)
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible' || changesWhileHidden.length === 0) return
+      const missedChanges = changesWhileHidden.splice(0)
+      missedChanges.forEach(({ kind, changedClientId, workChange }) =>
+        handleRealtimeChange(kind, changedClientId, workChange),
+      )
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     void (async () => {
       try {
@@ -155,14 +285,48 @@ export function AppShell({
 
         const nextChannel = supabase
           .channel(`app-live-${userId}-${crypto.randomUUID()}`)
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, scheduleRefresh)
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, scheduleRefresh)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, payload => {
+            const newTask = payload.new as { id?: unknown; ticket_id?: unknown; is_urgent?: unknown; assignee_id?: unknown; status?: unknown }
+            const oldTask = payload.old as { id?: unknown; ticket_id?: unknown; is_urgent?: unknown; assignee_id?: unknown; status?: unknown }
+            handleRealtimeChange('tasks', undefined, {
+              id: typeof newTask.id === 'string' ? newTask.id : typeof oldTask.id === 'string' ? oldTask.id : undefined,
+              ticketId: typeof newTask.ticket_id === 'string' ? newTask.ticket_id
+                : typeof oldTask.ticket_id === 'string' ? oldTask.ticket_id : null,
+              previousStatus: typeof oldTask.status === 'string' ? oldTask.status : null,
+              nextStatus: typeof newTask.status === 'string' ? newTask.status : null,
+              previousUrgent: oldTask.is_urgent === true,
+              nextUrgent: newTask.is_urgent === true,
+              previousUnassigned: oldTask.assignee_id === null,
+              nextUnassigned: newTask.assignee_id === null,
+            })
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, payload => {
+            const newTicket = payload.new as { id?: unknown; status?: unknown; is_urgent?: unknown }
+            const oldTicket = payload.old as { id?: unknown; status?: unknown; is_urgent?: unknown }
+            handleRealtimeChange('tickets', undefined, {
+              eventType: payload.eventType,
+              eventKey: typeof payload.commit_timestamp === 'string'
+                ? `${payload.commit_timestamp}:${typeof newTicket.id === 'string' ? newTicket.id : oldTicket.id}:${payload.eventType}`
+                : undefined,
+              id: typeof newTicket.id === 'string' ? newTicket.id : typeof oldTicket.id === 'string' ? oldTicket.id : undefined,
+              previousStatus: typeof oldTicket.status === 'string' ? oldTicket.status : null,
+              nextStatus: typeof newTicket.status === 'string' ? newTicket.status : null,
+              previousUrgent: oldTicket.is_urgent === true,
+              nextUrgent: newTicket.is_urgent === true,
+            })
+          })
           .on('postgres_changes', {
             event: '*', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${userId}`,
-          }, scheduleRefresh)
+          }, () => handleRealtimeChange('notifications'))
 
         if (!isClient && user.role === 'super_admin') {
-          nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, scheduleRefresh)
+          nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, payload => {
+            const newClient = payload.new as { id?: unknown }
+            const oldClient = payload.old as { id?: unknown }
+            const changedClientId = typeof newClient.id === 'string' ? newClient.id
+              : typeof oldClient.id === 'string' ? oldClient.id : undefined
+            handleRealtimeChange('clients', changedClientId)
+          })
         }
 
         channel = nextChannel
@@ -171,7 +335,10 @@ export function AppShell({
             showErrorToast('Live updates are unavailable. Refresh to see the latest changes.')
           }
         })
-        await refreshCounts()
+        const initialCounts = new Set<'notifications' | 'urgent' | 'approvals'>(['notifications'])
+        if (!isClient) initialCounts.add('urgent')
+        if (!isClient && user.role === 'super_admin') initialCounts.add('approvals')
+        await refreshCounts(initialCounts)
       } catch (subscriptionError) {
         if (active) showErrorToast(`Live updates are unavailable. ${errorMessage(subscriptionError)}`)
       }
@@ -182,6 +349,7 @@ export function AppShell({
       if (refreshTimer) clearTimeout(refreshTimer)
       if (countsTimer) clearTimeout(countsTimer)
       if (channel) void supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [isClient, user.id, user.role, router])
 
@@ -282,13 +450,13 @@ export function AppShell({
     <div className="flex h-full flex-col">
       {compact ? (
         <div className="flex h-16 items-center justify-center px-2">
-          <Link href={isClient ? '/portal' : '/dashboard'} title="GoPortals">
+          <Link href={isClient ? '/portal' : '/dashboard'} prefetch={false} title="GoPortals">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#045E80] font-sans text-sm font-extrabold text-white">G<span className="text-[#A5CD3F]">P</span></span>
           </Link>
         </div>
       ) : (
         <div className="flex h-16 items-center justify-between gap-2 pl-5 pr-3">
-          <Link href={isClient ? '/portal' : '/dashboard'} title="GoPortals"><Logo priority /></Link>
+          <Link href={isClient ? '/portal' : '/dashboard'} prefetch={false} title="GoPortals"><Logo priority /></Link>
           {!desktop && <button className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" onClick={() => setOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button>}
         </div>
       )}
@@ -314,8 +482,7 @@ export function AppShell({
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      onMouseEnter={() => router.prefetch(item.href)}
-                      onFocus={() => router.prefetch(item.href)}
+                      prefetch={false}
                       title={compact ? item.label + (count ? ` (${count})` : '') : undefined}
                       aria-label={compact ? item.label : undefined}
                       className={cn(
@@ -413,6 +580,7 @@ export function AppShell({
             {/* Notification Bell */}
             <Link
               href={notificationsHref}
+              prefetch={false}
               className="relative rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
               aria-label="Notifications"
             >
@@ -460,6 +628,7 @@ export function AppShell({
                   <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-slate-200/80 bg-white p-1.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] z-50 animate-in fade-in zoom-in-95 duration-100">
                     <Link
                       href={isClient ? '/portal/profile' : '/settings'}
+                      prefetch={false}
                       onClick={() => setProfileMenuOpen(false)}
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
                     >

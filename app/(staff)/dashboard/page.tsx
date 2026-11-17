@@ -44,26 +44,17 @@ export default async function DashboardPage() {
   const today = todayDateKey()
 
   const dashboardDataPromise = Promise.all([
-    supabase.from('tasks').select(TASK_LIST_SELECT).eq('assignee_id', me.id).not('status', 'in', '(completed,cancelled)')
+    supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).eq('assignee_id', me.id).not('status', 'in', '(completed,cancelled)')
       .order('due_date', { ascending: true, nullsFirst: false }).limit(50),
-    supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assignee_id', me.id)
-      .not('status', 'in', '(completed,cancelled)'),
-    supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assignee_id', me.id)
-      .not('status', 'in', '(completed,cancelled)').eq('due_date', today),
-    supabase.from('tasks').select(TASK_LIST_SELECT).eq('assignee_id', me.id)
+    supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).eq('assignee_id', me.id)
       .not('status', 'in', '(completed,cancelled)').eq('due_date', today)
       .order('priority').order('created_at', { ascending: false }).limit(50),
-    supabase.from('tasks').select(TASK_LIST_SELECT).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
+    supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
       .order('priority').order('created_at').limit(5),
-    supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null)
-      .not('status', 'in', '(completed,cancelled)'),
     canSeeTickets
-      ? supabase.from('tickets').select(TICKET_LIST_SELECT).eq('status', 'unassigned')
+      ? supabase.from('tickets').select(TICKET_LIST_SELECT, { count: 'exact' }).eq('status', 'unassigned')
           .order('created_at', { ascending: false }).limit(6)
-      : Promise.resolve({ data: [], error: null }),
-    canSeeTickets
-      ? supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('status', 'unassigned')
-      : Promise.resolve({ count: 0, error: null }),
+      : Promise.resolve({ data: [], count: 0, error: null }),
     isSuperAdmin
       ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending')
       : Promise.resolve({ count: 0, error: null }),
@@ -133,11 +124,11 @@ export default async function DashboardPage() {
     : Promise.resolve(null)
 
   const [
-    [mine, myOpenCountResult, dueTodayCountResult, dueTodayTasksResult, urgent, urgentCountResult, requests, requestCountResult, approvals, people, allWorking, allDone, myCompleted],
+    [mine, dueTodayTasksResult, urgent, requests, approvals, people, allWorking, allDone, myCompleted],
     teamLeadData,
   ] = await Promise.all([dashboardDataPromise, teamLeadDataPromise])
 
-  for (const result of [mine, myOpenCountResult, dueTodayCountResult, dueTodayTasksResult, urgent, urgentCountResult, requests, requestCountResult, approvals, people, allWorking, allDone, myCompleted]) {
+  for (const result of [mine, dueTodayTasksResult, urgent, requests, approvals, people, allWorking, allDone, myCompleted]) {
     if (result.error) throw result.error
   }
 
@@ -146,10 +137,10 @@ export default async function DashboardPage() {
   const rawDueTodayTasks = (dueTodayTasksResult.data ?? []) as TaskListItem[]
   const clientRequests = (requests.data ?? []) as unknown as TicketListItem[]
   const names = nameMap(people.data ?? [])
-  const myOpenCount = myOpenCountResult.count ?? 0
-  const dueTodayCount = dueTodayCountResult.count ?? 0
-  const urgentCount = urgentCountResult.count ?? 0
-  const requestCount = requestCountResult.count ?? 0
+  const myOpenCount = mine.count ?? 0
+  const dueTodayCount = dueTodayTasksResult.count ?? 0
+  const urgentCount = urgent.count ?? 0
+  const requestCount = requests.count ?? 0
   const rawWorkingTasks = (allWorking.data ?? []) as TaskListItem[]
   const rawDoneTasks = (allDone.data ?? []) as TaskListItem[]
   const workingCount = allWorking.count ?? 0
@@ -202,12 +193,12 @@ export default async function DashboardPage() {
           <p className="text-sm font-medium text-[#789C20]">{todayInIndia()}</p>
           <h1 className="text-2xl font-bold">{greeting()}, {me.full_name.split(' ')[0] || 'there'} 👋</h1>
         </div>
-        {!isManager && <ButtonLink href="/tasks/new"><Plus className="h-4 w-4" /> New task</ButtonLink>}
+        {!isManager && <ButtonLink href="/tasks/new" prefetch={false}><Plus className="h-4 w-4" /> New task</ButtonLink>}
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="My open tasks" value={myOpenCount} icon={<CheckSquare className="h-5 w-5" />} href="/tasks" />
-        <StatCard label="Due today" value={dueTodayCount} icon={<AlarmClock className="h-5 w-5" />} tone={dueTodayCount ? 'amber' : 'lime'} href="/tasks" />
+        <StatCard label="My open tasks" value={myOpenCount} icon={<CheckSquare className="h-5 w-5" />} href="/tasks" prefetch={false} />
+        <StatCard label="Due today" value={dueTodayCount} icon={<AlarmClock className="h-5 w-5" />} tone={dueTodayCount ? 'amber' : 'lime'} href="/tasks" prefetch={false} />
         <StatCard label="Urgent waiting" value={urgentCount} icon={<Flame className="h-5 w-5" />} tone={urgentCount ? 'red' : 'lime'} href="/urgent" />
         {isSuperAdmin
           ? <StatCard label="Clients awaiting approval" value={approvals.count ?? 0} icon={<ShieldCheck className="h-5 w-5" />} tone={approvals.count ? 'amber' : 'lime'} href="/admin/approvals" />
@@ -218,7 +209,7 @@ export default async function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <Card className="overflow-hidden">
-          <CardHeader title="My tasks" description="Soonest deadline first" action={<Link href="/tasks" className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
+          <CardHeader title="My tasks" description="Soonest deadline first" action={<Link href="/tasks" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
           <TaskTable
             tasks={myTasks.slice(0, 8)}
             names={names}
@@ -286,19 +277,19 @@ export default async function DashboardPage() {
       {isEmployee && (
         <div className="mt-6 grid gap-6 sm:grid-cols-2">
           <Card className="overflow-hidden">
-            <CardHeader title="Due today" action={<Link href={`/tasks?due=${today}`} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
+            <CardHeader title="Due today" action={<Link href={`/tasks?due=${today}`} prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
             <TaskTable tasks={dueTodayTasks} names={names} showAssignee={false} empty={{ title: 'Nothing due today' }} />
           </Card>
           <Card className="overflow-hidden">
-            <CardHeader title="Active work" description="In manual progress or in system process" action={<Link href="/tasks?status=active" className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
+            <CardHeader title="Active work" description="In manual progress or in system process" action={<Link href="/tasks?status=active" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
             <TaskTable tasks={inProgressTasks} names={names} showAssignee={false} empty={{ title: 'Nothing in progress' }} />
           </Card>
           <Card className="overflow-hidden">
-            <CardHeader title="In review" description="Waiting on your team lead — you can't self-approve" action={<Link href="/tasks?status=ready_for_review" className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
+            <CardHeader title="In review" description="Waiting on your team lead — you can't self-approve" action={<Link href="/tasks?status=ready_for_review" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
             <TaskTable tasks={readyForReviewTasks} names={names} showAssignee={false} empty={{ title: 'Nothing waiting on review' }} />
           </Card>
           <Card className="overflow-hidden">
-            <CardHeader title="Completed" description="Most recent first" action={<Link href="/tasks?status=completed" className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
+            <CardHeader title="Completed" description="Most recent first" action={<Link href="/tasks?status=completed" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
             <TaskTable tasks={myCompletedTasks} names={names} showAssignee={false} empty={{ title: 'Nothing completed yet' }} />
           </Card>
         </div>
@@ -334,11 +325,11 @@ export default async function DashboardPage() {
 
             <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
               <Card className="overflow-hidden">
-                <CardHeader title="Team tasks" description="Your department's open work" action={<Link href="/tasks?scope=all&status=active" className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
+                <CardHeader title="Team tasks" description="Your department's open work" action={<Link href="/tasks?scope=all&status=active" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
                 <TaskTable tasks={teamTasks.slice(0, 10)} names={names} empty={{ title: 'Nothing open on the team' }} />
               </Card>
               <Card className="overflow-hidden">
-                <CardHeader title="Pending reviews" description="Submitted for your approval" action={<Link href="/tasks?scope=all&status=ready_for_review" className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
+                <CardHeader title="Pending reviews" description="Submitted for your approval" action={<Link href="/tasks?scope=all&status=ready_for_review" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
                 <TaskTable tasks={pendingReviews} names={names} empty={{ title: 'Nothing waiting on you' }} />
               </Card>
             </div>

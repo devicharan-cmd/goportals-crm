@@ -63,8 +63,9 @@ export async function addTaskAssigneeHistory<T extends { id: string }>(
   }))
 }
 
-/** Columns + joins used by every ticket list. */
-export const TICKET_LIST_SELECT = '*, client:clients(id, company_name)'
+/** Small projections for ticket list rows; details stay on the ticket detail page. */
+export const TICKET_LIST_SELECT = 'id, ticket_number, client_id, category, subject, priority, is_urgent, status, created_at, client:clients(id, company_name)'
+export const STAFF_TICKET_LIST_SELECT = 'id, ticket_number, client_id, category, subject, priority, is_urgent, status, created_at, client:clients(id, company_name, company_profile_image_path)'
 
 export type Person = Pick<Profile, 'id' | 'full_name' | 'email' | 'avatar_url' | 'role' | 'job_title' | 'status' | 'weekly_capacity_hours' | 'created_at' | 'reporting_to'>
 export type TaskAssignerInfo = { name: string; role: AppRole; avatarUrl: string | null }
@@ -93,11 +94,11 @@ export function sortPeopleByRoleAndJoiningDate<T extends Pick<Person, 'id' | 'ro
     || a.id.localeCompare(b.id))
 }
 
-export async function getStaffLookups(): Promise<StaffLookups> {
+export async function getStaffLookups({ includeDirectory = true }: { includeDirectory?: boolean } = {}): Promise<StaffLookups> {
   const supabase = await createClient()
   const [people, directory, clients, departments, platforms, services, members] = await Promise.all([
     supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to'),
-    supabase.rpc('staff_directory'),
+    includeDirectory ? supabase.rpc('staff_directory') : Promise.resolve({ data: [], error: null }),
     supabase.from('clients').select('id, company_name, company_profile_image_path, owner_id').order('company_name'),
     supabase.from('departments').select('*').order('sort_order'),
     supabase.from('platforms').select('*').order('sort_order'),
@@ -120,31 +121,58 @@ export async function getStaffLookups(): Promise<StaffLookups> {
   }
 }
 
+/** Ticket details need staff, assignment, and task-form lookups, but not the global client picker or public staff directory. */
+export async function getTicketDetailLookups(): Promise<StaffLookups> {
+  const supabase = await createClient()
+  const [people, departments, platforms, services, members] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to'),
+    supabase.from('departments').select('*').order('sort_order'),
+    supabase.from('platforms').select('*').order('sort_order'),
+    supabase.from('services').select('*').order('sort_order'),
+    supabase.from('department_members').select('department_id, profile_id, is_lead'),
+  ])
+  for (const result of [people, departments, platforms, services, members]) {
+    if (result.error) throw result.error
+  }
+  const all = sortPeopleByRoleAndJoiningDate((people.data ?? []) as Person[])
+  return {
+    people: all,
+    staff: all.filter(person => person.role !== 'client' && person.status === 'active'),
+    directoryStaff: [],
+    clients: [],
+    departments: (departments.data ?? []) as Department[],
+    platforms: (platforms.data ?? []) as Platform[],
+    services: (services.data ?? []) as Service[],
+    departmentMembers: (members.data ?? []) as DepartmentMember[],
+  }
+}
+
 /** Only the lookups used by the staff task list and board. */
 export async function getTaskPageLookups({ includePeople, includeAssignments }: {
   includePeople: boolean
   includeAssignments: boolean
 }): Promise<StaffLookups> {
   const supabase = await createClient()
-  const [people, directory, clients, departments, members] = await Promise.all([
+  const [people, clients, departments, members] = await Promise.all([
     includePeople
       ? supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to')
       : Promise.resolve({ data: [], error: null }),
-    includePeople ? supabase.rpc('staff_directory') : Promise.resolve({ data: null, error: null }),
     supabase.from('clients').select('id, company_name, company_profile_image_path, owner_id').order('company_name'),
     supabase.from('departments').select('*').order('sort_order'),
     includeAssignments
       ? supabase.from('department_members').select('department_id, profile_id, is_lead')
       : Promise.resolve({ data: [], error: null }),
   ])
-  for (const result of [people, directory, clients, departments, members]) {
+  for (const result of [people, clients, departments, members]) {
     if (result.error) throw result.error
   }
   const all = sortPeopleByRoleAndJoiningDate((people.data ?? []) as Person[])
   return {
     people: all,
     staff: all.filter(p => p.role !== 'client' && p.status === 'active'),
-    directoryStaff: (directory.data ?? []) as StaffDirectoryEntry[],
+    // This staff-only page already loads profiles under the staff profiles RLS
+    // policy, so calling staff_directory() here would fetch the same identities again.
+    directoryStaff: [],
     clients: (clients.data ?? []) as ClientOption[],
     departments: (departments.data ?? []) as Department[],
     platforms: [],

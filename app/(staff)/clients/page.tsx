@@ -31,26 +31,31 @@ export default async function ClientsPage(props: { searchParams: Promise<{ statu
 
   const [
     { data, error: clientsError },
-    { data: workCounts, error: workCountsError },
     { data: people, error: peopleError },
     { data: platforms, error: platformsError },
     { data: services, error: servicesError },
   ] = await Promise.all([
     query,
-    supabase.rpc('client_open_work_counts'),
     supabase.from('profiles').select('id, full_name, email, avatar_url'),
     supabase.from('platforms').select('*').order('sort_order'),
     supabase.from('services').select('*').order('sort_order'),
   ])
-  for (const error of [clientsError, workCountsError, peopleError, platformsError, servicesError]) {
+  for (const error of [clientsError, peopleError, platformsError, servicesError]) {
     if (error) throw error
   }
   const hasMoreClients = (data?.length ?? 0) > CLIENT_PAGE_SIZE
   const clients = (data ?? []).slice(0, CLIENT_PAGE_SIZE) as Row[]
   const imagePaths = clients.filter(c => c.company_profile_image_path).map(c => c.company_profile_image_path!)
-  const { data: signedImages, error: imageError } = imagePaths.length
-    ? await supabase.storage.from('client-profile-images').createSignedUrls(imagePaths, 3600)
-    : { data: [], error: null }
+  const clientIds = clients.map(client => client.id)
+  const [{ data: workCounts, error: workCountsError }, { data: signedImages, error: imageError }] = await Promise.all([
+    clientIds.length
+      ? supabase.rpc('client_open_work_counts_for', { p_client_ids: clientIds })
+      : Promise.resolve({ data: [], error: null }),
+    imagePaths.length
+      ? supabase.storage.from('client-profile-images').createSignedUrls(imagePaths, 3600)
+      : Promise.resolve({ data: [], error: null }),
+  ])
+  if (workCountsError) throw workCountsError
   if (imageError) throw imageError
   const imageUrlByPath = Object.fromEntries((signedImages ?? []).map(image => [image.path, image.signedUrl]))
   const names = nameMap(people ?? [])

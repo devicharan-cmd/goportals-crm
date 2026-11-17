@@ -154,8 +154,8 @@ export function CompanyAvatar({ name, src, size = 'md', className }: { name: str
 }
 
 export function StatCard({
-  label, value, hint, icon, tone = 'brand', href,
-}: { label: string; value: React.ReactNode; hint?: string; icon: React.ReactNode; tone?: 'brand' | 'lime' | 'red' | 'amber'; href?: string }) {
+  label, value, hint, icon, tone = 'brand', href, prefetch,
+}: { label: string; value: React.ReactNode; hint?: string; icon: React.ReactNode; tone?: 'brand' | 'lime' | 'red' | 'amber'; href?: string; prefetch?: boolean | null }) {
   const tones = {
     brand: 'bg-[#EAF4F8] text-[#045E80]',
     lime:  'bg-[#F5FAE8] text-[#5B771A]',
@@ -174,5 +174,5 @@ export function StatCard({
       </div>
     </div>
   )
-  return href ? <Link href={href}>{body}</Link> : body
+  return href ? <Link href={href} prefetch={prefetch}>{body}</Link> : body
 }

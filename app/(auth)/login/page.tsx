@@ -76,11 +76,11 @@ function LoginForm() {
         {passwordSet && <Alert tone="success">Password set successfully. Please log in with your new password.</Alert>}
         {error && <Alert>{error}</Alert>}
         <Field label="Email">
-          <input type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
+          <input id="login-email" type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
                  className="form-field" placeholder="you@company.com" />
         </Field>
-        <Field label="Password">
-          <PasswordInput ref={passwordRef} required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
+        <Field label="Password" htmlFor="login-password">
+          <PasswordInput id="login-password" ref={passwordRef} required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
         </Field>
         <div className="flex justify-end">
           <Link href="/forgot-password" className="text-sm font-medium text-[#045E80] hover:text-[#034C68]">Forgot password?</Link>

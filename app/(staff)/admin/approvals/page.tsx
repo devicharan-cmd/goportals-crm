@@ -19,10 +19,11 @@ type Row = Client & {
 
 export default async function ApprovalsPage() {
   await requireSuperAdmin()
-  const { data } = await (await createClient()).from('clients')
-    .select('*, ecommerce_accounts(account_name, platform:platforms(name)), client_services(custom_name, service:services(name)), agreement_acceptances(accepted_at)')
+  const { data, error } = await (await createClient()).from('clients')
+    .select('id, company_name, gstin, contact_name, contact_email, contact_phone, created_at, ecommerce_accounts(account_name, platform:platforms(name)), client_services(custom_name, service:services(name)), agreement_acceptances(accepted_at)')
     .eq('status', 'pending')
     .order('created_at')
+  if (error) throw error
   const rows = (data ?? []) as unknown as Row[]
 
   return (

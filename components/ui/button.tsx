@@ -46,7 +46,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 })
 
 export function ButtonLink({
-  href, variant, size, className, children,
-}: { href: string; variant?: Variant; size?: Size; className?: string; children: React.ReactNode }) {
-  return <Link href={href} className={buttonClass(variant, size, className)}>{children}</Link>
+  href, variant, size, className, children, prefetch,
+}: { href: string; variant?: Variant; size?: Size; className?: string; children: React.ReactNode; prefetch?: boolean | null }) {
+  return <Link href={href} prefetch={prefetch} className={buttonClass(variant, size, className)}>{children}</Link>
 }

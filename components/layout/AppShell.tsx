@@ -13,7 +13,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
 import { Avatar } from '@/components/ui/primitives'
 import { ROLE_LABELS } from '@/lib/constants'
-import { cn } from '@/lib/utils'
+import { cn, errorMessage } from '@/lib/utils'
+import { showErrorToast } from '@/lib/ui-toast'
 import type { AppRole } from '@/types/database'
 
 type NavItem = { href: string; label: string; icon: React.ElementType; roles?: AppRole[]; badge?: 'urgent' | 'approvals' }
@@ -103,30 +104,86 @@ export function AppShell({
   }, [isClient, user.id])
 
   useEffect(() => {
-    if (!user.id || isClient) return
+    if (!user.id) return
+    const userId = user.id
     let active = true
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null
+    let countsTimer: ReturnType<typeof setTimeout> | null = null
     const supabase = createClient()
+    let channel: ReturnType<typeof supabase.channel> | null = null
 
-    void Promise.all([
-      supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_id', user.id).eq('is_read', false),
-      supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)'),
-      ['super_admin', 'manager', 'team_lead'].includes(user.role)
-        ? supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('is_urgent', true).eq('status', 'unassigned')
-        : Promise.resolve({ count: 0 }),
-      user.role === 'super_admin'
-        ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending')
-        : Promise.resolve({ count: 0 }),
-    ]).then(([notifications, urgentTasks, urgentTickets, approvals]) => {
+    const refreshCounts = async () => {
+      const [notifications, urgentTasks, urgentTickets, approvals] = await Promise.all([
+        supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_id', userId).eq('is_read', false),
+        !isClient
+          ? supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
+          : Promise.resolve({ count: 0, error: null }),
+        !isClient && ['super_admin', 'manager', 'team_lead'].includes(user.role)
+          ? supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('is_urgent', true).eq('status', 'unassigned')
+          : Promise.resolve({ count: 0, error: null }),
+        !isClient && user.role === 'super_admin'
+          ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+          : Promise.resolve({ count: 0, error: null }),
+      ])
       if (!active) return
+      const failed = [notifications, urgentTasks, urgentTickets, approvals].find(result => result.error)
+      if (failed?.error) {
+        showErrorToast(`Live sidebar counts could not be updated. ${errorMessage(failed.error)}`)
+        return
+      }
       setLiveCounts({
         notifications: notifications.count ?? 0,
         urgent: (urgentTasks.count ?? 0) + (urgentTickets.count ?? 0),
         approvals: approvals.count ?? 0,
       })
-    })
+    }
 
-    return () => { active = false }
-  }, [isClient, user.id, user.role])
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      if (countsTimer) clearTimeout(countsTimer)
+      refreshTimer = setTimeout(() => router.refresh(), 150)
+      countsTimer = setTimeout(() => void refreshCounts(), 150)
+    }
+
+    void (async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession()
+        if (error) throw error
+        if (!active) return
+        if (data.session?.access_token) await supabase.realtime.setAuth(data.session.access_token)
+        if (!active) return
+
+        const nextChannel = supabase
+          .channel(`app-live-${userId}-${crypto.randomUUID()}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, scheduleRefresh)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, scheduleRefresh)
+          .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${userId}`,
+          }, scheduleRefresh)
+
+        if (!isClient && user.role === 'super_admin') {
+          nextChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, scheduleRefresh)
+        }
+
+        channel = nextChannel
+        nextChannel.subscribe(status => {
+          if (active && (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')) {
+            showErrorToast('Live updates are unavailable. Refresh to see the latest changes.')
+          }
+        })
+        await refreshCounts()
+      } catch (subscriptionError) {
+        if (active) showErrorToast(`Live updates are unavailable. ${errorMessage(subscriptionError)}`)
+      }
+    })()
+
+    return () => {
+      active = false
+      if (refreshTimer) clearTimeout(refreshTimer)
+      if (countsTimer) clearTimeout(countsTimer)
+      if (channel) void supabase.removeChannel(channel)
+    }
+  }, [isClient, user.id, user.role, router])
 
   const groups = (isClient ? CLIENT_NAV : STAFF_NAV)
     .map(g => ({ ...g, items: g.items.filter(i => !i.roles || i.roles.includes(user.role)) }))

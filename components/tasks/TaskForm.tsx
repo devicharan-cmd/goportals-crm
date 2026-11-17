@@ -482,7 +482,7 @@ export function TaskForm(p: TaskFormProps) {
     }
 
     const supabase = createClient()
-    const taskId = scheduledCreate ? crypto.randomUUID() : undefined
+    const taskId = p.mode === 'create' ? crypto.randomUUID() : undefined
     let scheduleId: string | null = null
     let savedTaskId: string
     if (scheduledCreate) {
@@ -501,10 +501,16 @@ export function TaskForm(p: TaskFormProps) {
       }
       scheduleId = createdSchedule as string
       savedTaskId = taskId!
+    } else if (p.mode === 'create') {
+      const { error } = await supabase.from('tasks').insert({ ...payload, id: taskId })
+      if (error) {
+        setError(errorMessage(error))
+        setSaving(false)
+        return
+      }
+      savedTaskId = taskId!
     } else {
-      const { data, error } = p.mode === 'create'
-        ? await supabase.from('tasks').insert(payload).select('id').single()
-        : await supabase.from('tasks').update(payload).eq('id', t!.id).select('id').single()
+      const { data, error } = await supabase.from('tasks').update(payload).eq('id', t!.id).select('id').single()
       if (error || !data) {
         setError(errorMessage(error ?? new Error('Could not save the task.')))
         setSaving(false)
@@ -571,8 +577,11 @@ export function TaskForm(p: TaskFormProps) {
     }
     if (scheduledCreate) {
       router.push('/tasks?scheduled=1')
-    } else if (p.mode === 'create') router.push(`/tasks/${savedTaskId}`)
-    router.refresh()
+    } else if (p.mode === 'create') {
+      router.push(`/tasks/${savedTaskId}`)
+    } else {
+      router.refresh()
+    }
   }
 
   return (

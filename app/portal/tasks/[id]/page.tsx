@@ -4,11 +4,13 @@ import { ArrowLeft, CalendarClock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
 import { getPortalNames } from '@/lib/portal'
+import { getTaskAssigneeHistory } from '@/lib/queries'
 import { Card, CardHeader, StaffIdentity } from '@/components/ui/primitives'
 import { Badge, PriorityBadge, StatusBadge, DueDatePill } from '@/components/ui/badges'
 import { CommentThread } from '@/components/tasks/CommentThread'
 import { CONVERSATION_CONTENT_CLASS, CONVERSATION_PANEL_CLASS } from '@/lib/conversation-layout'
 import { ClientTaskActions } from '@/components/portal/ClientTaskActions'
+import { TaskPreviousAssignees } from '@/components/tasks/TaskPreviousAssignees'
 import { ActivityPanel } from '@/components/tasks/ActivityPanel'
 import { TaskCode } from '@/components/tasks/TaskCode'
 import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
@@ -48,6 +50,8 @@ export default async function PortalTaskDetailPage(props: { params: Promise<{ id
   if (!data) notFound()
   const task = data as PortalTask
   const resolvedTaskId = task.id
+  const taskHistory = await getTaskAssigneeHistory(supabase, [resolvedTaskId])
+  const assigneeHistory = taskHistory.get(resolvedTaskId) ?? []
 
   const [{ data: comments, error: commentsError }, { data: activity, error: activityError }, names, { data: staffDirectory }, { data: taskAttachments, error: attachmentsError }] = await Promise.all([
     supabase.from('task_comments').select('*').eq('task_id', resolvedTaskId).order('created_at'),
@@ -183,14 +187,17 @@ export default async function PortalTaskDetailPage(props: { params: Promise<{ id
               <div className="flex justify-between gap-3 px-5 py-2.5">
                 <dt className="text-slate-500">Assignee</dt>
                 <dd className="min-w-0 text-right text-slate-800">
-                  {assignee ? (
+                  <div className="space-y-2">
+                    {assignee ? (
                     <StaffIdentity
                       name={assignee.full_name || 'GoPortals team'}
                       src={assignee.avatar_url}
                       role={assignee.role}
                       className="justify-end text-right"
                     />
-                  ) : 'GoPortals team'}
+                    ) : 'GoPortals team'}
+                    <TaskPreviousAssignees history={assigneeHistory} />
+                  </div>
                 </dd>
               </div>
               <div className="flex justify-between gap-3 px-5 py-2.5">

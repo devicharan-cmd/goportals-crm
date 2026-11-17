@@ -241,9 +241,20 @@ export interface TaskSummary {
   created_at: string
   assignee_id: string | null
   assigned_by: string | null
+  assignee_history?: TaskAssigneeHistoryItem[]
   client: { company_name: string } | null
   platform: { name: string } | null
   department: { name: string } | null
+}
+
+export interface TaskAssigneeHistoryItem {
+  task_id: string
+  profile_id: string
+  full_name: string
+  avatar_url: string | null
+  role: AppRole | null
+  assigned_at: string | null
+  is_current: boolean
 }
 
 export interface TaskComment {
@@ -291,6 +302,14 @@ export interface ActivityEntry {
 
 export interface TaskActivity extends ActivityEntry {
   task_id: string
+}
+
+export interface TaskAssignmentNote {
+  task_activity_id: string
+  task_id: string
+  actor_id: string | null
+  note: string
+  created_at: string
 }
 
 export interface TimeLog {

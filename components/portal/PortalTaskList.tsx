@@ -31,7 +31,10 @@ export function PortalTaskList({
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
 
-  const myTasks = useMemo(() => tasks.filter(task => task.assignee_id === meId), [meId, tasks])
+  const myTasks = useMemo(
+    () => tasks.filter(task => task.assignee_id === meId),
+    [meId, tasks],
+  )
   const assignedByMeTasks = useMemo(() => tasks.filter(task => task.assigned_by === meId), [meId, tasks])
   const departments = useMemo<FilterOption[]>(() => Array.from(new Set(
     tasks.flatMap(task => task.department?.name ? [task.department.name] : []),
@@ -117,7 +120,7 @@ export function PortalTaskList({
           hrefBase="/portal/tasks"
           scope={scope}
           readOnly={scope !== 'mine'}
-          editableAssigneeId={scope === 'mine' ? meId : undefined}
+          editableTaskActorId={scope === 'mine' ? meId : undefined}
           editableStatuses={['todo', 'in_progress', 'in_system_process', 'ready_for_review']}
         />
       ) : (

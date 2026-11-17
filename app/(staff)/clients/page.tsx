@@ -55,11 +55,14 @@ export default async function ClientsPage(props: { searchParams: Promise<{ statu
   const imageUrlByPath = Object.fromEntries((signedImages ?? []).map(image => [image.path, image.signedUrl]))
   const names = nameMap(people ?? [])
   const avatarUrls = Object.fromEntries((people ?? []).map(person => [person.id, person.avatar_url]))
-  const openCount = Object.fromEntries((workCounts ?? []).map((row: {
+  const openWorkCounts = Object.fromEntries((workCounts ?? []).map((row: {
     client_id: string
     open_task_count: number
     open_ticket_count: number
-  }) => [row.client_id, Number(row.open_task_count) + Number(row.open_ticket_count)]))
+  }) => [row.client_id, {
+    tasks: Number(row.open_task_count),
+    tickets: Number(row.open_ticket_count),
+  }]))
 
   return (
     <ClientSearchProvider
@@ -70,7 +73,7 @@ export default async function ClientsPage(props: { searchParams: Promise<{ statu
       names={names}
       avatarUrls={avatarUrls}
       status={status}
-      openCount={openCount}
+      openWorkCounts={openWorkCounts}
     >
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <ClientSearchField />

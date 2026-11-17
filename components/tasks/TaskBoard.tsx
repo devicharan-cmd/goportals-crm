@@ -10,6 +10,7 @@ import {
 } from '@dnd-kit/core'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
+import { TaskPreviousAssignees } from '@/components/tasks/TaskPreviousAssignees'
 import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import type { AssigneeOption } from '@/lib/queries'
 import { DueDate, DueDatePill } from '@/components/ui/badges'
@@ -30,14 +31,14 @@ function BoardDueDate({ date, status }: { date: TaskSummary['due_date']; status:
   const state = dueState(date, status)
   const compactClass = 'mt-2 !rounded-full !px-1.5 !py-0.5 !text-[10px]'
 
-  if (state === 'ok' || state === 'overdue') {
+  if (state === 'ok' || state === 'overdue' || state === 'today') {
     return (
       <DueDatePill
         date={date}
         status={status}
         className={cn(
           compactClass,
-          state === 'overdue'
+          state === 'overdue' || state === 'today'
             ? '!ring-1 !ring-inset !ring-red-200'
             : '!font-semibold !ring-1 !ring-inset !ring-slate-200',
         )}
@@ -90,10 +91,11 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
       {linked
         ? <Link href={taskHref} draggable={false} className="block p-3 pb-2 hover:bg-slate-50/60">{body}</Link>
         : <div className="p-3 pb-2">{body}</div>}
-      <div className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
+      <div className="flex min-w-0 flex-col items-start gap-1.5 border-t border-slate-100 px-3 py-2">
         {task.assignee_id
           ? <span className="flex min-w-0 items-center gap-1.5 text-xs text-slate-600"><Avatar name={cardAssigneeName} src={assignee?.avatarUrl} role={assignee?.avatarRole} size="xs" /><span className="truncate">{cardAssigneeName}</span></span>
           : <span className="text-[11px] italic text-slate-400">Unassigned</span>}
+        <TaskPreviousAssignees history={task.assignee_history} compact />
       </div>
     </div>
   )
@@ -138,7 +140,7 @@ function Column({ status, label, tasks, names, assignOptions, hrefBase, scope, c
 
 /** Kanban: drag between columns to change status (DB triggers log activity + notify). */
 export function TaskBoard({
-  tasks: initial, names, assignOptions, hrefBase = '/tasks', scope, editableAssigneeId, editableStatuses, readOnly = false,
+  tasks: initial, names, assignOptions, hrefBase = '/tasks', scope, editableTaskActorId, editableStatuses, readOnly = false,
   onMyTasksCountChange,
 }: {
   tasks: TaskSummary[]
@@ -146,7 +148,7 @@ export function TaskBoard({
   assignOptions?: AssigneeOption[]
   hrefBase?: string
   scope?: 'mine' | 'assigned' | 'all'
-  editableAssigneeId?: string
+  editableTaskActorId?: string
   editableStatuses?: TaskStatus[]
   readOnly?: boolean
   onMyTasksCountChange?: (delta: number) => void
@@ -160,7 +162,9 @@ export function TaskBoard({
     .filter(status => status !== 'changes_requested')
   const canEditTask = (task: TaskSummary) =>
     !readOnly
-    && (!editableAssigneeId || task.assignee_id === editableAssigneeId)
+    && (!editableTaskActorId
+      || task.assignee_id === editableTaskActorId
+      || task.assigned_by === editableTaskActorId)
   useEffect(() => setTasks(initial), [initial])
 
   const sensors = useSensors(

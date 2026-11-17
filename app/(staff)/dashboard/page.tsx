@@ -2,11 +2,12 @@ import Link from 'next/link'
 import { AlarmClock, CheckSquare, Flame, Inbox, LockKeyhole, Plus, ShieldCheck, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { nameMap, TASK_LIST_SELECT, TICKET_LIST_SELECT } from '@/lib/queries'
+import { getTaskAssigneeHistory, nameMap, TASK_LIST_SELECT, TICKET_LIST_SELECT } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader, EmptyState, StatCard } from '@/components/ui/primitives'
 import { DueDate, PriorityBadge } from '@/components/ui/badges'
 import { TaskTable } from '@/components/tasks/TaskTable'
+import { TaskPreviousAssignees } from '@/components/tasks/TaskPreviousAssignees'
 import { ClaimButton } from '@/components/tasks/ClaimButton'
 import { DashboardTaskPanel } from '@/components/tasks/DashboardTaskPanel'
 import type { TicketListItem } from '@/components/shared/TicketTable'
@@ -140,28 +141,49 @@ export default async function DashboardPage() {
     if (result.error) throw result.error
   }
 
-  const myTasks = (mine.data ?? []) as TaskListItem[]
-  const urgentTasks = (urgent.data ?? []) as TaskListItem[]
-  const dueTodayTasks = (dueTodayTasksResult.data ?? []) as TaskListItem[]
+  const rawMyTasks = (mine.data ?? []) as TaskListItem[]
+  const rawUrgentTasks = (urgent.data ?? []) as TaskListItem[]
+  const rawDueTodayTasks = (dueTodayTasksResult.data ?? []) as TaskListItem[]
   const clientRequests = (requests.data ?? []) as unknown as TicketListItem[]
   const names = nameMap(people.data ?? [])
   const myOpenCount = myOpenCountResult.count ?? 0
   const dueTodayCount = dueTodayCountResult.count ?? 0
   const urgentCount = urgentCountResult.count ?? 0
   const requestCount = requestCountResult.count ?? 0
-  const workingTasks = (allWorking.data ?? []) as TaskListItem[]
-  const doneTasks = (allDone.data ?? []) as TaskListItem[]
+  const rawWorkingTasks = (allWorking.data ?? []) as TaskListItem[]
+  const rawDoneTasks = (allDone.data ?? []) as TaskListItem[]
   const workingCount = allWorking.count ?? 0
   const doneCount = allDone.count ?? 0
 
   // Employee branch: pure client-side slices of `myTasks`, plus the one extra "completed" query above.
-  const myCompletedTasks = (myCompleted.data ?? []) as TaskListItem[]
+  const rawMyCompletedTasks = (myCompleted.data ?? []) as TaskListItem[]
+  const rawTeamTasks = (teamLeadData?.deptTasks ?? []) as TaskListItem[]
+  const taskIds = Array.from(new Set([
+    ...rawMyTasks,
+    ...rawUrgentTasks,
+    ...rawDueTodayTasks,
+    ...rawWorkingTasks,
+    ...rawDoneTasks,
+    ...rawMyCompletedTasks,
+    ...rawTeamTasks,
+  ].map(task => task.id)))
+  const assigneeHistory = await getTaskAssigneeHistory(supabase, taskIds)
+  const withAssigneeHistory = <T extends { id: string }>(tasks: T[]) => tasks.map(task => ({
+    ...task,
+    assignee_history: assigneeHistory.get(task.id) ?? [],
+  }))
+  const myTasks = withAssigneeHistory(rawMyTasks)
+  const urgentTasks = withAssigneeHistory(rawUrgentTasks)
+  const dueTodayTasks = withAssigneeHistory(rawDueTodayTasks)
+  const workingTasks = withAssigneeHistory(rawWorkingTasks)
+  const doneTasks = withAssigneeHistory(rawDoneTasks)
+  const myCompletedTasks = withAssigneeHistory(rawMyCompletedTasks)
+  const teamTasks = withAssigneeHistory(rawTeamTasks)
   const inProgressTasks = myTasks.filter(t => t.status === 'in_progress' || t.status === 'in_system_process')
   const readyForReviewTasks = myTasks.filter(t => t.status === 'ready_for_review')
 
   // Team leads only see tasks assigned to their department.
   const deptMateIds = teamLeadData?.deptMateIds ?? []
-  const teamTasks = (teamLeadData?.deptTasks ?? []) as TaskListItem[]
   const pendingReviews = teamTasks.filter(t => t.status === 'ready_for_review')
   const workload = isTeamLead && teamLeadData
     ? deptMateIds.map(id => {
@@ -223,6 +245,7 @@ export default async function DashboardPage() {
                         <span className="truncate">{t.client?.company_name} · <DueDate date={t.due_date} status={t.status} /></span>
                         {t.visibility === 'private' && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200" title="Visible only to authorized internal staff"><LockKeyhole aria-hidden="true" className="h-3 w-3" />Private</span>}
                       </p>
+                      <TaskPreviousAssignees history={t.assignee_history} compact />
                     </Link>
                     <ClaimButton taskId={t.id} />
                   </li>

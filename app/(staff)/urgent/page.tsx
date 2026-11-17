@@ -2,11 +2,12 @@ import Link from 'next/link'
 import { Flame, LockKeyhole } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { TASK_LIST_SELECT } from '@/lib/queries'
+import { addTaskAssigneeHistory, TASK_LIST_SELECT } from '@/lib/queries'
 import { TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { Avatar, Card, CardHeader, EmptyState } from '@/components/ui/primitives'
 import { DueDate, PriorityBadge, StatusBadge } from '@/components/ui/badges'
 import { ClaimButton } from '@/components/tasks/ClaimButton'
+import { TaskPreviousAssignees } from '@/components/tasks/TaskPreviousAssignees'
 import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import { TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_STYLES } from '@/lib/constants'
 import { formatRelative, taskCode, ticketCode } from '@/lib/utils'
@@ -69,8 +70,9 @@ export default async function UrgentPage() {
   if (profileResult.error) throw profileResult.error
   const names = Object.fromEntries((peopleResult.data ?? []).map((p: { id: string; full_name: string }) => [p.id, p.full_name]))
   const avatarUrls = Object.fromEntries((profileResult.data ?? []).map((p: { id: string; avatar_url: string | null }) => [p.id, p.avatar_url]))
-  const openTasks = tasks.filter(t => !t.assignee_id)
-  const takenTasks = tasks.filter(t => t.assignee_id)
+  const tasksWithAssigneeHistory = await addTaskAssigneeHistory(supabase, tasks)
+  const openTasks = tasksWithAssigneeHistory.filter(t => !t.assignee_id)
+  const takenTasks = tasksWithAssigneeHistory.filter(t => t.assignee_id)
   const openTickets = tickets.filter(t => t.status === 'unassigned')
   const takenTickets = tickets.filter(t => t.status === 'assigned')
 
@@ -146,6 +148,7 @@ export default async function UrgentPage() {
                     {t.platform?.name && <MarketplacePlatformLabel name={t.platform.name} />}
                     <span aria-hidden="true">·</span> raised {formatRelative(t.created_at)}
                   </p>
+                  <TaskPreviousAssignees history={t.assignee_history} compact />
                 </Link>
                 <div className="flex items-center gap-4">
                   <DueDate date={t.due_date} status={t.status} />
@@ -171,6 +174,7 @@ export default async function UrgentPage() {
                       {t.visibility === 'private' && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200" title="Visible only to authorized internal staff"><LockKeyhole aria-hidden="true" className="h-3 w-3" />Private</span>}
                     </p>
                     <p className="text-xs text-slate-500">{names[t.assignee_id!] ?? '—'} · {t.client?.company_name}</p>
+                    <TaskPreviousAssignees history={t.assignee_history} compact />
                   </div>
                   <StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} />
                 </Link>

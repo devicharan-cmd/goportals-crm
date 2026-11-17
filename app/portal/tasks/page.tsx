@@ -3,7 +3,7 @@ import { requireClient } from '@/lib/auth'
 import { PortalTaskList } from '@/components/portal/PortalTaskList'
 import { getPortalNames } from '@/lib/portal'
 import { ROLE_LABELS } from '@/lib/constants'
-import type { AssigneeOption, TaskAssignerInfo } from '@/lib/queries'
+import { addTaskAssigneeHistory, type AssigneeOption, type TaskAssignerInfo } from '@/lib/queries'
 import type { StaffDirectoryEntry, TaskSummary } from '@/types/database'
 
 export const metadata = { title: 'Tasks' }
@@ -20,7 +20,7 @@ export default async function PortalTasksPage() {
   if (error) throw new Error(error.message)
   if (directoryResult.error) throw new Error(directoryResult.error.message)
 
-  const tasks = (data ?? []) as TaskSummary[]
+  const tasks = await addTaskAssigneeHistory(supabase, (data ?? []) as TaskSummary[])
   const directory = (directoryResult.data ?? []) as StaffDirectoryEntry[]
   const people: AssigneeOption[] = [
     ...directory.map(person => ({

@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeFilterPeopleFor, getClientProfileImageUrls, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, taskAssigneeOptionsFor, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
+import { addTaskAssigneeHistory, assigneeFilterPeopleFor, getClientProfileImageUrls, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, taskAssigneeOptionsFor, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
 import { TASK_PAGE_SIZE } from '@/lib/constants'
 import { ButtonLink } from '@/components/ui/button'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
@@ -85,7 +85,10 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
   if (allTaskCountResult.error) throw allTaskCountResult.error
   if (assignedTaskCountResult.error) throw assignedTaskCountResult.error
   const hasMoreTasks = (taskResult.data?.length ?? 0) > TASK_PAGE_SIZE
-  const tasks = normalizeTaskSummaryRows((taskResult.data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0])
+  const tasks = await addTaskAssigneeHistory(
+    supabase,
+    normalizeTaskSummaryRows((taskResult.data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0]),
+  )
   const lastTask = tasks[tasks.length - 1]
   const initialTaskCursor = hasMoreTasks && lastTask
     ? { id: lastTask.id, is_urgent: lastTask.is_urgent, due_date: lastTask.due_date, created_at: lastTask.created_at }
@@ -127,7 +130,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
         all: allTaskCountResult.count ?? 0,
       }}
       assignOptions={assignOptions}
-      editableAssigneeId={me.role === 'super_admin' ? undefined : me.id}
+      editableTaskActorId={me.id}
       scope={scope}
       status={status}
       client={searchParams.client ?? ''}

@@ -11,8 +11,8 @@ import type { TimeLog } from '@/types/database'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 export function TimeLogPanel({
-  taskId, logs, names, meId, estimated,
-}: { taskId: string; logs: TimeLog[]; names: Record<string, string>; meId: string; estimated: number | null }) {
+  taskId, logs, names, meId, estimated, readOnly = false,
+}: { taskId: string; logs: TimeLog[]; names: Record<string, string>; meId: string; estimated: number | null; readOnly?: boolean }) {
   const router = useRouter()
   const runOnce = useSingleFlight()
   const [open, setOpen] = useState(false)
@@ -63,7 +63,7 @@ export function TimeLogPanel({
         </ul>
       )}
 
-      {open ? (
+      {!readOnly && open ? (
         <form onSubmit={event => void runOnce('submit', () => submit(event))} className="space-y-2 rounded-lg bg-slate-50 p-3">
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="grid grid-cols-2 gap-2">
@@ -79,11 +79,11 @@ export function TimeLogPanel({
             <Button type="submit" size="sm" loading={saving}>Log time</Button>
           </div>
         </form>
-      ) : (
+      ) : !readOnly ? (
         <Button size="sm" variant="secondary" className="w-full" onClick={() => setOpen(true)}>
           <Clock className="h-3.5 w-3.5" /> <Plus className="-ml-1 h-3 w-3" /> Log time
         </Button>
-      )}
+      ) : null}
     </div>
   )
 }

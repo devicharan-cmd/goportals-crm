@@ -21,9 +21,9 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
   ])
   if (!data) notFound()
   const task = data as Task
-  const assignedByMeContext = searchParams.scope === 'assigned' && task.assigned_by === me.id
-  const superAdminAllTasksContext = me.role === 'super_admin' && searchParams.scope === 'all'
-  if ((task.assignee_id === me.id && !assignedByMeContext && !superAdminAllTasksContext) || searchParams.scope === 'mine') {
+  const canManageTask = task.assigned_by === me.id
+    || (!task.assigned_by && !task.assignee_id && task.created_by === me.id)
+  if (!canManageTask) {
     redirect(`/tasks/${task.id}${searchParams.scope ? `?scope=${searchParams.scope}` : ''}`)
   }
 

@@ -18,6 +18,7 @@ export type { AssigneeOption }
 /** "Change assignee" — pick someone from a searchable list and save straight away. */
 export function AssignButton({
   taskId, currentId, options, variant = 'button', table = 'tasks', compact = false, disabled = false,
+  clientId, allowClientAssignee = false,
 }: {
   taskId: string
   currentId: string | null
@@ -26,6 +27,8 @@ export function AssignButton({
   table?: 'tasks' | 'tickets'
   compact?: boolean
   disabled?: boolean
+  clientId?: string | null
+  allowClientAssignee?: boolean
 }) {
   const router = useRouter()
   const runOnce = useSingleFlight()
@@ -37,8 +40,11 @@ export function AssignButton({
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
-    return s ? options.filter(o => `${o.name} ${o.subtitle ?? ''}`.toLowerCase().includes(s)) : options
-  }, [q, options])
+    const available = options.filter(option =>
+      !option.clientId || (allowClientAssignee && option.clientId === clientId),
+    )
+    return s ? available.filter(o => `${o.name} ${o.subtitle ?? ''}`.toLowerCase().includes(s)) : available
+  }, [q, options, clientId, allowClientAssignee])
 
   function show() {
     setSelected(currentId)

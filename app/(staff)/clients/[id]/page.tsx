@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, FileSignature, Mail, MapPin, MessageCircle, Phone, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { assigneeOptionsFor, getStaffLookups, nameMap, TASK_LIST_SELECT } from '@/lib/queries'
+import { getStaffLookups, nameMap, TASK_LIST_SELECT, taskAssigneeOptionsFor } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { AccountStatusBadge, Badge } from '@/components/ui/badges'
@@ -109,7 +109,7 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
         <div className="min-w-0 space-y-6">
           <Card className="overflow-hidden">
             <CardHeader title={`Open tasks (${openTasks.length})`} />
-            <TaskTable tasks={openTasks} names={names} showClient={false} assignOptions={assigneeOptionsFor(me, lookups)} empty={{ title: 'No open tasks' }} />
+            <TaskTable tasks={openTasks} names={names} showClient={false} assignOptions={taskAssigneeOptionsFor(me, lookups)} empty={{ title: 'No open tasks' }} />
           </Card>
           {doneTasks.length > 0 && (
             <Card className="overflow-hidden">

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, CalendarClock, Clock3, FileText, Paperclip } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskPageTitle } from '@/lib/queries'
+import { clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, resolveTaskId, TASK_LIST_SELECT, taskAssigneeOptionsFor, taskPageTitle } from '@/lib/queries'
 import { TaskCode } from '@/components/tasks/TaskCode'
 import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { Badge, PriorityBadge, StatusBadge, UrgentBadge, DueDatePill } from '@/components/ui/badges'
@@ -20,7 +20,7 @@ import { DeleteButton } from '@/components/shared/DeleteButton'
 import { AssignButton } from '@/components/tasks/AssignButton'
 import { TaskEditModal } from '@/components/tasks/TaskEditModal'
 import { TaskScheduleControl } from '@/components/tasks/TaskScheduleControl'
-import { ROLE_LABELS, TYPE_LABELS } from '@/lib/constants'
+import { TYPE_LABELS } from '@/lib/constants'
 import { formatDate, formatRelative, taskCode, ticketCode } from '@/lib/utils'
 import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TimeLog } from '@/types/database'
 
@@ -93,18 +93,8 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     ? lookups.people.find(person => person.id === task.assigned_by)
     : undefined
 
-  const assignees = assigneeOptionsFor(me, lookups)
-  const editAssignees = [...assignees]
-  if (task.assignee_id && !editAssignees.some(person => person.id === task.assignee_id)) {
-    const person = lookups.people.find(candidate => candidate.id === task.assignee_id)
-    editAssignees.unshift({
-      id: task.assignee_id,
-      name: names[task.assignee_id] ?? 'Current assignee',
-      avatarUrl: person?.avatar_url ?? null,
-      role: person ? ROLE_LABELS[person.role] : 'Current assignee',
-      ...(person ? { avatarRole: person.role } : {}),
-    })
-  }
+  const assignees = taskAssigneeOptionsFor(me, lookups)
+  const editAssignees = assignees
   let editClients = lookups.clients
   if (me.role === 'team_lead') {
     const deptIds = Array.from(departmentIdsFor(me.id, lookups))
@@ -112,15 +102,17 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     editClients = lookups.clients.filter(client => clientIds.has(client.id) || client.id === task.client_id)
   }
   const editClientImageUrlByPath = await getClientProfileImageUrls(editClients)
+  const clientAssignees = editAssignees.filter(option => option.clientId && editClients.some(client => client.id === option.clientId))
   const canClaim = task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
   const canEditChecklist = me.role !== 'employee' || task.assignee_id === me.id
   const scopedTasksContext = searchParams.scope === 'mine' || searchParams.scope === 'assigned' || searchParams.scope === 'all'
   const myTasksContext = searchParams.scope === 'mine'
   const assignedByMeContext = searchParams.scope === 'assigned' && task.assigned_by === me.id
   const createdByMe = task.created_by === me.id
-  const canManageTask = createdByMe || (me.role === 'super_admin'
-    ? searchParams.scope === 'all' || assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext)
-    : assignedByMeContext || (task.assignee_id !== me.id && !myTasksContext))
+  const canManageTask = me.role === 'super_admin'
+    || createdByMe
+    || assignedByMeContext
+    || (task.assignee_id !== me.id && !myTasksContext)
   const tasksHref = scopedTasksContext ? `/tasks?scope=${searchParams.scope}` : '/tasks'
   const scheduleCanManage = task.status !== 'completed' && task.status !== 'cancelled'
     && (me.role === 'super_admin' || task.assignee_id === me.id || task.created_by === me.id)
@@ -156,7 +148,13 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
         <Link href={tasksHref} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
         <div className="flex items-center gap-2">
           {canManageTask && (me.role === 'super_admin' || createdByMe) && <DeleteButton table="tasks" id={task.id} redirectTo={tasksHref} variant="danger" />}
-          {canManageTask && me.role !== 'employee' && <AssignButton taskId={task.id} currentId={task.assignee_id} options={assignees} />}
+          {canManageTask && me.role !== 'employee' && <AssignButton
+            taskId={task.id}
+            currentId={task.assignee_id}
+            options={assignees}
+            clientId={task.client_id}
+            allowClientAssignee={task.ticket_id !== null && task.visibility === 'public'}
+          />}
           {canManageTask && (
             <TaskEditModal
               task={task}
@@ -166,6 +164,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               clients={editClients}
               clientImageUrlByPath={editClientImageUrlByPath}
               assignees={editAssignees}
+              clientAssignees={clientAssignees}
               departments={lookups.departments}
               platforms={lookups.platforms}
               services={lookups.services}
@@ -276,7 +275,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
             <TaskProperties
               task={task}
               assignees={editAssignees}
-              assigneeName={task.assignee_id ? names[task.assignee_id] ?? null : null}
+              assigneeName={task.assignee_id ? assignees.find(person => person.id === task.assignee_id)?.name ?? names[task.assignee_id] ?? null : null}
               assignedBy={taskAssigner ? {
                 name: names[taskAssigner.id],
                 avatarUrl: taskAssigner.avatar_url,

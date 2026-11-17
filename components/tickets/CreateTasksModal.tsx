@@ -603,10 +603,11 @@ export function CreateTasksModal({
                 <div className="min-w-0">
                   {label(i, 'assignee_id', 'Assignee')}
                   <AssigneeSelect id={`task-assignee_id-${i}`} value={r.assignee_id}
-                                  options={r.visibility === 'private'
-                                    ? assigneeOptions.filter(option => option.id !== clientAssignee?.id)
-                                    : assigneeOptions}
-                                  onChange={value => update(i, { assignee_id: value })}
+                                  options={assigneeOptions}
+                                  onChange={value => update(i, {
+                                    assignee_id: value,
+                                    ...(value === clientAssignee?.id ? { visibility: 'public' } : {}),
+                                  })}
                                   onOpenChange={setAssigneeDropdownOpen}
                                   invalid={!!fieldError(i, 'assignee_id')} disabled={!!createdTaskIds} />
                   {fieldErrorText(i, 'assignee_id')}
@@ -631,7 +632,9 @@ export function CreateTasksModal({
               <section className="mt-4" aria-labelledby={`task-visibility-${i}`}>
                 <TaskSectionHeader section="visibility" required id={`task-visibility-${i}`} />
                 <p className="-mt-1 mb-2.5 text-xs leading-4 text-slate-500">
-                  Private tasks are hidden from the client and assigned to staff only; the ticket remains visible.
+                  {r.assignee_id === clientAssignee?.id
+                    ? 'Tasks assigned to the client are always public.'
+                    : 'Private tasks are hidden from the client and assigned to staff only; the ticket remains visible.'}
                 </p>
                 <div className="grid max-w-[26rem] gap-2 sm:grid-cols-2">
                   {([
@@ -645,10 +648,9 @@ export function CreateTasksModal({
                         key={option.value}
                         type="button"
                         aria-pressed={selected}
-                        disabled={!!createdTaskIds}
+                        disabled={!!createdTaskIds || (option.value === 'private' && r.assignee_id === clientAssignee?.id)}
                         onClick={() => update(i, {
                           visibility: option.value,
-                          ...(option.value === 'private' && r.assignee_id === clientAssignee?.id ? { assignee_id: '' } : {}),
                         })}
                         className={cn(
                           'flex min-h-14 min-w-0 items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',

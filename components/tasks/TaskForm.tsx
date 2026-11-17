@@ -19,7 +19,7 @@ import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
 import type { AppRole, Department, DeadlineType, Platform, Service, Task, TaskPriority, TaskType, TaskVisibility, TicketStatus } from '@/types/database'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
-type Option = { id: string; name: string; avatarUrl?: string | null; employeeId?: string; role?: string; avatarRole?: AppRole }
+type Option = { id: string; name: string; avatarUrl?: string | null; employeeId?: string; role?: string; avatarRole?: AppRole; clientId?: string }
 type TicketOption = {
   id: string
   ticket_number: number
@@ -127,6 +127,7 @@ export type TaskFormProps = {
   clients: { id: string; company_name: string; company_profile_image_path?: string | null }[]
   clientImageUrlByPath?: Record<string, string>
   assignees: Option[]
+  clientAssignees?: Option[]
   departments: Department[]
   platforms: Platform[]
   services: Service[]
@@ -160,7 +161,7 @@ export function TaskForm(p: TaskFormProps) {
   const [form, setForm] = useState({
     title:           t?.title ?? '',
     description:     t?.description ?? '',
-    client_id:       t?.visibility === 'private' && !t?.ticket_id ? '' : t?.client_id ?? p.defaultClientId ?? '',
+    client_id:       t?.client_id ?? p.defaultClientId ?? '',
     visibility:      (t?.visibility ?? '') as TaskVisibility | '',
     type:            (t?.type ?? 'task') as TaskType,
     priority:        (t?.priority ?? 'P3') as TaskPriority,
@@ -209,7 +210,12 @@ export function TaskForm(p: TaskFormProps) {
   const deadlineRequired = p.mode === 'create' || canEditAssignment
   const ticketLinked = Boolean(form.ticket_id) && form.ticket_id !== STANDALONE_TICKET_OPTION
   const standaloneSelected = form.ticket_id === STANDALONE_TICKET_OPTION
-  const visibilityLocked = p.mode === 'edit' || (!standaloneSelected && !ticketLinked)
+  const visibilityLocked = p.mode === 'edit'
+  const clientAssignee = p.clientAssignees?.find(option => option.clientId === form.client_id)
+  const assigneeOptions = ticketLinked && clientAssignee
+    && (form.visibility === 'public' || p.mode === 'create')
+    ? [...p.assignees, clientAssignee]
+    : p.assignees
   const selectedSchedulerDate = scheduleStartDate ? new Date(`${scheduleStartDate}T12:00:00`) : null
   const scheduleCalendarDays = scheduleCalendarMonth
     ? eachDayOfInterval({
@@ -353,22 +359,24 @@ export function TaskForm(p: TaskFormProps) {
   }, [assigneeOpen])
 
   function pickClient(clientId: string) {
-    if (form.visibility === 'private' && !ticketLinked) return
     setClientError('')
     // The previously picked ticket almost certainly belonged to the old client.
     setForm(f => ({
       ...f,
       client_id: clientId,
       ticket_id: ticketLinked ? '' : f.ticket_id,
+      ...(p.clientAssignees?.some(option => option.id === f.assignee_id && (ticketLinked || option.clientId !== clientId))
+        ? { assignee_id: '' }
+        : {}),
     }))
   }
 
   function pickVisibility(visibility: TaskVisibility) {
+    if (visibility === 'private' && p.clientAssignees?.some(option => option.id === form.assignee_id)) return
     setClientError('')
     setForm(f => ({
       ...f,
       visibility,
-      ...(visibility === 'private' && !ticketLinked ? { client_id: '' } : {}),
     }))
   }
 
@@ -378,8 +386,26 @@ export function TaskForm(p: TaskFormProps) {
     setForm(f => ({
       ...f,
       ticket_id: ticketId,
-      visibility: '',
+      ...(ticketId && ticketId !== STANDALONE_TICKET_OPTION
+        && p.clientAssignees?.some(option => option.id === f.assignee_id)
+        ? { visibility: 'public' as const }
+        : {}),
+      ...((!ticketId || ticketId === STANDALONE_TICKET_OPTION)
+        && p.clientAssignees?.some(option => option.id === f.assignee_id)
+        ? { assignee_id: '' }
+        : {}),
     }))
+  }
+
+  function pickAssignee(assigneeId: string) {
+    const clientAssigned = p.clientAssignees?.some(option => option.id === assigneeId) ?? false
+    setForm(f => ({
+      ...f,
+      assignee_id: assigneeId,
+      ...(clientAssigned ? { visibility: 'public' as const } : {}),
+    }))
+    setAssigneeError('')
+    setAssigneeOpen(false)
   }
 
   function pickService(id: string) {
@@ -612,13 +638,15 @@ export function TaskForm(p: TaskFormProps) {
       {!p.modalLayout && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.25fr)_minmax(150px,0.45fr)]">
         <Field label="Client" required={(standaloneSelected && form.visibility === 'public') || ticketLinked}
           error={clientError} errorId="task-client-error" hint={form.visibility === 'private'
-          ? ticketLinked ? 'Required for the ticket; private task details are hidden from the client.' : 'Private tasks cannot be associated with a client.'
+          ? ticketLinked
+            ? 'Required for the ticket; private task details stay hidden from the client.'
+            : 'Related to this client; hidden from them while private.'
           : form.visibility === 'public' && standaloneSelected
             ? 'Required for public tasks.'
             : ticketLinked
               ? 'Required for ticket-linked tasks.'
-              : p.clients.length === 0 ? 'No clients available' : 'Choose a client for public tasks.'}>
-          <FormSelect label="Select client…" value={form.client_id} disabled={form.visibility === 'private' && !ticketLinked}
+              : p.clients.length === 0 ? 'No clients available' : 'Client association is separate from task visibility.'}>
+          <FormSelect label="Select client…" value={form.client_id}
             invalid={!!clientError} required={(standaloneSelected && form.visibility === 'public') || ticketLinked}
             aria-describedby={clientError ? 'task-client-error' : undefined}
             className={p.modalLayout ? 'h-9 rounded-xl text-sm' : undefined}
@@ -627,7 +655,16 @@ export function TaskForm(p: TaskFormProps) {
               ...p.clients.map(client => ({
                 value: client.id,
                 label: client.company_name,
-                selectedContent: client.company_name,
+                selectedContent: (
+                  <span className="flex items-center gap-2">
+                    <CompanyAvatar
+                      name={client.company_name}
+                      src={client.company_profile_image_path ? p.clientImageUrlByPath?.[client.company_profile_image_path] : null}
+                      size="xs"
+                    />
+                    <span className="truncate">{client.company_name}</span>
+                  </span>
+                ),
                 content: (
                   <span className="flex items-center gap-2">
                     <CompanyAvatar
@@ -735,7 +772,7 @@ export function TaskForm(p: TaskFormProps) {
 
       <TaskFieldsGrid columns="three" modal={!!p.modalLayout}>
         <Field label="Assignee" required={p.mode === 'create'}
-               hint={!canEditAssignment ? 'Only managers can change the assignee.' : p.assignees.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
+               hint={!canEditAssignment ? 'Only managers can change the assignee.' : assigneeOptions.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
           <div className="relative" data-assignee-picker>
             <button type="button" className={cn(
               'form-field flex w-full items-center justify-between text-left',
@@ -748,7 +785,7 @@ export function TaskForm(p: TaskFormProps) {
               <span className="flex min-w-0 items-center gap-2">
                 {form.assignee_id
                   ? (() => {
-              const selected = p.assignees.find(a => a.id === form.assignee_id)
+              const selected = assigneeOptions.find(a => a.id === form.assignee_id)
               return selected ? <><span className="relative h-5 w-5 shrink-0"><Avatar name={selected.name} src={selected.avatarUrl} role={selected.avatarRole} size="xs" className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 text-xs" /></span><span className="truncate">{selected.name}{selected.id === p.meId ? ' (me)' : ''}</span></> : 'Select assignee…'
                     })()
                   : 'Select assignee…'}
@@ -759,11 +796,11 @@ export function TaskForm(p: TaskFormProps) {
               <div className="absolute z-30 mt-1 w-full rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
                 <p className="px-3 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Assigned to</p>
                 <div role="listbox" aria-label="Assigned to" className="max-h-64 space-y-1 overflow-y-auto">
-                  {p.assignees.map(a => {
+                  {assigneeOptions.map(a => {
                     const selected = form.assignee_id === a.id
                     return (
                       <button key={a.id} type="button" role="option" aria-selected={selected}
-                              onClick={() => { set('assignee_id', a.id); setAssigneeError(''); setAssigneeOpen(false) }}
+                              onClick={() => pickAssignee(a.id)}
                               className={cn('w-full rounded-lg px-3 py-2 text-left transition-colors', selected ? 'bg-[#EAF4F8] font-medium text-[#034C68]' : 'hover:bg-[#f3f5f4]')}>
                         <AssigneeOptionContent
                           name={a.name}
@@ -811,26 +848,30 @@ export function TaskForm(p: TaskFormProps) {
               <div className="sm:col-span-2">
                 <h2 id="task-visibility-label" className="text-sm font-semibold text-slate-800">Task visibility</h2>
                 <p className="mt-0.5 text-xs leading-4 text-slate-500">
-                  {ticketLinked
+                  {p.clientAssignees?.some(assignee => assignee.id === form.assignee_id)
+                    ? 'Tasks assigned to the client are always public.'
+                    : ticketLinked
                     ? 'Private ticket tasks are hidden from the client; public tasks are client-visible.'
                     : !standaloneSelected
-                      ? 'Choose No ticket (standalone) to set visibility.'
-                    : p.mode === 'edit'
-                      ? 'Set when task was created.'
-                      : 'Choose who can see this task.'}
+                      ? 'Choose who can see this task; select a ticket or No ticket before saving.'
+                      : p.mode === 'edit'
+                        ? 'Set when task was created.'
+                        : form.visibility === 'private'
+                          ? 'Client association is for context only; private tasks stay hidden.'
+                          : 'Public tasks are visible to the client; choose a client.'}
                 </p>
               </div>
               {([
                 { value: 'public', title: 'Public', description: 'Client + authorized staff' },
                 { value: 'private', title: 'Private', description: 'Authorized staff only' },
               ] as const).map(option => {
-                const selected = !visibilityLocked && form.visibility === option.value
+                const selected = form.visibility === option.value
                 return (
                   <button
                     key={option.value}
                     type="button"
                     aria-pressed={selected}
-                    disabled={visibilityLocked}
+                    disabled={visibilityLocked || (option.value === 'private' && p.clientAssignees?.some(assignee => assignee.id === form.assignee_id))}
                     onClick={() => pickVisibility(option.value)}
                     className={cn(
                       'flex min-h-14 min-w-0 items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors',

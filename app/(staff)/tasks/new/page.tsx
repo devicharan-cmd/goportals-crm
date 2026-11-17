@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { requireStaff } from '@/lib/auth'
-import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups } from '@/lib/queries'
+import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, taskAssigneeOptionsFor } from '@/lib/queries'
 import { ROLE_LABELS } from '@/lib/constants'
 import { TaskForm } from '@/components/tasks/TaskForm'
 
@@ -25,6 +25,8 @@ export default async function NewTaskPage(
   }
 
   const clientImageUrlByPath = await getClientProfileImageUrls(clients)
+  const clientAssignees = taskAssigneeOptionsFor(me, lookups)
+    .filter(option => option.clientId && clients.some(client => client.id === option.clientId))
 
   return (
     <div>
@@ -40,6 +42,7 @@ export default async function NewTaskPage(
         clients={clients}
         clientImageUrlByPath={clientImageUrlByPath}
         assignees={assignableFor(me, lookups).map(p => ({ id: p.id, name: p.full_name || p.email, avatarUrl: p.avatar_url, employeeId: p.id, role: ROLE_LABELS[p.role], avatarRole: p.role }))}
+        clientAssignees={clientAssignees}
         departments={lookups.departments}
         platforms={lookups.platforms}
         services={lookups.services}

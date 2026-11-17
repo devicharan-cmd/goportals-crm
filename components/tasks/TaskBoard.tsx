@@ -28,7 +28,7 @@ type CardProps = {
 
 function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: CardProps & { overlay?: boolean; linked?: boolean }) {
   const assignee = task.assignee_id ? assignOptions?.find(option => option.id === task.assignee_id) : undefined
-  const assigneeName = task.assignee_id ? names[task.assignee_id] ?? '—' : '—'
+  const assigneeName = task.assignee_id ? assignee?.name ?? names[task.assignee_id] ?? '—' : '—'
   const roleSuffix = assignee?.role ? ` (${assignee.role})` : ''
   const cardAssigneeName = roleSuffix && assigneeName.endsWith(roleSuffix)
     ? assigneeName.slice(0, -roleSuffix.length)

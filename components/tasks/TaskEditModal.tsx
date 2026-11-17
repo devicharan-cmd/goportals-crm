@@ -16,6 +16,7 @@ export function TaskEditModal({
   clients,
   clientImageUrlByPath,
   assignees,
+  clientAssignees,
   departments,
   platforms,
   services,
@@ -27,6 +28,7 @@ export function TaskEditModal({
   clients: TaskFormProps['clients']
   clientImageUrlByPath?: TaskFormProps['clientImageUrlByPath']
   assignees: TaskFormProps['assignees']
+  clientAssignees?: TaskFormProps['clientAssignees']
   departments: TaskFormProps['departments']
   platforms: TaskFormProps['platforms']
   services: TaskFormProps['services']
@@ -60,6 +62,7 @@ export function TaskEditModal({
           clients={clients}
           clientImageUrlByPath={clientImageUrlByPath}
           assignees={assignees}
+          clientAssignees={clientAssignees}
           departments={departments}
           platforms={platforms}
           services={services}

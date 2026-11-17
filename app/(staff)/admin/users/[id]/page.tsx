@@ -56,6 +56,7 @@ export default async function StaffProfilePage(props: { params: Promise<{ id: st
         actorId={me.id}
         isOwnProfile={me.id === profile.id}
         reportingPeople={lookups.people.map(({ id, full_name, email, role, status, avatar_url }) => ({ id, full_name, email, role, status, avatar_url }))}
+        directReports={lookups.people.filter(person => person.reporting_to === profile.id).map(({ id, role }) => ({ id, role }))}
       />
     </div>
   )

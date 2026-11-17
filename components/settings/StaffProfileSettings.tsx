@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   Check, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, Loader2, ChevronDown, Search
 } from 'lucide-react'
@@ -17,7 +18,7 @@ import { InternationalPhoneField } from '@/components/shared/InternationalPhoneF
 import { TimezoneSelect } from '@/components/shared/TimezoneSelect'
 import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
 import { showSuccessToast } from '@/lib/ui-toast'
-import type { AppRole, Department, Profile } from '@/types/database'
+import type { AppRole, Department, Profile, StaffRole } from '@/types/database'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 const PROFILE_IMAGE_BUCKET = 'staff-profile-images'
@@ -122,6 +123,7 @@ interface StaffProfileSettingsProps {
   actorId?: string
   isOwnProfile?: boolean
   reportingPeople?: { id: string; full_name: string; email: string; role: AppRole; status: string; avatar_url?: string | null }[]
+  directReports?: { id: string; role: AppRole }[]
 }
 
 export function StaffProfileSettings({
@@ -133,6 +135,7 @@ export function StaffProfileSettings({
   actorId,
   isOwnProfile = true,
   reportingPeople = [],
+  directReports = [],
 }: StaffProfileSettingsProps) {
   const router = useRouter()
   const runOnce = useSingleFlight()
@@ -167,6 +170,8 @@ export function StaffProfileSettings({
   const [roleError, setRoleError] = useState('')
   const [reportingToError, setReportingToError] = useState('')
   const [capacityError, setCapacityError] = useState('')
+  const [promotionBlockedIds, setPromotionBlockedIds] = useState<string[]>([])
+  const [promotionBlocked, setPromotionBlocked] = useState(false)
   const [currentImage, setCurrentImage] = useState<string | null>(profile.avatar_url)
   const [imageLoadFailed, setImageLoadFailed] = useState(false)
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
@@ -340,6 +345,8 @@ export function StaffProfileSettings({
     setTimezoneError('')
     setJobTitleError('')
     setRoleError('')
+    setPromotionBlockedIds([])
+    setPromotionBlocked(false)
     setReportingToError('')
     setCapacityError('')
     setIsEditing(false)
@@ -359,6 +366,8 @@ export function StaffProfileSettings({
     setTimezoneError('')
     setJobTitleError('')
     setRoleError('')
+    setPromotionBlockedIds([])
+    setPromotionBlocked(false)
     setReportingToError('')
     setCapacityError('')
     if (!jobTitle.trim()) {
@@ -497,10 +506,21 @@ export function StaffProfileSettings({
       if (/mobile number|phone/i.test(message)) setPhoneError(message)
       else if (/timezone/i.test(message)) setTimezoneError(message)
       else if (/job title/i.test(message)) setJobTitleError(message)
-      else if (/reporting to/i.test(message)) setReportingToError(message)
+      else if (/reporting (to|poc)/i.test(message)) setReportingToError(message)
       else if (/weekly capacity|capacity/i.test(message)) setCapacityError(message)
-      else if (!isOwnProfile) setJobTitleError(message)
-      else setError(message)
+      else {
+        if (/reassign direct reports/i.test(message)) {
+          const childRoleAfterChange: StaffRole | null = role === 'super_admin' ? 'manager'
+            : role === 'manager' ? 'team_lead'
+              : role === 'team_lead' ? 'employee' : null
+          setPromotionBlockedIds(directReports
+            .filter(report => employmentStatus !== 'active' || report.role !== childRoleAfterChange)
+            .map(report => report.id))
+          setPromotionBlocked(true)
+          setRoleError(message)
+        } else if (!isOwnProfile) setJobTitleError(message)
+        else setError(message)
+      }
     } finally {
       setSaving(false)
     }
@@ -709,6 +729,8 @@ export function StaffProfileSettings({
                         const nextRole = e.target.value as AppRole
                         setRole(nextRole)
                         if (roleError) setRoleError('')
+                        setPromotionBlocked(false)
+                        setPromotionBlockedIds([])
                         const reportingRole = nextRole === 'manager' ? 'super_admin'
                           : nextRole === 'team_lead' ? 'manager'
                             : nextRole === 'employee' ? 'team_lead' : null
@@ -735,6 +757,14 @@ export function StaffProfileSettings({
                   )}
                   {roleError && (
                     <p className="mt-1.5 text-xs font-medium text-red-600">{roleError}</p>
+                  )}
+                  {promotionBlocked && (
+                    <Link href={promotionBlockedIds.length
+                      ? `/admin/users?tab=change-poc&select=${promotionBlockedIds.join(',')}`
+                      : '/admin/users?tab=invites'}
+                      className="mt-2 inline-flex text-xs font-semibold text-[#045E80] underline underline-offset-2 hover:text-[#034C68]">
+                      {promotionBlockedIds.length ? 'Select these reports and assign a replacement POC' : 'Review incompatible pending invitations'}
+                    </Link>
                   )}
                 </div>
 

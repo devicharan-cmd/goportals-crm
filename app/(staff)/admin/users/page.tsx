@@ -1,13 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
 import { getStaffLookups, profileIdsReportingTo } from '@/lib/queries'
-import { Card, CardHeader } from '@/components/ui/primitives'
-import { InviteUserButton, PendingInvites, StaffDirectory, UnlinkedClientAccounts, type StaffRow, type UnlinkedClientAccount } from '@/components/admin/UserAdmin'
+import { InviteUserButton, type StaffRow, type UnlinkedClientAccount } from '@/components/admin/UserAdmin'
+import { UsersAdminTabs } from '@/components/admin/UsersAdminTabs'
 import type { Invite, StaffRole } from '@/types/database'
 
 export const metadata = { title: 'Users & invites' }
 
-export default async function UsersPage() {
+export default async function UsersPage(props: { searchParams: Promise<{ tab?: string; select?: string }> }) {
+  const searchParams = await props.searchParams
   const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
   const [lookups, invitesResult, profileResult, addressResult] = await Promise.all([
@@ -58,32 +59,18 @@ export default async function UsersPage() {
     unlinkedClientAccounts = (clientProfiles ?? []).filter(profile => !linkedOwnerIds.has(profile.id))
   }
 
+  const initialTab = searchParams.tab === 'invites' || (searchParams.tab === 'change-poc' && me.role === 'super_admin') ? searchParams.tab : 'users'
   return (
-      <div className={me.role === 'team_lead' ? '' : 'grid gap-6 xl:grid-cols-[1fr_340px]'}>
-        <Card className="overflow-hidden">
-          <StaffDirectory rows={rows} departments={lookups.departments}
-            canEdit={me.role === 'super_admin'}
-            actorId={me.id}
-            actorRole={me.role}
-            inviteButton={<InviteUserButton departments={lookups.departments} actorRole={me.role} reportingPeople={reportingPeople} />} />
-        </Card>
-        {me.role !== 'team_lead' && (
-          <div className="space-y-6">
-            <Card className="h-fit overflow-hidden">
-              <CardHeader title="Pending invites" />
-              <PendingInvites invites={(invitesResult.data ?? []) as Invite[]} />
-            </Card>
-            {me.role === 'super_admin' && unlinkedClientAccounts.length > 0 && (
-              <Card className="h-fit overflow-hidden">
-                <CardHeader
-                  title={`Unlinked client accounts (${unlinkedClientAccounts.length})`}
-                  description="These logins have no client company. Super admins can permanently remove an account and its personal data here."
-                />
-                <UnlinkedClientAccounts accounts={unlinkedClientAccounts} />
-              </Card>
-            )}
-          </div>
-        )}
-      </div>
+    <UsersAdminTabs
+      rows={rows}
+      departments={lookups.departments}
+      invites={(invitesResult.data ?? []) as Invite[]}
+      inviteButton={<InviteUserButton departments={lookups.departments} actorRole={me.role} reportingPeople={reportingPeople} />}
+      unlinkedClientAccounts={unlinkedClientAccounts}
+      actorId={me.id}
+      actorRole={me.role}
+      initialTab={initialTab}
+      initialSelectedIds={(searchParams.select ?? '').split(',').filter(Boolean)}
+    />
   )
 }

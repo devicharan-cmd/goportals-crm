@@ -1,7 +1,7 @@
 'use client'
 
 import { createPortal } from 'react-dom'
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Building2, Check, ChevronDown, Layers3, Mail, MoreHorizontal, Phone, Search, Trash2, UserPlus, UsersRound, X } from 'lucide-react'
@@ -442,10 +442,31 @@ export function StaffProfileCard({ row, departments, canEdit, actorId }: {
   const router = useRouter()
   const runOnce = useSingleFlight()
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const canDelete = canEdit && row.id !== actorId && row.role !== 'super_admin'
+
+  useEffect(() => {
+    if (!menuOpen) return
+
+    function dismissMenu(event: PointerEvent) {
+      if (event.target instanceof Node && !menuRef.current?.contains(event.target)) {
+        setMenuOpen(false)
+      }
+    }
+    function dismissOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+
+    document.addEventListener('pointerdown', dismissMenu)
+    document.addEventListener('keydown', dismissOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', dismissMenu)
+      document.removeEventListener('keydown', dismissOnEscape)
+    }
+  }, [menuOpen])
 
   async function deleteStaffAccount() {
     setDeleting(true)
@@ -480,7 +501,7 @@ export function StaffProfileCard({ row, departments, canEdit, actorId }: {
             {row.status === 'active' ? 'Active' : 'Suspended'}
           </Badge>
           {canDelete && (
-            <div className="pointer-events-auto absolute right-3 top-3 z-40" onClick={event => event.stopPropagation()}>
+            <div ref={menuRef} className="pointer-events-auto absolute right-3 top-3 z-40" onClick={event => event.stopPropagation()}>
               <button
                 type="button"
                 aria-label={`Actions for ${row.full_name || row.email}`}

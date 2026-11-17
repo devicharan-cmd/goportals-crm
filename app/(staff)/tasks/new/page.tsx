@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { requireStaff } from '@/lib/auth'
-import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, taskAssigneeOptionsFor } from '@/lib/queries'
+import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getStaffLookups, taskAssigneeOptionsFor } from '@/lib/queries'
 import { ROLE_LABELS } from '@/lib/constants'
 import { TaskForm } from '@/components/tasks/TaskForm'
 
@@ -12,7 +12,9 @@ export default async function NewTaskPage(
 ) {
   const searchParams = await props.searchParams
   const me = await requireStaff()
-  const lookups = await getStaffLookups()
+  // The profiles query already returns staff visible to staff RLS; this form
+  // does not need the separate public staff-directory RPC as well.
+  const lookups = await getStaffLookups({ includeDirectory: false })
 
   // Team leads only see clients they cover via client_team (personally, or
   // through their department) — /clients itself is Manager/Super Admin only, so
@@ -24,14 +26,13 @@ export default async function NewTaskPage(
     clients = lookups.clients.filter(c => clientIds.has(c.id))
   }
 
-  const clientImageUrlByPath = await getClientProfileImageUrls(clients)
   const clientAssignees = taskAssigneeOptionsFor(me, lookups)
     .filter(option => option.clientId && clients.some(client => client.id === option.clientId))
 
   return (
     <div>
       <div className="mb-4">
-        <Link href="/tasks" className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
+        <Link href="/tasks" prefetch={false} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
       </div>
       <TaskForm
         mode="create"
@@ -40,7 +41,6 @@ export default async function NewTaskPage(
         defaultAssigneeId={searchParams.assignee}
         canMarkUrgent={me.role !== 'employee'}
         clients={clients}
-        clientImageUrlByPath={clientImageUrlByPath}
         assignees={assignableFor(me, lookups).map(p => ({ id: p.id, name: p.full_name || p.email, avatarUrl: p.avatar_url, employeeId: p.id, role: ROLE_LABELS[p.role], avatarRole: p.role }))}
         clientAssignees={clientAssignees}
         departments={lookups.departments}

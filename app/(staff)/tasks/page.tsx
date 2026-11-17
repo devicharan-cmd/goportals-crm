@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { addTaskAssigneeHistory, assigneeFilterPeopleFor, getClientProfileImageUrls, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, taskAssigneeOptionsFor, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
+import { addTaskAssigneeHistory, assigneeFilterPeopleFor, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, taskAssigneeOptionsFor, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
 import { TASK_PAGE_SIZE } from '@/lib/constants'
 import { ButtonLink } from '@/components/ui/button'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
@@ -26,6 +26,13 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     : defaultScope
   const board = searchParams.view !== 'list'
   const status = searchParams.status ?? 'all'
+  const countAllWithTaskQuery = scope === 'all'
+    && (board || status === 'all')
+    && !searchParams.assignee
+    && !searchParams.assigned_by
+    && !searchParams.client
+    && !searchParams.dept
+    && !searchParams.due
 
   const lookupsPromise = getTaskPageLookups({
     includePeople: true,
@@ -33,7 +40,10 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
   })
 
   function taskQuery(assignedScopeAssigneeIds: string[]) {
-    let query = supabase.from('tasks').select(TASK_SUMMARY_SELECT)
+    const taskSelect = countAllWithTaskQuery
+      ? supabase.from('tasks').select(TASK_SUMMARY_SELECT, { count: 'exact' })
+      : supabase.from('tasks').select(TASK_SUMMARY_SELECT)
+    let query = taskSelect
       .order('is_urgent', { ascending: false })
       .order('due_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
@@ -66,7 +76,9 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     supabase.from('tasks').select('id', { count: 'exact', head: true })
       .eq('assignee_id', me.id)
       .not('status', 'in', '(completed,cancelled)'),
-    supabase.from('tasks').select('id', { count: 'exact', head: true }),
+    countAllWithTaskQuery
+      ? Promise.resolve(null)
+      : supabase.from('tasks').select('id', { count: 'exact', head: true }),
   ])
 
   const assignedScopeAssigneeIds = taskAssigneeIdsForAssignedScope(me, lookups)
@@ -75,20 +87,29 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     ? assignedCountQuery.in('assignee_id', assignedScopeAssigneeIds)
     : assignedCountQuery.eq('id', '00000000-0000-0000-0000-000000000000')
 
-  const [taskResult, assignedTaskCountResult, clientImageUrlByPath] = await Promise.all([
-    initialTaskResult ?? taskQuery(assignedScopeAssigneeIds),
+  const taskResultPromise = Promise.resolve(initialTaskResult ?? taskQuery(assignedScopeAssigneeIds))
+  // Start the history lookup as soon as the task rows arrive instead of
+  // waiting for counts and image signing to finish first.
+  const taskHistoryPromise = taskResultPromise.then(async result => {
+    if (result.error) throw result.error
+    return addTaskAssigneeHistory(
+      supabase,
+      normalizeTaskSummaryRows((result.data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0]),
+    )
+  })
+  const [taskResult, assignedTaskCountResult, tasks] = await Promise.all([
+    taskResultPromise,
     assignedCountQuery,
-    getClientProfileImageUrls(lookups.clients),
+    taskHistoryPromise,
   ])
   if (taskResult.error) throw taskResult.error
   if (myTaskCountResult.error) throw myTaskCountResult.error
-  if (allTaskCountResult.error) throw allTaskCountResult.error
+  if (allTaskCountResult?.error) throw allTaskCountResult.error
   if (assignedTaskCountResult.error) throw assignedTaskCountResult.error
   const hasMoreTasks = (taskResult.data?.length ?? 0) > TASK_PAGE_SIZE
-  const tasks = await addTaskAssigneeHistory(
-    supabase,
-    normalizeTaskSummaryRows((taskResult.data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0]),
-  )
+  const allTaskCount = countAllWithTaskQuery
+    ? taskResult.count ?? 0
+    : allTaskCountResult?.count ?? 0
   const lastTask = tasks[tasks.length - 1]
   const initialTaskCursor = hasMoreTasks && lastTask
     ? { id: lastTask.id, is_urgent: lastTask.is_urgent, due_date: lastTask.due_date, created_at: lastTask.created_at }
@@ -127,7 +148,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       initialScopeCounts={{
         mine: myTaskCountResult.count ?? 0,
         assigned: assignedTaskCountResult.count ?? 0,
-        all: allTaskCountResult.count ?? 0,
+        all: allTaskCount,
       }}
       assignOptions={assignOptions}
       editableTaskActorId={me.id}
@@ -150,11 +171,11 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
           clients={lookups.clients.map(client => ({
             value: client.id,
             label: client.company_name,
-            avatarUrl: client.company_profile_image_path ? clientImageUrlByPath[client.company_profile_image_path] : null,
+            imagePath: client.company_profile_image_path,
           }))}
           people={assigneeFilterPeopleFor(me, lookups).map(p => ({ value: p.id, label: p.full_name || p.email, avatarUrl: p.avatar_url, role: p.role }))}
           departments={lookups.departments.map(d => ({ value: d.id, label: d.name }))}
-          action={<ButtonLink href="/tasks/new" size="sm"><Plus className="h-3.5 w-3.5" /> New task</ButtonLink>}
+          action={<ButtonLink href="/tasks/new" prefetch={false} size="sm"><Plus className="h-3.5 w-3.5" /> New task</ButtonLink>}
         />
         <TaskSearchResults />
       </div>

@@ -7,6 +7,7 @@ import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
 import { searchPortalTickets, searchStaffTickets } from '@/app/actions/search'
 import { errorMessage } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { getClientProfileImageUrls } from '@/lib/client-profile-image-cache'
 import type { TicketStatus } from '@/types/database'
 
 type SearchMode = 'client' | 'staff'
@@ -55,6 +56,32 @@ export function TicketSearchProvider({
   const [nextTicketCursor, setNextTicketCursor] = useState<TicketPageCursor | null>(initialTicketCursor)
   const [loadingMoreTickets, setLoadingMoreTickets] = useState(false)
   const ticketRequestId = useRef(0)
+
+  useEffect(() => {
+    let active = true
+    const imagePaths = Array.from(new Set(initialTickets.flatMap(ticket => {
+      const path = ticket.client?.company_profile_image_path
+      return path ? [path] : []
+    })))
+
+    if (!imagePaths.length) return () => { active = false }
+
+    // Keep private avatar signing off the server-render critical path.
+    void getClientProfileImageUrls(imagePaths)
+      .then(signedUrlByPath => {
+        if (!active) return
+        setTickets(current => current.map(ticket => {
+          const path = ticket.client?.company_profile_image_path
+          const signedUrl = path ? signedUrlByPath[path] : undefined
+          return ticket.client && path
+            ? { ...ticket, client: { ...ticket.client, company_profile_image_signed_url: signedUrl ?? null } }
+            : ticket
+        }))
+      })
+      .catch(() => {})
+
+    return () => { active = false }
+  }, [initialTickets])
 
   useEffect(() => {
     ticketRequestId.current += 1

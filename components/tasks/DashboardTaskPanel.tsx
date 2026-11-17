@@ -47,6 +47,7 @@ export function DashboardTaskPanel({
             </div>
             <Link
               href={group === 'working' ? '/tasks?scope=all&status=active' : '/tasks?scope=all&status=completed'}
+              prefetch={false}
               className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]"
             >
               View all

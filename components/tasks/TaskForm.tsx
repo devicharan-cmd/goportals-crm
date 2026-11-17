@@ -18,6 +18,7 @@ import { TICKET_CATEGORY_BY_VALUE } from '@/lib/ticket-categories'
 import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
 import type { AppRole, Department, DeadlineType, Platform, Service, Task, TaskPriority, TaskType, TaskVisibility, TicketStatus } from '@/types/database'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
+import { getClientProfileImageUrls } from '@/lib/client-profile-image-cache'
 
 type Option = { id: string; name: string; avatarUrl?: string | null; employeeId?: string; role?: string; avatarRole?: AppRole; clientId?: string }
 type TicketOption = {
@@ -158,6 +159,27 @@ export function TaskForm(p: TaskFormProps) {
   const runOnce = useSingleFlight()
   const t = p.task
   const currentTicketId = t?.ticket_id ?? null
+  const [clientImageUrls, setClientImageUrls] = useState<Record<string, string>>(p.clientImageUrlByPath ?? {})
+
+  useEffect(() => {
+    let active = true
+    const existingUrls = p.clientImageUrlByPath ?? {}
+    setClientImageUrls(existingUrls)
+    const paths = Array.from(new Set(p.clients.flatMap(client => {
+      const path = client.company_profile_image_path
+      return path && !existingUrls[path] ? [path] : []
+    })))
+    if (paths.length === 0) return () => { active = false }
+
+    void getClientProfileImageUrls(paths)
+      .then(signedUrls => {
+        if (!active) return
+        setClientImageUrls(previous => ({ ...previous, ...signedUrls }))
+      })
+      .catch(() => {})
+
+    return () => { active = false }
+  }, [p.clients, p.clientImageUrlByPath])
   const [form, setForm] = useState({
     title:           t?.title ?? '',
     description:     t?.description ?? '',
@@ -665,7 +687,7 @@ export function TaskForm(p: TaskFormProps) {
                   <span className="flex items-center gap-2">
                     <CompanyAvatar
                       name={client.company_name}
-                      src={client.company_profile_image_path ? p.clientImageUrlByPath?.[client.company_profile_image_path] : null}
+                      src={client.company_profile_image_path ? clientImageUrls[client.company_profile_image_path] : null}
                       size="xs"
                     />
                     <span className="truncate">{client.company_name}</span>
@@ -675,7 +697,7 @@ export function TaskForm(p: TaskFormProps) {
                   <span className="flex items-center gap-2">
                     <CompanyAvatar
                       name={client.company_name}
-                      src={client.company_profile_image_path ? p.clientImageUrlByPath?.[client.company_profile_image_path] : null}
+                      src={client.company_profile_image_path ? clientImageUrls[client.company_profile_image_path] : null}
                       size="xs"
                     />
                     <span className="break-words">{client.company_name}</span>

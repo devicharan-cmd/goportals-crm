@@ -11,7 +11,7 @@ import { TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { cn, formatDate, ticketCode } from '@/lib/utils'
 import type { Ticket } from '@/types/database'
 
-export type TicketListItem = Ticket & {
+export type TicketListItem = Pick<Ticket, 'id' | 'ticket_number' | 'client_id' | 'category' | 'subject' | 'priority' | 'is_urgent' | 'status' | 'created_at'> & {
   client?: {
     id: string
     company_name: string
@@ -53,11 +53,14 @@ export function TicketTable({
           {tickets.map(t => (
             <tr
               key={t.id}
-              onClick={() => router.push(`${hrefBase}/${t.id}`)}
+              onClick={event => {
+                if ((event.target as HTMLElement).closest('a, button, input, select, textarea, [role="button"]')) return
+                router.push(`${hrefBase}/${t.id}`)
+              }}
               className="group cursor-pointer hover:bg-slate-50/80 transition-colors"
             >
               <td className="max-w-md px-5 py-3.5">
-                <Link href={`${hrefBase}/${t.id}`} className="block">
+                <Link href={`${hrefBase}/${t.id}`} prefetch={false} className="block">
                   <span className="flex items-center gap-2">
                     <span className="flex-shrink-0 font-mono text-xs font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</span>
                     {t.is_urgent && !TICKET_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
@@ -87,7 +90,7 @@ export function TicketTable({
       <ul className="divide-y divide-slate-100 md:hidden">
         {tickets.map(t => (
           <li key={t.id}>
-            <Link href={`${hrefBase}/${t.id}`} className="block px-4 py-3 active:bg-slate-50">
+            <Link href={`${hrefBase}/${t.id}`} prefetch={false} className="block px-4 py-3 active:bg-slate-50">
               <div className="flex items-start justify-between gap-2">
                 <p className="font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                 {t.priority && <PriorityBadge priority={t.priority} />}

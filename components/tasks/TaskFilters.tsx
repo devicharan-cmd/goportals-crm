@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { TaskFilterToolbar } from '@/components/tasks/TaskFilterToolbar'
 import { useTaskSearch } from '@/components/tasks/TaskSearch'
+import { getClientProfileImageUrls } from '@/lib/client-profile-image-cache'
 import type { AppRole } from '@/types/database'
 
-type Option = { value: string; label: string; avatarUrl?: string | null; role?: AppRole }
+type Option = { value: string; label: string; avatarUrl?: string | null; imagePath?: string | null; role?: AppRole }
 
 export function TaskFilters({
   clients, people, departments, showScope, showAssigneeFilter, defaultScope = 'mine', assigners, action,
@@ -26,6 +27,27 @@ export function TaskFilters({
   const taskSearch = useTaskSearch()
   const { changeScope, scope: activeScope } = taskSearch
   const [searchInput, setSearchInput] = useState('')
+  const [clientOptions, setClientOptions] = useState(clients)
+
+  useEffect(() => {
+    let active = true
+    setClientOptions(clients.map(client => ({ ...client, avatarUrl: null })))
+    const imagePaths = Array.from(new Set(clients.flatMap(client => client.imagePath ? [client.imagePath] : [])))
+    if (!imagePaths.length) return () => { active = false }
+
+    // Sign client avatars after the task page has rendered, not on its RSC path.
+    void getClientProfileImageUrls(imagePaths)
+      .then(signedUrlByPath => {
+        if (!active) return
+        setClientOptions(clients.map(client => ({
+          ...client,
+          avatarUrl: client.imagePath ? signedUrlByPath[client.imagePath] ?? null : null,
+        })))
+      })
+      .catch(() => {})
+
+    return () => { active = false }
+  }, [clients])
 
   useEffect(() => {
     if (!params.has('q')) return
@@ -110,7 +132,7 @@ export function TaskFilters({
       onViewChange={value => set('view', value === 'board' ? '' : value)}
       status={status}
       onStatusChange={value => set('status', value === 'all' ? '' : value)}
-      clients={clients}
+      clients={clientOptions.map(({ imagePath: _imagePath, ...client }) => client)}
       client={client}
       onClientChange={value => set('client', value)}
       showClientFilter

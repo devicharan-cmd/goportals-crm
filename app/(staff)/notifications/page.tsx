@@ -8,7 +8,8 @@ export const metadata = { title: 'Notifications' }
 
 export default async function NotificationsPage() {
   const me = await requireStaff()
-  const { data } = await (await createClient()).from('notifications').select('*')
+  const { data } = await (await createClient()).from('notifications')
+    .select('id, recipient_id, type, title, body, task_id, ticket_id, client_id, is_read, created_at')
     .eq('recipient_id', me.id).order('created_at', { ascending: false }).limit(100)
   return (
     <div className="mx-auto max-w-3xl">

@@ -230,7 +230,7 @@ export default async function DashboardPage() {
               <ul className="divide-y divide-slate-100">
                 {urgentTasks.map(t => (
                   <li key={t.id} className="flex items-center gap-3 px-5 py-3">
-                    <Link href={`/tasks/${t.id}`} className="min-w-0 flex-1">
+                    <Link href={`/tasks/${t.id}`} prefetch={false} className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>{t.title}</p>
                       <p className="flex items-center gap-1.5 truncate text-xs text-slate-500">
                         <span className="truncate">{t.client?.company_name} · <DueDate date={t.due_date} status={t.status} /></span>
@@ -250,7 +250,7 @@ export default async function DashboardPage() {
               <CardHeader
                 title="New client tickets"
                 description="Raised from the portal, not yet assigned"
-                action={<Link href="/tickets" className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>}
+                action={<Link href="/tickets" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>}
               />
               {clientRequests.length === 0 ? (
                 <EmptyState title="No new tickets" />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Flame, Globe2, Info, LockKeyhole, X } from 'lucide-react'
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek, subMonths } from 'date-fns'
@@ -59,6 +59,7 @@ function FormSelect({
   className?: string
   native?: boolean
 }) {
+  const selectId = useId()
   const [open, setOpen] = useState(false)
   const selected = options.find(option => option.value === value)
 
@@ -90,15 +91,15 @@ function FormSelect({
 
   return (
     <div className="relative" data-form-select>
-      <button type="button" className={cn('form-field flex w-full items-center justify-between text-left', className, invalid && 'border-red-400 focus:border-red-500 focus:ring-red-200')}
-              disabled={disabled} aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open}
+      <button id={selectId} type="button" role="combobox" className={cn('form-field flex w-full items-center justify-between text-left', className, invalid && 'border-red-400 focus:border-red-500 focus:ring-red-200')}
+              disabled={disabled} aria-label={ariaLabel} aria-controls={`${selectId}-options`} aria-haspopup="listbox" aria-expanded={open}
               aria-describedby={ariaDescribedBy} aria-required={required} aria-invalid={invalid}
               onClick={() => setOpen(current => !current)}>
         <span className="min-w-0 flex-1">{selected?.selectedContent ?? selected?.content ?? selected?.label ?? label}</span>
         <ChevronDown aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
       </button>
       {open && (
-        <div role="listbox" aria-label={ariaLabel ?? label} className="absolute z-30 mt-1 max-h-64 w-full space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+        <div id={`${selectId}-options`} role="listbox" aria-label={ariaLabel ?? label} className="absolute z-30 mt-1 max-h-64 w-full space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
           {options.map(option => {
             const isSelected = option.value === value
             return (
@@ -155,6 +156,7 @@ function ticketRequestSummary(ticket: TicketOption, platforms: Platform[]) {
 }
 
 export function TaskForm(p: TaskFormProps) {
+  const assigneeSelectId = useId()
   const router = useRouter()
   const runOnce = useSingleFlight()
   const t = p.task
@@ -802,7 +804,7 @@ export function TaskForm(p: TaskFormProps) {
         <Field label="Assignee" required={p.mode === 'create'}
                hint={!canEditAssignment ? 'Only managers can change the assignee.' : assigneeOptions.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
           <div className="relative" data-assignee-picker>
-            <button type="button" className={cn(
+            <button id={assigneeSelectId} type="button" role="combobox" aria-label="Assignee" aria-controls={`${assigneeSelectId}-options`} className={cn(
               'form-field flex w-full items-center justify-between text-left',
               p.modalLayout && 'h-9 rounded-xl text-sm',
               assigneeError && 'border-red-400 focus:border-red-500',
@@ -823,7 +825,7 @@ export function TaskForm(p: TaskFormProps) {
             {assigneeOpen && (
               <div className="absolute z-30 mt-1 w-full rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
                 <p className="px-3 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Assigned to</p>
-                <div role="listbox" aria-label="Assigned to" className="max-h-64 space-y-1 overflow-y-auto">
+                <div id={`${assigneeSelectId}-options`} role="listbox" aria-label="Assigned to" className="max-h-64 space-y-1 overflow-y-auto">
                   {assigneeOptions.map(a => {
                     const selected = form.assignee_id === a.id
                     return (

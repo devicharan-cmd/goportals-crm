@@ -233,6 +233,9 @@ function ReportingToField({
       <button
         ref={buttonRef}
         type="button"
+        role="combobox"
+        aria-label="Reporting To (POC)"
+        aria-controls={`${idPrefix}-options`}
         disabled={disabled || options.length === 0}
         className={cn(
           'form-field flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm focus:!shadow-none focus:!ring-0 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50',
@@ -274,6 +277,7 @@ function ReportingToField({
           <div
             role="listbox"
             aria-label="Reporting person"
+            id={`${idPrefix}-options`}
             className="space-y-1 overflow-y-auto"
             style={{ maxHeight: Math.max(0, position.maxHeight - 60) }}
           >

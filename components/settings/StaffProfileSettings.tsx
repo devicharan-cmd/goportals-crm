@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import Link from 'next/link'
 import {
   Check, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, Loader2, ChevronDown, Search
@@ -38,6 +39,7 @@ function ReportingPersonSelect({
   disabled?: boolean
   invalid?: boolean
 }) {
+  const selectId = useId()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const rootRef = useRef<HTMLDivElement>(null)
@@ -61,6 +63,11 @@ function ReportingPersonSelect({
     <div ref={rootRef} className="relative">
       <button
         type="button"
+        role="combobox"
+        aria-label="Reporting To"
+        aria-controls={`${selectId}-options`}
+        aria-expanded={open}
+        aria-haspopup="listbox"
         disabled={disabled}
         onClick={() => setOpen(current => !current)}
         className={cn(
@@ -91,7 +98,7 @@ function ReportingPersonSelect({
               className="h-9 w-full rounded-lg border border-slate-200 pl-8 pr-3 text-sm outline-none focus:border-[#0A6F94]"
             />
           </div>
-          <div className="max-h-52 overflow-y-auto">
+          <div id={`${selectId}-options`} role="listbox" aria-label="Reporting people" className="max-h-52 overflow-y-auto">
             {filtered.map(person => (
               <button
                 key={person.id}
@@ -556,9 +563,12 @@ export function StaffProfileSettings({
                         className="flex h-20 w-20 items-center justify-center rounded-full shadow-sm"
                       >
                         {currentImage && !imageLoadFailed ? (
-                          <img
+                          <Image
                             src={currentImage}
                             alt={fullName || profile.email}
+                            width={80}
+                            height={80}
+                            unoptimized
                             className="h-full w-full rounded-full object-cover border-4 border-white"
                             onError={() => setImageLoadFailed(true)}
                           />
@@ -568,9 +578,12 @@ export function StaffProfileSettings({
                       </ProfileImageControl>
                     ) : (
                       currentImage && !imageLoadFailed ? (
-                        <img
+                        <Image
                           src={currentImage}
                           alt={fullName || profile.email}
+                          width={80}
+                          height={80}
+                          unoptimized
                           className="h-20 w-20 rounded-full object-cover border-4 border-white"
                           onError={() => setImageLoadFailed(true)}
                         />

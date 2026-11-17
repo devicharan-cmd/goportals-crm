@@ -1,6 +1,6 @@
 'use client'
 
-import { Children, isValidElement, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Children, isValidElement, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -88,6 +88,8 @@ export function SearchableSelect({
   'aria-invalid'?: boolean
   'aria-describedby'?: string
 }) {
+  const generatedId = useId()
+  const controlId = id ?? `searchable-select-${generatedId}`
   const options = useMemo<DisplayOption[]>(() => richOptions
     ? richOptions.map(option => ({
         value: option.value,
@@ -213,8 +215,9 @@ export function SearchableSelect({
       )}
       <button
         ref={buttonRef}
-        id={id}
+        id={controlId}
         type="button"
+        role="combobox"
         disabled={disabled}
         className={cn(
           'form-field flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm focus:!shadow-none focus:!ring-0 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50',
@@ -222,6 +225,7 @@ export function SearchableSelect({
           className,
         )}
         aria-label={ariaLabel}
+        aria-controls={`${controlId}-options`}
         aria-invalid={ariaInvalid || validationError}
         aria-describedby={ariaDescribedBy}
         aria-required={required}
@@ -264,6 +268,7 @@ export function SearchableSelect({
             </div>
           )}
           <div
+            id={`${controlId}-options`}
             role="listbox"
             aria-label={ariaLabel}
             className={cn(compactOptions ? 'space-y-2' : 'space-y-1', 'overflow-y-auto')}

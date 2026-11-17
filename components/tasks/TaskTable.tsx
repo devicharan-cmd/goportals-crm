@@ -109,11 +109,11 @@ export function TaskTable({
             <tr key={t.id} className="group hover:bg-slate-50/80">
               {showAssignedBy && (
                 <td className="px-3 py-3 font-mono text-xs font-semibold text-[#045E80]">
-                  <Link href={taskHref(t.id)} className="text-[#045E80] hover:text-[#034C68]">{taskCode(t.task_number)}</Link>
+                  <Link href={taskHref(t.id)} prefetch={false} className="text-[#045E80] hover:text-[#034C68]">{taskCode(t.task_number)}</Link>
                 </td>
               )}
               <td className="px-3 py-3">
-                <Link href={taskHref(t.id)} className="relative block h-14">
+                <Link href={taskHref(t.id)} prefetch={false} className="relative block h-14">
                   <span className={`absolute inset-x-0 top-[calc(50%-10px)] grid gap-x-2 ${showAssignedBy ? 'grid-cols-1' : 'grid-cols-[max-content_minmax(0,1fr)]'}`}>
                     {!showAssignedBy && <span className="font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>}
                     <span className={`${showAssignedBy ? '' : 'col-start-2'} flex min-w-0 items-center gap-2`}>
@@ -209,7 +209,7 @@ export function TaskTable({
       <ul className="divide-y divide-slate-100 md:hidden">
         {tasks.map(t => (
           <li key={t.id}>
-            <Link href={taskHref(t.id)} className="block px-4 py-3 active:bg-slate-50">
+            <Link href={taskHref(t.id)} prefetch={false} className="block px-4 py-3 active:bg-slate-50">
               <div className="flex items-start justify-between gap-2">
                 <p className="font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>{t.title}</p>
                 <PriorityBadge priority={t.priority} />

@@ -1,6 +1,7 @@
  'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { isValidElement, useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
@@ -102,6 +103,7 @@ const AVATAR_COLORS = [
 
 export function Avatar({ name, src, role, size = 'md', className }: { name: string | null | undefined; src?: string | null; role?: AppRole; size?: 'xs' | 'sm' | 'md' | 'lg'; className?: string }) {
   const sizes = { xs: 'h-5 w-5 text-[10px]', sm: 'h-7 w-7 text-xs', md: 'h-9 w-9 text-sm', lg: 'h-12 w-12 text-base' }
+  const imageSize = { xs: 20, sm: 28, md: 36, lg: 48 }[size]
   const hash = (name ?? '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   const [imageFailed, setImageFailed] = useState(false)
   useEffect(() => setImageFailed(false), [src])
@@ -112,7 +114,7 @@ export function Avatar({ name, src, role, size = 'md', className }: { name: stri
         sizes[size], (role ? ROLE_STYLES[role].avatar : undefined) ?? AVATAR_COLORS[hash % AVATAR_COLORS.length], className)}
     >
       {src && !imageFailed
-        ? <img src={src} alt="" className="h-full w-full rounded-[inherit] object-cover" onError={() => setImageFailed(true)} />
+        ? <Image src={src} alt="" width={imageSize} height={imageSize} unoptimized className="h-full w-full rounded-[inherit] object-cover" onError={() => setImageFailed(true)} />
         : getInitials(name)}
     </span>
   )
@@ -143,12 +145,13 @@ export function StaffIdentity({ name, src, role, roleLabel, className }: {
 
 export function CompanyAvatar({ name, src, size = 'md', className }: { name: string; src?: string | null; size?: 'xs' | 'sm' | 'md' | 'lg'; className?: string }) {
   const sizes = { xs: 'h-5 w-5 text-[8px]', sm: 'h-10 w-10 text-sm', md: 'h-14 w-14 text-lg', lg: 'h-20 w-20 text-2xl' }
+  const imageSize = { xs: 20, sm: 40, md: 56, lg: 80 }[size]
   return (
     <div aria-label={`${name} company image`} role="img" className={cn(
       'flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0A6F94] to-[#033B51] font-sans font-bold text-white',
       sizes[size], className,
     )} style={size === 'xs' ? { width: 20, height: 20, minWidth: 20, minHeight: 20 } : undefined}>
-      {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : getInitials(name)}
+      {src ? <Image src={src} alt="" width={imageSize} height={imageSize} unoptimized className="h-full w-full object-cover" /> : getInitials(name)}
     </div>
   )
 }

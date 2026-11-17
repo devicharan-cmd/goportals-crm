@@ -150,7 +150,7 @@ function AssigneeSelect({ id, value, options, onChange, onOpenChange, invalid, d
 
   return (
     <div>
-      <button ref={buttonRef} id={id} type="button"
+      <button ref={buttonRef} id={id} type="button" role="combobox" aria-label="Assignee"
               disabled={disabled}
               className={`form-field flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-50 ${invalid ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
               aria-required="true" aria-invalid={invalid}

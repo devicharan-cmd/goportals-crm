@@ -113,6 +113,9 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const taskAssigner = task.assigned_by
     ? lookups.people.find(person => person.id === task.assigned_by)
     : undefined
+  const taskPlatforms = (task.platform_ids?.length ? task.platform_ids : task.platform_id ? [task.platform_id] : [])
+    .map(id => lookups.platforms.find(platform => platform.id === id))
+    .filter((platform): platform is NonNullable<typeof platform> => Boolean(platform))
 
   const assignees = taskAssigneeOptionsFor(me, lookups)
   const editAssignees = assigneeOptionsFor(me, lookups)
@@ -143,7 +146,9 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     ['Type', TYPE_LABELS[task.type]],
     ['Service', task.service?.name ?? '—'],
     ['Department', task.department?.name ?? '—'],
-    ['Platform', task.platform?.name ? <MarketplacePlatformLabel name={task.platform.name} /> : '—'],
+    ['Platform', taskPlatforms.length
+      ? <span className="flex flex-wrap justify-end gap-2">{taskPlatforms.map(platform => <MarketplacePlatformLabel key={platform.id} name={platform.name} />)}</span>
+      : '—'],
     ['Client', !task.client ? '—' : (
       <span className="inline-flex items-center justify-end gap-2">
         <CompanyAvatar name={task.client.company_name} src={clientImage?.signedUrl} size="xs" />

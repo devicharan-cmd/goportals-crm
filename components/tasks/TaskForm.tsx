@@ -10,7 +10,7 @@ import { Alert, Avatar, CompanyAvatar, Field } from '@/components/ui/primitives'
 import { TaskBasicInformation } from '@/components/tasks/TaskBasicInformation'
 import { AssigneeOptionContent } from '@/components/tasks/AssigneeOptionContent'
 import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } from '@/components/tasks/TaskFormSections'
-import { MarketplacePlatformSelect } from '@/components/shared/Marketplace'
+import { MarketplacePlatformMultiSelect } from '@/components/shared/Marketplace'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { AttachmentPicker } from '@/components/shared/AttachmentPicker'
 import { ToggleSwitch } from '@/components/shared/ToggleSwitch'
@@ -203,7 +203,7 @@ export function TaskForm(p: TaskFormProps) {
     is_urgent:       t?.is_urgent ?? false,
     service_id:      t?.service_id ?? '',
     department_id:   t?.department_id ?? '',
-    platform_id:     t?.platform_id ?? '',
+    platform_ids:    t?.platform_ids?.length ? t.platform_ids : t?.platform_id ? [t.platform_id] : [],
     assignee_id:     t?.assignee_id
                      ?? (p.defaultAssigneeId && p.assignees.some(a => a.id === p.defaultAssigneeId) ? p.defaultAssigneeId : null)
                      ?? (p.mode === 'create' && p.assignees.length === 1 ? p.meId : ''),
@@ -347,7 +347,7 @@ export function TaskForm(p: TaskFormProps) {
     return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`
   }
 
-  const activePlatforms = useMemo(() => p.platforms.filter(x => x.is_active || x.id === form.platform_id), [p.platforms, form.platform_id])
+  const activePlatforms = useMemo(() => p.platforms.filter(x => x.is_active || form.platform_ids.includes(x.id)), [p.platforms, form.platform_ids])
   const activeServices = useMemo(() => p.services.filter(x => x.is_active || x.id === form.service_id), [p.services, form.service_id])
 
   // A client can have several tickets — load that client's tickets so a task
@@ -526,7 +526,8 @@ export function TaskForm(p: TaskFormProps) {
       is_urgent:       form.is_urgent,
       service_id:      form.service_id || null,
       department_id:   form.department_id || null,
-      platform_id:     form.platform_id || null,
+      platform_id:     form.platform_ids[0] ?? null,
+      platform_ids:    form.platform_ids,
       assignee_id:     form.assignee_id || null,
       due_date:        form.due_date || null,
       deadline_type:   form.deadline_type || null,
@@ -829,14 +830,14 @@ export function TaskForm(p: TaskFormProps) {
             onChange={value => set('department_id', value)} aria-label="Department" />
         </Field>
         <Field label="Platform">
-          <MarketplacePlatformSelect
+          <MarketplacePlatformMultiSelect
             platforms={activePlatforms}
-            value={form.platform_id}
+            value={form.platform_ids}
             placeholder="—"
             className={p.modalLayout
               ? 'form-field flex h-9 w-full items-center justify-between gap-2 text-sm'
               : undefined}
-            onChange={value => set('platform_id', value)}
+            onChange={value => set('platform_ids', value)}
           />
         </Field>
       </TaskFieldsGrid>

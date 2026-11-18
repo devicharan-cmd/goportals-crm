@@ -203,6 +203,7 @@ export interface Task {
   schedule_id?: string | null
   department_id: string | null
   platform_id: string | null
+  platform_ids: string[]
   service_id: string | null
   due_date: string | null
   deadline_type: DeadlineType | null
@@ -239,6 +240,7 @@ export interface TaskSummary {
   visibility: TaskVisibility
   is_scheduled: boolean
   schedule_id?: string | null
+  platform_ids?: string[]
   due_date: string | null
   created_at: string
   assignee_id: string | null

@@ -1,6 +1,7 @@
 'use client'
 
-import { Store } from 'lucide-react'
+import { Check, ChevronDown, Search, Store } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { SiBigbasket, SiSwiggy } from 'react-icons/si'
 import { cn } from '@/lib/utils'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
@@ -126,6 +127,71 @@ export function MarketplaceAccountSelect({ accounts, value, onChange, placeholde
         textLabel: `${account.platform_name ?? ''} ${account.account_name ?? ''}`.trim(),
       }))}
     />
+  )
+}
+
+export function MarketplacePlatformMultiSelect({ platforms, value, onChange, placeholder, disabled, className, id }: {
+  platforms: MarketplacePlatform[]
+  value: string[]
+  onChange: (value: string[]) => void
+  placeholder: string
+  disabled?: boolean
+  className?: string
+  id?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const rootRef = useRef<HTMLDivElement>(null)
+  const selected = useMemo(() => platforms.filter(platform => value.includes(platform.id)), [platforms, value])
+  const filtered = useMemo(() => platforms.filter(platform => platform.name.toLowerCase().includes(query.trim().toLowerCase())), [platforms, query])
+
+  useEffect(() => {
+    if (!open) return
+    const close = (event: MouseEvent) => {
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false)
+    }
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', escape)
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', escape) }
+  }, [open])
+
+  function toggle(platformId: string) {
+    onChange(value.includes(platformId) ? value.filter(id => id !== platformId) : [...value, platformId])
+  }
+
+  return (
+    <div ref={rootRef} className="relative min-w-0">
+      <button id={id} type="button" aria-label="Platforms" aria-haspopup="listbox" aria-expanded={open}
+        disabled={disabled} onClick={() => setOpen(current => !current)}
+        className={cn('form-field flex w-full min-w-0 items-center justify-between gap-2 overflow-hidden text-left', className)}>
+        <span className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+          {selected.length ? selected.map(platform => <span key={platform.id} className="shrink-0"><MarketplacePlatformLabel name={platform.name} /></span>)
+            : <span className="truncate text-slate-500">{placeholder}</span>}
+        </span>
+        <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
+      </button>
+      {open && <div role="listbox" aria-label="Select platforms" aria-multiselectable="true" className="absolute z-40 mt-1 w-full min-w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+        <div className="relative mb-2">
+          <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search platforms..." className="form-field h-9 w-full pl-9 text-sm" aria-label="Search platforms" />
+        </div>
+        <div className="max-h-56 space-y-1 overflow-y-auto">
+          {filtered.map(platform => {
+            const checked = value.includes(platform.id)
+            return <button key={platform.id} type="button" role="option" aria-selected={checked} onClick={() => toggle(platform.id)}
+              className={cn('flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-slate-50', checked && 'bg-[#EAF4F8]')}>
+              <span aria-hidden="true" className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded border', checked ? 'border-[#045E80] bg-[#045E80] text-white' : 'border-slate-300')}>
+                {checked && <Check className="h-3 w-3" />}
+              </span>
+              <MarketplacePlatformLabel name={platform.name} />
+            </button>
+          })}
+          {!filtered.length && <p className="px-3 py-2 text-sm text-slate-500">No platforms found.</p>}
+        </div>
+        {selected.length > 0 && <button type="button" onClick={() => onChange([])} className="mt-2 w-full border-t border-slate-100 pt-2 text-left text-xs font-medium text-slate-500 hover:text-slate-800">Clear selection</button>}
+      </div>}
+    </div>
   )
 }
 

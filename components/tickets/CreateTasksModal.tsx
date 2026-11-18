@@ -9,7 +9,7 @@ import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/primitives'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
-import { MarketplacePlatformSelect } from '@/components/shared/Marketplace'
+import { MarketplacePlatformMultiSelect } from '@/components/shared/Marketplace'
 import { TaskBasicInformation } from '@/components/tasks/TaskBasicInformation'
 import { AssigneeOptionContent } from '@/components/tasks/AssigneeOptionContent'
 import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } from '@/components/tasks/TaskFormSections'
@@ -26,7 +26,7 @@ type Row = {
   type: TaskType
   service_id: string
   department_id: string
-  platform_id: string
+  platform_ids: string[]
   assignee_id: string
   due_date: string
   deadline_type: DeadlineType | ''
@@ -219,7 +219,7 @@ function emptyRow(ticket: Ticket): Row {
     type: 'task',
     service_id: '',
     department_id: ticket.department_id ?? '',
-    platform_id: '',
+    platform_ids: [],
     assignee_id: '',
     due_date: '',
     deadline_type: '',
@@ -416,7 +416,8 @@ export function CreateTasksModal({
           type: r.type,
           service_id: r.service_id || null,
           department_id: r.department_id || null,
-          platform_id: r.platform_id || null,
+          platform_id: r.platform_ids[0] || null,
+          platform_ids: r.platform_ids,
           assignee_id: r.assignee_id,
           due_date: r.due_date,
           deadline_type: r.deadline_type || null,
@@ -456,7 +457,7 @@ export function CreateTasksModal({
             client_id: ticket.client_id, ticket_id: ticket.id, visibility: row.visibility as TaskVisibility,
             type: row.type, priority: row.priority, is_urgent: row.is_urgent,
             service_id: row.service_id || null, department_id: row.department_id || null,
-            platform_id: row.platform_id || null, assignee_id: row.assignee_id,
+            platform_id: row.platform_ids[0] || null, platform_ids: row.platform_ids, assignee_id: row.assignee_id,
             estimated_hours: row.estimated_hours ? Number(row.estimated_hours) : null,
             due_date: null, deadline_type: null,
           },
@@ -597,13 +598,13 @@ export function CreateTasksModal({
                 </label>
                 <label className="min-w-0">
                   <span className="form-field-label text-sm">Platform</span>
-                  <MarketplacePlatformSelect
+                  <MarketplacePlatformMultiSelect
                     className="form-field flex h-9 w-full items-center justify-between gap-2 rounded-xl text-sm"
-                    platforms={platforms.filter(platform => platform.is_active || platform.id === r.platform_id)}
-                    value={r.platform_id}
+                    platforms={platforms.filter(platform => platform.is_active || r.platform_ids.includes(platform.id))}
+                    value={r.platform_ids}
                     placeholder="—"
                     disabled={!!createdTaskIds}
-                    onChange={value => update(i, { platform_id: value })}
+                    onChange={value => update(i, { platform_ids: value })}
                   />
                 </label>
               </TaskFieldsGrid>

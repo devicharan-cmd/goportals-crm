@@ -42,8 +42,23 @@ export async function middleware(request: NextRequest) {
   // The project's ES256 access tokens can be verified against Supabase's
   // cached JWKS locally. Unlike getUser(), this avoids an Auth HTTP request
   // on every protected page navigation while still verifying the JWT.
-  const { data: verifiedToken } = await supabase.auth.getClaims()
+  const { data: verifiedToken, error: claimsError } = await supabase.auth.getClaims()
   const userId = verifiedToken?.claims.sub
+
+  // A browser can retain an expired/revoked refresh token (for example after
+  // local auth state was reset). Clear its Supabase auth cookie chunks so the
+  // same bad token is not retried on every navigation. Other auth/network
+  // errors are left alone so a transient outage does not sign users out.
+  if (
+    claimsError &&
+    ['refresh_token_not_found', 'invalid_refresh_token'].includes(claimsError.code ?? '')
+  ) {
+    request.cookies.getAll().forEach(({ name }) => {
+      if (name.startsWith('sb-') && (name.includes('auth-token') || name.includes('code-verifier'))) {
+        response.cookies.set(name, '', { path: '/', maxAge: 0 })
+      }
+    })
+  }
 
   // Hand the verified user id to Server Components via a request header so
   // getProfile() doesn't need a second round-trip to Supabase Auth to

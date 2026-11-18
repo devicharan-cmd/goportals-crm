@@ -21,7 +21,6 @@ export type StaffRow = {
   id: string; full_name: string; email: string; role: StaffRole; status: AccountStatus
   job_title: string | null; weekly_capacity_hours: number; created_at: string; departmentIds: string[]
   reporting_to: string | null; reporting_to_name: string | null; avatar_url: string | null; phone: string | null
-  current_address: string | null; permanent_address: string | null
 }
 
 export type ReportingPerson = { id: string; full_name: string; email: string; avatar_url: string | null; role: StaffRole; status: AccountStatus }
@@ -60,8 +59,8 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, actorRole,
             : 'Manage team roles, departments, and capacity. Managers can see every department; Team Leads can see and assign within their own.'}
         </p>
       </div>
-      <div className="grid grid-cols-1 items-center gap-2 border-b border-slate-100 p-4 sm:grid-cols-[minmax(0,1fr)_130px_150px_auto]">
-        <label className="relative min-w-0 flex-1">
+      <div className="grid grid-cols-2 items-center gap-2 border-b border-slate-100 p-4 sm:grid-cols-[minmax(0,1fr)_130px_150px_auto]">
+        <label className="relative col-span-2 min-w-0 flex-1 sm:col-span-1">
           <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="search"
@@ -73,7 +72,7 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, actorRole,
           />
         </label>
         <SearchableSelect
-          className="form-field h-9 w-[130px] shrink-0 rounded-xl py-1.5 text-sm focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none"
+          className="form-field h-9 w-full min-w-0 rounded-xl py-1.5 text-sm focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none sm:w-[130px]"
           aria-label="Filter by role"
           value={role}
           onChange={event => setRole(event.target.value)}
@@ -84,7 +83,7 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, actorRole,
           ))}
         </SearchableSelect>
         <SearchableSelect
-          className="form-field h-9 w-[150px] shrink-0 rounded-xl py-1.5 text-sm focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none"
+          className="form-field h-9 w-full min-w-0 rounded-xl py-1.5 text-sm focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none sm:w-[150px]"
           aria-label="Filter by department"
           searchable
           searchPlaceholder="Search departments..."
@@ -94,7 +93,7 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, actorRole,
           <option value="">All departments</option>
           {departments.map(department => <option key={department.id} value={department.id}>{department.name}</option>)}
         </SearchableSelect>
-        <div className="shrink-0">{inviteButton}</div>
+        <div className="col-span-2 justify-self-start sm:col-span-1">{inviteButton}</div>
       </div>
       {filteredRows.length ? (
         <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -233,6 +232,9 @@ function ReportingToField({
       <button
         ref={buttonRef}
         type="button"
+        role="combobox"
+        aria-label="Reporting To (POC)"
+        aria-controls={`${idPrefix}-options`}
         disabled={disabled || options.length === 0}
         className={cn(
           'form-field flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm focus:!shadow-none focus:!ring-0 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50',
@@ -274,6 +276,7 @@ function ReportingToField({
           <div
             role="listbox"
             aria-label="Reporting person"
+            id={`${idPrefix}-options`}
             className="space-y-1 overflow-y-auto"
             style={{ maxHeight: Math.max(0, position.maxHeight - 60) }}
           >

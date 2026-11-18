@@ -32,7 +32,7 @@ export function PriorityBadge({ priority }: { priority: TaskPriority }) {
 
 export function UrgentBadge({ className }: { className?: string }) {
   return (
-    <Badge className={cn('rounded-md border border-red-700 bg-gradient-to-r from-red-600 to-red-700 px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-white ring-red-700', className)}>
+    <Badge className={cn('rounded-md border border-red-700 bg-gradient-to-r from-red-600 to-red-700 px-1.5 py-0.5 text-xs font-semibold leading-4 text-white ring-red-700', className)}>
       <Flame className="h-3 w-3" /> Urgent
     </Badge>
   )

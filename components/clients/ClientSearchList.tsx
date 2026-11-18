@@ -214,7 +214,7 @@ export function ClientSearchResults() {
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="min-w-0 break-words font-semibold text-slate-900 group-hover:text-[#034C68]">{client.company_name}</p>
                         <AccountStatusBadge status={client.status} />
-                        <span className="rounded-full bg-[#EAF4F8] px-2 py-0.5 text-[11px] font-medium text-[#034C68] ring-1 ring-inset ring-[#9FCCDE]">
+                        <span className="rounded-full bg-[#EAF4F8] px-2 py-0.5 text-xs font-medium text-[#034C68] ring-1 ring-inset ring-[#9FCCDE]">
                           {STAGE_LABELS[client.stage]}
                         </span>
                       </div>

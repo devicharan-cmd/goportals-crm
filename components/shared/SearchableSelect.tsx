@@ -1,6 +1,6 @@
 'use client'
 
-import { Children, isValidElement, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Children, isValidElement, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -56,6 +56,8 @@ export function SearchableSelect({
   onClose,
   compactOptions = false,
   denseOptions = false,
+  optionTextClassName,
+  searchInputClassName,
   'aria-label': ariaLabel,
   'aria-invalid': ariaInvalid,
   'aria-describedby': ariaDescribedBy,
@@ -84,10 +86,14 @@ export function SearchableSelect({
   onClose?: () => void
   compactOptions?: boolean
   denseOptions?: boolean
+  optionTextClassName?: string
+  searchInputClassName?: string
   'aria-label'?: string
   'aria-invalid'?: boolean
   'aria-describedby'?: string
 }) {
+  const generatedId = useId()
+  const controlId = id ?? `searchable-select-${generatedId}`
   const options = useMemo<DisplayOption[]>(() => richOptions
     ? richOptions.map(option => ({
         value: option.value,
@@ -213,8 +219,9 @@ export function SearchableSelect({
       )}
       <button
         ref={buttonRef}
-        id={id}
+        id={controlId}
         type="button"
+        role="combobox"
         disabled={disabled}
         className={cn(
           'form-field flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm focus:!shadow-none focus:!ring-0 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50',
@@ -222,6 +229,7 @@ export function SearchableSelect({
           className,
         )}
         aria-label={ariaLabel}
+        aria-controls={`${controlId}-options`}
         aria-invalid={ariaInvalid || validationError}
         aria-describedby={ariaDescribedBy}
         aria-required={required}
@@ -259,11 +267,12 @@ export function SearchableSelect({
                 onChange={event => setSearch(event.target.value)}
                 placeholder={searchPlaceholder}
                 aria-label={ariaLabel ? `${ariaLabel} search` : searchPlaceholder}
-                className="search-input-with-icon h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#0A6F94] focus:bg-white focus:shadow-none focus:ring-0"
+                className={cn('search-input-with-icon h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#0A6F94] focus:bg-white focus:shadow-none focus:ring-0', searchInputClassName)}
               />
             </div>
           )}
           <div
+            id={`${controlId}-options`}
             role="listbox"
             aria-label={ariaLabel}
             className={cn(compactOptions ? 'space-y-2' : 'space-y-1', 'overflow-y-auto')}
@@ -280,7 +289,7 @@ export function SearchableSelect({
                   disabled={option.disabled}
                   onClick={() => choose(option.value)}
                   className={cn(
-                    cn('flex w-full items-center justify-between gap-2 rounded-lg px-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50', compactOptions || denseOptions ? 'py-1' : 'py-2'),
+                    cn('flex w-full items-center justify-between gap-2 rounded-lg px-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50', optionTextClassName, compactOptions || denseOptions ? 'py-1' : 'py-2'),
                     active ? 'bg-[#EAF4F8] font-medium text-[#034C68]' : 'text-slate-700 hover:bg-slate-50',
                   )}
                 >

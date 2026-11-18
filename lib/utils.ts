@@ -61,6 +61,17 @@ export function formatDateTime(date: string | null | undefined): string {
   return `${formattedDate} · ${formattedTime}`
 }
 
+/** Format a database TIME value without converting it across time zones. */
+export function formatTime(time: string | null | undefined): string {
+  if (!time) return '—'
+  const match = /^(\d{1,2}):(\d{2})/.exec(time)
+  if (!match) return time
+  const hour = Number(match[1])
+  const minute = match[2]
+  if (hour < 0 || hour > 23) return time
+  return `${hour % 12 || 12}:${minute} ${hour >= 12 ? 'PM' : 'AM'}`
+}
+
 export function formatRelative(date: string | null | undefined): string {
   if (!date) return '—'
   return formatDistanceToNow(new Date(date), { addSuffix: true })

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronLeft, ChevronRight, Search, UsersRound, UserRoundPlus, X } from 'lucide-react'
+import { ArrowRight, Check, ChevronLeft, ChevronRight, Search, UsersRound, UserRoundPlus, X } from 'lucide-react'
 import { Avatar, Card, CardHeader, EmptyState, Alert } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
@@ -62,6 +62,8 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
   const maxPage = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
   const pageRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const selectedRows = selectedIds.map(id => rows.find(row => row.id === id)).filter((row): row is StaffRow => !!row)
+  const unchangedPocRows = selectedRows.filter(row => row.reporting_to === newPocId && !!newPocId)
+  const newPoc = peopleById.get(newPocId)
   const allFilteredSelected = filteredRows.length > 0 && filteredRows.every(row => selectedIds.includes(row.id))
   const commonPocRole = selectedRows.length
     ? expectedPocRole(selectedRows[0].role)
@@ -102,7 +104,9 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
   }
 
   async function confirmChange() {
-    if (!selectedRows.length || !newPocId) return
+    if (!selectedRows.length || !newPocId || unchangedPocRows.length) return
+    const previousPocNames = Array.from(new Set(selectedRows.map(row => row.reporting_to_name || 'No POC assigned')))
+    const newPocName = newPoc?.full_name || newPoc?.email || 'the selected POC'
     setSaving(true)
     setError('')
     const { data, error: rpcError } = await createClient().rpc('change_staff_poc', {
@@ -115,10 +119,17 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
       setConfirmOpen(false)
       return
     }
-    showSuccessToast(`Reporting POC updated for ${data ?? selectedRows.length} staff member${Number(data) === 1 ? '' : 's'}.`)
+    const updatedCount = Number(data ?? selectedRows.length)
+    const countLabel = `${updatedCount} staff member${updatedCount === 1 ? '' : 's'}`
+    const changeSummary = previousPocNames.length === 1
+      ? `${previousPocNames[0]} → ${newPocName}`
+      : `to ${newPocName}`
+    showSuccessToast(`Reporting POC changed ${changeSummary} for ${countLabel}.`)
     setConfirmOpen(false)
     setSelectedIds([])
     setNewPocId('')
+    if (selectedRows.some(row => row.reporting_to === pocId)) setPocId('')
+    setPage(1)
     router.refresh()
   }
 
@@ -147,13 +158,27 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
             {departments.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </SearchableSelect>
           <SearchableSelect className="form-field h-9 rounded-xl py-1.5 text-sm" aria-label="Filter by current POC" searchable
-            searchPlaceholder="Search POCs..." value={pocId} onChange={event => { setPocId(event.target.value); setPage(1) }}>
-            <option value="">All POCs</option>
-            <option value={NONE}>No POC assigned</option>
-            {people.filter(person => rows.some(row => row.reporting_to === person.id)).map(person => (
-              <option key={person.id} value={person.id}>{person.full_name || person.email} · {ROLE_LABELS[person.role]}</option>
-            ))}
-          </SearchableSelect>
+            searchPlaceholder="Search POCs..." value={pocId} onChange={event => { setPocId(event.target.value); setPage(1) }}
+            options={[
+              { value: '', label: 'All POCs', text: 'All POCs' },
+              { value: NONE, label: 'No POC assigned', text: 'No POC assigned' },
+              ...people.filter(person => rows.some(row => row.reporting_to === person.id)).map(person => {
+                const name = person.full_name || person.email
+                const personRole = ROLE_LABELS[person.role]
+                return {
+                  value: person.id,
+                  text: `${name} ${personRole}`,
+                  label: (
+                    <span className="flex min-w-0 flex-col">
+                      <span className="block truncate">{name}</span>
+                      <span className="block truncate text-xs font-normal text-slate-500">{personRole}</span>
+                    </span>
+                  ),
+                  selectedLabel: <span className="block truncate">{name}</span>,
+                }
+              }),
+            ]}
+          />
         </div>
 
         {error && !confirmOpen && <div className="px-4 pt-4"><Alert tone="error">{error}</Alert></div>}
@@ -220,7 +245,7 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
           action={<span className="rounded-full bg-[#EAF4F8] px-2.5 py-1 text-xs font-semibold text-[#045E80]">{selectedRows.length} selected</span>} />
         <div className="max-h-64 space-y-2 overflow-y-auto p-4">
           {selectedRows.length ? selectedRows.map(row => (
-            <div key={row.id} className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5">
+            <div key={row.id} className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5">
               <Avatar name={row.full_name || row.email} src={row.avatar_url} role={row.role} size="md" />
               <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-slate-900">{row.full_name || row.email}</p><p className="truncate text-xs text-slate-500">{ROLE_LABELS[row.role]} · {row.reporting_to_name || 'No POC'}</p></div>
               <button type="button" aria-label={`Remove ${row.full_name || row.email}`} onClick={() => toggleSelected(row.id)} className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-4 w-4" /></button>
@@ -232,33 +257,47 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
           <p className="mt-1 text-xs text-slate-500">Choose an active person with the correct role for every selected staff member.</p>
           <SearchableSelect className="form-field mt-3 h-10 w-full rounded-xl text-sm" aria-label="New POC" searchable
             searchPlaceholder="Search eligible POCs..." value={newPocId} disabled={!selectedRows.length || !pocOptions.length}
-            onChange={event => setNewPocId(event.target.value)}>
+            onChange={event => { setNewPocId(event.target.value); setError('') }}>
             <option value="">{!selectedRows.length ? 'Select staff first' : compatibleRole ? 'Select new POC' : 'Selected roles need different POCs'}</option>
             {pocOptions.map(person => <option key={person.id} value={person.id}>{person.full_name || person.email} · {ROLE_LABELS[person.role]}</option>)}
           </SearchableSelect>
           {selectedRows.length > 0 && !compatibleRole && <p className="mt-2 text-xs text-amber-700">Select staff with the same reporting level to assign one POC in this change.</p>}
           {selectedRows.length > 0 && compatibleRole && !pocOptions.length && <p className="mt-2 text-xs text-amber-700">No active eligible POC is available for these staff members.</p>}
+          {unchangedPocRows.length > 0 && <p role="alert" className="mt-2 text-sm font-medium text-red-700">{newPoc?.full_name || newPoc?.email} is already the current POC for {unchangedPocRows.map(row => row.full_name || row.email).join(', ')}. Choose a different person.</p>}
           <div className="mt-4 rounded-xl bg-[#EAF4F8] p-3 text-xs leading-5 text-[#034C68]">
             Only active staff with the correct reporting role can be selected. This updates reporting relationships only; tasks, tickets, and client coverage stay with their current owners.
           </div>
-          <Button className="mt-4 w-full" disabled={!selectedRows.length || !newPocId} onClick={() => { setError(''); setConfirmOpen(true) }}>
+          <Button className="mt-4 w-full" disabled={!selectedRows.length || !newPocId || unchangedPocRows.length > 0} onClick={() => { setError(''); setConfirmOpen(true) }}>
             <UserRoundPlus className="h-4 w-4" /> Review POC change
           </Button>
         </div>
       </Card>
 
       <Modal open={confirmOpen} onClose={() => !saving && setConfirmOpen(false)} title="Confirm POC change"
-        description={`Update the reporting POC for ${selectedRows.length} selected staff member${selectedRows.length === 1 ? '' : 's'}?`}>
+        description={`Review the reporting change for ${selectedRows.length} selected staff member${selectedRows.length === 1 ? '' : 's'}.`}>
         <div className="space-y-4">
           {error && <Alert tone="error">{error}</Alert>}
-          <div className="rounded-xl border border-slate-200 p-3 text-sm">
-            <p><span className="font-medium text-slate-500">Previous POC:</span> {Array.from(new Set(selectedRows.map(row => row.reporting_to_name || 'No POC'))).join(', ')}</p>
-            <p className="mt-1"><span className="font-medium text-slate-500">New POC:</span> {peopleById.get(newPocId)?.full_name || peopleById.get(newPocId)?.email} ({peopleById.get(newPocId) ? ROLE_LABELS[peopleById.get(newPocId)!.role] : ''})</p>
+          <div className="flex items-start gap-3 rounded-xl border border-[#CFE4EC] bg-[#F3FAFC] p-3">
+            <Avatar name={newPoc?.full_name || newPoc?.email || 'New POC'} src={newPoc?.avatar_url} role={newPoc?.role} size="md" />
+            <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">New reporting POC</p><p className="truncate text-sm font-semibold text-slate-900">{newPoc?.full_name || newPoc?.email || 'Select a POC'}</p><p className="text-xs text-slate-600">{newPoc ? ROLE_LABELS[newPoc.role] : ''}</p></div>
           </div>
-          <ul className="max-h-48 space-y-2 overflow-y-auto rounded-xl bg-slate-50 p-3">
-            {selectedRows.map(row => <li key={row.id} className="flex items-center justify-between gap-3 text-sm"><span className="truncate font-medium text-slate-800">{row.full_name || row.email}</span><span className="shrink-0 text-xs text-slate-500">{row.reporting_to_name || 'No POC'} → {peopleById.get(newPocId)?.full_name || peopleById.get(newPocId)?.email}</span></li>)}
+          <ul className="max-h-64 space-y-2 overflow-y-auto">
+            {selectedRows.map(row => {
+              const previousPoc = row.reporting_to ? peopleById.get(row.reporting_to) : null
+              return <li key={row.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="mb-3 flex items-start gap-2 border-b border-slate-100 pb-2.5">
+                  <Avatar name={row.full_name || row.email} src={row.avatar_url} role={row.role} size="sm" />
+                  <div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{row.full_name || row.email}</p><p className="text-xs text-slate-500">{ROLE_LABELS[row.role]}</p></div>
+                </div>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                  <div className="min-w-0"><p className="text-xs font-medium text-slate-500">Current POC</p><p className="truncate text-sm font-medium text-slate-800">{previousPoc?.full_name || previousPoc?.email || row.reporting_to_name || 'No POC assigned'}</p><p className="truncate text-xs text-slate-500">{previousPoc ? ROLE_LABELS[previousPoc.role] : ''}</p></div>
+                  <ArrowRight aria-hidden="true" className="h-4 w-4 text-slate-400" />
+                  <div className="min-w-0"><p className="text-xs font-medium text-slate-500">New POC</p><p className="truncate text-sm font-medium text-slate-800">{newPoc?.full_name || newPoc?.email || '—'}</p><p className="truncate text-xs text-slate-500">{newPoc ? ROLE_LABELS[newPoc.role] : ''}</p></div>
+                </div>
+              </li>
+            })}
           </ul>
-          <div className="flex justify-end gap-2"><Button variant="secondary" disabled={saving} onClick={() => setConfirmOpen(false)}>Cancel</Button><Button loading={saving} onClick={() => void confirmChange()}><Check className="h-4 w-4" /> Update POC for {selectedRows.length} Staff</Button></div>
+          <div className="flex justify-end gap-2"><Button variant="secondary" disabled={saving} onClick={() => setConfirmOpen(false)}>Cancel</Button><Button disabled={unchangedPocRows.length > 0 || !newPocId} loading={saving} onClick={() => void confirmChange()}><Check className="h-4 w-4" /> Update POC for {selectedRows.length} Staff</Button></div>
         </div>
       </Modal>
     </div>

@@ -29,9 +29,9 @@ export function TaskPreviousAssignees({
           />
           <span className="min-w-0 truncate">{assignee.full_name}</span>
           {!compact && assignee.role && (
-            <span className="shrink-0 text-[10px] text-slate-400">({ROLE_LABELS[assignee.role]})</span>
+            <span className="shrink-0 text-xs text-slate-400">({ROLE_LABELS[assignee.role]})</span>
           )}
-          <span className="shrink-0 text-[10px] text-slate-400">Previous</span>
+          <span className="shrink-0 text-xs text-slate-400">Previous</span>
         </div>
       ))}
     </div>

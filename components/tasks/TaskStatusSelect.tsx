@@ -2,22 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { TASK_STATUS_OPTIONS } from '@/lib/constants'
+import { TASK_STATUS_OPTIONS, taskStatusTransitionWarning } from '@/lib/constants'
 import { errorMessage } from '@/lib/utils'
 import type { TaskStatus, TaskVisibility } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import { TaskPropertySelect } from '@/components/tasks/TaskPropertySelect'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
-const EMPLOYEE_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_system_process', 'ready_for_review']
-
 export function TaskStatusSelect({
-  taskId, status, visibility, canCompleteReview, onWarning,
+  taskId, status, visibility, ticketId, onWarning,
 }: {
   taskId: string
   status: TaskStatus
   visibility: TaskVisibility
-  canCompleteReview: boolean
+  ticketId: string | null
   onWarning: (message: string) => void
 }) {
   const router = useRouter()
@@ -28,27 +26,15 @@ export function TaskStatusSelect({
   useEffect(() => setValue(status), [status])
 
   async function updateStatus(nextStatus: TaskStatus) {
-    if (visibility === 'private' && (nextStatus === 'client_review' || nextStatus === 'changes_requested')) {
-      onWarning('Private tasks cannot enter Client review or Changes requested.')
+    const transitionWarning = taskStatusTransitionWarning(value, nextStatus, { visibility, ticketId })
+    if (transitionWarning) {
+      onWarning(transitionWarning)
       return
     }
     if (nextStatus === 'changes_requested') {
       onWarning('Only the client can request changes from the client portal.')
       return
     }
-    if (nextStatus === 'completed') {
-      if (!canCompleteReview) {
-        onWarning('Only a team lead or super admin can mark a task as completed.')
-        return
-      }
-    } else if (nextStatus === 'client_review' && !canCompleteReview) {
-      onWarning('Only a team lead or super admin can move a task to Client review.')
-      return
-    } else if (!canCompleteReview && !EMPLOYEE_STATUSES.includes(nextStatus)) {
-      onWarning('You do not have permission to move the task to this status.')
-      return
-    }
-
     const previousStatus = value
     setValue(nextStatus)
     setSaving(true)

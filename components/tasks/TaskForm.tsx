@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Flame, Globe2, Info, LockKeyhole, X } from 'lucide-react'
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek, subMonths } from 'date-fns'
@@ -13,6 +13,7 @@ import { TaskFieldsGrid, TaskFormCard, TaskFormCardTitle, TaskSectionHeader } fr
 import { MarketplacePlatformSelect } from '@/components/shared/Marketplace'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { AttachmentPicker } from '@/components/shared/AttachmentPicker'
+import { ToggleSwitch } from '@/components/shared/ToggleSwitch'
 import { DEADLINE_OPTIONS, PRIORITY_OPTIONS, TICKET_STATUS_LABELS, TYPE_OPTIONS } from '@/lib/constants'
 import { TICKET_CATEGORY_BY_VALUE } from '@/lib/ticket-categories'
 import { cn, dueDateFor, errorMessage, ticketCode } from '@/lib/utils'
@@ -32,6 +33,14 @@ type TicketOption = {
 }
 type SelectOption = { value: string; label: string; detail?: string; content?: React.ReactNode; selectedContent?: React.ReactNode }
 type ScheduleTimeParts = { hour: string; minute: string; period: 'AM' | 'PM' | '' }
+type TaskScheduleSettings = {
+  created_by: string
+  enabled: boolean
+  repeat_type: 'daily' | 'weekly' | 'custom'
+  interval_days: number | null
+  start_date: string
+  schedule_time: string
+}
 const STANDALONE_TICKET_OPTION = '__standalone__'
 
 function FormSelect({
@@ -59,6 +68,7 @@ function FormSelect({
   className?: string
   native?: boolean
 }) {
+  const selectId = useId()
   const [open, setOpen] = useState(false)
   const selected = options.find(option => option.value === value)
 
@@ -90,15 +100,15 @@ function FormSelect({
 
   return (
     <div className="relative" data-form-select>
-      <button type="button" className={cn('form-field flex w-full items-center justify-between text-left', className, invalid && 'border-red-400 focus:border-red-500 focus:ring-red-200')}
-              disabled={disabled} aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open}
+      <button id={selectId} type="button" role="combobox" className={cn('form-field flex w-full items-center justify-between text-left', className, invalid && 'border-red-400 focus:border-red-500 focus:ring-red-200')}
+              disabled={disabled} aria-label={ariaLabel} aria-controls={`${selectId}-options`} aria-haspopup="listbox" aria-expanded={open}
               aria-describedby={ariaDescribedBy} aria-required={required} aria-invalid={invalid}
               onClick={() => setOpen(current => !current)}>
         <span className="min-w-0 flex-1">{selected?.selectedContent ?? selected?.content ?? selected?.label ?? label}</span>
         <ChevronDown aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
       </button>
       {open && (
-        <div role="listbox" aria-label={ariaLabel ?? label} className="absolute z-30 mt-1 max-h-64 w-full space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+        <div id={`${selectId}-options`} role="listbox" aria-label={ariaLabel ?? label} className="absolute z-30 mt-1 max-h-64 w-full space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
           {options.map(option => {
             const isSelected = option.value === value
             return (
@@ -120,6 +130,8 @@ function FormSelect({
 export type TaskFormProps = {
   mode: 'create' | 'edit'
   task?: Task
+  schedule?: TaskScheduleSettings | null
+  canManageSchedule?: boolean
   defaultClientId?: string
   defaultAssigneeId?: string
   canMarkUrgent: boolean
@@ -155,6 +167,7 @@ function ticketRequestSummary(ticket: TicketOption, platforms: Platform[]) {
 }
 
 export function TaskForm(p: TaskFormProps) {
+  const assigneeSelectId = useId()
   const router = useRouter()
   const runOnce = useSingleFlight()
   const t = p.task
@@ -214,22 +227,32 @@ export function TaskForm(p: TaskFormProps) {
   const [ticketLoadError, setTicketLoadError] = useState('')
   const [assigneeOpen, setAssigneeOpen] = useState(false)
   const [files, setFiles] = useState<File[]>([])
-  const [scheduleEnabled, setScheduleEnabled] = useState(false)
-  const [scheduleRepeat, setScheduleRepeat] = useState('')
-  const [scheduleCustomDays, setScheduleCustomDays] = useState('2')
+  const [scheduleEnabled, setScheduleEnabled] = useState(p.schedule?.enabled ?? false)
+  const [scheduleRepeat, setScheduleRepeat] = useState(p.schedule?.repeat_type ?? '')
+  const [scheduleCustomDays, setScheduleCustomDays] = useState(p.schedule?.interval_days ? String(p.schedule.interval_days) : '2')
   const [scheduleCustomInputOpen, setScheduleCustomInputOpen] = useState(false)
-  const [scheduleTime, setScheduleTime] = useState('')
+  const [scheduleTime, setScheduleTime] = useState(p.schedule?.schedule_time?.slice(0, 5) ?? '')
   const [scheduleTimeParts, setScheduleTimeParts] = useState<ScheduleTimeParts>({ hour: '', minute: '', period: '' })
   const [scheduleTimePickerOpen, setScheduleTimePickerOpen] = useState(false)
   const scheduleTimePickerRef = useRef<HTMLDivElement | null>(null)
-  const [scheduleStartDate, setScheduleStartDate] = useState('')
+  const [scheduleStartDate, setScheduleStartDate] = useState(p.schedule?.start_date ?? '')
   const [scheduleCalendarOpen, setScheduleCalendarOpen] = useState(false)
   const [scheduleCalendarMonth, setScheduleCalendarMonth] = useState<Date | null>(null)
   const [scheduleCalendarAbove, setScheduleCalendarAbove] = useState(false)
   const scheduleCalendarRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!p.schedule) return
+    setScheduleEnabled(p.schedule.enabled)
+    setScheduleRepeat(p.schedule.repeat_type)
+    setScheduleCustomDays(p.schedule.interval_days ? String(p.schedule.interval_days) : '2')
+    setScheduleTime(p.schedule.schedule_time.slice(0, 5))
+    setScheduleStartDate(p.schedule.start_date)
+  }, [p.schedule])
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(f => ({ ...f, [k]: v }))
   const canEditAssignment = p.canEditAssignment ?? true
   const deadlineRequired = p.mode === 'create' || canEditAssignment
+  const scheduleOwnsDeadline = p.mode === 'edit' && Boolean(p.schedule)
   const ticketLinked = Boolean(form.ticket_id) && form.ticket_id !== STANDALONE_TICKET_OPTION
   const standaloneSelected = form.ticket_id === STANDALONE_TICKET_OPTION
   const visibilityLocked = p.mode === 'edit'
@@ -442,7 +465,14 @@ export function TaskForm(p: TaskFormProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const scheduledCreate = p.mode === 'create' && scheduleEnabled
+    const scheduledEdit = p.mode === 'edit' && Boolean(p.schedule) && Boolean(p.canManageSchedule)
     const schedulerMissing = scheduledCreate && (
+      !scheduleRepeat
+      || (scheduleRepeat === 'custom' && (!scheduleCustomDays || Number(scheduleCustomDays) < 2))
+      || !scheduleTime
+      || !scheduleStartDate
+    )
+    const scheduleEditMissing = scheduledEdit && (
       !scheduleRepeat
       || (scheduleRepeat === 'custom' && (!scheduleCustomDays || Number(scheduleCustomDays) < 2))
       || !scheduleTime
@@ -459,7 +489,7 @@ export function TaskForm(p: TaskFormProps) {
     const ticketMissing = !form.ticket_id
     setTicketError(ticketMissing ? 'Select a ticket or choose No ticket (standalone).' : '')
     const visibilityMissing = (standaloneSelected || ticketLinked) && !form.visibility
-    const deadlineMissing = deadlineRequired && !scheduledCreate && !form.due_date
+    const deadlineMissing = deadlineRequired && !scheduledCreate && !scheduleOwnsDeadline && !form.due_date
     setDeadlineError(deadlineMissing ? 'Please select a deadline before saving the task.' : '')
     const clientMissing = ((standaloneSelected && form.visibility === 'public') || ticketLinked) && !form.client_id
     if (clientMissing) {
@@ -470,10 +500,10 @@ export function TaskForm(p: TaskFormProps) {
     } else {
       setClientError('')
     }
-    setError(schedulerMissing
-      ? 'Choose a repeat schedule, time, and start date to enable Task Scheduler.'
+    setError(schedulerMissing || scheduleEditMissing
+      ? 'Choose a repeat schedule, time, and start date for Task Scheduler.'
       : visibilityMissing ? 'Choose Public or Private task visibility.' : '')
-    if (titleMissing || descriptionMissing || priorityMissing || assigneeMissing || clientMissing || deadlineMissing || ticketMissing || visibilityMissing || schedulerMissing) {
+    if (titleMissing || descriptionMissing || priorityMissing || assigneeMissing || clientMissing || deadlineMissing || ticketMissing || visibilityMissing || schedulerMissing || scheduleEditMissing) {
       if (titleMissing) document.getElementById(p.modalLayout ? 'edit-task-title' : 'create-task-title')?.focus()
       else if (descriptionMissing) document.getElementById('create-task-description')?.focus()
       else if (priorityMissing) document.querySelector<HTMLButtonElement>('[aria-label="Priority"]')?.focus()
@@ -539,6 +569,21 @@ export function TaskForm(p: TaskFormProps) {
         return
       }
       savedTaskId = data.id
+      if (scheduledEdit) {
+        const { error: scheduleError } = await supabase.rpc('update_task_schedule', {
+          p_task_id: data.id,
+          p_repeat_type: scheduleRepeat,
+          p_interval_days: scheduleRepeat === 'custom' ? Number(scheduleCustomDays) : null,
+          p_start_date: scheduleStartDate,
+          p_schedule_time: scheduleTime,
+          p_enabled: scheduleEnabled,
+        })
+        if (scheduleError) {
+          setError(`Task details were saved, but the schedule was not updated: ${errorMessage(scheduleError)}`)
+          setSaving(false)
+          return
+        }
+      }
     }
     if (files.length > 0) {
       let uploadedCount = 0
@@ -600,7 +645,7 @@ export function TaskForm(p: TaskFormProps) {
     if (scheduledCreate) {
       router.push('/tasks?scheduled=1')
     } else if (p.mode === 'create') {
-      router.push(`/tasks/${savedTaskId}`)
+      router.push(`/tasks/${savedTaskId}?created=1`)
     } else {
       router.refresh()
     }
@@ -663,7 +708,7 @@ export function TaskForm(p: TaskFormProps) {
       )}
 
       {p.modalLayout && <TaskSectionHeader section="configuration" />}
-      {!p.modalLayout && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.25fr)_minmax(150px,0.45fr)]">
+      {!p.modalLayout && <div className="grid gap-x-4 gap-y-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.25fr)_minmax(150px,0.45fr)]">
         <Field label="Client" required={(standaloneSelected && form.visibility === 'public') || ticketLinked}
           error={clientError} errorId="task-client-error" hint={form.visibility === 'private'
           ? ticketLinked
@@ -725,24 +770,22 @@ export function TaskForm(p: TaskFormProps) {
             onChange={pickTicket} aria-label="Ticket" />
         </Field>
         <Field label="Attach files" className="sm:col-span-2 lg:col-span-1">
-          <div className="flex h-9 items-center gap-2">
-            <AttachmentPicker
-              disabled={saving}
-              fullWidth
-              buttonLabel={files.length > 0 ? `${files.length} selected` : 'Choose files'}
-              buttonClassName="border border-slate-300 text-slate-600 hover:bg-slate-50"
-              onFilesSelected={(accepted, rejected) => {
-                setFileError(rejected.length
-                  ? `GIF, audio, and unsupported file types cannot be attached: ${rejected.map(file => file.name).join(', ')}`
-                  : '')
-                if (accepted.length) setFiles(current => [...current, ...accepted])
-              }}
-            />
-          </div>
-        </Field>
-        {(files.length > 0 || fileError) && (
-          <div className="sm:col-span-2 lg:col-span-3">
-            {fileError && <p role="alert" className="mb-2 text-xs text-red-600">{fileError}</p>}
+          <div className="space-y-2">
+            <div className="flex h-9 items-center gap-2">
+              <AttachmentPicker
+                disabled={saving}
+                fullWidth
+                buttonLabel={files.length > 0 ? `${files.length} selected` : 'Choose files'}
+                buttonClassName="border border-slate-300 text-slate-600 hover:bg-slate-50"
+                onFilesSelected={(accepted, rejected) => {
+                  setFileError(rejected.length
+                    ? `GIF, audio, and unsupported file types cannot be attached: ${rejected.map(file => file.name).join(', ')}`
+                    : '')
+                  if (accepted.length) setFiles(current => [...current, ...accepted])
+                }}
+              />
+            </div>
+            {fileError && <p role="alert" className="text-xs text-red-600">{fileError}</p>}
             {files.length > 0 && (
               <ul className="flex flex-wrap gap-2">
                 {files.map((file, index) => (
@@ -762,7 +805,7 @@ export function TaskForm(p: TaskFormProps) {
               </ul>
             )}
           </div>
-        )}
+        </Field>
       </div>
       }
 
@@ -802,7 +845,7 @@ export function TaskForm(p: TaskFormProps) {
         <Field label="Assignee" required={p.mode === 'create'}
                hint={!canEditAssignment ? 'Only managers can change the assignee.' : assigneeOptions.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
           <div className="relative" data-assignee-picker>
-            <button type="button" className={cn(
+            <button id={assigneeSelectId} type="button" role="combobox" aria-label="Assignee" aria-controls={`${assigneeSelectId}-options`} className={cn(
               'form-field flex w-full items-center justify-between text-left',
               p.modalLayout && 'h-9 rounded-xl text-sm',
               assigneeError && 'border-red-400 focus:border-red-500',
@@ -822,8 +865,8 @@ export function TaskForm(p: TaskFormProps) {
             </button>
             {assigneeOpen && (
               <div className="absolute z-30 mt-1 w-full rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
-                <p className="px-3 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Assigned to</p>
-                <div role="listbox" aria-label="Assigned to" className="max-h-64 space-y-1 overflow-y-auto">
+                <p className="px-3 pb-2 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Assigned to</p>
+                <div id={`${assigneeSelectId}-options`} role="listbox" aria-label="Assigned to" className="max-h-64 space-y-1 overflow-y-auto">
                   {assigneeOptions.map(a => {
                     const selected = form.assignee_id === a.id
                     return (
@@ -870,7 +913,7 @@ export function TaskForm(p: TaskFormProps) {
       </TaskFieldsGrid>
 
       {!p.modalLayout && (
-        <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+        <div className="mt-1 grid gap-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] sm:p-5">
           <section aria-labelledby="task-visibility-label">
             <div className="grid max-w-[26rem] gap-2 sm:grid-cols-2">
               <div className="sm:col-span-2">
@@ -913,7 +956,7 @@ export function TaskForm(p: TaskFormProps) {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-xs font-semibold text-slate-900">{option.title}</span>
-                      <span className="block whitespace-nowrap text-[10px] leading-4 text-slate-500">{option.description}</span>
+                      <span className="block whitespace-nowrap text-xs leading-4 text-slate-500">{option.description}</span>
                     </span>
                     <span aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0 rounded-full border',
                       selected ? 'border-[#045E80] bg-[#045E80] shadow-[inset_0_0_0_3px_white]' : 'border-slate-300')} />
@@ -929,22 +972,10 @@ export function TaskForm(p: TaskFormProps) {
                 <CalendarDays aria-hidden="true" className="mt-0.5 h-6 w-6 shrink-0 text-[#045E80]" />
                 <div>
                   <h2 id="task-scheduler-label" className="text-sm font-semibold text-slate-800">Task Scheduler</h2>
-                  <p className="mt-0.5 text-xs leading-4 text-slate-500">Automatically create and assign this task.</p>
+                  <p className="mt-0.5 text-xs leading-4 text-slate-500">Create a new task for each scheduled run.</p>
                 </div>
               </div>
-              <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={scheduleEnabled}
-                  onChange={event => setScheduleEnabled(event.target.checked)}
-                  className="peer sr-only"
-                />
-                <span>Enable Schedule</span>
-                <span aria-hidden="true" className={cn(
-                  'relative h-6 w-10 rounded-full transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-focus-visible:ring-2 peer-focus-visible:ring-[#045E80] peer-focus-visible:ring-offset-2',
-                  scheduleEnabled ? 'bg-[#045E80] after:translate-x-4' : 'bg-slate-300 after:translate-x-0',
-                )} />
-              </label>
+              <ToggleSwitch label="Enable Schedule" checked={scheduleEnabled} onChange={setScheduleEnabled} />
             </div>
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1.22fr)_minmax(0,0.78fr)_minmax(0,1fr)]">
               <div className="order-2 block text-xs font-medium text-slate-600">
@@ -1044,7 +1075,7 @@ export function TaskForm(p: TaskFormProps) {
                     </div>
                     <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
                       <div>
-                        <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">Hour</p>
+                        <p className="mb-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Hour</p>
                         <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg bg-slate-50 p-1">
                           {Array.from({ length: 12 }, (_, index) => String(index + 1)).map(hour => (
                             <button key={hour} type="button" aria-pressed={scheduleTimeParts.hour === hour}
@@ -1056,7 +1087,7 @@ export function TaskForm(p: TaskFormProps) {
                         </div>
                       </div>
                       <div>
-                        <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">Minute</p>
+                        <p className="mb-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Minute</p>
                         <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg bg-slate-50 p-1">
                           {Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0')).map(minute => (
                             <button key={minute} type="button" aria-pressed={scheduleTimeParts.minute === minute}
@@ -1068,7 +1099,7 @@ export function TaskForm(p: TaskFormProps) {
                         </div>
                       </div>
                       <div>
-                        <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">Period</p>
+                        <p className="mb-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Period</p>
                         <div className="space-y-1 rounded-lg bg-slate-50 p-1">
                           {(['AM', 'PM'] as const).map(period => (
                             <button key={period} type="button" aria-pressed={scheduleTimeParts.period === period}
@@ -1179,7 +1210,7 @@ export function TaskForm(p: TaskFormProps) {
                         <ChevronRight aria-hidden="true" className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className="grid grid-cols-7 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400" aria-hidden="true">
+                    <div className="grid grid-cols-7 text-center text-xs font-semibold uppercase tracking-wide text-slate-400" aria-hidden="true">
                       {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day, index) => <span key={`${day}-${index}`} className="py-0.5">{day}</span>)}
                     </div>
                     <div className="grid grid-cols-7 gap-y-0.5">
@@ -1249,42 +1280,44 @@ export function TaskForm(p: TaskFormProps) {
         </div>
       )}
 
-      {p.modalLayout && <TaskSectionHeader section="deadline" required={deadlineRequired && !(p.mode === 'create' && scheduleEnabled)} />}
-      <div>
-        {!p.modalLayout && (
-          <label className="form-field-label">
-            Deadline {deadlineRequired && !(p.mode === 'create' && scheduleEnabled) && <span className="text-red-500">*</span>}
-          </label>
-        )}
-        {!canEditAssignment && <p className="mb-1 text-xs text-slate-500">Only managers can change the due date.</p>}
-        <div className="flex flex-wrap items-center gap-2">
-          {DEADLINE_OPTIONS.map(d => (
-            <button key={d.value} type="button" disabled={!canEditAssignment || (p.mode === 'create' && scheduleEnabled)} onClick={() => pickDeadline(d.value)}
-                    className={cn('rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition disabled:cursor-not-allowed disabled:opacity-50',
-                      p.modalLayout && 'inline-flex h-7 items-center rounded-full px-3 text-xs',
-                      form.deadline_type === d.value ? 'bg-[#045E80] text-white ring-[#045E80]' : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50')}>
-              {d.label}
-            </button>
-          ))}
-          <input id="task-deadline-date" type="date"
-                 aria-label={`Deadline${deadlineRequired && !(p.mode === 'create' && scheduleEnabled) ? ' (required)' : ''}`}
-                 aria-required={deadlineRequired && !(p.mode === 'create' && scheduleEnabled)} aria-invalid={!!deadlineError}
-                 aria-describedby={deadlineError ? 'task-deadline-error' : undefined}
-                 className={cn('form-field task-deadline-date h-8 py-1', deadlineError && 'border-red-400 focus:border-red-500',
-                   p.modalLayout && 'h-7 rounded-full px-3 py-1 text-xs leading-4')}
-                 value={form.due_date} disabled={!canEditAssignment || (p.mode === 'create' && scheduleEnabled)}
-                 onChange={e => {
-                   setDeadlineError('')
-                   setForm(f => ({ ...f, due_date: e.target.value, deadline_type: '' }))
-                 }} />
+      {!scheduleOwnsDeadline && <>
+        {p.modalLayout && <TaskSectionHeader section="deadline" required={deadlineRequired && !(p.mode === 'create' && scheduleEnabled)} />}
+        <div className={cn(!p.modalLayout && 'rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:p-5')}>
+          {!p.modalLayout && (
+            <label className="form-field-label">
+              Deadline {deadlineRequired && !(p.mode === 'create' && scheduleEnabled) && <span className="text-red-500">*</span>}
+            </label>
+          )}
+          {!canEditAssignment && <p className="mb-1 text-xs text-slate-500">Only managers can change the due date.</p>}
+          <div className="flex flex-wrap items-center gap-2">
+            {DEADLINE_OPTIONS.map(d => (
+              <button key={d.value} type="button" disabled={!canEditAssignment || (p.mode === 'create' && scheduleEnabled)} onClick={() => pickDeadline(d.value)}
+                      className={cn('rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition disabled:cursor-not-allowed disabled:opacity-50',
+                        p.modalLayout && 'inline-flex h-7 items-center rounded-full px-3 text-xs',
+                        form.deadline_type === d.value ? 'bg-[#045E80] text-white ring-[#045E80]' : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50')}>
+                {d.label}
+              </button>
+            ))}
+            <input id="task-deadline-date" type="date"
+                   aria-label={`Deadline${deadlineRequired && !(p.mode === 'create' && scheduleEnabled) ? ' (required)' : ''}`}
+                   aria-required={deadlineRequired && !(p.mode === 'create' && scheduleEnabled)} aria-invalid={!!deadlineError}
+                   aria-describedby={deadlineError ? 'task-deadline-error' : undefined}
+                   className={cn('form-field task-deadline-date h-8 py-1', deadlineError && 'border-red-400 focus:border-red-500',
+                     p.modalLayout && 'h-7 rounded-full px-3 py-1 text-xs leading-4')}
+                   value={form.due_date} disabled={!canEditAssignment || (p.mode === 'create' && scheduleEnabled)}
+                   onChange={e => {
+                     setDeadlineError('')
+                     setForm(f => ({ ...f, due_date: e.target.value, deadline_type: '' }))
+                   }} />
+          </div>
+          {deadlineError && (
+            <p id="task-deadline-error" role="alert" className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-red-600">
+              <AlertCircle aria-hidden="true" className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>{deadlineError}</span>
+            </p>
+          )}
         </div>
-        {deadlineError && (
-          <p id="task-deadline-error" role="alert" className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-red-600">
-            <AlertCircle aria-hidden="true" className="h-3.5 w-3.5 flex-shrink-0" />
-            <span>{deadlineError}</span>
-          </p>
-        )}
-      </div>
+      </>}
 
       {p.canMarkUrgent && (
         <label className={cn('flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition',
@@ -1299,6 +1332,38 @@ export function TaskForm(p: TaskFormProps) {
             {!p.modalLayout && <span className="block text-slate-500">Everyone on the team will see it in the urgent pool and can pick it up.</span>}
           </span>
         </label>
+      )}
+      {p.mode === 'edit' && p.schedule && (
+        <section className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4" aria-labelledby="edit-task-scheduler-label">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="edit-task-scheduler-label" className="text-sm font-semibold text-slate-800">Task schedule</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Each run creates a new task; earlier tasks keep their status.</p>
+            </div>
+            <ToggleSwitch label="Enable Schedule" checked={scheduleEnabled} disabled={!p.canManageSchedule} onChange={setScheduleEnabled} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="text-xs font-medium text-slate-600">Repeat
+              <select className="form-field mt-1 h-9 w-full text-sm" value={scheduleRepeat} disabled={!p.canManageSchedule}
+                onChange={event => setScheduleRepeat(event.target.value)}>
+                <option value="daily">Daily</option><option value="weekly">For a week</option><option value="custom">Custom interval</option>
+              </select>
+            </label>
+            {scheduleRepeat === 'custom' && <label className="text-xs font-medium text-slate-600">Repeat every (days)
+              <input type="number" min={2} max={3650} step={1} className="form-field mt-1 h-9 w-full text-sm"
+                value={scheduleCustomDays} disabled={!p.canManageSchedule} onChange={event => setScheduleCustomDays(event.target.value)} />
+            </label>}
+            <label className="text-xs font-medium text-slate-600">Start date
+              <input type="date" className="form-field mt-1 h-9 w-full text-sm" value={scheduleStartDate}
+                disabled={!p.canManageSchedule} onChange={event => setScheduleStartDate(event.target.value)} />
+            </label>
+            <label className="text-xs font-medium text-slate-600">Time (IST)
+              <input type="time" className="form-field mt-1 h-9 w-full text-sm" value={scheduleTime}
+                disabled={!p.canManageSchedule} onChange={event => setScheduleTime(event.target.value)} />
+            </label>
+          </div>
+          {!p.canManageSchedule && <p className="mt-2 text-xs text-slate-500">Only the person who assigned this recurring task can edit its schedule.</p>}
+        </section>
       )}
       </TaskFormCard>
       </div>

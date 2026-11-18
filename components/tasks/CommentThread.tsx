@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
 import { AttachmentPicker } from '@/components/shared/AttachmentPicker'
+import { FileAttachmentDownload } from '@/components/shared/FileAttachmentDownload'
 import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
 import { cn, errorMessage, splitTeamName } from '@/lib/utils'
 import type { AppRole } from '@/types/database'
@@ -119,7 +120,7 @@ function MessageMenu({ commentId, table, canDelete, mine, attachments }: {
                 <Trash2 className="h-3.5 w-3.5" /> {working ? 'Deleting…' : 'Delete message'}
               </button>
             )}
-            {error && <span className="mt-1.5 block text-[11px] text-red-600">{error}</span>}
+            {error && <span className="mt-1.5 block text-xs text-red-600">{error}</span>}
           </span>
         </>
       )}
@@ -177,7 +178,7 @@ function AttachmentMenu({ attachment, canDelete }: { attachment: CommentAttachme
               className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
               <Trash2 className="h-3.5 w-3.5" /> {working ? 'Deleting…' : 'Delete file'}
             </button>
-            {error && <span className="mt-1 block text-[11px] text-red-600">{error}</span>}
+            {error && <span className="mt-1 block text-xs text-red-600">{error}</span>}
           </span>
         </>
       )}
@@ -318,7 +319,7 @@ export function CommentThread({
                 {newDay && (
                   <div className="my-3 flex items-center gap-3">
                     <span className="h-px flex-1 bg-slate-100" />
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{dayLabel(c.created_at)}</span>
+                    <span className="text-xs font-medium uppercase tracking-wide text-slate-400">{dayLabel(c.created_at)}</span>
                     <span className="h-px flex-1 bg-slate-100" />
                   </div>
                 )}
@@ -331,7 +332,7 @@ export function CommentThread({
                       <span className="mb-1 flex items-center gap-2 px-1 text-xs">
                         <span className="font-semibold text-slate-700">
                           {senderName || 'Unknown'}
-                          {senderQualifier && <span className="ml-1 text-[11px] font-normal text-slate-500">({senderQualifier})</span>}
+                          {senderQualifier && <span className="ml-1 text-xs font-normal text-slate-500">({senderQualifier})</span>}
                         </span>
                         {role && <span className={ROLE_STYLES[role].text}>{ROLE_LABELS[role]}</span>}
                       </span>
@@ -344,7 +345,7 @@ export function CommentThread({
                           : 'bg-white text-slate-700 ring-slate-200',
                       newBlock && (mine ? 'rounded-br-md' : 'rounded-bl-md'))}>
                       {c.is_change_request && (
-                        <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700 ring-1 ring-inset ring-orange-200">
+                        <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-700 ring-1 ring-inset ring-orange-200">
                           <RotateCcw className="h-3 w-3" /> Change request
                         </span>
                       )}
@@ -360,30 +361,22 @@ export function CommentThread({
                                   <Image src={attachment.signedUrl} alt={attachment.file_name} fill unoptimized sizes="(max-width: 640px) 100vw, 256px"
                                     className="rounded-lg object-contain" />
                                 </a>
-                                <a href={attachment.downloadUrl} download={attachment.file_name} className="mt-1 block max-w-64 truncate text-xs underline">
-                                  {attachment.file_name}
-                                </a>
+                                <FileAttachmentDownload className="mt-1" fileName={attachment.file_name} sizeBytes={attachment.size_bytes} downloadUrl={attachment.downloadUrl} />
                               </div>
                             ) : isVideo ? (
                               <div className="min-w-0">
                                 <video src={attachment.signedUrl} controls preload="metadata" className="max-h-64 max-w-full rounded-lg" />
-                                <a href={attachment.downloadUrl} download={attachment.file_name} className="mt-1 block max-w-64 truncate text-xs underline">
-                                  {attachment.file_name}
-                                </a>
+                                <FileAttachmentDownload className="mt-1" fileName={attachment.file_name} sizeBytes={attachment.size_bytes} downloadUrl={attachment.downloadUrl} />
                               </div>
                             ) : (
-                              <a href={attachment.downloadUrl} download={attachment.file_name}
-                                className="flex min-w-0 items-center gap-2 rounded-lg bg-black/5 px-2.5 py-2 text-inherit hover:bg-black/10">
-                                <FileText className="h-4 w-4 shrink-0" />
-                                <span className="min-w-0 truncate text-xs font-medium">{attachment.file_name}</span>
-                              </a>
+                              <FileAttachmentDownload fileName={attachment.file_name} sizeBytes={attachment.size_bytes} downloadUrl={attachment.downloadUrl} />
                             )}
                             <AttachmentMenu attachment={attachment} canDelete={!readOnly && attachment.uploaded_by === meId} />
                           </div>
                         )
                       })}
                     </div>
-                    <span className={cn('mt-0.5 flex items-center gap-1.5 px-1 text-[11px] text-slate-400', mine && 'flex-row-reverse')}>
+                    <span className={cn('mt-0.5 flex items-center gap-1.5 px-1 text-xs text-slate-400', mine && 'flex-row-reverse')}>
                       <span suppressHydrationWarning>{clockTime(c.created_at)}</span>
                       {mine && !readOnly && (
                         <MessageMenu commentId={c.id} table="task_comments"
@@ -479,7 +472,7 @@ export function CommentThread({
               ? <><Lock className="h-3 w-3 text-amber-600" /> Visible to the GoPortals team only</>
               : <><Globe className="h-3 w-3" /> Visible to the GoPortals team</>}
           </span>
-          <span className="text-[11px] text-slate-400">Enter to send · Shift + Enter for a new line</span>
+          <span className="text-xs text-slate-400">Enter to send · Shift + Enter for a new line</span>
         </div>
       </form>
       )}

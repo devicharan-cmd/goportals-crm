@@ -3,7 +3,7 @@
 import { createPortal } from 'react-dom'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, Flame, Globe2, Info, Layers3, LockKeyhole, Plus, Search, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, Flame, Globe2, Info, Layers3, LockKeyhole, Plus, Search, Trash2, UserRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
@@ -150,7 +150,7 @@ function AssigneeSelect({ id, value, options, onChange, onOpenChange, invalid, d
 
   return (
     <div>
-      <button ref={buttonRef} id={id} type="button"
+      <button ref={buttonRef} id={id} type="button" role="combobox" aria-label="Assignee"
               disabled={disabled}
               className={`form-field flex h-9 w-full items-center justify-between gap-2 rounded-xl text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-50 ${invalid ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : ''}`}
               aria-required="true" aria-invalid={invalid}
@@ -179,6 +179,14 @@ function AssigneeSelect({ id, value, options, onChange, onOpenChange, invalid, d
           <div id={`${id}-options`} role="listbox" aria-label="Assignee"
                className="assignee-options-scroll-area space-y-1 overflow-y-auto"
                 style={{ maxHeight: Math.max(0, position.maxHeight - 60) }}>
+            {!search.trim() && (
+              <button type="button" role="option" aria-selected={!value} onClick={() => choose('')}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs ${!value ? 'bg-[#EAF4F8] font-medium text-[#034C68]' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <UserRound aria-hidden="true" className="h-5 w-5 shrink-0" />
+                <span className="min-w-0 flex-1">Select assignee…</span>
+                {!value && <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />}
+              </button>
+            )}
             {filteredOptions.map(option => {
               const active = option.id === value
               return (
@@ -512,8 +520,8 @@ export function CreateTasksModal({
 
     setOpen(false)
     if (rows.some(row => row.schedule_enabled)) router.push(`/tickets/${ticket.id}?scheduled=1`)
-    else if (taskIds.length === 1) router.push(`/tasks/${taskIds[0]}`)
-    else router.refresh()
+    else if (taskIds.length === 1) router.push(`/tasks/${taskIds[0]}?created=1`)
+    else router.push(`/tickets/${ticket.id}?created=1`)
   }
 
   return (
@@ -667,7 +675,7 @@ export function CreateTasksModal({
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-xs font-semibold text-slate-900">{option.title}</span>
-                          <span className="block whitespace-nowrap text-[10px] leading-4 text-slate-500">{option.description}</span>
+                          <span className="block whitespace-nowrap text-xs leading-4 text-slate-500">{option.description}</span>
                         </span>
                         <span aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0 rounded-full border',
                           selected

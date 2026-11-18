@@ -200,6 +200,7 @@ export interface Task {
   source: TaskSource
   visibility: TaskVisibility
   is_scheduled: boolean
+  schedule_id?: string | null
   department_id: string | null
   platform_id: string | null
   service_id: string | null
@@ -237,6 +238,7 @@ export interface TaskSummary {
   source: TaskSource
   visibility: TaskVisibility
   is_scheduled: boolean
+  schedule_id?: string | null
   due_date: string | null
   created_at: string
   assignee_id: string | null

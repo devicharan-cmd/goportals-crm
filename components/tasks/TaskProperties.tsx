@@ -1,20 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Flame, LockKeyhole, X } from 'lucide-react'
+import { AlertTriangle, Flame, Globe2, LockKeyhole, X } from 'lucide-react'
 import { StaffIdentity } from '@/components/ui/primitives'
 import { PRIORITY_OPTIONS, TASK_STATUS_LABELS } from '@/lib/constants'
-import { formatDate, formatRelative } from '@/lib/utils'
+import { formatDate, formatDateTime, formatTime } from '@/lib/utils'
 import type { AssigneeOption } from '@/components/tasks/AssignButton'
 import { TaskStatusSelect } from '@/components/tasks/TaskStatusSelect'
-import { TaskPreviousAssignees } from '@/components/tasks/TaskPreviousAssignees'
 import { TaskPrioritySelect, TaskUrgentToggle } from '@/components/tasks/TaskPropertyControls'
-import type { AppRole, Task, TaskAssigneeHistoryItem, TaskStatus } from '@/types/database'
+import type { AppRole, Task, TaskStatus } from '@/types/database'
 
 /** Task properties and permitted inline controls shown in the task detail sidebar. */
 export function TaskProperties({
-  task, ticketLabel, assignees, assigneeName, assignedBy, assignedAt, canChangeStatus = false, canCompleteReview = false,
-  canEditPriority = false, canEditUrgent = false, assigneeHistory = [],
+  task, ticketLabel, assignees, assigneeName, assignedBy, assignedAt, scheduleTime, scheduleRepeatLabel,
+  canChangeStatus = false,
+  canEditPriority = false, canEditUrgent = false,
 }: {
   task: Task
   ticketLabel?: string | null
@@ -22,9 +22,9 @@ export function TaskProperties({
   assigneeName: string | null
   assignedBy?: { name: string; avatarUrl: string | null; role: AppRole } | null
   assignedAt?: string | null
-  assigneeHistory?: TaskAssigneeHistoryItem[]
+  scheduleTime?: string | null
+  scheduleRepeatLabel?: string | null
   canChangeStatus?: boolean
-  canCompleteReview?: boolean
   canEditPriority?: boolean
   canEditUrgent?: boolean
 }) {
@@ -39,7 +39,7 @@ export function TaskProperties({
     ? 'No ticket (standalone)'
     : ticketLabel ?? '—'
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {statusWarning && (
         <p role="alert" className="flex items-start gap-1.5 rounded-lg border border-amber-100 bg-amber-50/70 px-2.5 py-2 text-xs text-amber-800">
           <AlertTriangle aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-600" />
@@ -61,7 +61,7 @@ export function TaskProperties({
               taskId={task.id}
               status={task.status as TaskStatus}
               visibility={task.visibility}
-              canCompleteReview={canCompleteReview}
+              ticketId={task.ticket_id}
               onWarning={setStatusWarning}
             />
           : <span className={value}>{TASK_STATUS_LABELS[task.status]}</span>}
@@ -84,7 +84,11 @@ export function TaskProperties({
                 ? 'bg-violet-50 text-violet-700 ring-violet-200'
                 : 'bg-slate-50 text-slate-500 ring-slate-200'
           }`}>
-            {task.visibility === 'private' && <LockKeyhole aria-hidden="true" className="h-3.5 w-3.5" />}
+            {task.visibility === 'private'
+              ? <LockKeyhole aria-hidden="true" className="h-3.5 w-3.5" />
+              : task.visibility === 'public'
+                ? <Globe2 aria-hidden="true" className="h-3.5 w-3.5" />
+                : null}
             {visibilityLabel}
           </span>
         </span>
@@ -105,7 +109,7 @@ export function TaskProperties({
 
       <div className={row}>
         <span className={label}>Assignee</span>
-        <div className="min-w-0 space-y-2">
+        <div className="min-w-0">
           {task.assignee_id
             ? <StaffIdentity
                 name={assigneeName}
@@ -114,7 +118,6 @@ export function TaskProperties({
                 roleLabel={currentAssignee?.role}
               />
             : <span className="text-sm italic text-slate-400">Unassigned</span>}
-          <TaskPreviousAssignees history={assigneeHistory} />
         </div>
       </div>
 
@@ -127,18 +130,26 @@ export function TaskProperties({
 
       {assignedAt && (
         <div className={row}>
-          <span className={label}>Assigned</span>
-          <span className={value}>
-            {formatDate(assignedAt)}
-            <span className="block text-xs text-slate-500">{formatRelative(assignedAt)}</span>
-          </span>
+          <span className={label}>{task.is_scheduled ? 'Scheduled on' : 'Assigned'}</span>
+          <span className={value}>{formatDateTime(assignedAt)}</span>
         </div>
       )}
 
       <div className={row}>
         <span className={label}>Due date</span>
-        <span className={value}>{task.due_date ? formatDate(task.due_date) : 'No due date'}</span>
+        <span className={value}>
+          {task.due_date
+            ? `${formatDate(task.due_date)}${task.is_scheduled ? ' · 11:59 PM' : ''}`
+            : 'No due date'}
+        </span>
       </div>
+
+      {task.is_scheduled && scheduleTime && (
+        <div className={row}>
+          <span className={label}>Schedule</span>
+          <span className={value}>{[scheduleRepeatLabel, `${formatTime(scheduleTime)} IST`].filter(Boolean).join(' · ')}</span>
+        </div>
+      )}
 
       <div className={row}>
         <span className={label}>Urgent</span>

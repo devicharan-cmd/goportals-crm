@@ -30,6 +30,27 @@ export const TASK_STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'completed',          label: 'Completed' },
   { value: 'cancelled',          label: 'Cancelled' },
 ]
+
+/** Client review is reserved for public ticket tasks; completion follows internal review. */
+export function taskStatusTransitionWarning(
+  from: TaskStatus,
+  to: TaskStatus,
+  context: { visibility: 'public' | 'private'; ticketId: string | null },
+): string | null {
+  if (to === 'client_review') {
+    if (context.visibility !== 'public' || !context.ticketId) {
+      return 'Client review is only for public tasks linked to a ticket.'
+    }
+    if (from !== 'ready_for_review') return 'Move the task to In review before Client review.'
+  }
+  if (to === 'completed' && from !== 'ready_for_review') {
+    return from === 'client_review'
+      ? 'Wait for the client to approve the task before completing it.'
+      : 'Move the task to In review before completing it.'
+  }
+  return null
+}
+
 export const TASK_PAGE_SIZE = 50
 export const TICKET_PAGE_SIZE = 50
 export const CLIENT_PAGE_SIZE = 50

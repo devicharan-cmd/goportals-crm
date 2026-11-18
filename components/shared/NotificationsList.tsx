@@ -17,6 +17,8 @@ const ICONS: Record<string, React.ElementType> = {
   client_ticket: Inbox,
   urgent: Flame,
   comment: MessageSquare,
+  reporting_poc_changed: UserCheck,
+  reporting_poc_assigned: UserCheck,
 }
 
 export function NotificationsList({ items, taskHref, ticketHref }: { items: Notification[]; taskHref: string; ticketHref: string }) {

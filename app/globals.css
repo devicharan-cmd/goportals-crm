@@ -1,15 +1,31 @@
 @import "tailwindcss";
 
+/* Shared neutral scale: retain the CRM's cool blue-grey hue and brand colors,
+   while giving text, borders, and quiet surfaces clearer steps in contrast. */
+@theme {
+  --color-slate-50: #f8f9fb;
+  --color-slate-100: #f1f3f7;
+  --color-slate-200: #dfe3eb;
+  --color-slate-300: #c5cbd8;
+  --color-slate-400: #8e98ad;
+  --color-slate-500: #66738a;
+  --color-slate-600: #4d5a70;
+  --color-slate-700: #354258;
+  --color-slate-800: #26334b;
+  --color-slate-900: #151f35;
+  --color-slate-950: #0e172b;
+}
+
 :root {
   --font-sans: var(--font-inter), system-ui, sans-serif;
 }
 
-html { -webkit-font-smoothing: antialiased; }
-body { background-color: #f8fafc; color: #1e293b; }
+html { background-color: #f7f7fa; -webkit-font-smoothing: antialiased; }
+body { background-color: #f7f7fa; color: #354258; }
 h1, h2 {
   font-family: var(--font-inter), system-ui, sans-serif;
   letter-spacing: -0.025em;
-  color: #0f172a;
+  color: #151f35;
 }
 .auth-hero-title,
 .portal-hero-title {
@@ -17,7 +33,7 @@ h1, h2 {
 }
 h3 {
   font-family: var(--font-inter), system-ui, sans-serif;
-  color: #0f172a;
+  color: #151f35;
 }
 ::selection { background-color: #d3e896; color: #022b3b; }
 
@@ -27,7 +43,7 @@ h3 {
   width: 100%;
   min-height: 42px;
   align-items: center;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #c5cbd8;
   border-radius: 0.5rem;
   background: #fff;
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -53,7 +69,7 @@ h3 {
   align-items: center;
   gap: 0.375rem;
   border: 0;
-  border-right: 1px solid #cbd5e1;
+  border-right: 1px solid #c5cbd8;
   background: transparent;
   padding: 0 0.625rem;
   font-size: 0.875rem;
@@ -97,7 +113,7 @@ h3 {
   width: 18rem;
   max-width: calc(100vw - 2rem);
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #dfe3eb;
   border-radius: 0.75rem;
   background: #fff;
   padding: 0.5rem;
@@ -106,7 +122,7 @@ h3 {
 .phone-country-search {
   width: 100%;
   height: 2.25rem;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #c5cbd8;
   border-radius: 0.5rem;
   padding: 0 0.625rem;
   outline: none;
@@ -158,13 +174,13 @@ h3 {
 }
 .form-field {
   width: 100%;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #c5cbd8;
   border-radius: 0.5rem;
   background-color: #fff;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   line-height: 1.25rem;
-  color: #0f172a;
+  color: #151f35;
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   transition: color 150ms, background-color 150ms, border-color 150ms, box-shadow 150ms;
 }
@@ -202,7 +218,7 @@ button[aria-haspopup="listbox"]:focus {
   font-size: 0.875rem;
   line-height: 1.25rem;
   font-weight: 500;
-  color: #334155;
+  color: #354258;
 }
 .task-form-fields-stack {
   display: flex;
@@ -222,10 +238,10 @@ button[aria-haspopup="listbox"]:focus {
   max-width: 100%;
 }
 .content-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid #dfe3eb;
   border-radius: 0.75rem;
   background-color: #fff;
-  box-shadow: 0 1px 2px 0 rgb(2 43 59 / 0.04), 0 1px 3px 0 rgb(2 43 59 / 0.06);
+  box-shadow: 0 1px 2px 0 rgb(21 31 53 / 0.035), 0 2px 5px 0 rgb(21 31 53 / 0.045);
 }
 .task-overview-card {
   border-left: 5px solid #0d9488;
@@ -236,23 +252,23 @@ button[aria-haspopup="listbox"]:focus {
   main { padding: 0; }
 }
 
-/* Scrollbars in the logo's "GO" lime (#95C12C). Firefox + new Chrome use scrollbar-color; Safari uses the ::-webkit rules. */
+/* Brand teal scrollbars. Keep their existing dimensions and shape. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #95C12C transparent;
+  scrollbar-color: #045E80 transparent;
 }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background-color: #A5CD3F;
+  background-color: #045E80;
   border: 2px solid transparent;
   border-radius: 9999px;
   background-clip: content-box;
 }
-::-webkit-scrollbar-thumb:hover { background-color: #789C20; }
+::-webkit-scrollbar-thumb:hover { background-color: #034C68; }
 
 .assignee-options-scroll-area {
-  scrollbar-color: #94a3b8 #f1f5f9;
+  scrollbar-color: #045E80 #f1f5f9;
   scrollbar-width: thin;
 }
 .assignee-options-scroll-area::-webkit-scrollbar {
@@ -264,11 +280,11 @@ button[aria-haspopup="listbox"]:focus {
   background-color: #f1f5f9;
 }
 .assignee-options-scroll-area::-webkit-scrollbar-thumb {
-  background-color: #94a3b8;
+  background-color: #045E80;
   border: 1px solid transparent;
   border-radius: 9999px;
   background-clip: content-box;
 }
 .assignee-options-scroll-area::-webkit-scrollbar-thumb:hover {
-  background-color: #64748b;
+  background-color: #034C68;
 }

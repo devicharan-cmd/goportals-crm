@@ -6,15 +6,16 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   Bell, Briefcase, Building2, ChevronDown, ChevronLeft, ChevronRight,
   ClipboardList, FileSignature, Flame, LayoutDashboard, Layers, Loader2, LogOut,
-  Menu, PieChart, Settings, Settings2, ShieldCheck, User, UserCircle, UserPlus, Users, X,
+  Menu, PieChart, Settings, Settings2, ShieldCheck, User, UserCircle, UserPlus, Users, WifiOff, X,
 } from 'lucide-react'
 import { BsListTask } from 'react-icons/bs'
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
 import { Avatar } from '@/components/ui/primitives'
+import { TaskAssignmentAlert } from '@/components/shared/TaskAssignmentAlert'
 import { ROLE_LABELS } from '@/lib/constants'
 import { cn, errorMessage } from '@/lib/utils'
-import { showErrorToast } from '@/lib/ui-toast'
+import { showErrorToast, showSuccessToast } from '@/lib/ui-toast'
 import type { AppRole } from '@/types/database'
 
 type NavItem = { href: string; label: string; icon: React.ElementType; roles?: AppRole[]; badge?: 'urgent' | 'approvals' }
@@ -90,6 +91,9 @@ export function AppShell({
   const [signOutError, setSignOutError] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [liveCounts, setLiveCounts] = useState(counts)
+  const [isOffline, setIsOffline] = useState(false)
+  const [networkRevision, setNetworkRevision] = useState(0)
+  const realtimeUnavailableRef = useRef(false)
   const isClient = user.role === 'client'
   const [liveAvatarUrl, setLiveAvatarUrl] = useState<string | null>(isClient ? null : user.avatarUrl ?? null)
   const profileMenuRef = useRef<HTMLDivElement>(null)
@@ -99,6 +103,31 @@ export function AppShell({
   useEffect(() => {
     if (!isClient) setLiveAvatarUrl(user.avatarUrl ?? null)
   }, [isClient, user.avatarUrl])
+
+  useEffect(() => {
+    const handleOffline = () => {
+      setIsOffline(true)
+      realtimeUnavailableRef.current = true
+      showErrorToast('Internet connection lost. Reconnect before submitting changes.')
+    }
+    const handleOnline = () => {
+      setIsOffline(false)
+      setNetworkRevision(revision => revision + 1)
+      showSuccessToast('Internet connection restored. Checking GoPortals connection…')
+    }
+
+    const offline = !navigator.onLine
+    setIsOffline(offline)
+    if (offline) {
+      realtimeUnavailableRef.current = true
+    }
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
+    return () => {
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [])
 
   useEffect(() => {
     if (!user.id || isClient) return
@@ -331,8 +360,14 @@ export function AppShell({
 
         channel = nextChannel
         nextChannel.subscribe(status => {
-          if (active && (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')) {
-            showErrorToast('Live updates are unavailable. Refresh to see the latest changes.')
+          if (!active) return
+          if (status === 'SUBSCRIBED' && realtimeUnavailableRef.current) {
+            realtimeUnavailableRef.current = false
+            router.refresh()
+            showSuccessToast('Connection restored. GoPortals is up to date.')
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            realtimeUnavailableRef.current = true
+            if (navigator.onLine) showErrorToast('Connection interrupted. GoPortals is trying to reconnect.')
           }
         })
         const initialCounts = new Set<'notifications' | 'urgent' | 'approvals'>(['notifications'])
@@ -340,7 +375,10 @@ export function AppShell({
         if (!isClient && user.role === 'super_admin') initialCounts.add('approvals')
         await refreshCounts(initialCounts)
       } catch (subscriptionError) {
-        if (active) showErrorToast(`Live updates are unavailable. ${errorMessage(subscriptionError)}`)
+        if (active) {
+          realtimeUnavailableRef.current = true
+          if (navigator.onLine) showErrorToast(`Connection interrupted. ${errorMessage(subscriptionError)}`)
+        }
       }
     })()
 
@@ -351,7 +389,7 @@ export function AppShell({
       if (channel) void supabase.removeChannel(channel)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [isClient, user.id, user.role, router])
+  }, [isClient, user.id, user.role, router, networkRevision])
 
   const groups = (isClient ? CLIENT_NAV : STAFF_NAV)
     .map(g => ({ ...g, items: g.items.filter(i => !i.roles || i.roles.includes(user.role)) }))
@@ -463,7 +501,7 @@ export function AppShell({
 
       {companyName && !compact && (
         <div className="mx-4 mb-2 rounded-lg bg-[#EAF4F8] px-3 py-2">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-[#0A6F94]">Client portal</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-[#0A6F94]">Client portal</p>
           <p className="truncate text-sm font-semibold text-[#022B3B]">{companyName}</p>
         </div>
       )}
@@ -473,7 +511,7 @@ export function AppShell({
           <div key={gi}>
             {group.label && (compact
               ? <div className="mx-2 mb-3 border-t border-slate-100" />
-              : <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{group.label}</p>)}
+              : <p className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">{group.label}</p>)}
             <ul className="space-y-0.5">
               {group.items.map(item => {
                 const active = isActive(item.href)
@@ -496,7 +534,7 @@ export function AppShell({
                       {!compact && <span className="flex-1">{item.label}</span>}
                       {!!count && (compact
                         ? <span className={cn('absolute right-1 top-1 h-2 w-2 rounded-full', item.badge === 'urgent' ? 'bg-gradient-to-r from-red-600 to-rose-500' : 'bg-[#95C12C]')} />
-                        : <span className={cn('flex items-center justify-center rounded-full text-[10px] font-bold leading-none',
+                        : <span className={cn('flex items-center justify-center rounded-full text-xs font-bold leading-none',
                             item.badge === 'urgent'
                               ? 'h-5 w-5 shrink-0 bg-gradient-to-r from-red-600 to-rose-500 text-white'
                               : 'px-2 py-0.5 bg-[#95C12C] text-[#011B26]')}>{count}</span>)}
@@ -544,7 +582,7 @@ export function AppShell({
   )
 
   return (
-    <div className="fixed inset-0 overflow-hidden">
+    <div className="fixed inset-0 overflow-hidden bg-[#f7f7fa]">
       {/* Desktop sidebar */}
       <aside className={cn('fixed inset-y-0 left-0 z-30 hidden border-r border-slate-200 bg-white transition-[width] duration-200 lg:block',
         collapsed ? 'w-16' : 'w-64')}>
@@ -566,7 +604,7 @@ export function AppShell({
           <button className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
-          <div className="lg:hidden"><Logo className="h-7" priority /></div>
+          <div className="lg:hidden"><Logo className="h-6" priority /></div>
           {pageTitle && (
             <div className="hidden min-w-0 items-center gap-2.5 sm:flex">
               <span className="hidden h-6 w-px bg-slate-200 sm:block lg:hidden" />
@@ -581,12 +619,12 @@ export function AppShell({
             <Link
               href={notificationsHref}
               prefetch={false}
-              className="relative rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+              className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#045E80] focus-visible:ring-offset-2"
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
               {liveCounts.notifications > 0 && (
-                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#95C12C] px-1 text-[10px] font-bold text-white">
+                <span className="absolute -right-0.5 -top-0.5 inline-grid h-4 min-w-4 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full bg-[#95C12C] px-1 text-center text-[9px] font-semibold leading-none tabular-nums text-white ring-2 ring-white">
                   {liveCounts.notifications > 9 ? '9+' : liveCounts.notifications}
                 </span>
               )}
@@ -598,17 +636,17 @@ export function AppShell({
                   type="button"
                   onClick={() => setProfileMenuOpen(v => !v)}
                   className={cn(
-                    'flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1.5 transition-all text-left focus:outline-none select-none shadow-xs',
+                    'flex items-center gap-2 rounded-full border border-slate-200 bg-white px-1.5 py-1 transition-[border-color] text-left focus:outline-none select-none shadow-xs',
                     profileMenuOpen
-                      ? 'border-slate-300 bg-slate-50'
-                      : 'hover:border-slate-300 hover:bg-slate-50'
+                      ? 'border-slate-400'
+                      : 'hover:border-slate-400'
                   )}
                   aria-expanded={profileMenuOpen}
                   aria-haspopup="true"
                 >
                   <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : liveAvatarUrl} role={user.role} size="sm" />
                   <div className="hidden min-w-0 sm:flex sm:flex-col sm:justify-center text-left">
-                    <p className="max-w-[130px] truncate text-[11px] font-semibold text-slate-900 leading-[1.2]">
+                    <p className="max-w-[130px] truncate text-xs font-semibold text-slate-900 leading-[1.2]">
                       {user.name || user.email}
                     </p>
                     <p className="text-[10px] font-medium leading-[1.2] text-slate-500">
@@ -625,12 +663,22 @@ export function AppShell({
 
                 {/* Dropdown Menu: Clean & Minimalist */}
                 {profileMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-slate-200/80 bg-white p-1.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute right-0 top-full z-50 mt-1.5 w-full rounded-xl border border-slate-200/80 bg-white p-0.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] animate-in fade-in zoom-in-95 duration-100">
+                    <div className="flex min-w-0 items-start gap-2 px-1.5 py-1.5">
+                      <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : liveAvatarUrl} role={user.role} size="sm" className="mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold leading-4 text-slate-900">{user.name || user.email}</p>
+                        <p className="truncate text-[11px] leading-4 text-slate-500">{user.email}</p>
+                        <p className="truncate text-[11px] font-medium leading-4 text-[#045E80]">{ROLE_LABELS[user.role]}</p>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-100 my-1" />
                     <Link
                       href={isClient ? '/portal/profile' : '/settings'}
                       prefetch={false}
                       onClick={() => setProfileMenuOpen(false)}
-                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
+                      className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
                     >
                       <User className="h-4 w-4 text-slate-500" />
                       {isClient ? 'Company profile' : 'Profile'}
@@ -644,7 +692,7 @@ export function AppShell({
                         signOut()
                       }}
                       disabled={signingOut}
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition"
+                      className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition"
                     >
                       {signingOut ? <Loader2 className="h-4 w-4 animate-spin text-red-600" /> : <LogOut className="h-4 w-4" />}
                       Log out
@@ -654,8 +702,22 @@ export function AppShell({
             </div>
           </div>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        {user.id && <TaskAssignmentAlert userId={user.id} taskHref={isClient ? '/portal/tasks' : '/tasks'} />}
+        {isOffline && (
+          <div role="status" aria-live="polite" className="flex flex-shrink-0 items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-950 sm:px-6">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800">
+              <WifiOff className="h-4 w-4" />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-semibold">You’re offline</span>
+              <span className="block text-xs text-amber-900/80">Reconnect before submitting changes. Information on this page may be out of date.</span>
+            </span>
+          </div>
+        )}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[#f7f7fa]">
+          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+            {children}
+          </main>
         </div>
       </div>
     </div>

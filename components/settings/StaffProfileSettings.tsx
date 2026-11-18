@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import Link from 'next/link'
 import {
   Check, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, Loader2, ChevronDown, Search
@@ -38,6 +39,7 @@ function ReportingPersonSelect({
   disabled?: boolean
   invalid?: boolean
 }) {
+  const selectId = useId()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const rootRef = useRef<HTMLDivElement>(null)
@@ -61,6 +63,11 @@ function ReportingPersonSelect({
     <div ref={rootRef} className="relative">
       <button
         type="button"
+        role="combobox"
+        aria-label="Reporting To"
+        aria-controls={`${selectId}-options`}
+        aria-expanded={open}
+        aria-haspopup="listbox"
         disabled={disabled}
         onClick={() => setOpen(current => !current)}
         className={cn(
@@ -71,7 +78,7 @@ function ReportingPersonSelect({
       >
         {selected ? (
           <>
-            <Avatar name={selected.full_name || selected.email} src={selected.avatar_url} role={selected.role} size="xs" className="h-7 w-7 text-[11px]" />
+            <Avatar name={selected.full_name || selected.email} src={selected.avatar_url} role={selected.role} size="xs" className="h-7 w-7 text-xs" />
             <span className="min-w-0 flex-1 truncate text-left">{selected.full_name || selected.email}</span>
           </>
         ) : (
@@ -91,7 +98,7 @@ function ReportingPersonSelect({
               className="h-9 w-full rounded-lg border border-slate-200 pl-8 pr-3 text-sm outline-none focus:border-[#0A6F94]"
             />
           </div>
-          <div className="max-h-52 overflow-y-auto">
+          <div id={`${selectId}-options`} role="listbox" aria-label="Reporting people" className="max-h-52 overflow-y-auto">
             {filtered.map(person => (
               <button
                 key={person.id}
@@ -556,9 +563,12 @@ export function StaffProfileSettings({
                         className="flex h-20 w-20 items-center justify-center rounded-full shadow-sm"
                       >
                         {currentImage && !imageLoadFailed ? (
-                          <img
+                          <Image
                             src={currentImage}
                             alt={fullName || profile.email}
+                            width={80}
+                            height={80}
+                            unoptimized
                             className="h-full w-full rounded-full object-cover border-4 border-white"
                             onError={() => setImageLoadFailed(true)}
                           />
@@ -568,9 +578,12 @@ export function StaffProfileSettings({
                       </ProfileImageControl>
                     ) : (
                       currentImage && !imageLoadFailed ? (
-                        <img
+                        <Image
                           src={currentImage}
                           alt={fullName || profile.email}
+                          width={80}
+                          height={80}
+                          unoptimized
                           className="h-20 w-20 rounded-full object-cover border-4 border-white"
                           onError={() => setImageLoadFailed(true)}
                         />
@@ -682,7 +695,7 @@ export function StaffProfileSettings({
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Job title <span className="text-red-500">*</span></span>
                     {!isOwnProfile && (!isSuperAdmin || !isEditing) && (
-                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                      <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
                     )}
@@ -717,7 +730,7 @@ export function StaffProfileSettings({
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Role <span className="text-red-500">*</span></span>
                     {(!canChangeRole || !isEditing) && (
-                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                      <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
                     )}
@@ -772,7 +785,7 @@ export function StaffProfileSettings({
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Reporting To (POC) {role !== 'super_admin' && <span className="text-red-500">*</span>}</span>
                     {(!canChangeRole || !isEditing) && (
-                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                      <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
                     )}
@@ -799,7 +812,7 @@ export function StaffProfileSettings({
                         const reportingPerson = reportingPeople.find(person => person.id === reportingTo)
                         return reportingPerson ? (
                           <>
-                            <Avatar name={reportingPerson.full_name || reportingPerson.email} src={reportingPerson.avatar_url} role={reportingPerson.role} size="xs" className="mr-2 h-7 w-7 text-[11px]" />
+                            <Avatar name={reportingPerson.full_name || reportingPerson.email} src={reportingPerson.avatar_url} role={reportingPerson.role} size="xs" className="mr-2 h-7 w-7 text-xs" />
                             <span className="min-w-0 truncate">{reportingPerson.full_name || reportingPerson.email}</span>
                           </>
                         ) : '--'
@@ -834,7 +847,7 @@ export function StaffProfileSettings({
                     <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                       <span>Employment status</span>
                       {!canChangeStatus || !isEditing ? (
-                        <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                        <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
                           <Lock className="h-3 w-3" /> Managed by Super Admin
                         </span>
                       ) : null}
@@ -889,7 +902,7 @@ export function StaffProfileSettings({
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Weekly capacity</span>
                     {!isOwnProfile && (!isSuperAdmin || !isEditing) && (
-                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                      <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
                     )}
@@ -932,7 +945,7 @@ export function StaffProfileSettings({
                     Departments
                   </label>
                   {(!isSuperAdmin || !isEditing) && (
-                    <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400">
+                    <span className="flex items-center gap-1 text-xs font-normal text-slate-400">
                       <Lock className="h-3 w-3" /> Assigned by Super Admin
                     </span>
                   )}

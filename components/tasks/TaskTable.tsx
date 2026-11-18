@@ -1,10 +1,9 @@
 import Link from 'next/link'
-import { CalendarClock, ClipboardList, LockKeyhole } from 'lucide-react'
+import { ClipboardList, LockKeyhole } from 'lucide-react'
 import { Avatar, EmptyState } from '@/components/ui/primitives'
 import { dueState, formatDate, taskCode } from '@/lib/utils'
 import { PriorityBadge, StatusBadge, UrgentBadge } from '@/components/ui/badges'
 import { AssignButton } from '@/components/tasks/AssignButton'
-import { TaskPreviousAssignees } from '@/components/tasks/TaskPreviousAssignees'
 import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import { ROLE_LABELS, TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import type { AssigneeOption, TaskAssignerInfo } from '@/lib/queries'
@@ -19,7 +18,7 @@ function TaskDueDisplay({ task, className, rowAligned = false }: { task: TaskSum
         {task.due_date ? formatDate(task.due_date) : 'No due date'}
       </span>
       {isOverdue && (
-        <span className={`${rowAligned ? 'absolute left-0 top-[calc(50%+11px)]' : 'block'} whitespace-nowrap rounded-full bg-red-50 px-1.5 py-0.5 text-[11px] font-medium leading-4 text-red-700`}>
+        <span className={`${rowAligned ? 'absolute left-0 top-[calc(50%+11px)]' : 'block'} whitespace-nowrap rounded-full bg-red-50 px-1.5 py-0.5 text-xs font-medium leading-4 text-red-700`}>
           Overdue
         </span>
       )}
@@ -29,7 +28,7 @@ function TaskDueDisplay({ task, className, rowAligned = false }: { task: TaskSum
 
 export function TaskTable({
   tasks, names, hrefBase = '/tasks', showClient = true, showAssignee = true, showAssignedBy = false,
-  taskAssigners = {}, empty, assignOptions, scope,
+  taskAssigners = {}, empty, assignOptions, scope, assigneeAvatarUrls: suppliedAssigneeAvatarUrls = {},
 }: {
   tasks: TaskSummary[]
   names: Record<string, string>
@@ -38,6 +37,7 @@ export function TaskTable({
   showAssignee?: boolean
   showAssignedBy?: boolean
   scope?: 'mine' | 'assigned' | 'all'
+  assigneeAvatarUrls?: Record<string, string | null | undefined>
   taskAssigners?: Record<string, TaskAssignerInfo>
   empty?: { title: string; description?: string; action?: React.ReactNode }
   /** When set, each row gets a "Change" link to reassign (managers / super admins). */
@@ -45,20 +45,37 @@ export function TaskTable({
 }) {
   const taskHref = (taskId: string) =>
     `${hrefBase}/${taskId}${scope ? `?scope=${scope}` : ''}`
-  const assigneeNames = { ...names, ...Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.name])) }
-  const assigneeRoles = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.role]))
-  const assigneeAvatarRoles = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.avatarRole]))
-  const assigneeAvatarUrls = Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.avatarUrl]))
+  const assigneeNames = {
+    ...names,
+    ...Object.fromEntries(Object.entries(taskAssigners).map(([id, person]) => [id, person.name])),
+    ...Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.name])),
+  }
+  const assigneeRoles = {
+    ...Object.fromEntries(Object.entries(taskAssigners).map(([id, person]) => [id, ROLE_LABELS[person.role]])),
+    ...Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.role])),
+  }
+  const assigneeAvatarRoles = {
+    ...Object.fromEntries(Object.entries(taskAssigners).map(([id, person]) => [id, person.role])),
+    ...Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.avatarRole])),
+  }
+  const assigneeAvatarUrls = {
+    ...Object.fromEntries(Object.entries(taskAssigners).map(([id, person]) => [id, person.avatarUrl])),
+    ...Object.fromEntries((assignOptions ?? []).map(option => [option.id, option.avatarUrl])),
+    ...suppliedAssigneeAvatarUrls,
+  }
+  const ticketLabel = (task: TaskSummary) => task.ticket_id
+    ? 'Under ticket'
+    : task.ticket_id === null ? 'Standalone task' : '—'
   const showReassignColumn = showAssignedBy && showAssignee && Boolean(assignOptions)
   const assignedByColumnWidths = [
     8,
-    16,
-    ...(showClient ? [13] : []),
+    22,
+    ...(showClient ? [12] : []),
     9,
     7,
-    ...(showAssignedBy ? [14] : []),
-    ...(showAssignee ? [14] : []),
-    10,
+    ...(showAssignedBy ? [12] : []),
+    ...(showAssignee ? [13] : []),
+    8,
     ...(showReassignColumn ? [9] : []),
   ]
   const assignedByColumnWidthTotal = assignedByColumnWidths.reduce((total, width) => total + width, 0)
@@ -78,12 +95,13 @@ export function TaskTable({
             ))
           ) : (
             <>
-              <col style={{ width: showClient && showAssignee ? '26%' : showClient ? '39%' : showAssignee ? '31%' : '45%' }} />
-          {showClient && <col style={{ width: showAssignee ? '16%' : '18%' }} />}
-          <col style={{ width: showClient && showAssignee ? '12%' : showClient ? '14%' : showAssignee ? '15%' : '17%' }} />
-          <col style={{ width: showClient && showAssignee ? '10%' : showClient ? '15%' : showAssignee ? '12%' : '18%' }} />
-          {showAssignee && <col style={{ width: showClient ? '20%' : '28%' }} />}
-          <col style={{ width: showClient ? (showAssignee ? '16%' : '14%') : showAssignee ? '14%' : '20%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: showClient && showAssignee ? '16%' : showClient ? '26%' : showAssignee ? '20%' : '34%' }} />
+          {showClient && <col style={{ width: showAssignee ? '15%' : '18%' }} />}
+          <col style={{ width: showClient && showAssignee ? '18%' : showClient ? '18%' : showAssignee ? '18%' : '20%' }} />
+          <col style={{ width: showClient && showAssignee ? '8%' : showClient ? '13%' : showAssignee ? '11%' : '17%' }} />
+          {showAssignee && <col style={{ width: showClient ? '19%' : '26%' }} />}
+          <col style={{ width: showClient ? (showAssignee ? '15%' : '16%') : showAssignee ? '16%' : '20%' }} />
             </>
           )}
         </colgroup>
@@ -91,42 +109,43 @@ export function TaskTable({
           <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
             {showAssignedBy ? (
               <>
-                <th className="px-3 py-3">ID</th>
-                <th className="px-3 py-3">Task</th>
+                <th className="whitespace-nowrap px-3 py-3">Task ID</th>
+                <th className="px-3 py-3">Task title</th>
               </>
-            ) : <th className="px-3 py-3">Task</th>}
+            ) : (
+              <>
+                <th className="whitespace-nowrap px-3 py-3">Task ID</th>
+                <th className="px-3 py-3">Task title</th>
+              </>
+            )}
             {showClient && <th className="px-3 py-3">Client</th>}
-            <th className="px-3 py-3">Status</th>
+            <th className="px-3 py-3 text-center">Status</th>
             <th className="px-3 py-3">Priority</th>
             {showAssignedBy && <th className="px-3 py-3">Assigned by</th>}
             {showAssignee && <th className="px-3 py-3">Assignee</th>}
-            <th className={showAssignedBy ? 'px-2 py-3' : 'px-3 py-3'}>Due</th>
+            <th className={showAssignedBy ? 'px-2 py-3' : 'px-3 py-3'}>Due date</th>
             {showReassignColumn && <th className="px-2 py-3">Reassign</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {tasks.map(t => (
             <tr key={t.id} className="group hover:bg-slate-50/80">
-              {showAssignedBy && (
-                <td className="px-3 py-3 font-mono text-xs font-semibold text-[#045E80]">
-                  <Link href={taskHref(t.id)} className="text-[#045E80] hover:text-[#034C68]">{taskCode(t.task_number)}</Link>
-                </td>
-              )}
+              <td className="whitespace-nowrap px-3 py-3 font-mono text-xs font-semibold text-[#045E80]">
+                <Link href={taskHref(t.id)} prefetch={false} className="text-[#045E80] hover:text-[#034C68]">{taskCode(t.task_number)}</Link>
+              </td>
               <td className="px-3 py-3">
-                <Link href={taskHref(t.id)} className="relative block h-14">
-                  <span className={`absolute inset-x-0 top-[calc(50%-10px)] grid gap-x-2 ${showAssignedBy ? 'grid-cols-1' : 'grid-cols-[max-content_minmax(0,1fr)]'}`}>
-                    {!showAssignedBy && <span className="font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>}
-                    <span className={`${showAssignedBy ? '' : 'col-start-2'} flex min-w-0 items-center gap-2`}>
+                <Link href={taskHref(t.id)} prefetch={false} className="relative block h-14">
+                  <span className="absolute inset-x-0 top-[calc(50%-10px)] grid grid-rows-[auto_auto] gap-y-1">
+                    <span className="flex min-w-0 items-center gap-2">
                       {t.is_urgent && !TASK_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
                       <span className="truncate font-medium text-slate-900">{t.title}</span>
                       {t.visibility === 'private' && (
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200">
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-violet-700 ring-1 ring-inset ring-violet-200">
                           <LockKeyhole aria-hidden="true" className="h-3 w-3" /> Private
                         </span>
                       )}
-                      {t.is_scheduled && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3 w-3" />Scheduled</span>}
                     </span>
-                    <span className={`${showAssignedBy ? '' : 'col-start-2'} flex min-w-0 items-center gap-1 truncate text-xs text-slate-400`}>
+                    <span className="flex min-w-0 items-center gap-1 truncate text-xs text-slate-400">
                       {t.department?.name}
                       {t.department?.name && t.platform?.name && <span aria-hidden="true">·</span>}
                       {t.platform?.name && <MarketplacePlatformLabel name={t.platform.name} />}
@@ -138,7 +157,7 @@ export function TaskTable({
                 </Link>
               </td>
               {showClient && <td className="px-3 py-3 text-slate-600">{t.client?.company_name ?? '—'}</td>}
-              <td className="px-3 py-3"><StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} /></td>
+              <td className="px-3 py-3 text-center"><StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} /></td>
               <td className="px-3 py-3"><PriorityBadge priority={t.priority} /></td>
               {showAssignedBy && (
                 <td className="px-3 py-3 text-slate-700">
@@ -152,7 +171,7 @@ export function TaskTable({
                       />
                       <span className="relative h-14 min-w-0 flex-1">
                         <span className="absolute left-0 top-1/2 w-full -translate-y-1/2 truncate">{taskAssigners[t.assigned_by].name}</span>
-                        <span className="absolute left-0 top-[calc(50%+13px)] w-full -translate-y-1/2 truncate text-[10px] text-slate-400">({ROLE_LABELS[taskAssigners[t.assigned_by].role]})</span>
+                        <span className="absolute left-0 top-[calc(50%+13px)] w-full -translate-y-1/2 truncate text-xs text-slate-400">({ROLE_LABELS[taskAssigners[t.assigned_by].role]})</span>
                       </span>
                     </span>
                   ) : '—'}
@@ -165,29 +184,29 @@ export function TaskTable({
                       {t.assignee_id ? (
                         <span className="flex min-w-0 items-center gap-2">
                           <Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" />
-                          <span className="min-w-0 truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
-                          {assigneeRoles[t.assignee_id] && <span className="shrink-0 text-[10px] text-slate-400">({assigneeRoles[t.assignee_id]})</span>}
+                          <span className="flex min-w-0 flex-col">
+                            <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
+                            {assigneeRoles[t.assignee_id] && <span className="truncate text-xs leading-4 text-slate-400">{assigneeRoles[t.assignee_id]}</span>}
+                          </span>
                         </span>
                       ) : <span className="italic text-slate-400">Unassigned</span>}
-                      <TaskPreviousAssignees history={t.assignee_history} compact />
                     </span>
                   ) : (
                     <div className="min-w-0 space-y-1">
                       {t.assignee_id ? (
                         <span className="flex min-w-0 items-center gap-2 text-slate-700">
                           <Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" />
-                          <span className="min-w-0 truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
+                          <span className="flex min-w-0 flex-col">
+                            <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
+                            {assigneeRoles[t.assignee_id] && <span className="truncate text-xs leading-4 text-slate-400">{assigneeRoles[t.assignee_id]}</span>}
+                          </span>
                           {assignOptions && !TASK_TERMINAL_STATUSES.includes(t.status) && (
                             <span className="shrink-0">
-                              <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
+                          <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={ticketLabel(t)} compact />
                             </span>
-                          )}
-                          {assigneeRoles[t.assignee_id] && (
-                            <span className="shrink-0 text-[10px] text-slate-400">({assigneeRoles[t.assignee_id]})</span>
                           )}
                         </span>
                       ) : <span className="text-xs italic text-slate-400">Unassigned</span>}
-                      <TaskPreviousAssignees history={t.assignee_history} compact />
                     </div>
                   )}
                 </td>
@@ -196,7 +215,7 @@ export function TaskTable({
               {showReassignColumn && (
                 <td className="px-2 py-3 text-center">
                   {!TASK_TERMINAL_STATUSES.includes(t.status) && (
-                    <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
+                    <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={ticketLabel(t)} compact />
                   )}
                 </td>
               )}
@@ -208,8 +227,8 @@ export function TaskTable({
       {/* Mobile cards */}
       <ul className="divide-y divide-slate-100 md:hidden">
         {tasks.map(t => (
-          <li key={t.id}>
-            <Link href={taskHref(t.id)} className="block px-4 py-3 active:bg-slate-50">
+          <li key={t.id} className="grid grid-cols-1 min-[560px]:grid-cols-2">
+            <Link href={taskHref(t.id)} prefetch={false} className="block px-4 py-3 active:bg-slate-50 min-[560px]:col-span-2">
               <div className="flex items-start justify-between gap-2">
                 <p className="font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>{t.title}</p>
                 <PriorityBadge priority={t.priority} />
@@ -218,52 +237,54 @@ export function TaskTable({
                 {t.is_urgent && !TASK_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
                 <StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} />
                 {t.visibility === 'private' && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-1 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-violet-700 ring-1 ring-inset ring-violet-200">
                     <LockKeyhole aria-hidden="true" className="h-3 w-3" /> Private
                   </span>
                 )}
-                {t.is_scheduled && <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3 w-3" />Scheduled</span>}
                 {showClient && t.client && <span className="text-xs text-slate-500">{t.client.company_name}</span>}
                 <TaskDueDisplay task={t} className="ml-auto" />
               </div>
             </Link>
             {showAssignee && (
-              <div className="flex items-start justify-between gap-2 px-4 pb-3 text-xs">
+              <div className="flex min-w-0 items-start justify-between gap-2 px-4 pb-3 text-xs min-[560px]:min-h-14 min-[560px]:items-center">
                 <span className="flex min-w-0 flex-col items-start gap-1.5 text-slate-600">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Assignee</span>
                   <span className="flex min-w-0 items-center gap-1.5">
                   {t.assignee_id
                     ? <><Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" /> <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span></>
                     : <span className="italic text-slate-400">Unassigned</span>}
                   {assignOptions && !showReassignColumn && !TASK_TERMINAL_STATUSES.includes(t.status) && (
                     <span className="shrink-0">
-                      <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
+                      <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={ticketLabel(t)} compact />
                     </span>
                   )}
                   </span>
                   {t.assignee_id && assigneeRoles[t.assignee_id] && (
-                    <span className="ml-7 text-[10px] text-slate-400">({assigneeRoles[t.assignee_id]})</span>
+                    <span className="ml-7 text-xs text-slate-400">({assigneeRoles[t.assignee_id]})</span>
                   )}
-                  <TaskPreviousAssignees history={t.assignee_history} compact />
                 </span>
               </div>
             )}
             {showAssignedBy && t.assigned_by && taskAssigners[t.assigned_by] && (
-              <div className="flex min-w-0 items-center gap-2 px-4 pb-3 text-xs text-slate-500">
-                <Avatar
-                  name={taskAssigners[t.assigned_by].name}
-                  src={taskAssigners[t.assigned_by].avatarUrl}
-                  role={taskAssigners[t.assigned_by].role}
-                  size="xs"
-                />
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate">{taskAssigners[t.assigned_by].name}</span>
-                  <span className="truncate">({ROLE_LABELS[taskAssigners[t.assigned_by].role]})</span>
+              <div className="flex min-w-0 flex-col items-start gap-1.5 px-4 pb-3 text-xs text-slate-500 min-[560px]:min-h-14">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Assigned by</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <Avatar
+                    name={taskAssigners[t.assigned_by].name}
+                    src={taskAssigners[t.assigned_by].avatarUrl}
+                    role={taskAssigners[t.assigned_by].role}
+                    size="xs"
+                  />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate">{taskAssigners[t.assigned_by].name}</span>
+                    <span className="truncate">({ROLE_LABELS[taskAssigners[t.assigned_by].role]})</span>
+                  </span>
                 </span>
               </div>
             )}
             {showReassignColumn && !TASK_TERMINAL_STATUSES.includes(t.status) && (
-              <div className="flex justify-end px-4 pb-3">
-                <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={t.ticket_id ? 'Linked ticket' : 'No ticket (standalone)'} compact />
+              <div className="flex justify-end px-4 pb-3 min-[560px]:col-span-2">
+                <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={ticketLabel(t)} compact />
               </div>
             )}
           </li>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Calendar, ImagePlus, MapPin, Pencil, Trash2, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -209,7 +210,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
               className="h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-[#0A6F94] to-[#022B3B] text-4xl font-bold text-white shadow-lg ring-4 ring-white transition"
             >
               {currentImage
-                ? <img src={currentImage} alt={`${form.company_name} logo`} className="h-full w-full object-cover" />
+                ? <Image src={currentImage} alt={`${form.company_name} logo`} width={112} height={112} unoptimized className="h-full w-full object-cover" />
                 : form.company_name.trim().charAt(0).toUpperCase() || '?'}
             </ProfileImageControl>
 
@@ -295,7 +296,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
           <div className="flex items-center gap-5 rounded-2xl border-2 border-dashed border-[#9FCCDE] bg-gradient-to-r from-[#EAF4F8]/70 to-white p-5 transition hover:border-[#63A9C4] sm:gap-6 sm:p-6">
             <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0A6F94] to-[#022B3B] text-3xl font-bold text-white shadow-lg ring-4 ring-white sm:h-24 sm:w-24 sm:text-4xl">
               {selectedImagePreview || currentImage
-                ? <img src={selectedImagePreview ?? currentImage ?? undefined} alt={selectedImage ? 'Selected company logo preview' : 'Current company logo'} className="h-full w-full object-cover" />
+                ? <Image src={selectedImagePreview ?? currentImage ?? ''} alt={selectedImage ? 'Selected company logo preview' : 'Current company logo'} width={96} height={96} unoptimized className="h-full w-full object-cover" />
                 : form.company_name.trim().charAt(0).toUpperCase() || '?' }
             </div>
             <div className="min-w-0 flex-1">

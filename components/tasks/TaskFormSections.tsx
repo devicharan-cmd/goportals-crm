@@ -52,7 +52,7 @@ export function TaskFieldsGrid({ columns, modal = true, children }: {
   return (
     <div className={modal
       ? `grid gap-3 sm:grid-cols-2 ${columns === 'four' ? 'lg:grid-cols-4' : 'mt-4 lg:grid-cols-3'}`
-      : `grid gap-x-4 gap-y-5 sm:grid-cols-2 ${columns === 'four' ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
+      : `grid gap-x-4 gap-y-4 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:grid-cols-2 sm:p-5 ${columns === 'four' ? 'xl:grid-cols-4' : 'xl:grid-cols-3'}`}>
       {children}
     </div>
   )

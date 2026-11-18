@@ -6,12 +6,11 @@ import { TASK_PAGE_SIZE } from '@/lib/constants'
 import { ButtonLink } from '@/components/ui/button'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
 import { TaskSearchProvider, TaskSearchResults } from '@/components/tasks/TaskSearch'
-import { Alert } from '@/components/ui/primitives'
 import type { TaskSummary } from '@/types/database'
 
 export const metadata = { title: 'Tasks' }
 
-type SP = { view?: string; scope?: string; status?: string; client?: string; assignee?: string; assigned_by?: string; dept?: string; due?: string; scheduled?: string }
+type SP = { view?: string; scope?: string; status?: string; client?: string; assignee?: string; assigned_by?: string; dept?: string; due?: string }
 
 export default async function TasksPage(props: { searchParams: Promise<SP> }) {
   const searchParams = await props.searchParams
@@ -162,7 +161,6 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       board={board}
     >
       <div className="lg:-mx-2">
-        {searchParams.scheduled === '1' && <Alert tone="success">Task schedule saved. The task will appear here when its first scheduled assignment runs.</Alert>}
         <TaskFilters
           showScope
           showAssigneeFilter={canSeeMore}

@@ -18,11 +18,11 @@ export function WeeklyDoneChart({ weeks }: { weeks: WeekBucket[] }) {
           return (
             <div key={w.label} className="group relative flex h-full flex-1 flex-col justify-end">
               {/* hover target is the whole column, bigger than the bar */}
-              <div className="pointer-events-none absolute -top-1 left-1/2 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] text-white opacity-0 shadow transition group-hover:opacity-100">
+              <div className="pointer-events-none absolute -top-1 left-1/2 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs text-white opacity-0 shadow transition group-hover:opacity-100">
                 <span className="font-semibold">{w.count}</span> done · {w.range}
               </div>
               {(last || w.count === max) && w.count > 0 && (
-                <span className="mb-1 text-center text-[11px] font-semibold text-slate-700">{w.count}</span>
+                <span className="mb-1 text-center text-xs font-semibold text-slate-700">{w.count}</span>
               )}
               <div
                 className={cn('mx-auto w-full max-w-[28px] rounded-t transition-colors',
@@ -34,7 +34,7 @@ export function WeeklyDoneChart({ weeks }: { weeks: WeekBucket[] }) {
         })}
       </div>
       <div className="mt-1.5 flex gap-2 px-1">
-        {weeks.map(w => <span key={w.label} className="flex-1 text-center text-[10px] text-slate-400">{w.label}</span>)}
+        {weeks.map(w => <span key={w.label} className="flex-1 text-center text-xs text-slate-400">{w.label}</span>)}
       </div>
       <figcaption className="mt-2 text-xs text-slate-500">{total} completed in the last {weeks.length} weeks</figcaption>
     </figure>

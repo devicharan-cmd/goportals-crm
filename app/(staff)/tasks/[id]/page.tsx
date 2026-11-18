@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, CalendarClock, Clock3, FileText, Paperclip } from 'lucide-react'
+import { ArrowLeft, Clock3, Globe2, LockKeyhole } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, getTaskAssigneeHistory, nameMap, resolveTaskId, TASK_LIST_SELECT, taskAssigneeOptionsFor, taskPageTitle } from '@/lib/queries'
@@ -21,6 +21,7 @@ import { DeleteButton } from '@/components/shared/DeleteButton'
 import { AssignButton } from '@/components/tasks/AssignButton'
 import { TaskEditModal } from '@/components/tasks/TaskEditModal'
 import { TaskScheduleControl } from '@/components/tasks/TaskScheduleControl'
+import { FileAttachmentDownload } from '@/components/shared/FileAttachmentDownload'
 import { TYPE_LABELS } from '@/lib/constants'
 import { dueState, formatDate, formatRelative, taskCode, ticketCode } from '@/lib/utils'
 import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TimeLog } from '@/types/database'
@@ -37,7 +38,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const taskId = await resolveTaskId(params.id)
   if (!taskId) notFound()
 
-  const [{ data }, { data: comments }, { data: activity }, { data: logs }, { data: checklist, error: checklistError }, lookups, { data: taskAttachments, error: attachmentsError }, { data: taskSchedule, error: scheduleError }, { data: reassignmentNotes, error: reassignmentNotesError }] = await Promise.all([
+  const [{ data }, { data: comments }, { data: activity }, { data: logs }, { data: checklist, error: checklistError }, lookups, { data: taskAttachments, error: attachmentsError }, { data: reassignmentNotes, error: reassignmentNotesError }] = await Promise.all([
     supabase.from('tasks').select(`${TASK_LIST_SELECT}, service:services(id, name), ticket:tickets(id, ticket_number, subject)`).eq('id', taskId).maybeSingle(),
     supabase.from('task_comments').select('*').eq('task_id', taskId).order('created_at'),
     supabase.from('task_activity').select('*').eq('task_id', taskId).order('created_at', { ascending: false }),
@@ -47,20 +48,21 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     supabase.from('task_attachments')
       .select('id, comment_id, uploaded_by, storage_path, file_name, mime_type, size_bytes')
       .eq('task_id', taskId),
-    supabase.from('task_schedules')
-      .select('enabled, repeat_type, interval_days')
-      .eq('task_id', taskId).maybeSingle(),
     supabase.from('task_assignment_notes').select('task_activity_id, note').eq('task_id', taskId),
   ])
   if (checklistError) throw new Error(checklistError.message)
   if (attachmentsError) throw new Error(attachmentsError.message)
-  if (scheduleError) throw new Error(scheduleError.message)
   if (reassignmentNotesError) throw new Error(reassignmentNotesError.message)
   if (!data) notFound()
   const task = data as TaskListItem & {
     service: { id: string; name: string } | null
     ticket: { id: string; ticket_number: number; subject: string } | null
   }
+  const scheduleLookup = task.schedule_id
+    ? supabase.from('task_schedules').select('id, created_by, enabled, repeat_type, interval_days, start_date, schedule_time').eq('id', task.schedule_id)
+    : supabase.from('task_schedules').select('id, created_by, enabled, repeat_type, interval_days, start_date, schedule_time').eq('task_id', task.id)
+  const { data: taskSchedule, error: scheduleError } = await scheduleLookup.maybeSingle()
+  if (scheduleError) throw new Error(scheduleError.message)
   const taskHistory = await getTaskAssigneeHistory(supabase, [task.id])
   const assigneeHistory = taskHistory.get(task.id) ?? []
   const isFormerAssignee = task.assignee_id !== me.id
@@ -129,13 +131,12 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     || (!task.assigned_by && !task.assignee_id && createdByMe))
   const canEditChecklist = !isFormerAssignee && (canManageTask || task.assignee_id === me.id)
   const tasksHref = scopedTasksContext ? `/tasks?scope=${searchParams.scope}` : '/tasks'
-  const scheduleCanManage = task.status !== 'completed' && task.status !== 'cancelled'
-    && canManageTask
+  const scheduleCanManage = taskSchedule?.created_by === me.id
   const scheduleRepeatLabel = taskSchedule?.repeat_type === 'weekly'
-    ? 'For a week'
+    ? 'Daily for one week'
     : taskSchedule?.repeat_type === 'custom'
       ? `Every ${taskSchedule.interval_days} days`
-      : 'Daily'
+        : 'Daily'
 
   const details: [string, React.ReactNode][] = [
     ['Task ID', <span key="id" className="font-mono font-semibold text-[#045E80]">{taskCode(task.task_number)}</span>],
@@ -172,11 +173,13 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
             taskVisibility={task.visibility}
             ticketLabel={task.ticket
               ? ticketCode(task.ticket.ticket_number)
-              : task.ticket_id ? null : 'No ticket (standalone)'}
+              : task.ticket_id ? null : 'Standalone task'}
           />}
           {canManageTask && (
             <TaskEditModal
               task={task}
+              schedule={taskSchedule}
+              canManageSchedule={scheduleCanManage}
               meId={me.id}
               canMarkUrgent={me.role !== 'employee'}
               canEditAssignment={me.role !== 'employee'}
@@ -192,18 +195,25 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="min-w-0 space-y-6">
+      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+        <div className="min-w-0 space-y-5">
           {task.is_scheduled && taskSchedule && <TaskScheduleControl taskId={task.id} enabled={taskSchedule.enabled} repeatLabel={scheduleRepeatLabel} canManage={scheduleCanManage} />}
-          <Card className="task-overview-card p-6">
+          <Card className="task-overview-card p-5">
             <div className="border-b border-[#E2E8F0] pb-4">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <TaskCode number={task.task_number} />
+                <span aria-hidden="true" className="h-4 w-px bg-[#DCE5EF]" />
                 {task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && <UrgentBadge className="border-0 ring-0" />}
                 <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={TASK_STATUS_STYLES[task.status]} dotClassName={TASK_STATUS_DOT[task.status]} />
                 <PriorityBadge priority={task.priority} />
-                {task.visibility === 'private' && <Badge className="bg-violet-50 text-violet-700 ring-violet-200">Private · Internal only</Badge>}
-                {task.is_scheduled && <Badge className="gap-1 bg-indigo-50 text-indigo-700 ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3.5 w-3.5" />Scheduled</Badge>}
+                <Badge className={task.visibility === 'private'
+                  ? 'gap-1 bg-violet-50 text-violet-700 ring-violet-200'
+                  : 'gap-1 bg-teal-50 text-teal-700 ring-teal-200'}>
+                  {task.visibility === 'private'
+                    ? <LockKeyhole aria-hidden="true" className="h-3.5 w-3.5" />
+                    : <Globe2 aria-hidden="true" className="h-3.5 w-3.5" />}
+                  {task.visibility === 'private' ? 'Private · Internal only' : 'Public · Client visible'}
+                </Badge>
                 {task.source === 'client' && <Badge className="bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]">Client request</Badge>}
                 <DueDatePill
                   date={task.due_date}
@@ -233,18 +243,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                 <ul className="space-y-2">
                   {taskFileAttachments.map(file => (
                     <li key={file.id}>
-                      <a
-                        href={file.signedUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100"
-                      >
-                        {file.mime_type?.startsWith('image/')
-                          ? <Paperclip aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />
-                          : <FileText aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />}
-                        <span className="min-w-0 flex-1 truncate" title={file.file_name}>{file.file_name}</span>
-                        <span className="shrink-0 text-xs text-slate-500">Open file</span>
-                      </a>
+                      <FileAttachmentDownload fileName={file.file_name} sizeBytes={file.size_bytes} downloadUrl={file.downloadUrl} />
                     </li>
                   ))}
                 </ul>
@@ -296,7 +295,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
           />
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           <Card className="p-5">
             <TaskProperties
               task={task}
@@ -309,9 +308,9 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                 role: taskAssigner.role,
               } : null}
               assignedAt={task.assigned_at}
-              assigneeHistory={assigneeHistory}
-              canChangeStatus={!isFormerAssignee && (task.assignee_id === me.id || task.assigned_by === me.id)}
-              canCompleteReview={me.role !== 'employee'}
+              scheduleTime={taskSchedule?.schedule_time}
+              scheduleRepeatLabel={task.is_scheduled ? scheduleRepeatLabel : null}
+              canChangeStatus={task.assignee_id === me.id || task.assigned_by === me.id}
               canEditPriority={canManageTask}
               canEditUrgent={canManageTask}
             />
@@ -320,7 +319,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
             <CardHeader title="Details" />
             <dl className="divide-y divide-slate-100 text-sm">
               {details.map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-3 px-5 py-2.5">
+                <div key={k} className="flex justify-between gap-3 px-5 py-2">
                   <dt className="text-slate-500">{k}</dt>
                   <dd className="text-right text-slate-800">{v}</dd>
                 </div>
@@ -336,6 +335,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
           <TaskReassignmentHistory
             activity={(activity ?? []) as TaskActivity[]}
             names={taskActivityNames}
+            roles={taskActivityRoles}
             taskId={task.id}
             createdAt={task.created_at}
             createdBy={task.created_by}

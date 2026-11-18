@@ -25,9 +25,14 @@ export function Modal({
 }) {
   useEffect(() => {
     if (!open) return
+    const previousBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previousBodyOverflow
+      window.removeEventListener('keydown', onKey)
+    }
   }, [open, onClose])
 
   if (!open) return null
@@ -38,7 +43,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         onClick={e => e.stopPropagation()}
-        className={cn('max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white text-left [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] sm:rounded-2xl',
+        className={cn('flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white text-left [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] sm:rounded-2xl',
           size === 'md' ? 'sm:max-w-md' : size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-5xl',
           dialogClassName)}
       >
@@ -58,7 +63,7 @@ export function Modal({
             <X className={cn('h-5 w-5', closeIconClassName)} />
           </button>
         </div>
-        <div className={cn('px-6 py-5 text-left', bodyClassName)}>{children}</div>
+        <div className={cn('min-h-0 flex-1 overflow-y-auto px-6 py-5 text-left', bodyClassName)}>{children}</div>
       </div>
     </div>
   )

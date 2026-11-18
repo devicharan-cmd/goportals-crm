@@ -4,11 +4,11 @@ import { cache } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { addTaskAssigneeHistory, assigneeOptionsFor, getTicketAttachments, getTicketDetailLookups, nameMap, resolveTicketId, TASK_LIST_SELECT } from '@/lib/queries'
+import { addTaskAssigneeHistory, assigneeOptionsFor, getTicketAttachments, getTicketDetailLookups, nameMap, resolveTicketId, TASK_LIST_SELECT, type TaskAssignerInfo } from '@/lib/queries'
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS, type TicketFieldDef } from '@/lib/ticket-categories'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { TaskTable } from '@/components/tasks/TaskTable'
-import { Alert, Avatar, Card, CardHeader } from '@/components/ui/primitives'
+import { Avatar, Card, CardHeader } from '@/components/ui/primitives'
 import { SignedClientAvatar } from '@/components/shared/SignedClientAvatar'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
@@ -19,13 +19,14 @@ import { formatDate, formatDateTime, ticketCode } from '@/lib/utils'
 import type { AppRole, TaskListItem, Ticket, TicketActivity } from '@/types/database'
 import { ROLE_LABELS } from '@/lib/constants'
 import { TicketOverviewCard } from '@/components/tickets/TicketOverviewCard'
+import { TicketHandlingTeam, type TicketHandlingContact } from '@/components/tickets/TicketHandlingTeam'
 
 export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
   const ticketId = await resolveStaffTicketId(params.id)
   if (!ticketId) return { title: 'Request' }
   const { data } = await loadStaffTicket(ticketId)
-  return { title: data ? `${ticketCode(data.ticket_number)} · ${data.subject}` : 'Request' }
+  return { title: data ? ticketCode(data.ticket_number) : 'Request' }
 }
 
 const resolveStaffTicketId = cache((param: string) => resolveTicketId(param))
@@ -37,14 +38,21 @@ const loadStaffTicket = cache(async (ticketId: string) => {
     .maybeSingle()
 })
 
-export default async function StaffTicketDetailPage(props: { params: Promise<{ id: string }>; searchParams: Promise<{ scheduled?: string }> }) {
-  const [params, searchParams] = await Promise.all([props.params, props.searchParams])
+export default async function StaffTicketDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
   const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
   const ticketId = await resolveStaffTicketId(params.id)
   if (!ticketId) notFound()
 
-  const ticketQueryPromise = loadStaffTicket(ticketId)
+  const ticketResult = await loadStaffTicket(ticketId)
+  const { data, error: ticketError } = ticketResult
+  if (ticketError) throw ticketError
+  if (!data) notFound()
+  const ticket = data as Ticket & {
+    client: { id: string; company_name: string; contact_name: string | null; owner_id: string | null; company_profile_image_path: string | null } | null
+    ecommerce_account: { account_name: string; platform: { name: string } | null } | null
+  }
   const tasksWithHistoryPromise = (async () => {
     const { data: linkedTasks, error: linkedTasksError } = await supabase.from('tasks')
       .select(TASK_LIST_SELECT)
@@ -59,23 +67,31 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
     getTicketAttachments(ticketId),
     tasksWithHistoryPromise,
     supabase.rpc('ticket_task_assignees', { p_ticket_id: ticketId }),
+    ticket.client_id
+      ? supabase.from('client_team').select('profile_id').eq('client_id', ticket.client_id)
+      : Promise.resolve({ data: [], error: null }),
   ])
-  const [ticketResult, relatedData] = await Promise.all([
-    ticketQueryPromise,
-    relatedDataPromise,
-  ])
-  const { data, error: ticketError } = ticketResult
-  if (ticketError) throw ticketError
-  if (!data) notFound()
-
-  const [{ data: activity }, lookups, attachments, tasksFromTicket, { data: workerRows, error: workersError }] = relatedData
+  const [{ data: activity }, lookups, attachments, tasksFromTicket, { data: workerRows, error: workersError }, { data: teamRows, error: teamError }] = await relatedDataPromise
   if (workersError) throw new Error(`Could not load ticket workers: ${workersError.message}`)
-  const ticket = data as Ticket & {
-    client: { id: string; company_name: string; contact_name: string | null; owner_id: string | null; company_profile_image_path: string | null } | null
-    ecommerce_account: { account_name: string; platform: { name: string } | null } | null
-  }
+  if (teamError) throw new Error(`Could not load the client handling team: ${teamError.message}`)
   const names = nameMap(lookups.people)
   const ticketWorkers = (workerRows ?? []) as { id: string; full_name: string | null; avatar_url: string | null; role: AppRole }[]
+  const taskAssigners: Record<string, TaskAssignerInfo> = Object.fromEntries(ticketWorkers.map(worker => [worker.id, {
+    name: worker.full_name || names[worker.id] || 'Staff member',
+    role: worker.role,
+    avatarUrl: worker.avatar_url,
+  }]))
+  const selectedTeamIds = new Set((teamRows ?? []).map(member => member.profile_id))
+  const handlingTeam: TicketHandlingContact[] = lookups.people
+    .filter(person => selectedTeamIds.has(person.id) && person.role !== 'client' && person.status === 'active')
+    .map(person => ({
+      id: person.id,
+      full_name: person.full_name,
+      avatar_url: person.avatar_url,
+      role: person.role,
+      email: person.email,
+      phone: person.phone ?? null,
+    }))
   const clientOwner = ticket.client?.owner_id
     ? lookups.people.find(person => person.id === ticket.client?.owner_id && person.role === 'client' && person.status === 'active')
     : undefined
@@ -105,19 +121,25 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
       }
     })
   const raisedByProfile = ticket.created_by
-    ? lookups.people.find(person => person.id === ticket.created_by)
+    ? ticket.created_by === me.id ? me : lookups.people.find(person => person.id === ticket.created_by)
     : undefined
+  const raisedByIsClient = Boolean(ticket.created_by && ticket.created_by === ticket.client?.owner_id)
   const createdByName = ticket.created_by ? names[ticket.created_by] ?? '—' : '—'
-  const raisedByName = raisedByProfile?.role === 'client'
-    ? ticket.client?.contact_name?.trim() || createdByName
-    : createdByName
+  const raisedByName = raisedByIsClient
+    ? ticket.client?.contact_name?.trim() || raisedByProfile?.full_name?.trim() || createdByName
+    : raisedByProfile?.full_name?.trim() || createdByName
   const raisedByAvatar = raisedByProfile?.avatar_url
   const raisedByValue = (
-    <span className="inline-flex items-center justify-end gap-2">
-      {raisedByProfile?.role === 'client'
+    <span className="inline-flex min-w-0 items-center justify-end gap-2">
+      {raisedByIsClient
         ? <SignedClientAvatar name={raisedByName} imagePath={ticket.client?.company_profile_image_path ?? null} size="xs" />
         : <Avatar name={raisedByName} src={raisedByAvatar} role={raisedByProfile?.role} size="xs" />}
-      <span>{raisedByName}</span>
+      <span className="min-w-0 text-right">
+        <span className="block whitespace-normal break-words font-semibold leading-5">{raisedByName}</span>
+        {raisedByIsClient
+          ? <span className="block text-[11px] leading-4 text-slate-500">Client</span>
+          : raisedByProfile?.role && <span className="block text-[11px] leading-4 text-slate-500">{ROLE_LABELS[raisedByProfile.role]}</span>}
+      </span>
     </span>
   )
   const assignees = assigneeOptionsFor(me, lookups)
@@ -131,8 +153,8 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="min-w-0 space-y-6">
+      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+        <div className="min-w-0 space-y-5">
           <TicketOverviewCard
             ticketNumber={ticketCode(ticket.ticket_number)}
             subject={ticket.subject}
@@ -147,11 +169,10 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
             attachments={attachments}
           />
 
-          {searchParams.scheduled === '1' && <Alert tone="success">Task schedule saved. Scheduled tasks will appear here after their first assignment runs.</Alert>}
           <Card className="overflow-hidden">
             <CardHeader title={`Tasks from this ticket (${tasksFromTicket.length})`} />
             {tasksFromTicket.length > 0 ? (
-              <TaskTable tasks={tasksFromTicket} names={names} empty={{ title: 'No tasks yet' }} />
+              <TaskTable tasks={tasksFromTicket} names={names} taskAssigners={taskAssigners} empty={{ title: 'No tasks yet' }} />
             ) : (
               <p className="px-5 py-4 text-sm text-slate-500">No visible tasks have been created from this ticket.</p>
             )}
@@ -160,7 +181,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
           <ActivityPanel activity={(activity ?? []) as TicketActivity[]} names={names} kind="ticket" />
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           <Card className="p-5">
             <TicketProperties
               ticket={ticket}
@@ -192,10 +213,10 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
                 ['Created', formatDateTime(ticket.created_at)],
                 ...(ticket.status === 'closed' ? [['Closed', formatDateTime(ticket.closed_at ?? ticket.updated_at)] as [string, React.ReactNode]] : []),
               ].map(([k, v]) => (
-                <div key={k as string} className="flex justify-between gap-3 px-5 py-2.5"><dt className="text-slate-500">{k}</dt><dd className="text-right text-slate-800">{v}</dd></div>
+                <div key={k as string} className="flex justify-between gap-3 px-5 py-2"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="min-w-0 text-right text-slate-800">{v}</dd></div>
               ))}
               {ticket.status !== 'closed' && ['super_admin', 'manager'].includes(me.role) && (
-                <div className="flex items-center justify-between gap-3 px-5 py-2.5">
+                <div className="flex items-center justify-between gap-3 px-5 py-2">
                   <dt className="text-slate-500">Action</dt>
                   <dd className="text-right">
                     <CloseTicketButton ticketId={ticket.id} ticketCode={ticketCode(ticket.ticket_number)} />
@@ -204,24 +225,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
               )}
             </dl>
           </Card>
-          <Card>
-            <CardHeader title="Working on this ticket" />
-            {ticketWorkers.length > 0 ? (
-              <ul className="divide-y divide-slate-100">
-                {ticketWorkers.map(worker => (
-                  <li key={worker.id} className="flex items-center gap-3 px-5 py-3">
-                    <Avatar name={worker.full_name || 'Staff member'} src={worker.avatar_url} role={worker.role} size="md" />
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-slate-800">{worker.full_name || 'Staff member'}</span>
-                      <span className="block truncate text-xs text-slate-500">{ROLE_LABELS[worker.role]}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-5 py-3 text-sm text-slate-500">No one has been assigned a task on this ticket yet.</p>
-            )}
-          </Card>
+            <TicketHandlingTeam people={handlingTeam} />
         </div>
       </div>
     </>

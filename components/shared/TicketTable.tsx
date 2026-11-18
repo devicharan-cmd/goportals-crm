@@ -41,7 +41,8 @@ export function TicketTable({
       <table className="hidden w-full text-sm md:table">
         <thead>
           <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-            <th className="px-5 py-3.5">Ticket</th>
+            <th className="w-28 whitespace-nowrap px-5 py-3.5">Ticket ID</th>
+            <th className="px-3 py-3.5">Ticket title</th>
             {showClient && <th className="w-36 whitespace-nowrap px-3 py-3.5">Client</th>}
             <th className="w-32 whitespace-nowrap px-3 py-3.5">Category</th>
             <th className="w-32 whitespace-nowrap px-3 py-3.5">Status</th>
@@ -59,13 +60,13 @@ export function TicketTable({
               }}
               className="group cursor-pointer hover:bg-slate-50/80 transition-colors"
             >
-              <td className="max-w-md px-5 py-3.5">
-                <Link href={`${hrefBase}/${t.id}`} prefetch={false} className="block">
-                  <span className="flex items-center gap-2">
-                    <span className="flex-shrink-0 font-mono text-xs font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</span>
-                    {t.is_urgent && !TICKET_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
-                    <span className="truncate font-medium text-slate-900">{t.subject}</span>
-                  </span>
+              <td className="whitespace-nowrap px-5 py-3.5">
+                <Link href={`${hrefBase}/${t.id}`} prefetch={false} className="font-mono text-xs font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</Link>
+              </td>
+              <td className="max-w-md px-3 py-3.5">
+                <Link href={`${hrefBase}/${t.id}`} prefetch={false} className="flex min-w-0 items-center gap-2">
+                  {t.is_urgent && !TICKET_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
+                  <span className="truncate font-medium text-slate-900">{t.subject}</span>
                 </Link>
               </td>
               {showClient && (

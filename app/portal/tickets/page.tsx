@@ -69,7 +69,7 @@ export default async function PortalTicketsPage(props: { searchParams: Promise<{
               <item.icon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', tab === item.key ? 'text-white' : 'text-slate-800')} />
               <span className="min-w-0 truncate">{item.label}</span>
               <span className={cn(
-                'absolute right-1 top-1/2 inline-flex h-4 min-w-4 -translate-y-1/2 items-center justify-center rounded-full px-0.5 text-[9px] font-bold leading-none shadow-sm',
+                'absolute right-1 top-1/2 inline-grid h-4 min-w-4 -translate-y-1/2 place-items-center rounded-full px-1 text-center text-[10px] font-semibold leading-4 tabular-nums',
                 ticketCounts[item.key] > 0 ? 'bg-[#95C12C] text-white' : 'bg-slate-200 text-[#0F172A]',
               )}>
                 {ticketCounts[item.key] > 99 ? '99+' : ticketCounts[item.key]}

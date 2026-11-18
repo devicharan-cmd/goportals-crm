@@ -78,7 +78,7 @@ function ReportingPersonSelect({
       >
         {selected ? (
           <>
-            <Avatar name={selected.full_name || selected.email} src={selected.avatar_url} role={selected.role} size="xs" className="h-7 w-7 text-[11px]" />
+            <Avatar name={selected.full_name || selected.email} src={selected.avatar_url} role={selected.role} size="xs" className="h-7 w-7 text-xs" />
             <span className="min-w-0 flex-1 truncate text-left">{selected.full_name || selected.email}</span>
           </>
         ) : (
@@ -695,7 +695,7 @@ export function StaffProfileSettings({
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Job title <span className="text-red-500">*</span></span>
                     {!isOwnProfile && (!isSuperAdmin || !isEditing) && (
-                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                      <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
                     )}
@@ -730,7 +730,7 @@ export function StaffProfileSettings({
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Role <span className="text-red-500">*</span></span>
                     {(!canChangeRole || !isEditing) && (
-                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                      <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
                     )}
@@ -785,7 +785,7 @@ export function StaffProfileSettings({
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Reporting To (POC) {role !== 'super_admin' && <span className="text-red-500">*</span>}</span>
                     {(!canChangeRole || !isEditing) && (
-                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                      <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
                     )}
@@ -812,7 +812,7 @@ export function StaffProfileSettings({
                         const reportingPerson = reportingPeople.find(person => person.id === reportingTo)
                         return reportingPerson ? (
                           <>
-                            <Avatar name={reportingPerson.full_name || reportingPerson.email} src={reportingPerson.avatar_url} role={reportingPerson.role} size="xs" className="mr-2 h-7 w-7 text-[11px]" />
+                            <Avatar name={reportingPerson.full_name || reportingPerson.email} src={reportingPerson.avatar_url} role={reportingPerson.role} size="xs" className="mr-2 h-7 w-7 text-xs" />
                             <span className="min-w-0 truncate">{reportingPerson.full_name || reportingPerson.email}</span>
                           </>
                         ) : '--'
@@ -847,7 +847,7 @@ export function StaffProfileSettings({
                     <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                       <span>Employment status</span>
                       {!canChangeStatus || !isEditing ? (
-                        <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                        <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
                           <Lock className="h-3 w-3" /> Managed by Super Admin
                         </span>
                       ) : null}
@@ -902,7 +902,7 @@ export function StaffProfileSettings({
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Weekly capacity</span>
                     {!isOwnProfile && (!isSuperAdmin || !isEditing) && (
-                      <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400 lowercase">
+                      <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
                     )}
@@ -945,7 +945,7 @@ export function StaffProfileSettings({
                     Departments
                   </label>
                   {(!isSuperAdmin || !isEditing) && (
-                    <span className="flex items-center gap-1 text-[11px] font-normal text-slate-400">
+                    <span className="flex items-center gap-1 text-xs font-normal text-slate-400">
                       <Lock className="h-3 w-3" /> Assigned by Super Admin
                     </span>
                   )}

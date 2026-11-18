@@ -10,6 +10,8 @@ import type { Task } from '@/types/database'
 
 export function TaskEditModal({
   task,
+  schedule,
+  canManageSchedule,
   meId,
   canMarkUrgent,
   canEditAssignment,
@@ -22,6 +24,8 @@ export function TaskEditModal({
   services,
 }: {
   task: Task
+  schedule?: NonNullable<TaskFormProps['schedule']> | null
+  canManageSchedule?: boolean
   meId: string
   canMarkUrgent: boolean
   canEditAssignment: boolean
@@ -56,6 +60,8 @@ export function TaskEditModal({
         <TaskForm
           mode="edit"
           task={task}
+          schedule={schedule}
+          canManageSchedule={canManageSchedule}
           meId={meId}
           canMarkUrgent={canMarkUrgent}
           canEditAssignment={canEditAssignment}

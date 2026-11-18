@@ -115,7 +115,7 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
               <t.icon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', show === t.key ? 'text-white' : 'text-slate-800')} />
               <span className="min-w-0 truncate">{t.label}</span>
               <span className={cn(
-                'absolute right-1 top-1/2 inline-flex h-4 min-w-4 -translate-y-1/2 items-center justify-center rounded-full px-0.5 text-[9px] font-bold leading-none shadow-sm',
+                'absolute right-1 top-1/2 inline-grid h-4 min-w-4 -translate-y-1/2 place-items-center rounded-full px-1 text-center text-[10px] font-semibold leading-4 tabular-nums',
                 counts[t.key] > 0 ? 'bg-[#95C12C] text-white' : 'bg-slate-200 text-[#0F172A]',
               )}>
                 {counts[t.key] > 99 ? '99+' : counts[t.key]}
@@ -141,40 +141,26 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
               <div className="flex items-start gap-3">
                 <Avatar name={m.full_name || m.email} src={m.avatar_url} role={m.role} className={cn(!m.active && 'grayscale')} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-slate-900 group-hover:text-[#034C68]">
-                    {m.full_name || m.email} {m.id === me.id && <span className="text-xs font-normal text-slate-400">(you)</span>}
-                  </p>
+                  <p className="truncate font-semibold text-slate-900 group-hover:text-[#034C68]">{m.full_name || m.email} {m.id === me.id && <span className="text-xs font-normal text-slate-400">(you)</span>}</p>
                   {m.job_title && <p className="truncate text-xs text-slate-500">{m.job_title}</p>}
                 </div>
                 {m.active
                   ? <Badge className="bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]"><span className="h-1.5 w-1.5 rounded-full bg-[#95C12C]" /> Active</Badge>
                   : <Badge className="bg-slate-100 text-slate-500 ring-slate-200"><span className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Not active</Badge>}
               </div>
-
               <dl className="mt-4 grid grid-cols-3 divide-x divide-slate-100 rounded-lg bg-slate-50 py-2 text-center">
-                <div><dt className="text-[11px] text-slate-500">Open</dt><dd className="font-sans text-lg font-bold text-slate-900">{m.open}</dd></div>
-                <div><dt className="text-[11px] text-slate-500">Overdue</dt><dd className={cn('font-sans text-lg font-bold', m.overdue ? 'text-red-600' : 'text-slate-900')}>{m.overdue}</dd></div>
-                <div><dt className="text-[11px] text-slate-500">Done (month)</dt><dd className="font-sans text-lg font-bold text-[#5B771A]">{m.done}</dd></div>
+                <div><dt className="text-xs text-slate-500">Open</dt><dd className="font-sans text-lg font-bold text-slate-900">{m.open}</dd></div>
+                <div><dt className="text-xs text-slate-500">Overdue</dt><dd className={cn('font-sans text-lg font-bold', m.overdue ? 'text-red-600' : 'text-slate-900')}>{m.overdue}</dd></div>
+                <div><dt className="text-xs text-slate-500">Done (month)</dt><dd className="font-sans text-lg font-bold text-[#5B771A]">{m.done}</dd></div>
               </dl>
-
               {m.active ? (
                 <div className="mt-4">
-                  <div className="mb-1.5 flex justify-between text-xs">
-                    <span className="text-slate-500">Workload {m.hours}h / {m.weekly_capacity_hours}h</span>
-                    <span className={cn('font-semibold', capacityTextColor(m.pct))}>{m.pct}%</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div className={cn('h-full rounded-full', capacityColor(m.pct))} style={{ width: `${Math.min(100, m.pct)}%` }} />
-                  </div>
+                  <div className="mb-1.5 flex justify-between text-xs"><span className="text-slate-500">Workload {m.hours}h / {m.weekly_capacity_hours}h</span><span className={cn('font-semibold', capacityTextColor(m.pct))}>{m.pct}%</span></div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className={cn('h-full rounded-full', capacityColor(m.pct))} style={{ width: `${Math.min(100, m.pct)}%` }} /></div>
                 </div>
-              ) : (
-                <p className="mt-4 text-xs text-slate-400">Can&apos;t sign in or be assigned new tasks.</p>
-              )}
-
+              ) : <p className="mt-4 text-xs text-slate-400">Can&apos;t sign in or be assigned new tasks.</p>}
               <div className="mt-4 flex items-center justify-between gap-2">
-                <div className="flex min-w-0 flex-wrap gap-1">
-                  {m.depts.map(d => <Badge key={d}>{d}</Badge>)}
-                </div>
+                <div className="flex min-w-0 flex-wrap gap-1">{m.depts.map(d => <Badge key={d}>{d}</Badge>)}</div>
                 <span className="whitespace-nowrap text-xs font-semibold text-[#045E80]">View stats →</span>
               </div>
             </Card>

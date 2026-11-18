@@ -56,6 +56,8 @@ export function SearchableSelect({
   onClose,
   compactOptions = false,
   denseOptions = false,
+  optionTextClassName,
+  searchInputClassName,
   'aria-label': ariaLabel,
   'aria-invalid': ariaInvalid,
   'aria-describedby': ariaDescribedBy,
@@ -84,6 +86,8 @@ export function SearchableSelect({
   onClose?: () => void
   compactOptions?: boolean
   denseOptions?: boolean
+  optionTextClassName?: string
+  searchInputClassName?: string
   'aria-label'?: string
   'aria-invalid'?: boolean
   'aria-describedby'?: string
@@ -263,7 +267,7 @@ export function SearchableSelect({
                 onChange={event => setSearch(event.target.value)}
                 placeholder={searchPlaceholder}
                 aria-label={ariaLabel ? `${ariaLabel} search` : searchPlaceholder}
-                className="search-input-with-icon h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#0A6F94] focus:bg-white focus:shadow-none focus:ring-0"
+                className={cn('search-input-with-icon h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pr-3 text-sm text-slate-800 outline-none transition focus:border-[#0A6F94] focus:bg-white focus:shadow-none focus:ring-0', searchInputClassName)}
               />
             </div>
           )}
@@ -285,7 +289,7 @@ export function SearchableSelect({
                   disabled={option.disabled}
                   onClick={() => choose(option.value)}
                   className={cn(
-                    cn('flex w-full items-center justify-between gap-2 rounded-lg px-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50', compactOptions || denseOptions ? 'py-1' : 'py-2'),
+                    cn('flex w-full items-center justify-between gap-2 rounded-lg px-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50', optionTextClassName, compactOptions || denseOptions ? 'py-1' : 'py-2'),
                     active ? 'bg-[#EAF4F8] font-medium text-[#034C68]' : 'text-slate-700 hover:bg-slate-50',
                   )}
                 >

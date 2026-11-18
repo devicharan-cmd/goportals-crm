@@ -10,7 +10,7 @@ export const TASK_LIST_SELECT =
 
 /** Only the fields used by the staff task table and board. */
 export const TASK_SUMMARY_SELECT =
-  'id, task_number, title, status, priority, is_urgent, source, visibility, is_scheduled, due_date, created_at, client_id, ticket_id, assignee_id, assigned_by, client:clients(company_name), platform:platforms(name), department:departments(name)'
+  'id, task_number, title, status, priority, is_urgent, source, visibility, is_scheduled, schedule_id, due_date, created_at, client_id, ticket_id, assignee_id, assigned_by, client:clients(company_name), platform:platforms(name), department:departments(name)'
 
 export type TaskPageCursor = Pick<TaskSummary, 'id' | 'is_urgent' | 'due_date' | 'created_at'>
 
@@ -67,7 +67,7 @@ export async function addTaskAssigneeHistory<T extends { id: string }>(
 export const TICKET_LIST_SELECT = 'id, ticket_number, client_id, category, subject, priority, is_urgent, status, created_at, client:clients(id, company_name)'
 export const STAFF_TICKET_LIST_SELECT = 'id, ticket_number, client_id, category, subject, priority, is_urgent, status, created_at, client:clients(id, company_name, company_profile_image_path)'
 
-export type Person = Pick<Profile, 'id' | 'full_name' | 'email' | 'avatar_url' | 'role' | 'job_title' | 'status' | 'weekly_capacity_hours' | 'created_at' | 'reporting_to'>
+export type Person = Pick<Profile, 'id' | 'full_name' | 'email' | 'avatar_url' | 'role' | 'job_title' | 'status' | 'weekly_capacity_hours' | 'created_at' | 'reporting_to'> & Partial<Pick<Profile, 'phone'>>
 export type TaskAssignerInfo = { name: string; role: AppRole; avatarUrl: string | null }
 export type ClientOption = { id: string; company_name: string; company_profile_image_path: string | null; owner_id: string | null }
 export type DepartmentMember = { department_id: string; profile_id: string; is_lead: boolean }
@@ -121,11 +121,36 @@ export async function getStaffLookups({ includeDirectory = true }: { includeDire
   }
 }
 
+export type UserAdminPerson = Person & Pick<Profile, 'phone'>
+export type UserAdminLookups = {
+  people: UserAdminPerson[]
+  departments: Department[]
+  departmentMembers: DepartmentMember[]
+}
+
+/** Minimal data required by /admin/users; avoids loading task-form and client lookups. */
+export async function getUserAdminLookups(): Promise<UserAdminLookups> {
+  const supabase = await createClient()
+  const [people, departments, members] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to, phone'),
+    supabase.from('departments').select('*').order('sort_order'),
+    supabase.from('department_members').select('department_id, profile_id, is_lead'),
+  ])
+  for (const result of [people, departments, members]) {
+    if (result.error) throw result.error
+  }
+  return {
+    people: sortPeopleByRoleAndJoiningDate((people.data ?? []) as UserAdminPerson[]),
+    departments: (departments.data ?? []) as Department[],
+    departmentMembers: (members.data ?? []) as DepartmentMember[],
+  }
+}
+
 /** Ticket details need staff, assignment, and task-form lookups, but not the global client picker or public staff directory. */
 export async function getTicketDetailLookups(): Promise<StaffLookups> {
   const supabase = await createClient()
   const [people, departments, platforms, services, members] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to'),
+    supabase.from('profiles').select('id, full_name, email, phone, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to'),
     supabase.from('departments').select('*').order('sort_order'),
     supabase.from('platforms').select('*').order('sort_order'),
     supabase.from('services').select('*').order('sort_order'),
@@ -383,7 +408,6 @@ export function taskAssigneeOptionsFor(me: Pick<Profile, 'id' | 'role'>, lookups
     return owner ? [{
       id: owner.id,
       name: client.company_name,
-      avatarUrl: owner.avatar_url,
       role: ROLE_LABELS.client,
       avatarRole: 'client' as const,
       clientId: client.id,

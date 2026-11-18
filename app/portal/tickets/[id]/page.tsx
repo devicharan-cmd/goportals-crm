@@ -4,18 +4,22 @@ import { ArrowLeft, Lock, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireClient } from '@/lib/auth'
 import { getPortalNames } from '@/lib/portal'
-import { getTicketAttachments, resolveTicketId, ticketPageTitle } from '@/lib/queries'
+import { addTaskAssigneeHistory, getTicketAttachments, resolveTicketId, ticketPageTitle, type TaskAssignerInfo } from '@/lib/queries'
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS, type TicketFieldDef } from '@/lib/ticket-categories'
 import { ButtonLink } from '@/components/ui/button'
-import { Avatar, Card, CardHeader } from '@/components/ui/primitives'
+import { Card, CardHeader } from '@/components/ui/primitives'
 import { RevealableValue } from '@/components/shared/RevealableValue'
 import { MarketplaceAccountLabel } from '@/components/shared/Marketplace'
 import { ActivityPanel } from '@/components/tasks/ActivityPanel'
 import { ReopenTicketButton } from '@/components/portal/ReopenTicketButton'
 import { DeleteButton } from '@/components/shared/DeleteButton'
-import { formatDate, formatDateTime, splitTeamName, ticketCode } from '@/lib/utils'
-import type { AppRole, TicketActivity, Ticket, TicketStatus } from '@/types/database'
+import { formatDate, formatDateTime, ticketCode } from '@/lib/utils'
+import type { TicketActivity, Ticket, TicketStatus } from '@/types/database'
 import { TicketOverviewCard } from '@/components/tickets/TicketOverviewCard'
+import { TicketHandlingTeam, type TicketHandlingContact } from '@/components/tickets/TicketHandlingTeam'
+import { TaskTable } from '@/components/tasks/TaskTable'
+import { ROLE_LABELS } from '@/lib/constants'
+import type { StaffDirectoryEntry, TaskSummary } from '@/types/database'
 
 export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
@@ -34,22 +38,28 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
     names,
     attachments,
     { data: platforms },
-    { data: staffDirectory },
+    { data: handlingTeamRows, error: handlingTeamError },
     { data: assignmentSummary, error: assignmentSummaryError },
     { data: canDeleteTicket, error: canDeleteTicketError },
+    { data: clientTasks, error: clientTasksError },
+    { data: staffDirectory, error: staffDirectoryError },
   ] = await Promise.all([
     supabase.from('tickets').select('*, client:clients(company_name), ecommerce_account:ecommerce_accounts(account_name, platform:platforms(name))').eq('id', ticketId).maybeSingle(),
     supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
     getPortalNames(me),
     getTicketAttachments(ticketId),
     supabase.from('platforms').select('id, name'),
-    supabase.rpc('staff_directory'),
+    supabase.rpc('client_ticket_handling_team', { p_ticket_id: ticketId }),
     supabase.rpc('client_ticket_assignment_summary', { p_ticket_id: ticketId }),
     supabase.rpc('client_can_delete_ticket', { p_ticket_id: ticketId }),
+    supabase.rpc('client_ticket_tasks', { p_task_id: null, p_task_number: null }),
+    supabase.rpc('staff_directory'),
   ])
   if (!data) notFound()
   if (assignmentSummaryError) throw assignmentSummaryError
   if (canDeleteTicketError) throw canDeleteTicketError
+  if (clientTasksError) throw clientTasksError
+  if (staffDirectoryError) throw staffDirectoryError
   const ticket = data as Ticket & {
     client: { company_name: string } | null
     ecommerce_account: { account_name: string; platform: { name: string } | null } | null
@@ -57,13 +67,17 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
   const summary = (assignmentSummary as { status: TicketStatus; staff_assignee_ids: string[] }[] | null)?.[0]
   if (!summary) throw new Error('Could not load ticket assignment details')
   const ticketStatus = summary.status
-  const staff = (staffDirectory ?? []) as { id: string; full_name: string | null; avatar_url: string | null; role: AppRole }[]
-  const handledBy = summary.staff_assignee_ids.flatMap(id => {
-    const person = staff.find(entry => entry.id === id)
-    if (!person) return []
-    const [name, role] = splitTeamName(names[id] ?? 'GoPortals team')
-    return [{ id, name, role, avatarUrl: person.avatar_url, avatarRole: person.role }]
-  })
+  const handlingTeam = (handlingTeamRows ?? []) as TicketHandlingContact[]
+  const linkedClientTasks = await addTaskAssigneeHistory(
+    supabase,
+    ((clientTasks ?? []) as TaskSummary[]).filter(task => task.ticket_id === ticketId),
+  )
+  const staff = (staffDirectory ?? []) as StaffDirectoryEntry[]
+  const taskAssigners: Record<string, TaskAssignerInfo> = Object.fromEntries(staff.map(person => [person.id, {
+    name: names[person.id] ?? person.full_name ?? 'GoPortals team',
+    role: person.role,
+    avatarUrl: person.avatar_url,
+  }]))
   const def = TICKET_CATEGORY_BY_VALUE[ticket.category]
   const ticketDetails = (ticket.details ?? {}) as Record<string, string>
   const isFieldVisible = (f: TicketFieldDef) => !f.showIf || ticketDetails[f.showIf.key] === f.showIf.equals
@@ -130,6 +144,21 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
             )}
           </TicketOverviewCard>
 
+          <Card className="overflow-hidden">
+            <CardHeader title={`Tasks from this ticket (${linkedClientTasks.length})`} />
+            <TaskTable
+              tasks={linkedClientTasks}
+              names={names}
+              taskAssigners={taskAssigners}
+              hrefBase="/portal/tasks"
+              showClient={false}
+              empty={{
+                title: 'No client-visible tasks yet',
+                description: 'Tasks shared with you from this ticket will appear here.',
+              }}
+            />
+          </Card>
+
           {/* Assignment is internal staffing. 068 keeps new rows off the
               client's trail; rows logged before it would read "GoPortals
               team assigned it to GoPortals team", so drop them here too. */}
@@ -153,26 +182,7 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
               ))}
             </dl>
           </Card>
-          <Card>
-            <CardHeader title="Working on this ticket" />
-            {handledBy.length > 0 ? (
-              <ul className="divide-y divide-slate-100">
-                {handledBy.map(person => (
-                  <li key={person.id} className="flex items-center gap-3 px-5 py-3">
-                    <Avatar name={person.name} src={person.avatarUrl} role={person.avatarRole} size="md" />
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-slate-800">{person.name}</span>
-                      {person.role && <span className="block truncate text-xs text-slate-500">{person.role}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-5 py-3 text-sm text-slate-500">
-                {ticketStatus === 'unassigned' ? 'This ticket is being assigned.' : 'No one has been assigned a task on this ticket yet.'}
-              </p>
-            )}
-          </Card>
+          <TicketHandlingTeam people={handlingTeam} unavailable={Boolean(handlingTeamError)} />
         </div>
       </div>
     </>

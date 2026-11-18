@@ -11,13 +11,14 @@ type Group = 'working' | 'done'
 
 /** Dashboard "All tasks" card: one panel, status filter tabs switch which group shows. */
 export function DashboardTaskPanel({
-  workingTasks, doneTasks, workingCount, doneCount, names,
+  workingTasks, doneTasks, workingCount, doneCount, names, assigneeAvatarUrls,
 }: {
   workingTasks: TaskSummary[]
   doneTasks: TaskSummary[]
   workingCount: number
   doneCount: number
   names: Record<string, string>
+  assigneeAvatarUrls: Record<string, string | null>
 }) {
   const [group, setGroup] = useState<Group>('working')
   const tasks = group === 'working' ? workingTasks : doneTasks
@@ -58,6 +59,7 @@ export function DashboardTaskPanel({
       <TaskTable
         tasks={tasks}
         names={names}
+        assigneeAvatarUrls={assigneeAvatarUrls}
         empty={{ title: group === 'working' ? 'Nothing in progress' : 'Nothing completed yet', description: group === 'working' ? 'No active tasks right now.' : undefined }}
       />
     </Card>

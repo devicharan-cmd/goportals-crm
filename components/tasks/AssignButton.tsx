@@ -75,13 +75,17 @@ export function AssignButton({
     setSaving(false)
     if (error) return setError(errorMessage(error))
     setOpen(false)
+    if (table === 'tasks') {
+      const assigneeName = selected ? options.find(option => option.id === selected)?.name ?? 'the selected person' : 'Unassigned'
+      window.dispatchEvent(new CustomEvent('gp:task-reassigned', { detail: { assigneeName } }))
+    }
     router.refresh()
   }
 
   return (
     <>
       {variant === 'button'
-        ? <Button size="sm" disabled={disabled} className={compact ? 'h-6 px-1.5 text-[10px]' : undefined} onClick={show}>
+        ? <Button size="sm" disabled={disabled} className={compact ? 'h-6 px-1.5 text-xs' : undefined} onClick={show}>
             <UserCog className={cn('h-3.5 w-3.5', compact && 'h-3 w-3')} /> {currentId ? 'Reassign' : 'Assign'}
           </Button>
         : <button disabled={disabled} onClick={show} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68] disabled:pointer-events-none disabled:opacity-50">{currentId ? 'Reassign' : 'Assign'}</button>}
@@ -92,11 +96,15 @@ export function AssignButton({
         title={currentId ? 'Reassign task' : 'Assign task'}
         description="They'll get a notification straight away."
         size="lg"
+        dialogClassName="max-h-[84vh]"
+        headerClassName="px-5 py-3"
+        bodyClassName="px-5 py-3"
       >
         {table === 'tasks' && (taskVisibility !== undefined || ticketLabel !== undefined) && (
-          <p className="mb-3 text-xs text-slate-500">
-            Visibility: {taskVisibility ? taskVisibility === 'public' ? 'Public' : 'Private' : '—'}
-            {' '}<span aria-hidden="true">·</span>{' '}Ticket: {ticketLabel ?? '—'}
+          <p role="note" aria-label="Task visibility and ticket" className="mb-3 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-r-md border-l-2 border-[#0A6F94] bg-[#EAF4F8] px-3 py-2 text-xs text-[#034C68]">
+            <span><span className="font-semibold">Visibility:</span> {taskVisibility ? taskVisibility === 'public' ? 'Public' : 'Private' : '—'}</span>
+            <span aria-hidden="true" className="text-[#7A91A0]">·</span>
+            <span><span className="font-semibold">Ticket:</span> {ticketLabel ?? '—'}</span>
           </p>
         )}
         <DebouncedSearchInput
@@ -110,7 +118,7 @@ export function AssignButton({
           ariaLabel="Search assignees"
         />
 
-        <ul className="max-h-84 space-y-1.5 overflow-y-auto p-1.5">
+        <ul className="space-y-1.5 p-1.5">
           {filtered.map(o => {
             const active = selected === o.id
             return (
@@ -130,7 +138,7 @@ export function AssignButton({
                     <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-slate-900">
                       <span className="break-all">{o.name}{o.isMe ? ' (me)' : ''}</span>
                       {o.id === currentId && (
-                        <span className="rounded bg-[#E8F3C8] px-1.5 py-0.5 text-[11px] font-medium text-[#465B17]">
+                        <span className="rounded bg-[#E8F3C8] px-1.5 py-0.5 text-xs font-medium text-[#465B17]">
                           · current
                         </span>
                       )}
@@ -165,7 +173,7 @@ export function AssignButton({
 
         {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-        <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-4">
+        <div className="sticky bottom-0 z-10 -mx-5 -mb-3 mt-4 flex items-center justify-between gap-2 border-t border-slate-100 bg-white px-5 pb-1 pt-3">
           {currentId && table === 'tickets' ? (
             <Button variant="ghost" size="sm" onClick={() => setSelected(null)} className={cn(selected === null && 'bg-slate-100')}>
               <UserMinus className="h-3.5 w-3.5" /> Unassign

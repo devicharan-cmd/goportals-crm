@@ -139,7 +139,7 @@ export default async function UrgentPage() {
                     <PriorityBadge priority={t.priority} />
                     <p className="truncate font-semibold text-slate-900">
                       {t.title}
-                      {t.visibility === 'private' && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200" title="Visible only to authorized internal staff"><LockKeyhole aria-hidden="true" className="h-3 w-3" />Private</span>}
+                      {t.visibility === 'private' && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-xs font-semibold text-violet-700 ring-1 ring-inset ring-violet-200" title="Visible only to authorized internal staff"><LockKeyhole aria-hidden="true" className="h-3 w-3" />Private</span>}
                     </p>
                   </div>
                   <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-slate-500">
@@ -171,7 +171,7 @@ export default async function UrgentPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-slate-900">
                       <span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>{t.title}
-                      {t.visibility === 'private' && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200" title="Visible only to authorized internal staff"><LockKeyhole aria-hidden="true" className="h-3 w-3" />Private</span>}
+                      {t.visibility === 'private' && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-xs font-semibold text-violet-700 ring-1 ring-inset ring-violet-200" title="Visible only to authorized internal staff"><LockKeyhole aria-hidden="true" className="h-3 w-3" />Private</span>}
                     </p>
                     <p className="text-xs text-slate-500">{names[t.assignee_id!] ?? '—'} · {t.client?.company_name}</p>
                     <TaskPreviousAssignees history={t.assignee_history} compact />

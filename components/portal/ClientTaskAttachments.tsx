@@ -2,14 +2,15 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileText, Paperclip } from 'lucide-react'
+import { Paperclip } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { errorMessage, formatDate } from '@/lib/utils'
 import type { TaskAttachment, TaskStatus } from '@/types/database'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
+import { FileAttachmentDownload } from '@/components/shared/FileAttachmentDownload'
 
-type AttachmentLink = TaskAttachment & { signedUrl: string }
+type AttachmentLink = TaskAttachment & { signedUrl: string; downloadUrl?: string }
 
 export function ClientTaskAttachments({
   taskId, meId, attachments, status, canUpload = true,
@@ -62,15 +63,9 @@ export function ClientTaskAttachments({
       ) : (
         <ul className="divide-y divide-slate-100">
           {attachments.map(attachment => (
-            <li key={attachment.id} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                <FileText className="h-4 w-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <a href={attachment.signedUrl} target="_blank" rel="noreferrer"
-                   className="block truncate text-sm font-medium text-[#034C68] hover:underline">
-                  {attachment.file_name}
-                </a>
+            <li key={attachment.id} className="py-2 first:pt-0 last:pb-0">
+              <div className="flex min-w-0 flex-col items-start gap-1">
+                <FileAttachmentDownload fileName={attachment.file_name} sizeBytes={attachment.size_bytes} downloadUrl={attachment.downloadUrl ?? attachment.signedUrl} />
                 <p className="text-xs text-slate-400">{formatDate(attachment.created_at)}</p>
               </div>
             </li>

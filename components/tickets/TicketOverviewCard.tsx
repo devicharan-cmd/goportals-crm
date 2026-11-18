@@ -1,6 +1,7 @@
-import { Download, FileText, Flame, Truck } from 'lucide-react'
+import { Flame, Megaphone, Truck } from 'lucide-react'
 import { Card } from '@/components/ui/primitives'
 import { TicketCode } from '@/components/tickets/TicketCode'
+import { FileAttachmentDownload } from '@/components/shared/FileAttachmentDownload'
 import type { TaskPriority, TicketStatus } from '@/types/database'
 import type { AttachmentLink } from '@/components/shared/TicketAttachmentsList'
 
@@ -25,7 +26,7 @@ const PRIORITY_STYLES: Record<TaskPriority, string> = {
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="mb-3 flex items-center gap-3 font-sans text-lg font-bold leading-6 text-[#0F172A]">
+    <h2 className="mb-3 flex items-center gap-3 font-sans text-base font-bold leading-6 text-[#0F172A]">
       <span aria-hidden="true" className="h-6 w-1.5 shrink-0 rounded-full bg-[#0D9488]" />
       {children}
     </h2>
@@ -60,7 +61,7 @@ export function TicketOverviewCard({
   children?: React.ReactNode
 }) {
   return (
-    <Card className="mx-auto w-full max-w-[1200px] rounded-2xl border border-[#E2E8F0] bg-white p-4 font-sans shadow-[0_4px_12px_rgba(15,23,42,0.06)] md:p-5">
+    <Card className="mx-auto w-full max-w-[1200px] rounded-2xl border border-[#E2E8F0] bg-white p-4 font-sans shadow-[0_4px_12px_rgba(15,23,42,0.06)] md:p-4">
       <header className="border-b border-[#E2E8F0] pb-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -83,7 +84,11 @@ export function TicketOverviewCard({
             )}
           </div>
           <span className="inline-flex max-w-full shrink-0 items-center gap-1 rounded-md border border-[#B9E4EC] bg-[#E6F5F8] px-2 py-0.5 text-[11px] font-semibold leading-4 text-[#086581]">
-            {category.toLowerCase().includes('shipment') && <Truck aria-hidden="true" className="h-3.5 w-3.5" />}
+            {category.toLowerCase().includes('shipment')
+              ? <Truck aria-hidden="true" className="h-3.5 w-3.5" />
+              : category.toLowerCase().includes('ads') || category.toLowerCase().includes('campaign')
+                ? <Megaphone aria-hidden="true" className="h-3.5 w-3.5" />
+                : null}
             {category}
           </span>
         </div>
@@ -91,16 +96,16 @@ export function TicketOverviewCard({
       </header>
 
       {(requestFields.length > 0 || emptyRequestMessage) && (
-        <section className="mt-5">
+        <section className="mt-4">
           <SectionHeading>Request Details</SectionHeading>
           {requestFields.length > 0 ? (
             <dl className="overflow-hidden rounded-[14px] border border-[#DCE5EF]">
               {requestFields.map((field, index) => (
                 <div key={field.key} className={`grid grid-cols-1 md:grid-cols-[minmax(0,30%)_minmax(0,70%)] ${index ? 'border-t border-[#E2E8F0]' : ''}`}>
-                  <dt className="bg-[#F1F5F9] px-3 py-2 text-[15px] font-semibold leading-[22px] text-[#334155] md:px-4 md:py-2.5">
+                  <dt className="bg-[#F1F5F9] px-3 py-1.5 text-[15px] font-semibold leading-[22px] text-[#334155] md:px-4 md:py-2">
                     {field.label}
                   </dt>
-                  <dd className="break-words whitespace-pre-wrap bg-white px-3 py-2 text-[15px] font-normal leading-[22px] text-[#111827] md:px-4 md:py-2.5">
+                  <dd className="break-words whitespace-pre-wrap bg-white px-3 py-1.5 text-[15px] font-normal leading-[22px] text-[#111827] md:px-4 md:py-2">
                     {field.value}
                   </dd>
                 </div>
@@ -115,7 +120,7 @@ export function TicketOverviewCard({
       )}
 
       {description && (
-        <section className="mt-5">
+      <section className="mt-4">
           <SectionHeading>{descriptionHeading ?? 'Description'}</SectionHeading>
           <div className="rounded-[14px] border border-[#DCE5EF] bg-[#F8FAFC] px-3 py-2.5 text-[15px] font-normal leading-[22px] text-[#172033] md:px-4">
             {description.split(/\n\s*\n/).map((paragraph, index, paragraphs) => (
@@ -125,26 +130,12 @@ export function TicketOverviewCard({
         </section>
       )}
 
-      <section className="mt-5">
+        <section className="mt-4">
         <SectionHeading>Attachments</SectionHeading>
         <ul className="space-y-2">
           {attachments.length ? attachments.map(file => (
-            <li key={file.id} className="inline-flex w-fit max-w-full flex-wrap items-center gap-2 rounded-[10px] border border-[#CBD5E1] bg-white px-2.5 py-1.5">
-              <div className="flex min-w-0 items-center gap-2">
-                <FileTypeIcon fileName={file.file_name} />
-                <span className="min-w-0 break-all text-sm font-semibold leading-5 text-[#0F172A]">
-                  {file.file_name}
-                </span>
-                {file.size_bytes != null && (
-                  <span className="shrink-0 rounded-md bg-[#F1F5F9] px-2 py-1 text-sm font-semibold leading-5 text-[#475569]">
-                    {formatFileSize(file.size_bytes)}
-                  </span>
-                )}
-              </div>
-              <a href={file.url ?? '#'} download={file.file_name} className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border border-[#0D9488] px-2.5 py-1.5 text-xs font-semibold text-[#0D9488] hover:bg-[#E6F5F8]">
-                <Download aria-hidden="true" className="h-3 w-3" />
-                Download
-              </a>
+            <li key={file.id}>
+              <FileAttachmentDownload fileName={file.file_name} sizeBytes={file.size_bytes} downloadUrl={file.url ?? '#'} />
             </li>
           )) : (
             <li className="rounded-[14px] border border-[#CBD5E1] bg-white px-4 py-3 text-sm text-[#64748B]">
@@ -156,24 +147,4 @@ export function TicketOverviewCard({
       {children}
     </Card>
   )
-}
-
-function FileTypeIcon({ fileName }: { fileName: string }) {
-  const extension = fileName.split('.').pop()?.toLowerCase()
-  if (extension === 'xls' || extension === 'xlsx' || extension === 'csv') {
-    return <span aria-label="Spreadsheet file" className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-emerald-600 text-sm font-bold text-white">X</span>
-  }
-  if (extension === 'pdf') {
-    return <span aria-label="PDF file" className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-red-600 text-[9px] font-bold text-white">PDF</span>
-  }
-  if (extension === 'doc' || extension === 'docx') {
-    return <span aria-label="Document file" className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-blue-600 text-sm font-bold text-white">W</span>
-  }
-  return <FileText aria-label="File" className="h-6 w-6 shrink-0 text-slate-500" />
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }

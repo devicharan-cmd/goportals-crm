@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { getStaffLookups, profileIdsReportingTo } from '@/lib/queries'
+import { getUserAdminLookups, profileIdsReportingTo } from '@/lib/queries'
 import { InviteUserButton, type StaffRow, type UnlinkedClientAccount } from '@/components/admin/UserAdmin'
 import { UsersAdminTabs } from '@/components/admin/UsersAdminTabs'
 import type { Invite, StaffRole } from '@/types/database'
@@ -11,22 +11,24 @@ export default async function UsersPage(props: { searchParams: Promise<{ tab?: s
   const searchParams = await props.searchParams
   const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
-  const [lookups, invitesResult, profileResult, addressResult] = await Promise.all([
-    getStaffLookups(),
+  const [lookups, invitesResult, clientLinksResult] = await Promise.all([
+    getUserAdminLookups(),
     me.role === 'team_lead'
       ? Promise.resolve({ data: [], error: null })
       : supabase.from('invites').select('*').is('used_at', null).order('created_at', { ascending: false }),
-    supabase.from('profiles').select('id, phone'),
     me.role === 'super_admin'
-      ? supabase.from('staff_profile_details').select('profile_id, current_address, permanent_address')
+      ? supabase.from('clients').select('owner_id').not('owner_id', 'is', null)
       : Promise.resolve({ data: [], error: null }),
   ])
   if (invitesResult.error) throw new Error(`Could not load pending invites: ${invitesResult.error.message}`)
-  if (profileResult.error) throw new Error(`Could not load team contact details: ${profileResult.error.message}`)
-  if (addressResult.error) throw new Error(`Could not load staff profile addresses: ${addressResult.error.message}`)
-  const profileDetails = new Map((profileResult.data ?? []).map(profile => [profile.id, profile]))
-  const addressDetails = new Map((addressResult.data ?? []).map(profile => [profile.profile_id, profile]))
+  if (clientLinksResult.error) throw new Error(`Could not load client account links: ${clientLinksResult.error.message}`)
   const peopleById = new Map(lookups.people.map(person => [person.id, person]))
+  const departmentIdsByPerson = new Map<string, string[]>()
+  for (const membership of lookups.departmentMembers) {
+    const ids = departmentIdsByPerson.get(membership.profile_id) ?? []
+    ids.push(membership.department_id)
+    departmentIdsByPerson.set(membership.profile_id, ids)
+  }
 
   const reportingIds = me.role === 'team_lead' ? profileIdsReportingTo(me.id, lookups) : null
   const visiblePeople = lookups.people.filter(p =>
@@ -38,10 +40,8 @@ export default async function UsersPage(props: { searchParams: Promise<{ tab?: s
         id: p.id, full_name: p.full_name, email: p.email, role: p.role as StaffRole, status: p.status,
         job_title: p.job_title, weekly_capacity_hours: p.weekly_capacity_hours, created_at: p.created_at,
         reporting_to: p.reporting_to, reporting_to_name: reportingPerson ? reportingPerson.full_name || reportingPerson.email : null,
-        avatar_url: p.avatar_url, phone: profileDetails.get(p.id)?.phone ?? null,
-        current_address: me.role === 'super_admin' ? addressDetails.get(p.id)?.current_address ?? null : null,
-        permanent_address: me.role === 'super_admin' ? addressDetails.get(p.id)?.permanent_address ?? null : null,
-        departmentIds: lookups.departmentMembers.filter(m => m.profile_id === p.id).map(m => m.department_id),
+        avatar_url: p.avatar_url, phone: p.phone,
+        departmentIds: departmentIdsByPerson.get(p.id) ?? [],
       }
     })
   const reportingPeople = visiblePeople
@@ -49,14 +49,13 @@ export default async function UsersPage(props: { searchParams: Promise<{ tab?: s
 
   let unlinkedClientAccounts: UnlinkedClientAccount[] = []
   if (me.role === 'super_admin') {
-    const [{ data: clientProfiles, error: profilesError }, { data: clients, error: clientsError }] = await Promise.all([
-      (await createClient()).from('profiles').select('id, email, full_name').eq('role', 'client').order('created_at', { ascending: false }),
-      (await createClient()).from('clients').select('owner_id').not('owner_id', 'is', null),
-    ])
-    if (profilesError) throw new Error(`Could not load client accounts: ${profilesError.message}`)
-    if (clientsError) throw new Error(`Could not load client account links: ${clientsError.message}`)
-    const linkedOwnerIds = new Set((clients ?? []).map(client => client.owner_id).filter((id): id is string => !!id))
-    unlinkedClientAccounts = (clientProfiles ?? []).filter(profile => !linkedOwnerIds.has(profile.id))
+    const linkedOwnerIds = new Set((clientLinksResult.data ?? [])
+      .map(client => client.owner_id)
+      .filter((id): id is string => !!id))
+    unlinkedClientAccounts = lookups.people
+      .filter(profile => profile.role === 'client' && !linkedOwnerIds.has(profile.id))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map(({ id, email, full_name }) => ({ id, email, full_name }))
   }
 
   const initialTab = searchParams.tab === 'invites' || (searchParams.tab === 'change-poc' && me.role === 'super_admin') ? searchParams.tab : 'users'

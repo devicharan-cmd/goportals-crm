@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, FileSignature, Mail, MapPin, MessageCircle, Phone, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { addTaskAssigneeHistory, getTicketDetailLookups, nameMap, TASK_LIST_SELECT, taskAssigneeOptionsFor } from '@/lib/queries'
+import { addTaskAssigneeHistory, getClientProfileImageUrls, getTicketDetailLookups, nameMap, TASK_LIST_SELECT, taskAssigneeOptionsFor } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/primitives'
 import { AccountStatusBadge, Badge } from '@/components/ui/badges'
@@ -15,7 +15,7 @@ import {
   type EcommerceAccountRow, type ClientServiceRow, type ClientTeamRow,
 } from '@/components/clients/ClientEditors'
 import { DeleteButton } from '@/components/shared/DeleteButton'
-import { SignedClientAvatar } from '@/components/shared/SignedClientAvatar'
+import { CompanyAvatar } from '@/components/ui/primitives'
 import { STAGE_LABELS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { formatDate, formatINR } from '@/lib/utils'
 import type { Client, ClientInternal, TaskListItem } from '@/types/database'
@@ -47,6 +47,7 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
   ])
   if (!clientData) notFound()
   const client = clientData as Client
+  const clientImageUrls = await getClientProfileImageUrls([{ company_profile_image_path: client.company_profile_image_path }])
   const companyAddressParts = [client.address_line, client.city, client.state, client.postal_code, client.country]
     .filter((part): part is string => !!part?.trim())
     .filter((part, index, parts) => !parts.slice(0, index).some(previous => previous.toLowerCase().includes(part.toLowerCase())))
@@ -79,7 +80,11 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
       {/* Header */}
       <Card className="mb-6 p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <SignedClientAvatar name={client.company_name} imagePath={client.company_profile_image_path} size="md" company />
+          <CompanyAvatar
+            name={client.company_name}
+            src={client.company_profile_image_path ? clientImageUrls[client.company_profile_image_path] : null}
+            size="md"
+          />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold">{client.company_name}</h1>

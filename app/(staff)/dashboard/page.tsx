@@ -58,7 +58,7 @@ export default async function DashboardPage() {
     isSuperAdmin
       ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending')
       : Promise.resolve({ count: 0, error: null }),
-    supabase.from('profiles').select('id, full_name, email'),
+    supabase.from('profiles').select('id, full_name, email, avatar_url'),
     isManager
       ? supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).not('status', 'in', '(completed,cancelled)')
           .order('is_urgent', { ascending: false })
@@ -137,6 +137,7 @@ export default async function DashboardPage() {
   const rawDueTodayTasks = (dueTodayTasksResult.data ?? []) as TaskListItem[]
   const clientRequests = (requests.data ?? []) as unknown as TicketListItem[]
   const names = nameMap(people.data ?? [])
+  const assigneeAvatarUrls = Object.fromEntries((people.data ?? []).map(person => [person.id, person.avatar_url]))
   const myOpenCount = mine.count ?? 0
   const dueTodayCount = dueTodayTasksResult.count ?? 0
   const urgentCount = urgent.count ?? 0
@@ -234,7 +235,7 @@ export default async function DashboardPage() {
                       <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>{t.title}</p>
                       <p className="flex items-center gap-1.5 truncate text-xs text-slate-500">
                         <span className="truncate">{t.client?.company_name} · <DueDate date={t.due_date} status={t.status} /></span>
-                        {t.visibility === 'private' && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-inset ring-violet-200" title="Visible only to authorized internal staff"><LockKeyhole aria-hidden="true" className="h-3 w-3" />Private</span>}
+                        {t.visibility === 'private' && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-xs font-semibold text-violet-700 ring-1 ring-inset ring-violet-200" title="Visible only to authorized internal staff"><LockKeyhole aria-hidden="true" className="h-3 w-3" />Private</span>}
                       </p>
                       <TaskPreviousAssignees history={t.assignee_history} compact />
                     </Link>
@@ -346,6 +347,7 @@ export default async function DashboardPage() {
             workingCount={workingCount}
             doneCount={doneCount}
             names={names}
+            assigneeAvatarUrls={assigneeAvatarUrls}
           />
         </div>
       )}

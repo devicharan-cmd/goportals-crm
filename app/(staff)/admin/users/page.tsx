@@ -12,10 +12,10 @@ export default async function UsersPage(props: { searchParams: Promise<{ tab?: s
   const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
   const [lookups, invitesResult, clientLinksResult] = await Promise.all([
-    getUserAdminLookups(),
+    getUserAdminLookups({ includeClients: me.role === 'super_admin' }),
     me.role === 'team_lead'
       ? Promise.resolve({ data: [], error: null })
-      : supabase.from('invites').select('*').is('used_at', null).order('created_at', { ascending: false }),
+      : supabase.from('invites').select('id, email, role, reporting_to, full_name, job_title, department_ids, client_id, expires_at, used_at, cancelled_at, created_at').is('used_at', null).order('created_at', { ascending: false }),
     me.role === 'super_admin'
       ? supabase.from('clients').select('owner_id').not('owner_id', 'is', null)
       : Promise.resolve({ data: [], error: null }),

@@ -8,6 +8,7 @@ import type { EmailOtpType } from '@supabase/supabase-js'
 import { createBrowserClient } from '@supabase/ssr'
 import { AuthLayout } from '@/components/layout/AuthLayout'
 import { Alert } from '@/components/ui/primitives'
+import { resolveAuthEmailFlow } from '@/lib/auth-email-flow'
 
 function getLinkErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : ''
@@ -26,27 +27,31 @@ function Callback() {
   const router = useRouter()
   const params = useSearchParams()
   const [error, setError] = useState('')
-  const [flowType, setFlowType] = useState<string | null>(null)
+  const [flowType, setFlowType] = useState<'invite' | 'recovery' | null>(null)
+  const [errorCode, setErrorCode] = useState(params.get('error_code') ?? '')
   const started = useRef(false)
-  const errorCode = params.get('error_code')
   const errorDescription = params.get('error_description')?.replace(/\+/g, ' ')
   const expiredLink = errorCode === 'otp_expired'
-  const visibleError = expiredLink
-    ? 'This password reset link has expired, was already used, or was replaced by a newer request. Request a fresh link and use only the newest email.'
-    : error || errorDescription
+  const visibleError = flowType === 'invite' && (expiredLink || error || errorDescription)
+    ? 'This invitation link is invalid, expired, or was already used. Ask the person who invited you to send a new invitation.'
+    : flowType === 'recovery' && (expiredLink || error || errorDescription)
+      ? 'This password reset link is invalid, expired, or was already used. Request a new reset email and use the newest link.'
+      : error || errorDescription
 
   useEffect(() => {
     if (started.current) return   // links are single-use; don't run twice in dev strict mode
     started.current = true
     const hash = new URLSearchParams(window.location.hash.slice(1))
     const type = hash.get('type') ?? params.get('type')
-    setFlowType(type)
     const next = params.get('next') === '/auth/set-password' ? '/auth/set-password' : '/'
+    const flow = resolveAuthEmailFlow(type, params.get('next'), params.get('flow'))
+    setFlowType(flow)
 
     // Supabase redirects expired or invalid links with an error in the URL.
     // Don't start session processing for those links; show recovery immediately.
     const linkError = hash.get('error_description') ?? params.get('error_description')
     if (linkError) {
+      setErrorCode(hash.get('error_code') ?? params.get('error_code') ?? '')
       setError(linkError.replace(/\+/g, ' '))
       return
     }
@@ -80,9 +85,7 @@ function Callback() {
       // Invited users and password resets both choose a password here, but they
       // are not the same event: an invite is a first-time setup, not a reset.
       // Carry the link type through so set-password can tell them apart.
-      const dest = type === 'invite' || type === 'recovery'
-        ? `/auth/set-password?flow=${type}`
-        : next ?? '/'
+      const dest = flow ? `/auth/set-password?flow=${flow}` : next
       router.replace(dest)
       router.refresh()
     }
@@ -94,13 +97,19 @@ function Callback() {
     return (
       <div className="space-y-4">
         <h2 className="text-2xl font-bold">
-          {expiredLink ? 'Reset link expired' : 'Email link problem'}
+          {flowType === 'invite'
+            ? 'Invitation link problem'
+            : flowType === 'recovery'
+              ? (expiredLink ? 'Password reset link expired' : 'Password reset link problem')
+              : 'Email link problem'}
         </h2>
         <Alert>{visibleError}</Alert>
         <div className="flex flex-wrap items-center gap-4 text-sm font-semibold">
-          <Link href="/forgot-password" className="text-[#045E80]">
-            Request a new reset link
-          </Link>
+          {flowType === 'recovery' && (
+            <Link href="/forgot-password" className="text-[#045E80]">
+              Request a new password reset email
+            </Link>
+          )}
           <Link href="/login" className="text-slate-600">
             Back to sign in
           </Link>

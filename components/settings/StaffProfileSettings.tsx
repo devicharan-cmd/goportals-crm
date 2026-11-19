@@ -534,12 +534,12 @@ export function StaffProfileSettings({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="rounded-2xl border border-slate-200/80 bg-white [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] overflow-hidden">
             {/* Card Header */}
-            <div className="border-b border-slate-100 px-6 py-5 flex items-center justify-between">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-5">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">
+                <h2 className="text-base font-semibold text-slate-900 sm:text-lg">
                   {isOwnProfile
                     ? 'Your profile'
                     : `${profile.role === 'employee' ? 'Employee' : profile.role === 'team_lead' ? 'Team Lead' : profile.role === 'manager' ? 'Manager' : 'Super Admin'} Profile`}
@@ -550,17 +550,17 @@ export function StaffProfileSettings({
               </div>
             </div>
 
-            <div className="space-y-6 p-8 sm:p-10">
+            <div className="space-y-4 p-4 sm:space-y-6 sm:p-10">
               {/* Profile Avatar Header */}
-              <div className="flex flex-col gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-start sm:gap-5">
+              <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:gap-5 sm:pb-6">
                 <div className="flex min-w-0 flex-1 flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-5">
-                  <div className="h-20 w-20 shrink-0 rounded-full ring-2 ring-[#9FCCDE]">
+                  <div className="h-16 w-16 shrink-0 rounded-full ring-2 ring-[#9FCCDE] sm:h-20 sm:w-20">
                     {canEditProfile ? (
                       <ProfileImageControl
                         busy={imageBusy}
                         onClick={openImageDialog}
                         label={currentImage ? 'Update profile photo' : 'Add profile photo'}
-                        className="flex h-20 w-20 items-center justify-center rounded-full shadow-sm"
+                        className="flex h-16 w-16 items-center justify-center rounded-full shadow-sm sm:h-20 sm:w-20"
                       >
                         {currentImage && !imageLoadFailed ? (
                           <Image
@@ -569,11 +569,11 @@ export function StaffProfileSettings({
                             width={80}
                             height={80}
                             unoptimized
-                            className="h-full w-full rounded-full object-cover border-4 border-white"
+                            className="h-full w-full rounded-full border-4 border-white object-cover"
                             onError={() => setImageLoadFailed(true)}
                           />
                         ) : (
-                          <Avatar name={fullName || profile.email} role={role} size="lg" className="h-20 w-20 border-4 border-white text-2xl" />
+                          <Avatar name={fullName || profile.email} role={role} size="lg" className="h-16 w-16 border-4 border-white text-xl sm:h-20 sm:w-20 sm:text-2xl" />
                         )}
                       </ProfileImageControl>
                     ) : (
@@ -584,17 +584,17 @@ export function StaffProfileSettings({
                           width={80}
                           height={80}
                           unoptimized
-                          className="h-20 w-20 rounded-full object-cover border-4 border-white"
+                          className="h-16 w-16 rounded-full border-4 border-white object-cover sm:h-20 sm:w-20"
                           onError={() => setImageLoadFailed(true)}
                         />
                       ) : (
-                        <Avatar name={fullName || profile.email} role={role} size="lg" className="h-20 w-20 border-4 border-white text-2xl" />
+                        <Avatar name={fullName || profile.email} role={role} size="lg" className="h-16 w-16 border-4 border-white text-xl sm:h-20 sm:w-20 sm:text-2xl" />
                       )
                     )}
                   </div>
 
                   <div className="min-w-0 flex-1 text-center sm:text-left">
-                    <h3 className="truncate text-2xl font-bold text-slate-900">
+                    <h3 className="truncate text-xl font-bold text-slate-900 sm:text-2xl">
                       {fullName || profile.email}
                     </h3>
                     <div className="mt-1.5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
@@ -635,7 +635,7 @@ export function StaffProfileSettings({
               </div>
 
               {/* Form Fields Grid */}
-              <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 sm:gap-y-6">
                 {/* Full Name */}
                 <div>
                   <label className="mb-1.5 block text-sm font-semibold text-slate-700">

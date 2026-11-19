@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, CheckCheck, Flame, Inbox, MessageSquare, RefreshCw, UserCheck } from 'lucide-react'
+import { Bell, CheckCheck, Flame, Inbox, MessageSquare, RefreshCw, Trash2, UserCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/primitives'
@@ -19,6 +19,7 @@ const ICONS: Record<string, React.ElementType> = {
   comment: MessageSquare,
   reporting_poc_changed: UserCheck,
   reporting_poc_assigned: UserCheck,
+  task_deleted: Trash2,
 }
 
 export function NotificationsList({ items, taskHref, ticketHref }: { items: Notification[]; taskHref: string; ticketHref: string }) {

@@ -1,11 +1,11 @@
 import { notFound, redirect } from 'next/navigation'
 import { requireRole } from '@/lib/auth'
-import { getStaffLookups, profileIdsReportingTo } from '@/lib/queries'
+import { getUserAdminLookups, profileIdsReportingTo } from '@/lib/queries'
 import { createClient } from '@/lib/supabase/server'
 import { StaffProfileSettings } from '@/components/settings/StaffProfileSettings'
 import { ButtonLink } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
-import type { Department, Profile } from '@/types/database'
+import type { Profile } from '@/types/database'
 
 export const metadata = { title: 'Staff Profile' }
 
@@ -13,29 +13,24 @@ export default async function StaffProfilePage(props: { params: Promise<{ id: st
   const params = await props.params
   const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
-  const [profileRes, addressRes, departmentsRes, membershipsRes, lookups] = await Promise.all([
+  const [profileRes, addressRes, lookups] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', params.id).maybeSingle(),
     me.role === 'super_admin'
       ? supabase.from('staff_profile_details').select('current_address, permanent_address').eq('profile_id', params.id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    supabase.from('departments').select('*').order('sort_order'),
-    supabase.from('department_members').select('department_id').eq('profile_id', params.id),
-    getStaffLookups(),
+    getUserAdminLookups(),
   ])
 
   if (profileRes.error) throw new Error(`Could not load the staff profile: ${profileRes.error.message}`)
   if (!profileRes.data || profileRes.data.role === 'client') notFound()
   if (addressRes.error) throw new Error(`Could not load staff profile addresses: ${addressRes.error.message}`)
-  if (departmentsRes.error) throw new Error(`Could not load departments: ${departmentsRes.error.message}`)
-  if (membershipsRes.error) throw new Error(`Could not load staff department assignments: ${membershipsRes.error.message}`)
-
   const profile = profileRes.data as Profile
   if (me.role === 'team_lead'
       && profile.id !== me.id
       && !profileIdsReportingTo(me.id, lookups).has(profile.id)) {
     redirect('/admin/users')
   }
-  const departments = (departmentsRes.data ?? []) as Department[]
+  const departments = lookups.departments
 
   return (
     <div className="mx-auto w-full max-w-7xl pb-12">
@@ -51,7 +46,9 @@ export default async function StaffProfilePage(props: { params: Promise<{ id: st
           permanent_address: addressRes.data?.permanent_address ?? null,
         }}
         departments={departments}
-        initialDepartmentIds={(membershipsRes.data ?? []).map(row => row.department_id)}
+        initialDepartmentIds={lookups.departmentMembers
+          .filter(row => row.profile_id === profile.id)
+          .map(row => row.department_id)}
         actorRole={me.role}
         actorId={me.id}
         isOwnProfile={me.id === profile.id}

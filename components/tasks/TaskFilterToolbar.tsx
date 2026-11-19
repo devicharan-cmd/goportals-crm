@@ -56,6 +56,7 @@ export function TaskFilterToolbar({
   action?: React.ReactNode
 }) {
   const [calendarOpen, setCalendarOpen] = useState(false)
+  const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number } | null>(null)
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(due ? new Date(`${due}T00:00:00`) : new Date()))
   const [yearPickerOpen, setYearPickerOpen] = useState(false)
   const calendarRef = useRef<HTMLDivElement | null>(null)
@@ -70,8 +71,22 @@ export function TaskFilterToolbar({
   useEffect(() => {
     if (!calendarOpen) {
       setYearPickerOpen(false)
+      setCalendarPosition(null)
       return
     }
+    const positionCalendar = () => {
+      const button = calendarRef.current?.querySelector('button')
+      if (!button) return
+      const rect = button.getBoundingClientRect()
+      const width = Math.min(288, window.innerWidth - 32)
+      setCalendarPosition({
+        top: rect.bottom + 8,
+        left: Math.max(16, Math.min(rect.left, window.innerWidth - width - 16)),
+      })
+    }
+    positionCalendar()
+    window.addEventListener('resize', positionCalendar)
+    window.addEventListener('scroll', positionCalendar, true)
     function closeCalendar(event: PointerEvent) {
       if (event.target instanceof Node && !calendarRef.current?.contains(event.target)) setCalendarOpen(false)
     }
@@ -81,6 +96,8 @@ export function TaskFilterToolbar({
     document.addEventListener('pointerdown', closeCalendar)
     document.addEventListener('keydown', handleKeyDown)
     return () => {
+      window.removeEventListener('resize', positionCalendar)
+      window.removeEventListener('scroll', positionCalendar, true)
       document.removeEventListener('pointerdown', closeCalendar)
       document.removeEventListener('keydown', handleKeyDown)
     }
@@ -94,9 +111,9 @@ export function TaskFilterToolbar({
     if (yearPickerOpen) selectedYearRef.current?.scrollIntoView({ block: 'nearest' })
   }, [yearPickerOpen])
 
-  const toggle = 'inline-flex h-9 items-center rounded-lg bg-slate-100 p-1'
-  const scopeToggle = 'inline-flex h-9 gap-px rounded-xl border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)]'
-  const select = 'task-filter-select h-9 w-full rounded-lg px-2.5 pr-2 py-1 !text-xs'
+  const toggle = 'inline-flex h-9 items-center rounded-lg bg-slate-100 p-1 sm:max-lg:h-8 sm:max-lg:p-0.5 max-sm:h-8 max-sm:p-0.5'
+  const scopeToggle = 'inline-flex h-9 gap-px rounded-xl border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] sm:max-lg:h-8 max-sm:h-8 max-sm:min-w-0 max-sm:flex-1 max-sm:rounded-lg'
+  const select = 'task-filter-select h-9 w-full rounded-lg px-2.5 pr-2 py-1 !text-xs sm:max-lg:h-8 sm:max-lg:px-2 sm:max-lg:!text-[11px] max-sm:h-8 max-sm:rounded-md max-sm:px-1.5 max-sm:!text-[10px]'
   const staffOptions = (label: string, staff: Option[]) => [
     { value: '', text: label, label, selectedLabel: label },
     ...staff.map(person => ({
@@ -130,8 +147,8 @@ export function TaskFilterToolbar({
   ]
 
   return (
-    <div className="mb-4 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="mb-4 space-y-3 max-sm:mb-2 max-sm:space-y-2">
+      <div className="flex flex-wrap items-center gap-2 max-sm:gap-1.5">
         {showScope && <div className={scopeToggle}>
           {([
             { value: 'mine', label: 'My tasks', icon: UserRound },
@@ -145,16 +162,16 @@ export function TaskFilterToolbar({
               aria-pressed={scope === option.value}
               onClick={() => onScopeChange(option.value)}
               className={cn(
-                'relative flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 pr-6 text-xs transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none disabled:cursor-wait disabled:opacity-70',
+                'relative flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 pr-6 text-xs transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none disabled:cursor-wait disabled:opacity-70 sm:max-lg:gap-1 sm:max-lg:px-2 sm:max-lg:pr-5 sm:max-lg:text-[11px] max-sm:gap-1 max-sm:px-1.5 max-sm:pr-5 max-sm:text-[10px]',
                 scope === option.value
                   ? 'bg-[#034C68] font-semibold text-white shadow-[0_2px_5px_rgba(2,43,59,0.2)]'
                   : 'bg-white font-medium text-slate-800',
               )}
             >
-              <option.icon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', scope === option.value ? 'text-white' : 'text-slate-800')} />
+              <option.icon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0 max-sm:h-3 max-sm:w-3', scope === option.value ? 'text-white' : 'text-slate-800')} />
               <span>{option.label}</span>
               <span className={cn(
-                'absolute right-1 top-1/2 inline-grid h-4 min-w-4 -translate-y-1/2 place-items-center rounded-full px-1 text-center text-[10px] font-semibold leading-4 tabular-nums',
+                'absolute right-1 top-1/2 inline-grid h-4 min-w-4 -translate-y-1/2 place-items-center rounded-full px-1 text-center text-[10px] font-semibold leading-4 tabular-nums max-sm:right-0.5 max-sm:h-3.5 max-sm:min-w-3.5 max-sm:px-0.5 max-sm:text-[9px] max-sm:leading-3.5',
                 (scopeCounts[option.value] ?? 0) > 0 ? 'bg-[#95C12C] text-white' : 'bg-slate-200 text-[#0F172A]',
               )}>
                 {(scopeCounts[option.value] ?? 0) > 99 ? '99+' : scopeCounts[option.value] ?? 0}
@@ -174,21 +191,21 @@ export function TaskFilterToolbar({
               aria-label={option.label}
               title={option.label}
               className={cn(
-                'flex h-7 w-8 items-center justify-center rounded-md transition',
+                'flex h-7 w-8 items-center justify-center rounded-md transition sm:max-lg:h-7 sm:max-lg:w-7 max-sm:h-7 max-sm:w-7',
                 view === option.value ? 'bg-white text-[#034C68] shadow-sm' : 'text-slate-500 hover:text-slate-800',
               )}
             >
-              <option.icon className="h-4 w-4" />
+                <option.icon className="h-4 w-4 max-sm:h-3.5 max-sm:w-3.5" />
             </button>
           ))}
         </div>
         {action && <div className="ml-auto">{action}</div>}
       </div>
 
-      <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap lg:flex-nowrap">
+      <div className="relative z-30 flex flex-nowrap items-center gap-2 overflow-x-auto sm:flex-wrap lg:flex-nowrap max-sm:overflow-visible max-sm:gap-1 max-sm:pb-1">
         <div className="contents sm:flex sm:min-w-0 sm:flex-1 sm:flex-wrap sm:items-center sm:gap-2 lg:flex-nowrap">
           {view === 'list' && (
-            <div className="min-w-0 sm:w-32">
+            <div className="min-w-0 max-sm:w-[72px] sm:w-32 sm:max-lg:w-28">
               <SearchableSelect
                 compactOptions
                 optionTextClassName="!text-xs"
@@ -206,7 +223,7 @@ export function TaskFilterToolbar({
             </div>
           )}
           {showClientFilter && onClientChange && (
-            <div className="min-w-0 sm:w-40">
+            <div className="min-w-0 max-sm:w-[21vw] max-sm:min-w-[76px] max-sm:max-w-[100px] sm:w-40 sm:max-lg:w-32">
               <SearchableSelect
                 optionTextClassName="!text-xs"
                 searchInputClassName="!h-8 !text-xs"
@@ -224,7 +241,7 @@ export function TaskFilterToolbar({
             </div>
           )}
           {showAssigneeFilter && scope === 'all' && onAssigneeChange && (
-            <div className="min-w-0 sm:w-40">
+            <div className="min-w-0 max-sm:w-[21vw] max-sm:min-w-[76px] max-sm:max-w-[100px] sm:w-40 sm:max-lg:w-32">
               <SearchableSelect
                 optionTextClassName="!text-xs"
                 searchInputClassName="!h-8 !text-xs"
@@ -247,7 +264,7 @@ export function TaskFilterToolbar({
             </div>
           )}
           {showAssignedByFilter && scope === 'all' && onAssignedByChange && (
-            <div className="min-w-0 sm:w-40">
+            <div className="min-w-0 max-sm:w-[21vw] max-sm:min-w-[76px] max-sm:max-w-[100px] sm:w-40 sm:max-lg:w-32">
               <SearchableSelect
                 optionTextClassName="!text-xs"
                 searchInputClassName="!h-8 !text-xs"
@@ -265,7 +282,7 @@ export function TaskFilterToolbar({
               />
             </div>
           )}
-          <div className="min-w-0 sm:w-32">
+          <div className="min-w-0 max-sm:w-[21vw] max-sm:min-w-[76px] max-sm:max-w-[100px] sm:w-32 sm:max-lg:w-28">
             <SearchableSelect
               compactOptions
               optionTextClassName="!text-xs"
@@ -282,22 +299,22 @@ export function TaskFilterToolbar({
               {departments.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
             </SearchableSelect>
           </div>
-          <div className="min-w-0 sm:w-36">
-            <div className="relative" ref={calendarRef}>
+          <div className="min-w-0 max-sm:w-[94px] sm:w-36 sm:max-lg:w-32">
+            <div className="relative z-40" ref={calendarRef}>
               <button
                 type="button"
                 aria-label={due ? `Filter by due date: ${format(new Date(`${due}T00:00:00`), 'dd MMM yyyy')}` : 'Filter by due date'}
                 aria-haspopup="dialog"
                 aria-expanded={calendarOpen}
                 onClick={() => setCalendarOpen(open => !open)}
-                className="form-field task-filter-select flex h-9 w-full items-center gap-2 rounded-lg px-2.5 py-1 text-left !text-xs"
+                className="form-field task-filter-select flex h-9 w-full items-center gap-2 rounded-lg px-2.5 py-1 text-left !text-xs max-sm:h-8 max-sm:gap-1 max-sm:rounded-md max-sm:px-2 max-sm:!text-[10px]"
               >
                 <CalendarDays aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />
-                <span className={cn('min-w-0 flex-1 truncate', !due && 'text-slate-500')}>{due ? format(new Date(`${due}T00:00:00`), 'dd MMM yyyy') : 'dd-mm-yyyy'}</span>
-                <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                <span className={cn('min-w-0 flex-1 truncate', !due && 'text-slate-500')}><span className="max-sm:hidden">{due ? format(new Date(`${due}T00:00:00`), 'dd MMM yyyy') : 'dd-mm-yyyy'}</span><span className="hidden max-sm:inline">{due ? format(new Date(`${due}T00:00:00`), 'dd MMM') : 'dd-mm-yy'}</span></span>
+                <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-500 max-sm:h-3 max-sm:w-3" />
               </button>
-              {calendarOpen && (
-                <div role="dialog" aria-label="Choose due date" className="absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-3 shadow-xl ring-1 ring-black/5">
+              {calendarOpen && calendarPosition && (
+                <div role="dialog" aria-label="Choose due date" style={calendarPosition ? { position: 'fixed', top: calendarPosition.top, left: calendarPosition.left } : undefined} className="fixed z-[100] w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-3 shadow-xl ring-1 ring-black/5">
                   <div className="mb-2 flex items-center justify-between gap-1.5">
                     <button type="button" aria-label="Previous month" onClick={() => setCalendarMonth(month => subMonths(month, 1))} className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#045E80] text-white transition hover:bg-[#034C68]">
                       <ChevronLeft aria-hidden="true" className="h-4 w-4" />
@@ -362,17 +379,17 @@ export function TaskFilterToolbar({
             <button
               type="button"
               onClick={onClearFilters}
-              className="col-span-2 inline-flex h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+              className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 max-sm:h-8 max-sm:px-1.5 max-sm:text-[10px]"
             >
               <X className="h-4 w-4" /> Clear filters
             </button>
           )}
         </div>
-        <div className="col-span-2 w-full shrink-0 sm:ml-auto sm:w-60">
+        <div className="w-full shrink-0 max-sm:w-[min(28vw,124px)] max-sm:min-w-[104px] sm:ml-auto sm:w-60 sm:max-lg:w-44">
           <DebouncedSearchInput
             placeholder="Search title or GP-1024…"
             className="w-full"
-            inputClassName="w-full !text-xs"
+            inputClassName="w-full !text-xs max-sm:h-8 max-sm:pl-7 max-sm:pr-1.5 max-sm:!text-[10px]"
             ariaLabel="Search tasks"
             value={searchInput}
             onValueChange={onSearchInput}

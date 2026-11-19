@@ -21,8 +21,23 @@ export default function ForgotPasswordPage() {
     setSent(false)
     try {
       const normalizedEmail = email.trim().toLowerCase()
+      const eligibilityResponse = await fetch('/api/auth/password-reset-eligibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail }),
+      })
+      const eligibility = await eligibilityResponse.json()
+      if (!eligibilityResponse.ok) {
+        setError(eligibility.error || 'Unable to check invitation status right now. Try again.')
+        return
+      }
+      if (!eligibility.eligible) {
+        setError(eligibility.message)
+        return
+      }
+
       const callbackUrl = new URL('/auth/callback', window.location.origin)
-      callbackUrl.searchParams.set('next', '/auth/set-password')
+      callbackUrl.searchParams.set('flow', 'recovery')
       const { error } = await createClient().auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: callbackUrl.toString(),
       })

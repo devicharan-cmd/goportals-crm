@@ -175,4 +175,5 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   edited:           'edited the details',
   priority_changed: 'changed priority',
   urgent_changed:   'changed urgency',
+  task_deleted:     'deleted a linked task',
 }

@@ -94,6 +94,8 @@ export function AppShell({
   const [isOffline, setIsOffline] = useState(false)
   const [networkRevision, setNetworkRevision] = useState(0)
   const realtimeUnavailableRef = useRef(false)
+  const realtimeConnectedRef = useRef(false)
+  const realtimeRecoveryPendingRef = useRef(false)
   const isClient = user.role === 'client'
   const [liveAvatarUrl, setLiveAvatarUrl] = useState<string | null>(isClient ? null : user.avatarUrl ?? null)
   const profileMenuRef = useRef<HTMLDivElement>(null)
@@ -106,14 +108,17 @@ export function AppShell({
 
   useEffect(() => {
     const handleOffline = () => {
+      const wasConnected = realtimeConnectedRef.current
       setIsOffline(true)
       realtimeUnavailableRef.current = true
-      showErrorToast('Internet connection lost. Reconnect before submitting changes.')
+      if (wasConnected) {
+        realtimeRecoveryPendingRef.current = true
+        showErrorToast('Connection lost. Live updates are paused.')
+      }
     }
     const handleOnline = () => {
       setIsOffline(false)
       setNetworkRevision(revision => revision + 1)
-      showSuccessToast('Internet connection restored. Checking GoPortals connection…')
     }
 
     const offline = !navigator.onLine
@@ -361,13 +366,21 @@ export function AppShell({
         channel = nextChannel
         nextChannel.subscribe(status => {
           if (!active) return
-          if (status === 'SUBSCRIBED' && realtimeUnavailableRef.current) {
+          if (status === 'SUBSCRIBED') {
+            const wasConnected = realtimeConnectedRef.current
+            const shouldAnnounceRecovery = realtimeRecoveryPendingRef.current && wasConnected && navigator.onLine
             realtimeUnavailableRef.current = false
-            router.refresh()
-            showSuccessToast('Connection restored. GoPortals is up to date.')
+            realtimeConnectedRef.current = true
+            realtimeRecoveryPendingRef.current = false
+            if (shouldAnnounceRecovery) {
+              router.refresh()
+              showSuccessToast('Live connection restored.')
+            }
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            const shouldNotify = !realtimeUnavailableRef.current && realtimeConnectedRef.current && navigator.onLine
             realtimeUnavailableRef.current = true
-            if (navigator.onLine) showErrorToast('Connection interrupted. GoPortals is trying to reconnect.')
+            if (realtimeConnectedRef.current && navigator.onLine) realtimeRecoveryPendingRef.current = true
+            if (shouldNotify) showErrorToast('Live updates paused. Retrying…')
           }
         })
         const initialCounts = new Set<'notifications' | 'urgent' | 'approvals'>(['notifications'])
@@ -376,8 +389,10 @@ export function AppShell({
         await refreshCounts(initialCounts)
       } catch (subscriptionError) {
         if (active) {
+          const shouldNotify = !realtimeUnavailableRef.current && realtimeConnectedRef.current && navigator.onLine
           realtimeUnavailableRef.current = true
-          if (navigator.onLine) showErrorToast(`Connection interrupted. ${errorMessage(subscriptionError)}`)
+          if (realtimeConnectedRef.current && navigator.onLine) realtimeRecoveryPendingRef.current = true
+          if (shouldNotify) showErrorToast(`Live updates paused. ${errorMessage(subscriptionError)}`)
         }
       }
     })()
@@ -595,18 +610,18 @@ export function AppShell({
       {/* Mobile drawer */}
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-[#011B26]/40" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 bg-white [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">{renderSidebar(false, false)}</aside>
+          <div className="absolute inset-0 bg-[#011B26]/40 backdrop-blur-sm transition-opacity duration-200" onClick={() => setOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-64 bg-white [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">{renderSidebar(false, false)}</aside>
         </div>
       )}
 
       {/* Only the area under the top bar scrolls, so the scrollbar never runs beside the top bar. */}
       <div className={cn('flex h-full min-h-0 flex-col transition-[padding] duration-200', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
-        <header className="z-20 flex h-16 flex-shrink-0 items-center gap-3 border-b border-slate-200 bg-white/85 px-4 backdrop-blur sm:px-6">
-          <button className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
-            <Menu className="h-5 w-5" />
+        <header className="z-20 flex h-16 flex-shrink-0 items-center gap-2.5 border-b border-slate-200 bg-white/85 px-3 backdrop-blur sm:gap-3 sm:px-6">
+          <button className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
+            <Menu className="h-[22px] w-[22px]" />
           </button>
-          <div className="lg:hidden"><Logo className="h-6" priority /></div>
+          <div className="relative top-1 inline-flex shrink-0 items-center lg:hidden sm:top-0"><Logo className="h-6 sm:h-6" priority /></div>
           {pageTitle && (
             <div className="hidden min-w-0 items-center gap-2.5 sm:flex">
               <span className="hidden h-6 w-px bg-slate-200 sm:block lg:hidden" />
@@ -667,7 +682,7 @@ export function AppShell({
 
                 {/* Dropdown Menu: Clean & Minimalist */}
                 {profileMenuOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-1.5 w-full rounded-xl border border-slate-200/80 bg-white p-0.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute right-0 top-full z-50 mt-1.5 w-52 max-w-[calc(100vw-1rem)] rounded-xl border border-slate-200/80 bg-white p-0.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] animate-in fade-in zoom-in-95 duration-100">
                     <div className="flex min-w-0 items-start gap-2 px-1.5 py-1.5">
                       {isClient
                         ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="sm" className="mt-0.5" rounded />
@@ -684,7 +699,7 @@ export function AppShell({
                       href={isClient ? '/portal/profile' : '/settings'}
                       prefetch={false}
                       onClick={() => setProfileMenuOpen(false)}
-                      className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
+                      className="flex items-center gap-2 whitespace-nowrap rounded-lg px-1.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
                     >
                       <User className="h-4 w-4 text-slate-500" />
                       {isClient ? 'Company profile' : 'Profile'}
@@ -698,7 +713,7 @@ export function AppShell({
                         signOut()
                       }}
                       disabled={signingOut}
-                      className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition"
+                      className="flex w-full items-center gap-2 whitespace-nowrap rounded-lg px-1.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition"
                     >
                       {signingOut ? <Loader2 className="h-4 w-4 animate-spin text-red-600" /> : <LogOut className="h-4 w-4" />}
                       Log out
@@ -720,7 +735,7 @@ export function AppShell({
             </span>
           </div>
         )}
-        <div className="min-h-0 flex-1 overflow-y-auto bg-[#f7f7fa]">
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f7f7fa] [scrollbar-color:#9aa8b8_transparent] [scrollbar-width:thin]">
           <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             {children}
           </main>

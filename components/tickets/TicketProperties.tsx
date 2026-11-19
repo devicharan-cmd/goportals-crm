@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { CreateTasksModal } from '@/components/tickets/CreateTasksModal'
 import { TICKET_STATUS_DOT, TICKET_STATUS_LABELS, TICKET_STATUS_STYLES } from '@/lib/constants'
@@ -35,9 +35,20 @@ export function TicketProperties({
 }) {
   const router = useRouter()
   const isClosed = ticket.status === 'closed'
+  const selfDeletingRef = useRef(false)
 
   // Instant notification and redirect if client deletes this ticket while staff is viewing
   useEffect(() => {
+    const markSelfDelete = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string }>).detail
+      if (detail?.id === ticket.id) selfDeletingRef.current = true
+    }
+    const clearSelfDelete = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string }>).detail
+      if (detail?.id === ticket.id) selfDeletingRef.current = false
+    }
+    window.addEventListener('gp:ticket-delete-started', markSelfDelete)
+    window.addEventListener('gp:ticket-delete-failed', clearSelfDelete)
     const supabase = createClient()
     const channel = supabase
       .channel(`ticket-live-${ticket.id}`)
@@ -50,8 +61,9 @@ export function TicketProperties({
           filter: `id=eq.${ticket.id}`,
         },
         () => {
+          if (selfDeletingRef.current) return
           const clientName = ticket.client?.company_name || 'the client'
-          showErrorToast(`This ticket was deleted by ${clientName} and doesn't exist anymore.`)
+          showErrorToast(`Ticket deleted by ${clientName}.`)
           router.push('/tickets')
           router.refresh()
         }
@@ -59,6 +71,8 @@ export function TicketProperties({
       .subscribe()
 
     return () => {
+      window.removeEventListener('gp:ticket-delete-started', markSelfDelete)
+      window.removeEventListener('gp:ticket-delete-failed', clearSelfDelete)
       supabase.removeChannel(channel)
     }
   }, [ticket.id, ticket.client?.company_name, router])

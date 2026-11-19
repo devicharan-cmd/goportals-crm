@@ -130,7 +130,13 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
   const raisedByProfile = ticket.created_by
     ? ticket.created_by === me.id ? me : lookups.people.find(person => person.id === ticket.created_by)
     : undefined
-  const raisedByIsClient = Boolean(ticket.created_by && ticket.created_by === ticket.client?.owner_id)
+  const raisedByIsClient = Boolean(
+    ticket.created_by
+      && (
+        ticket.created_by === ticket.client?.owner_id
+        || raisedByProfile?.role === 'client'
+      ),
+  )
   const createdByName = ticket.created_by ? names[ticket.created_by] ?? '—' : '—'
   const raisedByName = raisedByIsClient
     ? ticket.client?.contact_name?.trim() || raisedByProfile?.full_name?.trim() || createdByName
@@ -138,9 +144,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
   const raisedByAvatar = raisedByProfile?.avatar_url
   const raisedByValue = (
     <span className="inline-flex min-w-0 items-center justify-end gap-2">
-      {raisedByIsClient
-        ? <SignedClientAvatar name={raisedByName} imagePath={ticket.client?.company_profile_image_path ?? null} size="xs" />
-        : <Avatar name={raisedByName} src={raisedByAvatar} role={raisedByProfile?.role} size="xs" />}
+      {!raisedByIsClient && <Avatar name={raisedByName} src={raisedByAvatar} role={raisedByProfile?.role} size="xs" />}
       <span className="min-w-0 text-right">
         <span className="block whitespace-normal break-words font-semibold leading-5">{raisedByName}</span>
         {raisedByIsClient
@@ -150,7 +154,11 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
     </span>
   )
   const assignees = assigneeOptionsFor(me, lookups)
-  const canDelete = (me.role === 'super_admin' || me.role === 'manager') && ticket.status === 'unassigned' && tasksFromTicket.length === 0
+  const canDelete = (
+    (me.role === 'super_admin' || me.role === 'manager')
+    && tasksFromTicket.length === 0
+    && (!raisedByIsClient || ticket.status === 'closed')
+  )
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -181,7 +189,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
             {tasksFromTicket.length > 0 ? (
               <TaskTable tasks={tasksFromTicket} names={names} taskAssigners={taskAssigners} empty={{ title: 'No tasks yet' }} />
             ) : (
-              <p className="px-5 py-4 text-sm text-slate-500">No visible tasks have been created from this ticket.</p>
+              <p className="px-5 py-4 text-sm text-slate-500">No tasks are currently linked to this ticket.</p>
             )}
           </Card>
 

@@ -91,12 +91,12 @@ export function TicketTable({
       <ul className="divide-y divide-slate-100 md:hidden">
         {tickets.map(t => (
           <li key={t.id}>
-            <Link href={`${hrefBase}/${t.id}`} prefetch={false} className="block px-4 py-3 active:bg-slate-50">
+            <Link href={`${hrefBase}/${t.id}`} prefetch={false} className="block px-3 py-2.5 active:bg-slate-50 sm:px-4 sm:py-3">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
+                <p className="min-w-0 text-[13px] font-medium leading-5 text-slate-900"><span className="mr-1.5 font-mono text-[10px] font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                 {t.priority && <PriorityBadge priority={t.priority} />}
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:mt-2 sm:gap-2">
                 {t.is_urgent && !TICKET_TERMINAL_STATUSES.includes(t.status) && <UrgentBadge />}
                 <StatusBadge label={statusLabels[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} />
                 <span className="text-xs text-slate-500">{TICKET_CATEGORY_LABELS[t.category]}</span>

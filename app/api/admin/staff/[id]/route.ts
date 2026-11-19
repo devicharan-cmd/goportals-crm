@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 
-async function listProfileImages(profileId: string): Promise<string[]> {
-  const admin = createAdminClient()
+async function listProfileImages(admin: ReturnType<typeof createAdminClient>, profileId: string): Promise<string[]> {
   const paths: string[] = []
   for (let offset = 0; ; offset += 1000) {
     const { data, error } = await admin.storage.from('staff-profile-images').list(profileId, { limit: 1000, offset })
@@ -11,14 +10,13 @@ async function listProfileImages(profileId: string): Promise<string[]> {
     const entries = data ?? []
     for (const entry of entries) {
       if (entry.id) paths.push(`${profileId}/${entry.name}`)
-      else paths.push(...(await listProfileImages(`${profileId}/${entry.name}`)))
+      else paths.push(...(await listProfileImages(admin, `${profileId}/${entry.name}`)))
     }
     if (entries.length < 1000) return paths
   }
 }
 
-async function removeProfileImages(paths: string[]) {
-  const admin = createAdminClient()
+async function removeProfileImages(admin: ReturnType<typeof createAdminClient>, paths: string[]) {
   for (let index = 0; index < paths.length; index += 100) {
     const { error } = await admin.storage.from('staff-profile-images').remove(paths.slice(index, index + 100))
     if (error) throw new Error(`Could not remove staff profile images: ${error.message}`)
@@ -50,7 +48,14 @@ export async function DELETE(_request: Request, props: { params: Promise<{ id: s
     return NextResponse.json({ error: 'You cannot delete your own account.' }, { status: 409 })
   }
 
-  const { data: ready, error: readinessError } = await admin.rpc('staff_deletion_ready')
+  const [{ data: ready, error: readinessError }, { data: target, error: targetError }] = await Promise.all([
+    admin.rpc('staff_deletion_ready'),
+    admin
+      .from('profiles')
+      .select('id, email, full_name, role')
+      .eq('id', id)
+      .maybeSingle(),
+  ])
   if (readinessError || ready !== true) {
     console.error('[staff-delete] Staff deletion database migration is missing or incomplete:', readinessError?.message)
     return NextResponse.json({
@@ -58,11 +63,6 @@ export async function DELETE(_request: Request, props: { params: Promise<{ id: s
     }, { status: 503 })
   }
 
-  const { data: target, error: targetError } = await admin
-    .from('profiles')
-    .select('id, email, full_name, role')
-    .eq('id', id)
-    .maybeSingle()
   if (targetError) {
     console.error('[staff-delete] Could not load the target profile:', targetError.message)
     return NextResponse.json({ error: 'Could not load the staff account for deletion.' }, { status: 500 })
@@ -86,10 +86,15 @@ export async function DELETE(_request: Request, props: { params: Promise<{ id: s
     }, { status: 409 })
   }
 
-  const { error: transferError } = await admin.rpc('transfer_staff_work_to_reporting_poc', {
-    p_profile_id: target.id,
-    p_actor_id: actor.id,
-  })
+  const [{ error: transferError }, profileImagesResult] = await Promise.all([
+    admin.rpc('transfer_staff_work_to_reporting_poc', {
+      p_profile_id: target.id,
+      p_actor_id: actor.id,
+    }),
+    listProfileImages(admin, target.id)
+      .then(paths => ({ paths, error: null as Error | null }))
+      .catch(error => ({ paths: [] as string[], error: error instanceof Error ? error : new Error('Unknown storage cleanup error') })),
+  ])
   if (transferError) {
     if (transferError.message.includes('no active Reporting To')) {
       return NextResponse.json({
@@ -102,10 +107,13 @@ export async function DELETE(_request: Request, props: { params: Promise<{ id: s
     }, { status: 500 })
   }
 
-  let profileImages: string[]
+  if (profileImagesResult.error) {
+    const message = profileImagesResult.error.message
+    console.error('[staff-delete] Could not remove profile images:', message)
+    return NextResponse.json({ error: `The account was not deleted because its profile images could not be removed. ${message}` }, { status: 500 })
+  }
   try {
-    profileImages = await listProfileImages(target.id)
-    await removeProfileImages(profileImages)
+    await removeProfileImages(admin, profileImagesResult.paths)
   } catch (cleanupError) {
     const message = cleanupError instanceof Error ? cleanupError.message : 'Unknown storage cleanup error'
     console.error('[staff-delete] Could not remove profile images:', message)

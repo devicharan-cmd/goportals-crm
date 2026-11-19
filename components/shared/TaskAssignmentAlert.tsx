@@ -167,27 +167,27 @@ export function TaskAssignmentAlert({ userId, taskHref = '/tasks' }: { userId: s
   if (notices.length === 0 && !successToast) return null
 
   return (
-    <div aria-label="Task alerts" className="pointer-events-none fixed right-3 top-[4.5rem] z-40 flex max-h-[calc(100dvh-5.25rem)] w-[min(26rem,calc(100vw-1.5rem))] flex-col gap-2 overflow-y-auto p-1 sm:right-5 sm:top-[4.75rem] sm:w-[min(26rem,calc(100vw-2.5rem))]">
+    <div aria-label="Task alerts" className="pointer-events-none fixed right-2 top-[4.25rem] z-40 flex max-h-[calc(100dvh-5rem)] w-[min(21rem,calc(100vw-1rem))] flex-col gap-1.5 overflow-y-auto p-1 sm:right-4 sm:top-[4.5rem] sm:w-[min(22rem,calc(100vw-2rem))]">
       {successToast && (
-        <div key={successToast.param} role="status" className="pointer-events-auto flex items-center gap-2 rounded-lg border border-[#D3E896] bg-[#F5FAE8] px-3 py-2 text-sm text-[#465B17] shadow-lg">
+        <div key={successToast.param} role="status" className="pointer-events-auto flex items-center gap-2 rounded-lg border border-[#D3E896]/80 bg-[#F5FAE8]/90 px-2.5 py-1.5 text-xs text-[#465B17] shadow-[0_10px_26px_rgba(2,43,59,0.16)] backdrop-blur-md">
           <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0" />
           <span className="min-w-0 flex-1">
-            <span className="block font-semibold">{successToast.title}</span>
-            <span className="block text-xs">{successToast.body}</span>
+            <span className="block truncate font-semibold">{successToast.title}</span>
+            <span className="block truncate text-[11px]">{successToast.body}</span>
           </span>
-          <button type="button" onClick={() => { setSuccessToast(null); if (successToast.param !== 'reassigned') clearSuccessParam(successToast.param) }} aria-label="Dismiss task confirmation" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#617A25] transition hover:bg-[#EAF4D1] hover:text-[#344711] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#95C12C]">
+          <button type="button" onClick={() => { setSuccessToast(null); if (successToast.param !== 'reassigned') clearSuccessParam(successToast.param) }} aria-label="Dismiss task confirmation" className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[#617A25] transition hover:bg-[#EAF4D1] hover:text-[#344711] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#95C12C]">
             <X aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>
       )}
       {notices.map(notice => (
-        <div key={notice.id} role="status" className="pointer-events-auto flex items-center gap-2 rounded-lg border border-slate-200 border-l-4 border-l-[#95C12C] bg-white px-3 py-2 text-sm text-slate-800 shadow-lg">
+        <div key={notice.id} role="status" className="pointer-events-auto flex items-center gap-2 rounded-lg border border-slate-300/90 border-l-4 border-l-[#95C12C] bg-white/90 px-2.5 py-1.5 text-xs text-slate-800 shadow-[0_10px_26px_rgba(2,43,59,0.16)] backdrop-blur-md">
           <span className="min-w-0 flex-1">
             <span className="block truncate font-semibold">{notice.title.replace(/\b(?:GP|TK)-\d+\s*:?\s*/gi, '').trim() || 'Task update'}</span>
-            {notice.body && <span className="block truncate text-xs text-slate-600">{notice.body.replace(/\b(?:GP|TK)-\d+\s*:?\s*/gi, '').trim()}</span>}
+            {notice.body && <span className="block truncate text-[11px] text-slate-600">{notice.body.replace(/\b(?:GP|TK)-\d+\s*:?\s*/gi, '').trim()}</span>}
           </span>
           <Link href={`${taskHref}/${notice.task_id}`} prefetch={false} className="shrink-0 rounded-md bg-[#95C12C] px-2.5 py-1.5 text-xs font-semibold text-[#151F35] transition-colors hover:bg-[#A5CD3F]">View task</Link>
-          <button type="button" onClick={() => dismiss(notice)} aria-label="Dismiss task assignment alert" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#95C12C]">
+          <button type="button" onClick={() => dismiss(notice)} aria-label="Dismiss task assignment alert" className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#95C12C]">
             <X aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>

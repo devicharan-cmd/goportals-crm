@@ -53,40 +53,40 @@ export function UsersAdminTabs({ rows, departments, invites, inviteButton, unlin
   const initialSelection = initialSelectedIds.length ? initialSelectedIds : (searchParams.get('select') ?? '').split(',').filter(Boolean)
 
   return (
-    <div>
-      <div role="tablist" aria-label="Users and invites" className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+    <div className="w-full min-w-0">
+      <div role="tablist" aria-label="Users and invites" className="mb-3 flex flex-wrap gap-2">
         {tabs.map(({ id, label, Icon }) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => selectTab(id)}
-            className={cn('inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors',
+            className={cn('inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors sm:h-10 sm:gap-2 sm:px-4 sm:text-sm',
               tab === id ? 'bg-[#045E80] text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50 hover:text-slate-900')}>
-            <Icon aria-hidden="true" className="h-4 w-4" />{label}
+            <Icon aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{label}
           </button>
         ))}
       </div>
 
       {tab === 'users' && (
-        <div className={actorRole === 'team_lead' ? '' : 'grid gap-6 xl:grid-cols-[1fr_340px]'}>
-          <Card className="overflow-hidden">
+        <div className={cn('w-full min-w-0', actorRole === 'super_admin' && unlinkedClientAccounts.length > 0 ? 'grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]' : '')}>
+          <Card className="w-full min-w-0 overflow-hidden">
             <StaffDirectory rows={rows} departments={departments} canEdit={actorRole === 'super_admin'} actorId={actorId} actorRole={actorRole} inviteButton={inviteButton} />
           </Card>
-          {actorRole !== 'team_lead' && (
-            <div className="space-y-6">
-              <Card className="h-fit overflow-hidden"><CardHeader title="Pending invites" /><PendingInvites invites={invites} /></Card>
-              {actorRole === 'super_admin' && unlinkedClientAccounts.length > 0 && (
-                <Card className="h-fit overflow-hidden">
-                  <CardHeader title={`Unlinked client accounts (${unlinkedClientAccounts.length})`}
-                    description="These logins have no client company. Super admins can permanently remove an account and its personal data here." />
-                  <UnlinkedClientAccounts accounts={unlinkedClientAccounts} />
-                </Card>
-              )}
-            </div>
+          {actorRole === 'super_admin' && unlinkedClientAccounts.length > 0 && (
+            <Card className="h-fit overflow-hidden">
+              <CardHeader title={`Unlinked client accounts (${unlinkedClientAccounts.length})`}
+                description="These logins have no client company. Super admins can permanently remove an account and its personal data here." />
+              <UnlinkedClientAccounts accounts={unlinkedClientAccounts} />
+            </Card>
           )}
         </div>
       )}
 
       {tab === 'invites' && actorRole !== 'team_lead' && (
         <Card className="overflow-hidden">
-          <CardHeader title="Invites" description="Send staff or client invitations and manage pending invitations." action={inviteButton} />
+          <CardHeader
+            className="items-center gap-2 px-3 py-3 sm:gap-4 sm:px-5 sm:py-4"
+            title="Invites"
+            description="Send staff or client invitations and manage pending invitations."
+            action={<div className="shrink-0 whitespace-nowrap [&_button]:h-8 [&_button]:gap-1.5 [&_button]:px-2.5 [&_button]:text-xs sm:[&_button]:h-9 sm:[&_button]:gap-2 sm:[&_button]:px-4 sm:[&_button]:text-sm">{inviteButton}</div>}
+          />
           <PendingInvites invites={invites} />
         </Card>
       )}

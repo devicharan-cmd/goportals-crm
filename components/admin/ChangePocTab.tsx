@@ -140,24 +140,27 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
           title={<span className="flex items-center gap-2"><UsersRound className="h-5 w-5 text-[#045E80]" />Change POC (Reporting Person)</span>}
           description="Find staff by search or filters, select the people to update, and assign a new reporting POC."
         />
-        <div className="grid gap-2 border-b border-slate-100 p-4 sm:grid-cols-[minmax(0,1fr)_145px_175px_175px]">
-          <label className="relative min-w-0">
+        <div className="grid gap-2 border-b border-slate-100 bg-slate-50/70 p-3 sm:grid-cols-[minmax(0,1fr)_145px_175px_175px] sm:gap-2 sm:bg-white sm:p-4">
+          <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2 sm:contents">
+          <label className="relative order-1 min-w-0 sm:order-1">
             <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input value={query} onChange={event => { setQuery(event.target.value); setPage(1) }} type="search"
               placeholder="Search name, email or employee ID..." aria-label="Search staff by name, email or employee ID"
-              className="form-field search-input-with-icon h-9 w-full rounded-xl text-sm" />
+              className="form-field search-input-with-icon h-9 w-full min-w-0 rounded-lg border-slate-200 bg-white text-[13px] shadow-sm transition focus:border-[#045E80] focus:ring-2 focus:ring-[#045E80]/10 sm:rounded-xl sm:text-sm" />
           </label>
-          <SearchableSelect className="form-field h-9 rounded-xl py-1.5 text-sm" aria-label="Filter by role"
+          <SearchableSelect className="form-field h-9 w-full min-w-0 rounded-lg border-slate-200 bg-white px-3 py-1.5 text-[13px] shadow-sm transition focus:border-[#045E80] focus:ring-2 focus:ring-[#045E80]/10 sm:order-2 sm:rounded-xl sm:text-sm" aria-label="Filter by role"
             value={role} onChange={event => { setRole(event.target.value); setPage(1) }}>
             <option value="">All roles</option>
             {(['super_admin', 'manager', 'team_lead', 'employee'] as StaffRole[]).map(value => <option key={value} value={value}>{ROLE_LABELS[value]}</option>)}
           </SearchableSelect>
-          <SearchableSelect className="form-field h-9 rounded-xl py-1.5 text-sm" aria-label="Filter by department" searchable
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:contents">
+          <SearchableSelect className="form-field h-9 w-full min-w-0 rounded-lg border-slate-200 bg-white px-3 py-1.5 text-[13px] shadow-sm transition focus:border-[#045E80] focus:ring-2 focus:ring-[#045E80]/10 sm:order-3 sm:rounded-xl sm:text-sm" aria-label="Filter by department" searchable
             searchPlaceholder="Search departments..." value={departmentId} onChange={event => { setDepartmentId(event.target.value); setPage(1) }}>
             <option value="">All departments</option>
             {departments.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </SearchableSelect>
-          <SearchableSelect className="form-field h-9 rounded-xl py-1.5 text-sm" aria-label="Filter by current POC" searchable
+          <SearchableSelect className="form-field h-9 w-full min-w-0 rounded-lg border-slate-200 bg-white px-3 py-1.5 text-[13px] shadow-sm transition focus:border-[#045E80] focus:ring-2 focus:ring-[#045E80]/10 sm:order-4 sm:rounded-xl sm:text-sm" aria-label="Filter by current POC" searchable
             searchPlaceholder="Search POCs..." value={pocId} onChange={event => { setPocId(event.target.value); setPage(1) }}
             options={[
               { value: '', label: 'All POCs', text: 'All POCs' },
@@ -179,6 +182,7 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
               }),
             ]}
           />
+          </div>
         </div>
 
         {error && !confirmOpen && <div className="px-4 pt-4"><Alert tone="error">{error}</Alert></div>}

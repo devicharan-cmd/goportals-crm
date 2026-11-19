@@ -193,8 +193,8 @@ export default async function ClientDetailPage(props: { params: Promise<{ id: st
                   redirectTo="/clients"
                   label="Delete client"
                   variant="danger"
-                  confirmationTitle={`Permanently delete ${client.company_name}?`}
-                  confirmLabel="Permanently delete client"
+                  confirmationTitle={`Delete ${client.company_name}?`}
+                  confirmLabel="Delete client"
                   description="Review the consequences below before confirming."
                 />
               </div>

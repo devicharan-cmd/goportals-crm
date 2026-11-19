@@ -134,9 +134,11 @@ export async function POST(req: NextRequest) {
   if (inviteErr) return NextResponse.json({ error: inviteApiError(inviteErr.message) }, { status: 400 })
 
   const origin = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
+  const callbackUrl = new URL('/auth/callback', origin)
+  callbackUrl.searchParams.set('flow', 'invite')
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { full_name: fullName },
-    redirectTo: `${origin}/auth/callback`,
+    redirectTo: callbackUrl.toString(),
   })
 
   if (error) {

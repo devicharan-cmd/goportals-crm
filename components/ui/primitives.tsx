@@ -107,16 +107,19 @@ export function Avatar({ name, src, role, size = 'md', className }: { name: stri
   const sizes = { xs: 'h-5 w-5 text-xs', sm: 'h-7 w-7 text-xs', md: 'h-9 w-9 text-sm', lg: 'h-12 w-12 text-base' }
   const imageSize = { xs: 20, sm: 28, md: 36, lg: 48 }[size]
   const hash = (name ?? '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+  // Client people use initials; company branding is rendered explicitly with
+  // CompanyAvatar wherever the company itself is being represented.
+  const imageSrc = role === 'client' ? null : src
   const [imageFailed, setImageFailed] = useState(false)
-  useEffect(() => setImageFailed(false), [src])
+  useEffect(() => setImageFailed(false), [imageSrc])
   return (
     <span
       title={name ?? undefined}
       className={cn('inline-flex flex-shrink-0 items-center justify-center rounded-full font-semibold',
         sizes[size], (role ? ROLE_STYLES[role].avatar : undefined) ?? AVATAR_COLORS[hash % AVATAR_COLORS.length], className)}
     >
-      {src && !imageFailed
-        ? <Image src={src} alt="" width={imageSize} height={imageSize} unoptimized className="h-full w-full rounded-[inherit] object-cover" onError={() => setImageFailed(true)} />
+      {imageSrc && !imageFailed
+        ? <Image src={imageSrc} alt="" width={imageSize} height={imageSize} unoptimized className="h-full w-full rounded-[inherit] object-cover" onError={() => setImageFailed(true)} />
         : getInitials(name)}
     </span>
   )
@@ -132,7 +135,7 @@ export function StaffIdentity({ name, src, role, roleLabel, className }: {
   const subtitle = roleLabel ?? (role ? ROLE_LABELS[role] : null)
   return (
     <span className={cn('flex min-w-0 items-start gap-2 text-sm text-slate-800', className)}>
-      <Avatar name={name} src={src} role={role} size="xs" className="mt-0.5" />
+      <Avatar name={name} src={role === 'client' ? undefined : src} role={role} size="xs" className="mt-0.5" />
       <span className="min-w-0">
         <span className="block truncate">{name || '—'}</span>
         {subtitle && (
@@ -173,13 +176,13 @@ export function StatCard({
     amber: 'bg-amber-50 text-amber-600',
   }
   const body = (
-    <div className="content-card flex items-center gap-4 p-5 transition hover:[box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">
-      <div className={cn('flex h-11 w-11 items-center justify-center rounded-xl', tones[tone])}>
+    <div className="content-card flex min-h-[76px] items-center gap-3 p-3 transition hover:[box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] sm:min-h-0 sm:gap-4 sm:p-5">
+      <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11', tones[tone])}>
         <span className="[&>svg]:h-5 [&>svg]:w-5">{icon}</span>
       </div>
       <div className="min-w-0">
         <p className="text-2xl font-bold text-slate-900 font-sans">{value}</p>
-        <p className="text-xs font-medium text-slate-500">{label}</p>
+        <p className="line-clamp-2 text-xs font-medium leading-4 text-slate-500">{label}</p>
         {hint && <p className="text-xs text-slate-400">{hint}</p>}
       </div>
     </div>

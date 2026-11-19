@@ -176,7 +176,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
           }))}
           people={assigneeFilterPeopleFor(me, lookups).map(p => ({ value: p.id, label: p.full_name || p.email, avatarUrl: p.avatar_url, role: p.role }))}
           departments={lookups.departments.map(d => ({ value: d.id, label: d.name }))}
-          action={<ButtonLink href="/tasks/new" prefetch={false} size="sm"><Plus className="h-3.5 w-3.5" /> New task</ButtonLink>}
+          action={<ButtonLink href="/tasks/new" prefetch={false} size="sm" className="max-sm:h-8 max-sm:w-8 max-sm:justify-center max-sm:gap-0 max-sm:p-0"><Plus className="h-3.5 w-3.5" /><span className="max-sm:sr-only">New task</span></ButtonLink>}
         />
         <TaskSearchResults />
       </div>

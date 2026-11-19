@@ -53,8 +53,14 @@ export function DeleteButton({
     } else if (table === 'tasks') {
       const client = createClient()
       if (deleteCurrentScheduledTask) {
-        const { error } = await client.rpc('delete_current_scheduled_task', { p_task_id: id })
-        if (error) failure = errorMessage(error)
+        try {
+          const response = await fetch(`/api/tasks/${encodeURIComponent(id)}?scheduled=1`, { method: 'DELETE' })
+          const result = await response.json() as { error?: unknown; warning?: unknown }
+          if (!response.ok) failure = typeof result.error === 'string' ? result.error : 'Could not delete this scheduled task.'
+          else if (typeof result.warning === 'string') warning = result.warning
+        } catch (requestError) {
+          failure = errorMessage(requestError)
+        }
       } else {
         try {
           const response = await fetch(`/api/tasks/${encodeURIComponent(id)}`, { method: 'DELETE' })

@@ -261,6 +261,7 @@ export function CreateTasksModal({
   const [scheduleIds, setScheduleIds] = useState<(string | null)[] | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, boolean>>({})
   const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false)
+  const selfDeletingTicketRef = useRef(false)
   const assigneeOptions: AssigneeChoice[] = [
     ...(clientAssignee ? [clientAssignee] : []),
     ...assignees,
@@ -301,6 +302,16 @@ export function CreateTasksModal({
   // Real-time listener: if client deletes ticket while modal is open, immediately close, notify, and redirect
   useEffect(() => {
     if (!open) return
+    const markSelfDelete = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string }>).detail
+      if (detail?.id === ticket.id) selfDeletingTicketRef.current = true
+    }
+    const clearSelfDelete = (event: Event) => {
+      const detail = (event as CustomEvent<{ id?: string }>).detail
+      if (detail?.id === ticket.id) selfDeletingTicketRef.current = false
+    }
+    window.addEventListener('gp:ticket-delete-started', markSelfDelete)
+    window.addEventListener('gp:ticket-delete-failed', clearSelfDelete)
     const supabase = createClient()
     const channel = supabase
       .channel(`modal-ticket-watch-${ticket.id}`)
@@ -313,8 +324,9 @@ export function CreateTasksModal({
           filter: `id=eq.${ticket.id}`,
         },
         () => {
+          if (selfDeletingTicketRef.current) return
           setOpen(false)
-          showErrorToast(`This ticket was deleted by ${clientName} and doesn't exist anymore.`)
+          showErrorToast(`Ticket deleted by ${clientName}.`)
           router.push('/tickets')
           router.refresh()
         }
@@ -322,6 +334,8 @@ export function CreateTasksModal({
       .subscribe()
 
     return () => {
+      window.removeEventListener('gp:ticket-delete-started', markSelfDelete)
+      window.removeEventListener('gp:ticket-delete-failed', clearSelfDelete)
       supabase.removeChannel(channel)
     }
   }, [open, ticket.id, clientName, router])

@@ -57,7 +57,7 @@ export function EcommerceAccountsEditor({
       {rows.length === 0 && <p className="px-5 py-4 text-sm text-slate-400">No e-commerce accounts yet.</p>}
       <ul className="divide-y divide-slate-100">
         {rows.map(r => (
-          <li key={r.id} className="flex items-center gap-3 px-5 py-2.5">
+          <li key={r.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_8rem_auto] items-center gap-3 px-5 py-2.5">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-slate-800">{r.account_name}</p>
               <p className="inline-flex items-center gap-1 text-xs text-slate-400">
@@ -70,7 +70,7 @@ export function EcommerceAccountsEditor({
             {editable ? (
               <SearchableSelect value={r.status} disabled={busy}
                       onChange={e => run(() => supabase.from('ecommerce_accounts').update({ status: e.target.value }).eq('id', r.id))}
-                      className={cn('rounded-md border-0 py-0.5 pl-2 pr-7 text-xs font-medium ring-1 ring-inset',
+                      className={cn('w-full min-w-0 rounded-md border-0 py-0.5 pl-2 pr-7 text-xs font-medium ring-1 ring-inset',
                         r.status === 'active' ? 'bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]' : 'bg-slate-100 text-slate-500 ring-slate-200')}>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
@@ -135,7 +135,7 @@ export function ClientServicesEditor({
       {rows.length === 0 && <p className="px-5 py-4 text-sm text-slate-400">No services yet.</p>}
       <ul className="divide-y divide-slate-100">
         {rows.map(r => (
-          <li key={r.id} className="flex items-center gap-3 px-5 py-3">
+          <li key={r.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_8rem] items-center gap-3 px-5 py-3">
             <div className="min-w-0 flex-1">
               <span className="text-sm text-slate-800">
                 {r.service_id ? byId[r.service_id]?.name : r.custom_name}
@@ -149,7 +149,7 @@ export function ClientServicesEditor({
             {editable ? (
               <SearchableSelect value={r.status} disabled={busy}
                       onChange={e => run(() => supabase.from('client_services').update({ status: e.target.value }).eq('id', r.id))}
-                      className={cn('rounded-md border-0 py-0.5 pl-2 pr-7 text-xs font-medium ring-1 ring-inset', SERVICE_STATUS_STYLES[r.status])}>
+                      className={cn('w-full min-w-0 rounded-md border-0 py-0.5 pl-2 pr-7 text-xs font-medium ring-1 ring-inset', SERVICE_STATUS_STYLES[r.status])}>
                 <option value="requested">Requested</option>
                 <option value="active">Active</option>
                 <option value="stopped">Stopped</option>

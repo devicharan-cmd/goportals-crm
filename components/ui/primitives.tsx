@@ -107,16 +107,19 @@ export function Avatar({ name, src, role, size = 'md', className }: { name: stri
   const sizes = { xs: 'h-5 w-5 text-xs', sm: 'h-7 w-7 text-xs', md: 'h-9 w-9 text-sm', lg: 'h-12 w-12 text-base' }
   const imageSize = { xs: 20, sm: 28, md: 36, lg: 48 }[size]
   const hash = (name ?? '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+  // Client people use initials; company branding is rendered explicitly with
+  // CompanyAvatar wherever the company itself is being represented.
+  const imageSrc = role === 'client' ? null : src
   const [imageFailed, setImageFailed] = useState(false)
-  useEffect(() => setImageFailed(false), [src])
+  useEffect(() => setImageFailed(false), [imageSrc])
   return (
     <span
       title={name ?? undefined}
       className={cn('inline-flex flex-shrink-0 items-center justify-center rounded-full font-semibold',
         sizes[size], (role ? ROLE_STYLES[role].avatar : undefined) ?? AVATAR_COLORS[hash % AVATAR_COLORS.length], className)}
     >
-      {src && !imageFailed
-        ? <Image src={src} alt="" width={imageSize} height={imageSize} unoptimized className="h-full w-full rounded-[inherit] object-cover" onError={() => setImageFailed(true)} />
+      {imageSrc && !imageFailed
+        ? <Image src={imageSrc} alt="" width={imageSize} height={imageSize} unoptimized className="h-full w-full rounded-[inherit] object-cover" onError={() => setImageFailed(true)} />
         : getInitials(name)}
     </span>
   )
@@ -132,7 +135,7 @@ export function StaffIdentity({ name, src, role, roleLabel, className }: {
   const subtitle = roleLabel ?? (role ? ROLE_LABELS[role] : null)
   return (
     <span className={cn('flex min-w-0 items-start gap-2 text-sm text-slate-800', className)}>
-      <Avatar name={name} src={src} role={role} size="xs" className="mt-0.5" />
+      <Avatar name={name} src={role === 'client' ? undefined : src} role={role} size="xs" className="mt-0.5" />
       <span className="min-w-0">
         <span className="block truncate">{name || '—'}</span>
         {subtitle && (

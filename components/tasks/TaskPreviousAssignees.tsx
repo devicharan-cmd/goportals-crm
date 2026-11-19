@@ -23,7 +23,7 @@ export function TaskPreviousAssignees({
         <div key={`${assignee.task_id}-${assignee.profile_id}`} className="flex min-w-0 items-center gap-1.5 text-xs text-slate-500">
           <Avatar
             name={assignee.full_name}
-            src={assignee.avatar_url}
+            src={assignee.role === 'client' ? undefined : assignee.avatar_url}
             role={assignee.role ?? undefined}
             size="xs"
           />

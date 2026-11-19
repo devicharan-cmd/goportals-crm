@@ -303,6 +303,7 @@ export interface ActivityEntry {
   old_value: string | null
   new_value: string | null
   is_client_visible: boolean
+  metadata?: Record<string, unknown> | null
   created_at: string
 }
 

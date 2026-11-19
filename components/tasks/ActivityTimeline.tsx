@@ -20,6 +20,35 @@ function describe(a: ActivityEntry, names: Record<string, string>, kind: 'task' 
       return `changed priority ${a.old_value} → ${a.new_value}`
     case 'urgent_changed':
       return a.new_value === 'true' ? 'marked it urgent' : 'cleared the urgent flag'
+    case 'task_deleted': {
+      const metadata = a.metadata
+      const taskNumber = typeof metadata?.task_number === 'number' || typeof metadata?.task_number === 'string'
+        ? `GP-${metadata.task_number}`
+        : a.old_value ?? 'the linked task'
+      const title = typeof metadata?.title === 'string' && metadata.title.trim() ? ` “${metadata.title}”` : ''
+      const assignee = typeof metadata?.assignee_id === 'string'
+        ? names[metadata.assignee_id] ?? 'a team member'
+        : 'Unassigned'
+      const assignedBy = typeof metadata?.assigned_by === 'string'
+        ? names[metadata.assigned_by] ?? 'a team member'
+        : null
+      const history = Array.isArray(metadata?.assignment_history) ? metadata.assignment_history : []
+      const assignmentTrail = history
+        .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object')
+        .map(entry => {
+          const nextAssignee = typeof entry.new_value === 'string' && entry.new_value
+            ? names[entry.new_value] ?? 'a team member'
+            : 'Unassigned'
+          const changedBy = typeof entry.actor_id === 'string'
+            ? names[entry.actor_id] ?? 'a team member'
+            : 'System'
+          return `${nextAssignee} by ${changedBy}`
+        })
+      const reassignment = assignmentTrail.length > 0
+        ? `; assignment history: ${assignmentTrail.join(' → ')}`
+        : ''
+      return `deleted linked task ${taskNumber}${title} (assigned to ${assignee}${assignedBy ? ` by ${assignedBy}` : ''}${reassignment})`
+    }
     default:
       return label
   }

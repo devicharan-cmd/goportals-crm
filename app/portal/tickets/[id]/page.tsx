@@ -117,7 +117,7 @@ export default async function PortalTicketDetail(props: { params: Promise<{ id: 
               id={ticket.id}
               redirectTo="/portal/tickets"
               label="Delete ticket"
-              description="You can delete your ticket only while it is unassigned and has no linked team tasks. This permanently removes the ticket, its attachment records, and activity history."
+              description="You can delete your own ticket while no team tasks are linked. This permanently removes the ticket, its attachments, and activity history for everyone."
             />
           )}
         </div>

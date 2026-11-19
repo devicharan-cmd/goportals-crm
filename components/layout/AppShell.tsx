@@ -94,6 +94,8 @@ export function AppShell({
   const [isOffline, setIsOffline] = useState(false)
   const [networkRevision, setNetworkRevision] = useState(0)
   const realtimeUnavailableRef = useRef(false)
+  const realtimeConnectedRef = useRef(false)
+  const realtimeRecoveryPendingRef = useRef(false)
   const isClient = user.role === 'client'
   const [liveAvatarUrl, setLiveAvatarUrl] = useState<string | null>(isClient ? null : user.avatarUrl ?? null)
   const profileMenuRef = useRef<HTMLDivElement>(null)
@@ -106,14 +108,17 @@ export function AppShell({
 
   useEffect(() => {
     const handleOffline = () => {
+      const wasConnected = realtimeConnectedRef.current
       setIsOffline(true)
       realtimeUnavailableRef.current = true
-      showErrorToast('Internet connection lost. Reconnect before submitting changes.')
+      if (wasConnected) {
+        realtimeRecoveryPendingRef.current = true
+        showErrorToast('Connection lost. Live updates are paused.')
+      }
     }
     const handleOnline = () => {
       setIsOffline(false)
       setNetworkRevision(revision => revision + 1)
-      showSuccessToast('Internet connection restored. Checking GoPortals connection…')
     }
 
     const offline = !navigator.onLine
@@ -361,13 +366,21 @@ export function AppShell({
         channel = nextChannel
         nextChannel.subscribe(status => {
           if (!active) return
-          if (status === 'SUBSCRIBED' && realtimeUnavailableRef.current) {
+          if (status === 'SUBSCRIBED') {
+            const wasConnected = realtimeConnectedRef.current
+            const shouldAnnounceRecovery = realtimeRecoveryPendingRef.current && wasConnected && navigator.onLine
             realtimeUnavailableRef.current = false
-            router.refresh()
-            showSuccessToast('Connection restored. GoPortals is up to date.')
+            realtimeConnectedRef.current = true
+            realtimeRecoveryPendingRef.current = false
+            if (shouldAnnounceRecovery) {
+              router.refresh()
+              showSuccessToast('Live connection restored.')
+            }
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            const shouldNotify = !realtimeUnavailableRef.current && realtimeConnectedRef.current && navigator.onLine
             realtimeUnavailableRef.current = true
-            if (navigator.onLine) showErrorToast('Connection interrupted. GoPortals is trying to reconnect.')
+            if (realtimeConnectedRef.current && navigator.onLine) realtimeRecoveryPendingRef.current = true
+            if (shouldNotify) showErrorToast('Live updates paused. Retrying…')
           }
         })
         const initialCounts = new Set<'notifications' | 'urgent' | 'approvals'>(['notifications'])
@@ -376,8 +389,10 @@ export function AppShell({
         await refreshCounts(initialCounts)
       } catch (subscriptionError) {
         if (active) {
+          const shouldNotify = !realtimeUnavailableRef.current && realtimeConnectedRef.current && navigator.onLine
           realtimeUnavailableRef.current = true
-          if (navigator.onLine) showErrorToast(`Connection interrupted. ${errorMessage(subscriptionError)}`)
+          if (realtimeConnectedRef.current && navigator.onLine) realtimeRecoveryPendingRef.current = true
+          if (shouldNotify) showErrorToast(`Live updates paused. ${errorMessage(subscriptionError)}`)
         }
       }
     })()
@@ -667,7 +682,7 @@ export function AppShell({
 
                 {/* Dropdown Menu: Clean & Minimalist */}
                 {profileMenuOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-1.5 w-52 max-w-[calc(100vw-1rem)] rounded-xl border border-slate-200/80 bg-white p-0.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] animate-in fade-in zoom-in-95 duration-100 sm:w-full">
+                  <div className="absolute right-0 top-full z-50 mt-1.5 w-52 max-w-[calc(100vw-1rem)] rounded-xl border border-slate-200/80 bg-white p-0.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] animate-in fade-in zoom-in-95 duration-100">
                     <div className="flex min-w-0 items-start gap-2 px-1.5 py-1.5">
                       {isClient
                         ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="sm" className="mt-0.5" rounded />

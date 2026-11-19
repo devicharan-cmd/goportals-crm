@@ -361,7 +361,7 @@ export function CreateTasksModal({
 
   function fieldErrorText(index: number, field: RowField) {
     const message = fieldError(index, field)
-    return message ? <p className="mt-1 text-xs font-medium text-red-600">{message}</p> : null
+    return message ? <p role="alert" className="field-error">{message}</p> : null
   }
 
   async function submit() {
@@ -787,7 +787,7 @@ export function CreateTasksModal({
                       className="form-field mt-1 h-9 w-full rounded-xl text-sm disabled:bg-slate-50 disabled:text-slate-500" />
                   </label>
                 </div>
-                {fieldErrors[`${i}.schedule`] && <p role="alert" className="mt-2 text-xs font-medium text-red-600">{fieldErrors[`${i}.schedule`]}</p>}
+                {fieldErrors[`${i}.schedule`] && <p role="alert" className="field-error">{fieldErrors[`${i}.schedule`]}</p>}
               </section>
               {canMarkUrgent && (
                 <label className={cn('mt-3 inline-flex w-fit cursor-pointer items-center gap-2 text-sm',

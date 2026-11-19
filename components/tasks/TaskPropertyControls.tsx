@@ -50,7 +50,7 @@ export function TaskPrioritySelect({ taskId, priority }: {
         disabled={saving}
         onChange={value => void runOnce('priority', () => update(value as TaskPriority, null))}
       />
-      {error && <p role="alert" className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="field-error">{error}</p>}
     </div>
   )
 }
@@ -85,7 +85,7 @@ export function TaskUrgentToggle({ taskId, isUrgent }: {
           <Flame aria-hidden="true" className={cn('h-3 w-3', isUrgent ? 'text-red-600' : 'text-slate-400')} />
         </span>
       </button>
-      {error && <p role="alert" className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="field-error">{error}</p>}
     </div>
   )
 }

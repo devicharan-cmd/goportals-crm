@@ -29,14 +29,16 @@ export default async function StaffTicketsPage(props: { searchParams: Promise<{ 
   const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
   const tab = TABS.find(t => t.key === searchParams.status)?.key ?? 'unassigned'
-  const ticketQueryPromise = (async () => supabase.from('tickets')
-    .select(STAFF_TICKET_LIST_SELECT, { count: 'exact' })
+  // Keep the paged row query independent from the exact tab count. Combining
+  // the count with a client embed makes PostgREST count the filtered joined
+  // result before it can return this small first page.
+  const ticketQueryPromise = supabase.from('tickets')
+    .select(STAFF_TICKET_LIST_SELECT)
     .eq('status', tab)
     .order('created_at', { ascending: false })
     .order('id', { ascending: true })
-    .range(0, TICKET_PAGE_SIZE))()
-  const otherTabs = TABS.filter(({ key }) => key !== tab)
-  const countQueriesPromise = Promise.all(otherTabs.map(({ key }) => supabase.from('tickets')
+    .range(0, TICKET_PAGE_SIZE)
+  const countQueriesPromise = Promise.all(TABS.map(({ key }) => supabase.from('tickets')
     .select('id', { count: 'exact', head: true })
     .eq('status', key)))
   const [ticketResult, countResults] = await Promise.all([
@@ -48,10 +50,9 @@ export default async function StaffTicketsPage(props: { searchParams: Promise<{ 
   for (const result of countResults) {
     if (result.error) throw result.error
   }
-  let otherCountIndex = 0
-  const ticketCounts = Object.fromEntries(TABS.map(item => [
+  const ticketCounts = Object.fromEntries(TABS.map((item, index) => [
     item.key,
-    item.key === tab ? ticketResult.count ?? 0 : countResults[otherCountIndex++].count ?? 0,
+    countResults[index].count ?? 0,
   ])) as Record<(typeof TABS)[number]['key'], number>
   const hasMoreTickets = (data?.length ?? 0) > TICKET_PAGE_SIZE
   const pageTickets = (data ?? []).slice(0, TICKET_PAGE_SIZE)

@@ -4,7 +4,7 @@ import { cache } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { addTaskAssigneeHistory, assigneeOptionsFor, getTicketAttachments, getTicketDetailLookups, nameMap, resolveTicketId, TASK_LIST_SELECT, type TaskAssignerInfo } from '@/lib/queries'
+import { assigneeOptionsFor, getTicketAttachments, getTicketDetailLookups, nameMap, resolveTicketId, TASK_LIST_SELECT, type TaskAssignerInfo } from '@/lib/queries'
 import { TICKET_CATEGORY_BY_VALUE, TICKET_CATEGORY_LABELS, type TicketFieldDef } from '@/lib/ticket-categories'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { TaskTable } from '@/components/tasks/TaskTable'
@@ -45,7 +45,27 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
   const ticketId = await resolveStaffTicketId(params.id)
   if (!ticketId) notFound()
 
-  const ticketResult = await loadStaffTicket(ticketId)
+  // Start ticket-independent detail queries together with the main ticket row.
+  const ticketResultPromise = loadStaffTicket(ticketId)
+  const relatedDataPromise = Promise.all([
+    supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
+    getTicketDetailLookups(),
+    getTicketAttachments(ticketId),
+    supabase.from('tasks').select(TASK_LIST_SELECT).eq('ticket_id', ticketId).order('created_at', { ascending: false }),
+    supabase.rpc('ticket_task_assignees', { p_ticket_id: ticketId }),
+  ])
+  const teamPromise: Promise<{ data: { profile_id: string }[] | null; error: { message: string } | null }> = ticketResultPromise.then(async ticketResult => {
+    if (ticketResult.error) throw ticketResult.error
+    const clientId = ticketResult.data?.client_id
+    return clientId
+      ? await supabase.from('client_team').select('profile_id').eq('client_id', clientId)
+      : { data: [], error: null }
+  })
+  const [ticketResult, relatedData, teamResult] = await Promise.all([
+    ticketResultPromise,
+    relatedDataPromise,
+    teamPromise,
+  ])
   const { data, error: ticketError } = ticketResult
   if (ticketError) throw ticketError
   if (!data) notFound()
@@ -53,25 +73,12 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
     client: { id: string; company_name: string; contact_name: string | null; owner_id: string | null; company_profile_image_path: string | null } | null
     ecommerce_account: { account_name: string; platform: { name: string } | null } | null
   }
-  const tasksWithHistoryPromise = (async () => {
-    const { data: linkedTasks, error: linkedTasksError } = await supabase.from('tasks')
-      .select(TASK_LIST_SELECT)
-      .eq('ticket_id', ticketId)
-      .order('created_at', { ascending: false })
-    if (linkedTasksError) throw linkedTasksError
-    return addTaskAssigneeHistory(supabase, (linkedTasks ?? []) as TaskListItem[])
-  })()
-  const relatedDataPromise = Promise.all([
-    supabase.from('ticket_activity').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: false }),
-    getTicketDetailLookups(),
-    getTicketAttachments(ticketId),
-    tasksWithHistoryPromise,
-    supabase.rpc('ticket_task_assignees', { p_ticket_id: ticketId }),
-    ticket.client_id
-      ? supabase.from('client_team').select('profile_id').eq('client_id', ticket.client_id)
-      : Promise.resolve({ data: [], error: null }),
-  ])
-  const [{ data: activity }, lookups, attachments, tasksFromTicket, { data: workerRows, error: workersError }, { data: teamRows, error: teamError }] = await relatedDataPromise
+  const [activityResult, lookups, attachments, taskResult, workerResult] = relatedData
+  if (taskResult.error) throw taskResult.error
+  const tasksFromTicket = (taskResult.data ?? []) as TaskListItem[]
+  const activity = activityResult.data
+  const { data: workerRows, error: workersError } = workerResult
+  const { data: teamRows, error: teamError } = teamResult
   if (workersError) throw new Error(`Could not load ticket workers: ${workersError.message}`)
   if (teamError) throw new Error(`Could not load the client handling team: ${teamError.message}`)
   const names = nameMap(lookups.people)

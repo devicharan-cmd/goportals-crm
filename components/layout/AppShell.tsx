@@ -11,7 +11,7 @@ import {
 import { BsListTask } from 'react-icons/bs'
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
-import { Avatar } from '@/components/ui/primitives'
+import { Avatar, CompanyAvatar } from '@/components/ui/primitives'
 import { TaskAssignmentAlert } from '@/components/shared/TaskAssignmentAlert'
 import { ROLE_LABELS } from '@/lib/constants'
 import { cn, errorMessage } from '@/lib/utils'
@@ -45,7 +45,7 @@ const STAFF_NAV: NavGroup[] = [
       { href: '/tickets',       label: 'Tickets',     icon: ClipboardList, roles: ['super_admin', 'manager', 'team_lead'] },
       { href: '/tasks',         label: 'Tasks',       icon: BsListTask },
       { href: '/urgent',        label: 'Urgent pool', icon: Flame, badge: 'urgent' },
-      { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'manager'] },
+      { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'manager', 'team_lead'] },
       { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'manager', 'team_lead'] },
       { href: '/reports',       label: 'Reports',     icon: PieChart, roles: ['super_admin', 'manager'] },
       { href: '/settings',      label: 'Setting',     icon: Settings },
@@ -552,7 +552,9 @@ export function AppShell({
         {signOutError && !compact && <p role="alert" className="mb-2 px-2 text-xs text-red-600">Could not sign out. Please try again.</p>}
         <div className={cn('flex items-center rounded-lg', compact ? 'flex-col gap-2 py-1' : 'gap-3 px-2 py-2')}>
           <span title={compact ? `${user.name || user.email} · ${ROLE_LABELS[user.role]}` : undefined}>
-            <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : liveAvatarUrl} role={isClient ? 'client' : user.role} size="md" />
+            {isClient
+              ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="md" />
+              : <Avatar name={user.name || user.email} src={liveAvatarUrl} role={user.role} size="md" />}
           </span>
           {!compact && (
             <div className="min-w-0 flex-1">
@@ -644,7 +646,9 @@ export function AppShell({
                   aria-expanded={profileMenuOpen}
                   aria-haspopup="true"
                 >
-                  <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : liveAvatarUrl} role={user.role} size="sm" />
+                  {isClient
+                    ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="sm" />
+                    : <Avatar name={user.name || user.email} src={liveAvatarUrl} role={user.role} size="sm" />}
                   <div className="hidden min-w-0 sm:flex sm:flex-col sm:justify-center text-left">
                     <p className="max-w-[130px] truncate text-xs font-semibold text-slate-900 leading-[1.2]">
                       {user.name || user.email}
@@ -665,7 +669,9 @@ export function AppShell({
                 {profileMenuOpen && (
                   <div className="absolute right-0 top-full z-50 mt-1.5 w-full rounded-xl border border-slate-200/80 bg-white p-0.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] animate-in fade-in zoom-in-95 duration-100">
                     <div className="flex min-w-0 items-start gap-2 px-1.5 py-1.5">
-                      <Avatar name={user.name || user.email} src={isClient ? companyProfileImageUrl : liveAvatarUrl} role={user.role} size="sm" className="mt-0.5" />
+                      {isClient
+                        ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="sm" className="mt-0.5" />
+                        : <Avatar name={user.name || user.email} src={liveAvatarUrl} role={user.role} size="sm" className="mt-0.5" />}
                       <div className="min-w-0">
                         <p className="truncate text-xs font-semibold leading-4 text-slate-900">{user.name || user.email}</p>
                         <p className="truncate text-[11px] leading-4 text-slate-500">{user.email}</p>

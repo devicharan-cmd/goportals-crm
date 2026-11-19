@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, Clock3, Globe2, LockKeyhole } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeOptionsFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, getTaskAssigneeHistory, nameMap, resolveTaskId, TASK_LIST_SELECT, taskAssigneeOptionsFor, taskPageTitle } from '@/lib/queries'
+import { assigneeOptionsFor, getClientProfileImageUrls, getStaffLookups, getTaskAssigneeHistory, nameMap, resolveTaskId, TASK_LIST_SELECT, taskAssigneeOptionsFor, taskPageTitle } from '@/lib/queries'
 import { TaskCode } from '@/components/tasks/TaskCode'
 import { Card, CardHeader, CompanyAvatar } from '@/components/ui/primitives'
 import { Badge, PriorityBadge, StatusBadge, UrgentBadge, DueDatePill } from '@/components/ui/badges'
@@ -61,25 +61,33 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const scheduleLookup = task.schedule_id
     ? supabase.from('task_schedules').select('id, created_by, enabled, repeat_type, interval_days, start_date, schedule_time').eq('id', task.schedule_id)
     : supabase.from('task_schedules').select('id, created_by, enabled, repeat_type, interval_days, start_date, schedule_time').eq('task_id', task.id)
-  const { data: taskSchedule, error: scheduleError } = await scheduleLookup.maybeSingle()
-  if (scheduleError) throw new Error(scheduleError.message)
-  const taskHistory = await getTaskAssigneeHistory(supabase, [task.id])
-  const assigneeHistory = taskHistory.get(task.id) ?? []
-  const isFormerAssignee = task.assignee_id !== me.id
-    && task.assigned_by !== me.id
-    && assigneeHistory.some(assignee => assignee.profile_id === me.id && !assignee.is_current)
-  const noteByActivity = Object.fromEntries((reassignmentNotes ?? []).map(note => [note.task_activity_id, note.note]))
+  const taskHistoryPromise = getTaskAssigneeHistory(supabase, [task.id])
+  const schedulePromise = scheduleLookup.maybeSingle()
   const clientImagePath = task.client?.company_profile_image_path
+  const editClients = lookups.clients
+  const clientsForImages = clientImagePath && !editClients.some(client => client.company_profile_image_path === clientImagePath)
+    ? [...editClients, { company_profile_image_path: clientImagePath }]
+    : editClients
   const attachmentUrlsPromise = taskAttachments?.length
     ? Promise.all([
         supabase.storage.from('task-files').createSignedUrls(taskAttachments.map(file => file.storage_path), 3600),
         supabase.storage.from('task-files').createSignedUrls(taskAttachments.map(file => file.storage_path), 3600, { download: true }),
       ])
     : Promise.resolve(null)
-  const clientImagePromise = clientImagePath
-    ? supabase.storage.from('client-profile-images').createSignedUrl(clientImagePath, 3600)
-    : Promise.resolve({ data: null, error: null })
-  const [attachmentUrlResults, clientImageResult] = await Promise.all([attachmentUrlsPromise, clientImagePromise])
+  const clientImageUrlsPromise = getClientProfileImageUrls(clientsForImages)
+  const [scheduleResult, taskHistory, attachmentUrlResults, editClientImageUrlByPath] = await Promise.all([
+    schedulePromise,
+    taskHistoryPromise,
+    attachmentUrlsPromise,
+    clientImageUrlsPromise,
+  ])
+  const { data: taskSchedule, error: scheduleError } = scheduleResult
+  if (scheduleError) throw new Error(scheduleError.message)
+  const assigneeHistory = taskHistory.get(task.id) ?? []
+  const isFormerAssignee = task.assignee_id !== me.id
+    && task.assigned_by !== me.id
+    && assigneeHistory.some(assignee => assignee.profile_id === me.id && !assignee.is_current)
+  const noteByActivity = Object.fromEntries((reassignmentNotes ?? []).map(note => [note.task_activity_id, note.note]))
   const [signedResult, downloadResult] = attachmentUrlResults ?? [
     { data: [], error: null },
     { data: [], error: null },
@@ -97,8 +105,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     return { ...file, signedUrl, downloadUrl }
   })
   const taskFileAttachments = commentAttachments.filter(file => file.comment_id === null)
-  const { data: clientImage, error: clientImageError } = clientImageResult
-  if (clientImageError) throw clientImageError
+  const clientImageUrl = clientImagePath ? editClientImageUrlByPath[clientImagePath] : null
   const names = nameMap(lookups.people)
   const activityNames = Object.fromEntries(assigneeHistory.map(assignee => [assignee.profile_id, assignee.full_name]))
   const taskActivityNames = { ...names, ...activityNames }
@@ -119,13 +126,6 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
 
   const assignees = taskAssigneeOptionsFor(me, lookups)
   const editAssignees = assigneeOptionsFor(me, lookups)
-  let editClients = lookups.clients
-  if (me.role === 'team_lead') {
-    const deptIds = Array.from(departmentIdsFor(me.id, lookups))
-    const clientIds = await clientIdsForTeamLead(me.id, deptIds)
-    editClients = lookups.clients.filter(client => clientIds.has(client.id) || client.id === task.client_id)
-  }
-  const editClientImageUrlByPath = await getClientProfileImageUrls(editClients)
   const clientAssignees = assignees.filter(option => option.clientId && editClients.some(client => client.id === option.clientId))
   const canClaim = !isFormerAssignee && task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
   const scopedTasksContext = searchParams.scope === 'mine' || searchParams.scope === 'assigned' || searchParams.scope === 'all'
@@ -134,7 +134,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     || (!task.assigned_by && !task.assignee_id && createdByMe))
   const canEditChecklist = !isFormerAssignee && (canManageTask || task.assignee_id === me.id)
   const tasksHref = scopedTasksContext ? `/tasks?scope=${searchParams.scope}` : '/tasks'
-  const scheduleCanManage = taskSchedule?.created_by === me.id
+  const scheduleCanManage = !isFormerAssignee && taskSchedule?.created_by === me.id
   const scheduleRepeatLabel = taskSchedule?.repeat_type === 'weekly'
     ? 'Daily for one week'
     : taskSchedule?.repeat_type === 'custom'
@@ -151,7 +151,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
       : '—'],
     ['Client', !task.client ? '—' : (
       <span className="inline-flex items-center justify-end gap-2">
-        <CompanyAvatar name={task.client.company_name} src={clientImage?.signedUrl} size="xs" />
+        <CompanyAvatar name={task.client.company_name} src={clientImageUrl} size="xs" />
         {me.role === 'employee'
           ? <span>{task.client.company_name}</span>
           : <Link href={`/clients/${task.client.id}`} className="font-medium text-[#034C68] hover:underline">{task.client.company_name}</Link>}
@@ -217,7 +217,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                   {task.visibility === 'private'
                     ? <LockKeyhole aria-hidden="true" className="h-3.5 w-3.5" />
                     : <Globe2 aria-hidden="true" className="h-3.5 w-3.5" />}
-                  {task.visibility === 'private' ? 'Private · Internal only' : 'Public · Client visible'}
+                  {task.visibility === 'private' ? 'Private' : 'Public'}
                 </Badge>
                 {task.source === 'client' && <Badge className="bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]">Client request</Badge>}
                 <DueDatePill
@@ -230,7 +230,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
             </div>
             <section className="mt-5">
               <h2 className="mb-3 flex items-center gap-3 text-base font-semibold leading-6 text-slate-900">
-                <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-[#0D9488]" />
+                <span aria-hidden="true" className="h-5 w-[5px] shrink-0 rounded-full bg-[#0D9488]" />
                 Description
               </h2>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700">
@@ -242,7 +242,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
             {taskFileAttachments.length > 0 && (
               <section className="mt-5" aria-labelledby="task-attachments-heading">
                 <h2 id="task-attachments-heading" className="mb-3 flex items-center gap-3 text-base font-semibold leading-6 text-slate-900">
-                  <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-[#0D9488]" />
+                  <span aria-hidden="true" className="h-5 w-[5px] shrink-0 rounded-full bg-[#0D9488]" />
                   Attachments
                 </h2>
                 <ul className="space-y-2">

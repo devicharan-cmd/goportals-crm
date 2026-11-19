@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { AlarmClock, CheckSquare, Flame, Inbox, LockKeyhole, Plus, ShieldCheck, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { getTaskAssigneeHistory, nameMap, TASK_LIST_SELECT, TICKET_LIST_SELECT } from '@/lib/queries'
+import { getTaskAssigneeHistory, nameMap, TASK_SUMMARY_SELECT, TICKET_LIST_SELECT } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader, EmptyState, StatCard } from '@/components/ui/primitives'
 import { DueDate, PriorityBadge } from '@/components/ui/badges'
@@ -12,9 +12,14 @@ import { ClaimButton } from '@/components/tasks/ClaimButton'
 import { DashboardTaskPanel } from '@/components/tasks/DashboardTaskPanel'
 import type { TicketListItem } from '@/components/shared/TicketTable'
 import { capacityColor, capacityTextColor, cn, formatRelative, taskCode, ticketCode, todayDateKey } from '@/lib/utils'
-import type { TaskListItem } from '@/types/database'
+import type { TaskSummary } from '@/types/database'
 
 export const metadata = { title: 'Dashboard' }
+
+// The dashboard only renders list fields. Avoid transferring full task rows
+// (including long descriptions and scheduler metadata) for these panels.
+const DASHBOARD_TASK_SELECT = `${TASK_SUMMARY_SELECT}, estimated_hours`
+type DashboardTask = TaskSummary & { estimated_hours: number | null }
 
 // The server runs in UTC; staff are in India, so both the greeting and the date
 // below have to be read in IST or they disagree either side of midnight.
@@ -44,12 +49,12 @@ export default async function DashboardPage() {
   const today = todayDateKey()
 
   const dashboardDataPromise = Promise.all([
-    supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).eq('assignee_id', me.id).not('status', 'in', '(completed,cancelled)')
+    supabase.from('tasks').select(DASHBOARD_TASK_SELECT, { count: 'exact' }).eq('assignee_id', me.id).not('status', 'in', '(completed,cancelled)')
       .order('due_date', { ascending: true, nullsFirst: false }).limit(50),
-    supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).eq('assignee_id', me.id)
+    supabase.from('tasks').select(DASHBOARD_TASK_SELECT, { count: 'exact' }).eq('assignee_id', me.id)
       .not('status', 'in', '(completed,cancelled)').eq('due_date', today)
       .order('priority').order('created_at', { ascending: false }).limit(50),
-    supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
+    supabase.from('tasks').select(DASHBOARD_TASK_SELECT, { count: 'exact' }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
       .order('priority').order('created_at').limit(5),
     canSeeTickets
       ? supabase.from('tickets').select(TICKET_LIST_SELECT, { count: 'exact' }).eq('status', 'unassigned')
@@ -60,18 +65,18 @@ export default async function DashboardPage() {
       : Promise.resolve({ count: 0, error: null }),
     supabase.from('profiles').select('id, full_name, email, avatar_url'),
     isManager
-      ? supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).not('status', 'in', '(completed,cancelled)')
+      ? supabase.from('tasks').select(DASHBOARD_TASK_SELECT, { count: 'exact' }).not('status', 'in', '(completed,cancelled)')
           .order('is_urgent', { ascending: false })
           .order('due_date', { ascending: true, nullsFirst: false })
           .limit(15)
       : Promise.resolve({ data: [], count: 0, error: null }),
     isManager
-      ? supabase.from('tasks').select(TASK_LIST_SELECT, { count: 'exact' }).eq('status', 'completed')
+      ? supabase.from('tasks').select(DASHBOARD_TASK_SELECT, { count: 'exact' }).eq('status', 'completed')
           .order('closed_at', { ascending: false, nullsFirst: false })
           .limit(15)
       : Promise.resolve({ data: [], count: 0, error: null }),
     isEmployee
-      ? supabase.from('tasks').select(TASK_LIST_SELECT).eq('assignee_id', me.id).eq('status', 'completed')
+      ? supabase.from('tasks').select(DASHBOARD_TASK_SELECT).eq('assignee_id', me.id).eq('status', 'completed')
           .order('closed_at', { ascending: false, nullsFirst: false }).limit(15)
       : Promise.resolve({ data: [], error: null }),
   ])
@@ -97,10 +102,10 @@ export default async function DashboardPage() {
         const peopleById = new Map((peopleResult.data ?? []).map(person => [person.id, person]))
         const deptMateIds = Array.from(departmentMemberIds)
           .filter(id => peopleById.get(id)?.role === 'employee')
-        const deptTasks: TaskListItem[] = []
+        const deptTasks: DashboardTask[] = []
         let afterId: string | null = null
         while (deptMateIds.length > 0) {
-          let query = supabase.from('tasks').select(TASK_LIST_SELECT)
+          let query = supabase.from('tasks').select(DASHBOARD_TASK_SELECT)
             .in('assignee_id', deptMateIds)
             .not('status', 'in', '(completed,cancelled)')
             .order('id', { ascending: true })
@@ -108,7 +113,7 @@ export default async function DashboardPage() {
           if (afterId) query = query.gt('id', afterId)
           const { data, error } = await query
           if (error) throw error
-          const page = (data ?? []) as TaskListItem[]
+          const page = (data ?? []) as unknown as DashboardTask[]
           deptTasks.push(...page)
           if (page.length < 100) break
           afterId = page[page.length - 1].id
@@ -123,18 +128,29 @@ export default async function DashboardPage() {
       })()
     : Promise.resolve(null)
 
+  // Begin this small lookup as soon as the urgent-task query finishes, so it
+  // can run alongside the team-lead-only data load instead of after it.
+  const urgentHistoryPromise = dashboardDataPromise.then(async ([, , urgentResult]) => {
+    if (urgentResult.error) throw urgentResult.error
+    return getTaskAssigneeHistory(
+      supabase,
+      (urgentResult.data ?? []).map(task => task.id),
+    )
+  })
+
   const [
     [mine, dueTodayTasksResult, urgent, requests, approvals, people, allWorking, allDone, myCompleted],
     teamLeadData,
-  ] = await Promise.all([dashboardDataPromise, teamLeadDataPromise])
+    urgentHistory,
+  ] = await Promise.all([dashboardDataPromise, teamLeadDataPromise, urgentHistoryPromise])
 
   for (const result of [mine, dueTodayTasksResult, urgent, requests, approvals, people, allWorking, allDone, myCompleted]) {
     if (result.error) throw result.error
   }
 
-  const rawMyTasks = (mine.data ?? []) as TaskListItem[]
-  const rawUrgentTasks = (urgent.data ?? []) as TaskListItem[]
-  const rawDueTodayTasks = (dueTodayTasksResult.data ?? []) as TaskListItem[]
+  const rawMyTasks = (mine.data ?? []) as unknown as DashboardTask[]
+  const rawUrgentTasks = (urgent.data ?? []) as unknown as DashboardTask[]
+  const rawDueTodayTasks = (dueTodayTasksResult.data ?? []) as unknown as DashboardTask[]
   const clientRequests = (requests.data ?? []) as unknown as TicketListItem[]
   const names = nameMap(people.data ?? [])
   const assigneeAvatarUrls = Object.fromEntries((people.data ?? []).map(person => [person.id, person.avatar_url]))
@@ -142,35 +158,26 @@ export default async function DashboardPage() {
   const dueTodayCount = dueTodayTasksResult.count ?? 0
   const urgentCount = urgent.count ?? 0
   const requestCount = requests.count ?? 0
-  const rawWorkingTasks = (allWorking.data ?? []) as TaskListItem[]
-  const rawDoneTasks = (allDone.data ?? []) as TaskListItem[]
+  const rawWorkingTasks = (allWorking.data ?? []) as unknown as DashboardTask[]
+  const rawDoneTasks = (allDone.data ?? []) as unknown as DashboardTask[]
   const workingCount = allWorking.count ?? 0
   const doneCount = allDone.count ?? 0
 
   // Employee branch: pure client-side slices of `myTasks`, plus the one extra "completed" query above.
-  const rawMyCompletedTasks = (myCompleted.data ?? []) as TaskListItem[]
-  const rawTeamTasks = (teamLeadData?.deptTasks ?? []) as TaskListItem[]
-  const taskIds = Array.from(new Set([
-    ...rawMyTasks,
-    ...rawUrgentTasks,
-    ...rawDueTodayTasks,
-    ...rawWorkingTasks,
-    ...rawDoneTasks,
-    ...rawMyCompletedTasks,
-    ...rawTeamTasks,
-  ].map(task => task.id)))
-  const assigneeHistory = await getTaskAssigneeHistory(supabase, taskIds)
-  const withAssigneeHistory = <T extends { id: string }>(tasks: T[]) => tasks.map(task => ({
+  const rawMyCompletedTasks = (myCompleted.data ?? []) as unknown as DashboardTask[]
+  const rawTeamTasks = (teamLeadData?.deptTasks ?? []) as DashboardTask[]
+  // Only the urgent pool displays previous assignees. Looking up activity for
+  // every dashboard task added an unnecessary database round-trip and work.
+  const urgentTasks = rawUrgentTasks.map(task => ({
     ...task,
-    assignee_history: assigneeHistory.get(task.id) ?? [],
+    assignee_history: urgentHistory.get(task.id) ?? [],
   }))
-  const myTasks = withAssigneeHistory(rawMyTasks)
-  const urgentTasks = withAssigneeHistory(rawUrgentTasks)
-  const dueTodayTasks = withAssigneeHistory(rawDueTodayTasks)
-  const workingTasks = withAssigneeHistory(rawWorkingTasks)
-  const doneTasks = withAssigneeHistory(rawDoneTasks)
-  const myCompletedTasks = withAssigneeHistory(rawMyCompletedTasks)
-  const teamTasks = withAssigneeHistory(rawTeamTasks)
+  const myTasks = rawMyTasks
+  const dueTodayTasks = rawDueTodayTasks
+  const workingTasks = rawWorkingTasks
+  const doneTasks = rawDoneTasks
+  const myCompletedTasks = rawMyCompletedTasks
+  const teamTasks = rawTeamTasks
   const inProgressTasks = myTasks.filter(t => t.status === 'in_progress' || t.status === 'in_system_process')
   const readyForReviewTasks = myTasks.filter(t => t.status === 'ready_for_review')
 

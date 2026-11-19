@@ -15,7 +15,7 @@ type Row = Client & {
 
 export default async function ClientsPage(props: { searchParams: Promise<{ status?: string }> }) {
   const searchParams = await props.searchParams
-  const me = await requireRole(['super_admin', 'manager'])
+  const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
 
   const status = searchParams.status === 'active' || searchParams.status === 'pending'

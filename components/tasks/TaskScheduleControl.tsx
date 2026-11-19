@@ -40,7 +40,7 @@ export function TaskScheduleControl({ taskId, enabled, repeatLabel, canManage }:
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-800">Scheduled task</p>
           <p className="text-xs text-slate-500">{repeatLabel} · {active ? 'Schedule enabled' : 'Schedule paused'}</p>
-          {error && <p role="alert" className="mt-1 text-xs text-red-700">{error}</p>}
+          {error && <p role="alert" className="field-error">{error}</p>}
         </div>
       </div>
       {canManage && (

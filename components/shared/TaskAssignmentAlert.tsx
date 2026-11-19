@@ -134,15 +134,19 @@ export function TaskAssignmentAlert({ userId, taskHref = '/tasks' }: { userId: s
     return () => window.clearTimeout(timer)
   }, [clearSuccessParam, pathname, successParam])
 
-  const dismiss = useCallback((notice: AssignmentAlertItem) => {
-    for (const id of taskNoticeIds.current.get(notice.task_id) ?? [notice.id]) {
+  const dismiss = useCallback(async (notice: AssignmentAlertItem) => {
+    const ids = taskNoticeIds.current.get(notice.task_id) ?? [notice.id]
+    for (const id of ids) {
       dismissedNoticeIds.current.add(id)
     }
     try {
       window.sessionStorage.setItem(dismissedStorageKey, JSON.stringify(Array.from(dismissedNoticeIds.current)))
     } catch { /* The alert can still be dismissed for this page session. */ }
     setNotices(current => current.filter(item => item.task_id !== notice.task_id))
-  }, [dismissedStorageKey])
+    await createClient().from('notifications').update({ is_read: true })
+      .eq('recipient_id', userId)
+      .in('id', ids)
+  }, [dismissedStorageKey, userId])
 
   useEffect(() => {
     const taskPath = pathname.startsWith(`${taskHref}/`) ? pathname.slice(taskHref.length + 1) : ''

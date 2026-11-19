@@ -119,7 +119,7 @@ export default async function PortalTaskDetailPage(props: { params: Promise<{ id
             </div>
             <section className="mt-5">
               <h2 className="mb-3 flex items-center gap-3 text-base font-semibold leading-6 text-slate-900">
-                <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-[#0D9488]" />
+                <span aria-hidden="true" className="h-5 w-[5px] shrink-0 rounded-full bg-[#0D9488]" />
                 Description
               </h2>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700">

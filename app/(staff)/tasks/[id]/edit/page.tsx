@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getClientProfileImageUrls, getStaffLookups, nameMap, taskAssigneeOptionsFor } from '@/lib/queries'
+import { assignableFor, getClientProfileImageUrls, getStaffLookups, nameMap, taskAssigneeOptionsFor } from '@/lib/queries'
 import { ROLE_LABELS } from '@/lib/constants'
 import { PageHeader } from '@/components/ui/primitives'
 import { TaskForm } from '@/components/tasks/TaskForm'
@@ -57,14 +57,7 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
     }
   }
 
-  // Same team_lead scoping as the new-task form — but never drop the task's
-  // own client out of the list just because it falls outside that scope.
-  let clients = lookups.clients
-  if (me.role === 'team_lead') {
-    const deptIds = Array.from(departmentIdsFor(me.id, lookups))
-    const clientIds = await clientIdsForTeamLead(me.id, deptIds)
-    clients = lookups.clients.filter(c => clientIds.has(c.id) || c.id === task.client_id)
-  }
+  const clients = lookups.clients
   const clientImageUrlByPath = await getClientProfileImageUrls(clients)
   const clientAssignees = taskAssigneeOptionsFor(me, lookups)
     .filter(option => option.clientId && clients.some(client => client.id === option.clientId))

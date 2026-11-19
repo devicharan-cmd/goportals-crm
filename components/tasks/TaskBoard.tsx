@@ -1,20 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, CalendarClock, LockKeyhole, X } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Globe2, LockKeyhole, MoreVertical, X } from 'lucide-react'
 import {
   DndContext, DragOverlay, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors,
   type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/primitives'
-import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import type { AssigneeOption } from '@/lib/queries'
-import { DueDate, DueDatePill } from '@/components/ui/badges'
+import { DueDate } from '@/components/ui/badges'
 import { PRIORITY_STYLES, TASK_STATUS_OPTIONS, TASK_TERMINAL_STATUSES, taskStatusTransitionWarning } from '@/lib/constants'
-import { cn, dueState, errorMessage, taskCode } from '@/lib/utils'
+import { cn, errorMessage, taskCode } from '@/lib/utils'
 import type { TaskSummary, TaskStatus } from '@/types/database'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
@@ -27,28 +26,12 @@ type CardProps = {
 }
 
 function BoardDueDate({ date, status }: { date: TaskSummary['due_date']; status: TaskSummary['status'] }) {
-  const state = dueState(date, status)
-  const compactClass = '!rounded-full !px-1.5 !py-0.5 !text-[10px] !leading-4'
-
-  if (state === 'ok' || state === 'overdue' || state === 'today') {
-    return (
-      <DueDatePill
-        date={date}
-        status={status}
-        className={cn(
-          compactClass,
-          state === 'overdue' || state === 'today'
-            ? '!ring-1 !ring-inset !ring-red-200'
-            : '!font-semibold !ring-1 !ring-inset !ring-slate-200',
-        )}
-      />
-    )
-  }
-  return <DueDate date={date} status={status} className="block text-xs" />
+  return <DueDate date={date} status={status} className="block text-[11px] font-medium" />
 }
 
 function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: CardProps & { overlay?: boolean; linked?: boolean }) {
   const assignee = task.assignee_id ? assignOptions?.find(option => option.id === task.assignee_id) : undefined
+  const isScheduled = task.is_scheduled || Boolean(task.schedule_id)
   const assigneeName = task.assignee_id ? assignee?.name ?? names[task.assignee_id] ?? '—' : '—'
   const roleSuffix = assignee?.role ? ` (${assignee.role})` : ''
   const cardAssigneeName = roleSuffix && assigneeName.endsWith(roleSuffix)
@@ -63,11 +46,18 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
           <span className={cn('inline-flex shrink-0 items-center rounded-md px-1.5 py-0 text-xs font-bold leading-4 ring-1 ring-inset', PRIORITY_STYLES[task.priority])}>
             {task.priority}
           </span>
-          {task.is_scheduled && <span title="Scheduled task" className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-[#F5FAE8] px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-[#5B771A] ring-1 ring-inset ring-[#D3E896]"><CalendarClock aria-hidden="true" className="h-3 w-3" />Scheduled</span>}
         </span>
-        {task.platform?.name && (
-          <span className="shrink-0 text-right text-xs text-slate-400">
-            <MarketplacePlatformLabel name={task.platform.name} />
+        {(task.visibility === 'private' || task.visibility === 'public') && (
+          <span className={cn(
+            'inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold leading-4 ring-1 ring-inset',
+            task.visibility === 'private'
+              ? 'bg-violet-50 text-violet-700 ring-violet-200'
+              : 'bg-teal-50 text-teal-700 ring-teal-200',
+          )}>
+            {task.visibility === 'private'
+              ? <LockKeyhole aria-hidden="true" className="h-3 w-3" />
+              : <Globe2 aria-hidden="true" className="h-3 w-3" />}
+            {task.visibility === 'private' ? 'Private' : 'Public'}
           </span>
         )}
       </div>
@@ -75,14 +65,10 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
       <div className="mt-2 min-w-0">
         {task.client?.company_name && <p className="truncate text-xs text-slate-500">{task.client.company_name}</p>}
         <div className={cn('flex min-w-0 flex-nowrap items-center gap-1.5 text-xs text-slate-500', task.client?.company_name && 'mt-1')}>
-          {task.visibility === 'private' && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-violet-700 ring-1 ring-inset ring-violet-200">
-              <LockKeyhole aria-hidden="true" className="h-3 w-3" /> Private
-            </span>
-          )}
           <div className="w-fit shrink-0">
             <BoardDueDate date={task.due_date} status={task.status} />
           </div>
+          {isScheduled && <span title="Scheduled task" className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-[#F5FAE8] px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-[#5B771A] ring-1 ring-inset ring-[#D3E896]"><CalendarClock aria-hidden="true" className="h-3 w-3" />Scheduled</span>}
         </div>
       </div>
     </>
@@ -124,6 +110,23 @@ function Column({ status, label, tasks, names, assignOptions, hrefBase, scope, c
   canEditTask: (task: TaskSummary) => boolean
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status, disabled: !canDrop })
+  const sortMenuRef = useRef<HTMLDivElement>(null)
+  const [sortMenuOpen, setSortMenuOpen] = useState(false)
+  useEffect(() => {
+    if (!sortMenuOpen) return
+    const closeOnOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !sortMenuRef.current?.contains(event.target)) setSortMenuOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSortMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutside)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [sortMenuOpen])
   const boardStyle: Record<TaskStatus, string> = {
     todo: 'bg-slate-500',
     in_progress: 'bg-[#0A6F94]',
@@ -138,7 +141,17 @@ function Column({ status, label, tasks, names, assignOptions, hrefBase, scope, c
     <div className="flex min-w-0 flex-col flex-1 rounded-xl border border-slate-200 bg-white p-2">
       <div className={cn('flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-white', boardStyle[status])}>
         <h3 className="!text-white min-w-0 truncate text-xs font-semibold">{label}</h3>
-        <span className="ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-md bg-white/20 px-1.5 text-[11px] font-semibold leading-none text-white">{tasks.length}</span>
+        <div ref={sortMenuRef} className="relative -mr-2 ml-auto flex shrink-0 items-center gap-1">
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-white/20 px-1.5 text-[11px] font-semibold leading-none text-white">{tasks.length}</span>
+          <button type="button" aria-label={`Sort ${label} tasks`} aria-haspopup="menu" aria-expanded={sortMenuOpen}
+            onClick={() => setSortMenuOpen(open => !open)}
+            className="inline-flex h-5 w-5 items-center justify-center rounded-md text-white/90 transition hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80">
+            <MoreVertical aria-hidden="true" className="h-4 w-4" />
+          </button>
+          {sortMenuOpen && (
+            <div role="menu" aria-label={`${label} column options`} className="absolute right-0 top-full z-30 mt-1 min-h-2 w-40 rounded-lg border border-slate-200 bg-white p-2 shadow-lg" />
+          )}
+        </div>
       </div>
       <div ref={setNodeRef}
            className={cn('box-border w-full flex-1 flex flex-col gap-2 pt-2 transition-colors', isOver ? 'bg-[#EAF5F9]' : 'bg-white')}

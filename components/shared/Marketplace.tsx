@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, ChevronDown, Search, Store } from 'lucide-react'
+import { Check, ChevronDown, Search, Store, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { SiBigbasket, SiSwiggy } from 'react-icons/si'
 import { cn } from '@/lib/utils'
@@ -82,7 +82,7 @@ export function MarketplaceAccountLabel({ platformName, accountName, size = 'xs'
   )
 }
 
-function MarketplaceSelect({ value, placeholder, onChange, items, disabled, className, id }: {
+function MarketplaceSelect({ value, placeholder, onChange, items, disabled, className, id, invalid = false, ariaDescribedBy }: {
   value: string
   placeholder: string
   onChange: (value: string) => void
@@ -90,6 +90,8 @@ function MarketplaceSelect({ value, placeholder, onChange, items, disabled, clas
   disabled?: boolean
   className?: string
   id?: string
+  invalid?: boolean
+  ariaDescribedBy?: string
 }) {
   return (
     <SearchableSelect
@@ -99,7 +101,9 @@ function MarketplaceSelect({ value, placeholder, onChange, items, disabled, clas
       disabled={disabled}
       placeholder={placeholder}
       aria-label={placeholder}
-      className={cn('form-field flex w-full min-w-0 items-center justify-between gap-2 overflow-hidden text-left', className)}
+      aria-invalid={invalid}
+      aria-describedby={ariaDescribedBy}
+      className={cn('form-field flex w-full min-w-0 items-center justify-between gap-2 overflow-hidden text-left', invalid && 'border-red-400 bg-red-50/30 focus:border-red-500', className)}
       options={[
         { value: EMPTY_VALUE, label: <span className="text-slate-500">{placeholder}</span>, text: placeholder },
         ...items.map(item => ({ value: item.id, label: item.label, text: item.textLabel })),
@@ -108,12 +112,14 @@ function MarketplaceSelect({ value, placeholder, onChange, items, disabled, clas
   )
 }
 
-export function MarketplaceAccountSelect({ accounts, value, onChange, placeholder, id }: {
+export function MarketplaceAccountSelect({ accounts, value, onChange, placeholder, id, invalid, ariaDescribedBy }: {
   accounts: MarketplaceAccount[]
   value: string
   onChange: (value: string) => void
   placeholder: string
   id?: string
+  invalid?: boolean
+  ariaDescribedBy?: string
 }) {
   return (
     <MarketplaceSelect
@@ -121,6 +127,8 @@ export function MarketplaceAccountSelect({ accounts, value, onChange, placeholde
       value={value}
       placeholder={placeholder}
       onChange={onChange}
+      invalid={invalid}
+      ariaDescribedBy={ariaDescribedBy}
       items={accounts.map(account => ({
         id: account.id,
         label: <MarketplaceAccountLabel platformName={account.platform_name} accountName={account.account_name} />,
@@ -174,7 +182,7 @@ export function MarketplacePlatformMultiSelect({ platforms, value, onChange, pla
       {open && <div role="listbox" aria-label="Select platforms" aria-multiselectable="true" className="absolute z-40 mt-1 w-full min-w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
         <div className="relative mb-2">
           <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search platforms..." className="form-field h-9 w-full pl-9 text-sm" aria-label="Search platforms" />
+          <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search platforms..." className="form-field search-input-with-icon h-9 w-full rounded-lg border-slate-200 bg-slate-50/70 text-sm placeholder:text-slate-400 focus:bg-white" aria-label="Search platforms" />
         </div>
         <div className="max-h-56 space-y-1 overflow-y-auto">
           {filtered.map(platform => {
@@ -189,13 +197,25 @@ export function MarketplacePlatformMultiSelect({ platforms, value, onChange, pla
           })}
           {!filtered.length && <p className="px-3 py-2 text-sm text-slate-500">No platforms found.</p>}
         </div>
-        {selected.length > 0 && <button type="button" onClick={() => onChange([])} className="mt-2 w-full border-t border-slate-100 pt-2 text-left text-xs font-medium text-slate-500 hover:text-slate-800">Clear selection</button>}
+        {selected.length > 0 && (
+          <div className="mt-2 flex justify-end border-t border-slate-100 pt-2">
+            <button
+              type="button"
+              aria-label="Clear selected platforms"
+              onClick={() => onChange([])}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#045E80]"
+            >
+              <X aria-hidden="true" className="h-3.5 w-3.5" />
+              Clear selection
+            </button>
+          </div>
+        )}
       </div>}
     </div>
   )
 }
 
-export function MarketplacePlatformSelect({ platforms, value, onChange, placeholder, disabled, className, id }: {
+export function MarketplacePlatformSelect({ platforms, value, onChange, placeholder, disabled, className, id, invalid, ariaDescribedBy }: {
   platforms: MarketplacePlatform[]
   value: string
   onChange: (value: string) => void
@@ -203,6 +223,8 @@ export function MarketplacePlatformSelect({ platforms, value, onChange, placehol
   disabled?: boolean
   className?: string
   id?: string
+  invalid?: boolean
+  ariaDescribedBy?: string
 }) {
   return (
     <MarketplaceSelect
@@ -210,6 +232,8 @@ export function MarketplacePlatformSelect({ platforms, value, onChange, placehol
       value={value}
       placeholder={placeholder}
       onChange={onChange}
+      invalid={invalid}
+      ariaDescribedBy={ariaDescribedBy}
       disabled={disabled}
       className={className}
       items={platforms.map(platform => ({

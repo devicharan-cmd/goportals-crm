@@ -12,6 +12,7 @@ type Props = {
   disabled?: boolean
   required?: boolean
   invalid?: boolean
+  ariaDescribedBy?: string
 }
 
 function CountryFlag({ country }: { country: Country }) {
@@ -44,7 +45,7 @@ function nationalNumber(value: string, country: Country | null) {
   return digits
 }
 
-export function InternationalPhoneField({ value, onChange, disabled, required = true, invalid = false }: Props) {
+export function InternationalPhoneField({ value, onChange, disabled, required = true, invalid = false, ariaDescribedBy }: Props) {
   const [country, setCountry] = useState<Country | null>(() => inferCountry(value))
   const [digits, setDigits] = useState(() => nationalNumber(value, inferCountry(value)))
   const [open, setOpen] = useState(false)
@@ -143,6 +144,7 @@ export function InternationalPhoneField({ value, onChange, disabled, required = 
         placeholder="Mobile number"
         aria-label="Mobile number"
         aria-invalid={invalid || undefined}
+        aria-describedby={ariaDescribedBy}
         className="PhoneInputInput"
         onChange={event => updateDigits(event.target.value)}
       />

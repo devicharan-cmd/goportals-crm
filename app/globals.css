@@ -203,6 +203,22 @@ h3 {
   box-shadow: none;
 }
 .form-field:disabled { background-color: #f8fafc; color: #64748b; }
+.field-error {
+  display: flex;
+  max-width: 100%;
+  align-items: flex-start;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+  color: #b91c1c;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+}
+.form-field[aria-invalid="true"] { border-color: #f87171; background-color: #fffafa; }
+.form-field[aria-invalid="true"]:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgb(220 38 38 / 0.12);
+}
 
 /* Use one thin border for every form focus state; never add a separate ring. */
 input:focus,
@@ -244,6 +260,7 @@ button[aria-haspopup="listbox"]:focus {
   box-shadow: 0 1px 2px 0 rgb(21 31 53 / 0.035), 0 2px 5px 0 rgb(21 31 53 / 0.045);
 }
 .task-overview-card {
+  position: relative;
   border-left: 5px solid #0d9488;
 }
 

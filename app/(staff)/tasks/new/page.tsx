@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { requireStaff } from '@/lib/auth'
-import { assignableFor, clientIdsForTeamLead, departmentIdsFor, getStaffLookups, taskAssigneeOptionsFor } from '@/lib/queries'
+import { assignableFor, getStaffLookups, taskAssigneeOptionsFor } from '@/lib/queries'
 import { ROLE_LABELS } from '@/lib/constants'
 import { TaskForm } from '@/components/tasks/TaskForm'
 
@@ -16,15 +16,7 @@ export default async function NewTaskPage(
   // does not need the separate public staff-directory RPC as well.
   const lookups = await getStaffLookups({ includeDirectory: false })
 
-  // Team leads only see clients they cover via client_team (personally, or
-  // through their department) — /clients itself is Manager/Super Admin only, so
-  // the full company-wide list here would otherwise leak every client's name to them.
-  let clients = lookups.clients
-  if (me.role === 'team_lead') {
-    const deptIds = Array.from(departmentIdsFor(me.id, lookups))
-    const clientIds = await clientIdsForTeamLead(me.id, deptIds)
-    clients = lookups.clients.filter(c => clientIds.has(c.id))
-  }
+  const clients = lookups.clients
 
   const clientAssignees = taskAssigneeOptionsFor(me, lookups)
     .filter(option => option.clientId && clients.some(client => client.id === option.clientId))

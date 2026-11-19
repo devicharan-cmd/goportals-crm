@@ -46,13 +46,31 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
   const [files, setFiles] = useState<{ file: File; label?: string }[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [showGuide, setShowGuide] = useState(false)
   const errorRef = useRef<HTMLDivElement | null>(null)
   const submittingRef = useRef(false)  // synchronous guard — `saving` state only updates on next render, too late for a fast double-click
 
   const activeCategory = isEdit ? category : pickedCategory
   const def = activeCategory ? TICKET_CATEGORY_BY_VALUE[activeCategory] : null
-  const setField = (k: string, v: string) => setDetails(d => ({ ...d, [k]: v }))
+  const clearFieldError = (key: string) => setFieldErrors(current => {
+    if (!current[key]) return current
+    const next = { ...current }
+    delete next[key]
+    return next
+  })
+  const setField = (k: string, v: string) => {
+    setDetails(d => ({ ...d, [k]: v }))
+    setFieldErrors(current => {
+      const next = { ...current }
+      delete next[k]
+      if (k === 'date_from' || k === 'date_to') delete next.date_to
+      for (const field of def?.fields ?? []) {
+        if (field.showIf?.key === k) delete next[field.key]
+      }
+      return next
+    })
+  }
   const isVisible = (showIf?: TicketFieldShowIf) => !showIf || details[showIf.key] === showIf.equals
 
   function renderField(f: TicketFieldDef) {
@@ -60,13 +78,15 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
     // submission on a control nobody can see.
     const isRequired = !!f.required && isVisible(f.showIf)
     const fieldId = `ticket-field-${f.key}`
+    const fieldError = fieldErrors[f.key]
+    const errorId = `${fieldId}-error`
     return (
-      <Field key={f.key} label={f.label} htmlFor={fieldId} required={f.required} className={f.type === 'textarea' ? 'sm:col-span-2' : undefined}>
+      <Field key={f.key} label={f.label} htmlFor={fieldId} required={f.required} error={fieldError} errorId={errorId} className={f.type === 'textarea' ? 'sm:col-span-2' : undefined}>
         {f.type === 'textarea' ? (
-          <textarea id={fieldId} className="form-field min-h-[90px]" required={isRequired} value={details[f.key] ?? ''} placeholder={f.placeholder}
+          <textarea id={fieldId} className="form-field min-h-[90px]" required={isRequired} aria-invalid={!!fieldError} aria-describedby={fieldError ? errorId : undefined} value={details[f.key] ?? ''} placeholder={f.placeholder}
                     onChange={e => setField(f.key, e.target.value)} />
         ) : f.type === 'select' ? (
-          <SearchableSelect id={fieldId} className="form-field" required={isRequired} value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)} placeholder="Select…">
+          <SearchableSelect id={fieldId} className="form-field" required={isRequired} aria-invalid={!!fieldError} aria-describedby={fieldError ? errorId : undefined} value={details[f.key] ?? ''} onChange={e => setField(f.key, e.target.value)} placeholder="Select…">
             <option value="">Select…</option>
             {f.options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </SearchableSelect>
@@ -76,10 +96,12 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
             platforms={platforms}
             value={details[f.key] ?? ''}
             placeholder="Select a platform…"
+            invalid={!!fieldError}
+            ariaDescribedBy={fieldError ? errorId : undefined}
             onChange={value => setField(f.key, value)}
           />
         ) : (
-          <input id={fieldId} className="form-field" required={isRequired}
+          <input id={fieldId} className="form-field" required={isRequired} aria-invalid={!!fieldError} aria-describedby={fieldError ? errorId : undefined}
                  type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'password' ? 'password' : 'text'}
                  value={details[f.key] ?? ''} placeholder={f.placeholder} onChange={e => setField(f.key, e.target.value)}
                  autoComplete={f.type === 'password' ? 'new-password' : undefined} />
@@ -115,19 +137,32 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    setError('')
     if (submittingRef.current) return
     if (!def) return
-    if (clients && !clientId) return fail('Select a client for this ticket.')
-    if (accountMode === 'required' && !accountId) return fail('Select an e-commerce account for this ticket.')
+    const nextFieldErrors: Record<string, string> = {}
+    if (clients && !clientId) nextFieldErrors.client = 'Select a client for this ticket.'
+    if (accountMode === 'required' && !accountId) nextFieldErrors.account = 'Select an e-commerce account for this ticket.'
     for (const f of def.fields) {
-      if (isVisible(f.showIf) && f.required && !(details[f.key] ?? '').trim()) return fail(`Please fill in "${f.label}".`)
+      if (isVisible(f.showIf) && f.required && !(details[f.key] ?? '').trim()) nextFieldErrors[f.key] = `Please fill in "${f.label}".`
     }
     // A report whose range runs backwards is always a mistake, and nothing
     // downstream checks it.
     const from = details.date_from, to = details.date_to
-    if (from && to && from > to) return fail('The "From" date must come before the "To" date.')
-    if (descriptionRequired && !description.trim()) return fail('Please add a description.')
-    if (!subject.trim()) return fail('Please add a subject.')
+    if (from && to && from > to) nextFieldErrors.date_to = 'The "From" date must come before the "To" date.'
+    if (descriptionRequired && !description.trim()) nextFieldErrors.description = 'Please add a description.'
+    if (!subject.trim()) nextFieldErrors.subject = 'Please add a subject.'
+    setFieldErrors(nextFieldErrors)
+    if (Object.keys(nextFieldErrors).length) {
+      const firstField = Object.keys(nextFieldErrors)[0]
+      const targetId = firstField === 'client' ? 'ticket-client'
+        : firstField === 'account' ? 'ticket-ecommerce-account'
+          : firstField === 'description' ? 'ticket-description'
+            : firstField === 'subject' ? 'ticket-subject'
+              : `ticket-field-${firstField}`
+      document.getElementById(targetId)?.focus()
+      return
+    }
 
     submittingRef.current = true
     setSaving(true)
@@ -158,15 +193,15 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
   }
 
   return (
-    <form onSubmit={submit} className="content-card space-y-6 p-6">
+    <form noValidate onSubmit={submit} className="content-card space-y-6 p-6">
       <div ref={errorRef}>{error && <Alert>{error}</Alert>}</div>
 
       {clients && (
         isEdit ? (
           <Field label="Client"><p className="text-sm font-medium text-slate-800">{clients.find(c => c.id === clientId)?.company_name ?? '—'}</p></Field>
         ) : (
-          <Field label="Client" required>
-            <SearchableSelect className="form-field" value={clientId} onChange={e => { setClientId(e.target.value); setAccountId('') }} placeholder="Select client…" searchable searchPlaceholder="Search clients...">
+          <Field label="Client" required error={fieldErrors.client} errorId="ticket-client-error">
+            <SearchableSelect id="ticket-client" className="form-field" required aria-invalid={!!fieldErrors.client} aria-describedby={fieldErrors.client ? 'ticket-client-error' : undefined} value={clientId} onChange={e => { setClientId(e.target.value); setAccountId(''); clearFieldError('client'); clearFieldError('account') }} placeholder="Select client…" searchable searchPlaceholder="Search clients...">
               <option value="">Select client…</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
             </SearchableSelect>
@@ -180,7 +215,7 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
         <Field label="What kind of ticket is this?" required>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {TICKET_CATEGORIES.map(c => (
-              <button key={c.value} type="button" onClick={() => { setPickedCategory(c.value); setDetails({}) }}
+              <button key={c.value} type="button" onClick={() => { setPickedCategory(c.value); setDetails({}); setFieldErrors({}) }}
                       className={cn('rounded-lg border px-3 py-2 text-left transition',
                         pickedCategory === c.value ? 'border-[#0A6F94] bg-[#EAF4F8] ring-1 ring-[#0A6F94]' : 'border-slate-200 hover:bg-slate-50')}>
                 <span className="block text-sm font-semibold text-slate-900">{c.label}</span>
@@ -193,18 +228,20 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
 
       {def && (
         <>
-          <Field label="Subject" htmlFor="ticket-subject" required>
-            <input id="ticket-subject" className="form-field" required autoFocus value={subject} onChange={e => setSubject(e.target.value)}
+          <Field label="Subject" htmlFor="ticket-subject" required error={fieldErrors.subject} errorId="ticket-subject-error">
+            <input id="ticket-subject" className="form-field" required aria-invalid={!!fieldErrors.subject} aria-describedby={fieldErrors.subject ? 'ticket-subject-error' : undefined} autoFocus value={subject} onChange={e => { setSubject(e.target.value); clearFieldError('subject') }}
                    placeholder="Short summary of your ticket" />
           </Field>
 
-          {scopedAccounts.length > 0 && accountMode !== 'hidden' && (
-            <Field label="E-commerce account" htmlFor="ticket-ecommerce-account" required={accountMode === 'required'}>
+          {(scopedAccounts.length > 0 || accountMode === 'required') && accountMode !== 'hidden' && (
+            <Field label="E-commerce account" htmlFor="ticket-ecommerce-account" required={accountMode === 'required'} error={fieldErrors.account} errorId="ticket-account-error">
               <MarketplaceAccountSelect
                 id="ticket-ecommerce-account"
                 accounts={scopedAccounts}
                 value={accountId}
-                onChange={setAccountId}
+                onChange={value => { setAccountId(value); clearFieldError('account') }}
+                invalid={!!fieldErrors.account}
+                ariaDescribedBy={fieldErrors.account ? 'ticket-account-error' : undefined}
                 placeholder={accountMode === 'required' ? 'Select account…' : 'Not specific'}
               />
             </Field>
@@ -295,8 +332,8 @@ export function PortalTicketForm({ ticket, accounts, platforms, clients, meId, h
           )}
 
           {!def.hideDescription && (
-            <Field label={def.descriptionLabel ?? 'Description'} htmlFor="ticket-description" required={descriptionRequired} hint="Anything else that helps us move faster.">
-              <textarea id="ticket-description" className="form-field min-h-[110px]" required={descriptionRequired} value={description} onChange={e => setDescription(e.target.value)} />
+            <Field label={def.descriptionLabel ?? 'Description'} htmlFor="ticket-description" required={descriptionRequired} error={fieldErrors.description} errorId="ticket-description-error" hint="Anything else that helps us move faster.">
+              <textarea id="ticket-description" className="form-field min-h-[110px]" required={descriptionRequired} aria-invalid={!!fieldErrors.description} aria-describedby={fieldErrors.description ? 'ticket-description-error' : undefined} value={description} onChange={e => { setDescription(e.target.value); clearFieldError('description') }} />
             </Field>
           )}
 

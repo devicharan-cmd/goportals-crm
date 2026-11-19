@@ -91,7 +91,9 @@ export function Field({
       )}
       {children}
       {hint && !error && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
-      {error && <p id={errorId} className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && (
+        <p id={errorId} role="alert" className="field-error">{error}</p>
+      )}
     </div>
   )
 }
@@ -148,7 +150,7 @@ export function CompanyAvatar({ name, src, size = 'md', className }: { name: str
   const imageSize = { xs: 20, sm: 40, md: 56, lg: 80 }[size]
   return (
     <div aria-label={`${name} company image`} role="img" className={cn(
-      'flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0A6F94] to-[#033B51] font-sans font-bold text-white',
+      'flex flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-[#0A6F94] to-[#033B51] font-sans font-bold text-white',
       sizes[size], className,
     )} style={size === 'xs' ? { width: 20, height: 20, minWidth: 20, minHeight: 20 } : undefined}>
       {src ? <Image src={src} alt="" width={imageSize} height={imageSize} unoptimized className="h-full w-full object-cover" /> : getInitials(name)}

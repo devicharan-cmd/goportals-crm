@@ -50,7 +50,7 @@ export function TaskBasicInformation({
         <input id={`${idPrefix}-title`} aria-invalid={!!titleError} required disabled={disabled}
                className={`form-field h-9 rounded-xl text-sm ${field(titleError)}`} placeholder={titlePlaceholder}
                value={title} onChange={event => onTitleChange(event.target.value)} />
-        {titleError && <p className="mt-1 text-xs font-medium text-red-600">{titleError}</p>}
+        {titleError && <p role="alert" className="field-error">{titleError}</p>}
       </div>
       <div className={`mt-3 grid gap-3 ${showAttachments ? 'sm:grid-cols-2' : ''}`}>
         <div className="min-w-0">
@@ -62,7 +62,7 @@ export function TaskBasicInformation({
                     className={`form-field min-h-[76px] rounded-xl resize-y text-sm ${field(descriptionError)}`}
                     placeholder={descriptionPlaceholder} value={description}
                     onChange={event => onDescriptionChange(event.target.value)} />
-          {descriptionError && <p className="mt-1 text-xs font-medium text-red-600">{descriptionError}</p>}
+          {descriptionError && <p role="alert" className="field-error">{descriptionError}</p>}
         </div>
         {showAttachments && (
           <div className="min-w-0">

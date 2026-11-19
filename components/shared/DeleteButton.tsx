@@ -12,6 +12,7 @@ import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 export function DeleteButton({
   table, id, redirectTo, label = 'Delete', variant = 'ghost', description, confirmationTitle, confirmLabel,
+  disabled = false, disabledReason, deleteCurrentScheduledTask = false, successMessage,
 }: {
   table: 'tasks' | 'tickets' | 'clients'
   id: string
@@ -21,6 +22,10 @@ export function DeleteButton({
   description?: string
   confirmationTitle?: string
   confirmLabel?: string
+  disabled?: boolean
+  disabledReason?: string
+  deleteCurrentScheduledTask?: boolean
+  successMessage?: string
 }) {
   const router = useRouter()
   const runOnce = useSingleFlight()
@@ -42,9 +47,15 @@ export function DeleteButton({
         failure = errorMessage(requestError)
       }
     } else {
-      const { data, error } = await createClient().from(table).delete().eq('id', id).select('id')
-      if (error) failure = errorMessage(error)
-      else if (!data?.length) failure = `Could not delete this ${itemName}; you may not have permission.`
+      const client = createClient()
+      if (table === 'tasks' && deleteCurrentScheduledTask) {
+        const { error } = await client.rpc('delete_current_scheduled_task', { p_task_id: id })
+        if (error) failure = errorMessage(error)
+      } else {
+        const { data, error } = await client.from(table).delete().eq('id', id).select('id')
+        if (error) failure = errorMessage(error)
+        else if (!data?.length) failure = `Could not delete this ${itemName}; you may not have permission.`
+      }
     }
     setLoading(false)
     if (failure) {
@@ -52,7 +63,7 @@ export function DeleteButton({
       showErrorToast(failure)
       return
     }
-    showSuccessToast(`${itemName[0].toUpperCase()}${itemName.slice(1)} deleted`)
+    showSuccessToast(successMessage ?? `${itemName[0].toUpperCase()}${itemName.slice(1)} deleted`)
     router.push(redirectTo)
     router.refresh()
   }
@@ -63,6 +74,8 @@ export function DeleteButton({
         variant={variant}
         size="sm"
         className={variant === 'ghost' ? 'text-red-600 hover:bg-red-50 hover:text-red-700' : undefined}
+        disabled={disabled}
+        title={disabled ? disabledReason : undefined}
         onClick={() => { setError(''); setOpen(true) }}
       >
         <Trash2 className="h-3.5 w-3.5" /> {label}

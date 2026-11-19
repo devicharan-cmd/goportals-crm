@@ -622,7 +622,7 @@ export function StaffProfileSettings({
                         </span>
                       )}
                     </div>
-                    {imageError && !imageDialogOpen && <p role="alert" className="mt-2 text-xs text-red-600">{imageError}</p>}
+                    {imageError && !imageDialogOpen && <p role="alert" className="field-error">{imageError}</p>}
                   </div>
                 </div>
                 <span className={cn(
@@ -686,7 +686,7 @@ export function StaffProfileSettings({
                     invalid={!!phoneError}
                   />
                   {phoneError && (
-                    <p className="mt-1.5 text-xs font-medium text-red-600">{phoneError}</p>
+                    <p role="alert" className="field-error">{phoneError}</p>
                   )}
                 </div>
 
@@ -722,7 +722,7 @@ export function StaffProfileSettings({
                     aria-invalid={!!jobTitleError}
                   />
                   {jobTitleError && (
-                    <p className="mt-1.5 text-xs font-medium text-red-600">{jobTitleError}</p>
+                    <p role="alert" className="field-error">{jobTitleError}</p>
                   )}
                 </div>
 
@@ -769,7 +769,7 @@ export function StaffProfileSettings({
                     </div>
                   )}
                   {roleError && (
-                    <p className="mt-1.5 text-xs font-medium text-red-600">{roleError}</p>
+                    <p role="alert" className="field-error">{roleError}</p>
                   )}
                   {promotionBlocked && (
                     <Link href={promotionBlockedIds.length
@@ -820,7 +820,7 @@ export function StaffProfileSettings({
                     </div>
                   )}
                   {reportingToError && (
-                    <p className="mt-1.5 text-xs font-medium text-red-600">{reportingToError}</p>
+                    <p role="alert" className="field-error">{reportingToError}</p>
                   )}
                 </div>
 
@@ -838,7 +838,7 @@ export function StaffProfileSettings({
                     invalid={!!timezoneError}
                   />
                   {timezoneError && (
-                    <p className="mt-1.5 text-xs font-medium text-red-600">{timezoneError}</p>
+                    <p role="alert" className="field-error">{timezoneError}</p>
                   )}
                 </div>
 
@@ -933,7 +933,7 @@ export function StaffProfileSettings({
                     </span>
                   </div>
                   {capacityError && (
-                    <p className="mt-1.5 text-xs font-medium text-red-600">{capacityError}</p>
+                    <p role="alert" className="field-error">{capacityError}</p>
                   )}
                 </div>
               </div>

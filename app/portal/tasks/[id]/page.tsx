@@ -112,14 +112,14 @@ export default async function PortalTaskDetailPage(props: { params: Promise<{ id
               />
               <PriorityBadge priority={task.priority} />
               {task.is_scheduled && <Badge className="gap-1 bg-indigo-50 text-indigo-700 ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3.5 w-3.5" />Scheduled</Badge>}
-              <DueDatePill date={task.due_date} status={task.status} className="ml-auto" />
+              <DueDatePill date={task.due_date} dueAt={task.due_at} status={task.status} className="ml-auto" />
             </div>
             <div className="border-b border-[#E2E8F0] pb-4">
               <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
             </div>
             <section className="mt-5">
               <h2 className="mb-3 flex items-center gap-3 text-base font-semibold leading-6 text-slate-900">
-                <span aria-hidden="true" className="h-5 w-1.5 shrink-0 rounded-full bg-[#0D9488]" />
+                <span aria-hidden="true" className="h-5 w-[5px] shrink-0 rounded-full bg-[#0D9488]" />
                 Description
               </h2>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700">

@@ -14,12 +14,14 @@ export function TimezoneSelect({
   disabled = false,
   required = true,
   invalid = false,
+  ariaDescribedBy,
 }: {
   value: string
   onChange: (value: string) => void
   disabled?: boolean
   required?: boolean
   invalid?: boolean
+  ariaDescribedBy?: string
 }) {
   const values = useMemo(() => {
     const intlWithTimeZones = Intl as typeof Intl & { supportedValuesOf?: (key: 'timeZone') => string[] }
@@ -36,6 +38,8 @@ export function TimezoneSelect({
       onChange={event => onChange(event.target.value)}
       disabled={disabled}
       required={required}
+      aria-invalid={invalid || undefined}
+      aria-describedby={ariaDescribedBy}
     >
       <option value="">Select timezone</option>
       {values.map(timezone => <option key={timezone} value={timezone}>{timezone.replaceAll('_', ' ')}</option>)}

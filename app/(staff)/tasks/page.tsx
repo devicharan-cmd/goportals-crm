@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { addTaskAssigneeHistory, assigneeFilterPeopleFor, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, taskAssigneeOptionsFor, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
+import { assigneeFilterPeopleFor, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, taskAssigneeOptionsFor, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
 import { TASK_PAGE_SIZE } from '@/lib/constants'
 import { ButtonLink } from '@/components/ui/button'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
@@ -69,42 +69,45 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     return query
   }
 
-  const [lookups, initialTaskResult, myTaskCountResult, allTaskCountResult] = await Promise.all([
+  const assignedScopeIdsPromise = scope === 'assigned'
+    ? supabase.from('profiles').select('id, role, status, reporting_to').then(({ data, error }) => {
+      if (error) throw error
+      const people = data ?? []
+      return taskAssigneeIdsForAssignedScope(me, {
+        people,
+        staff: people.filter(person => person.role !== 'client' && person.status === 'active'),
+      })
+    })
+    : lookupsPromise.then(lookups => taskAssigneeIdsForAssignedScope(me, lookups))
+  const taskResultPromise = scope === 'assigned'
+    ? assignedScopeIdsPromise.then(taskQuery)
+    : taskQuery([])
+  const assignedTaskCountPromise = assignedScopeIdsPromise.then(assignedScopeAssigneeIds => {
+    let query = supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assigned_by', me.id)
+    query = assignedScopeAssigneeIds.length
+      ? query.in('assignee_id', assignedScopeAssigneeIds)
+      : query.eq('id', '00000000-0000-0000-0000-000000000000')
+    return query
+  })
+
+  const [lookups, taskResult, myTaskCountResult, allTaskCountResult, assignedTaskCountResult] = await Promise.all([
     lookupsPromise,
-    scope === 'assigned' ? Promise.resolve(null) : taskQuery([]),
+    taskResultPromise,
     supabase.from('tasks').select('id', { count: 'exact', head: true })
       .eq('assignee_id', me.id)
       .not('status', 'in', '(completed,cancelled)'),
     countAllWithTaskQuery
       ? Promise.resolve(null)
       : supabase.from('tasks').select('id', { count: 'exact', head: true }),
-  ])
-
-  const assignedScopeAssigneeIds = taskAssigneeIdsForAssignedScope(me, lookups)
-  let assignedCountQuery = supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assigned_by', me.id)
-  assignedCountQuery = assignedScopeAssigneeIds.length
-    ? assignedCountQuery.in('assignee_id', assignedScopeAssigneeIds)
-    : assignedCountQuery.eq('id', '00000000-0000-0000-0000-000000000000')
-
-  const taskResultPromise = Promise.resolve(initialTaskResult ?? taskQuery(assignedScopeAssigneeIds))
-  // Start the history lookup as soon as the task rows arrive instead of
-  // waiting for counts and image signing to finish first.
-  const taskHistoryPromise = taskResultPromise.then(async result => {
-    if (result.error) throw result.error
-    return addTaskAssigneeHistory(
-      supabase,
-      normalizeTaskSummaryRows((result.data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0]),
-    )
-  })
-  const [taskResult, assignedTaskCountResult, tasks] = await Promise.all([
-    taskResultPromise,
-    assignedCountQuery,
-    taskHistoryPromise,
+    assignedTaskCountPromise,
   ])
   if (taskResult.error) throw taskResult.error
   if (myTaskCountResult.error) throw myTaskCountResult.error
   if (allTaskCountResult?.error) throw allTaskCountResult.error
   if (assignedTaskCountResult.error) throw assignedTaskCountResult.error
+  const tasks = normalizeTaskSummaryRows(
+    (taskResult.data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0],
+  )
   const hasMoreTasks = (taskResult.data?.length ?? 0) > TASK_PAGE_SIZE
   const allTaskCount = countAllWithTaskQuery
     ? taskResult.count ?? 0

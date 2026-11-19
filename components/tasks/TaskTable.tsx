@@ -10,7 +10,7 @@ import type { AssigneeOption, TaskAssignerInfo } from '@/lib/queries'
 import type { TaskSummary } from '@/types/database'
 
 function TaskDueDisplay({ task, className, rowAligned = false }: { task: TaskSummary; className?: string; rowAligned?: boolean }) {
-  const isOverdue = dueState(task.due_date, task.status) === 'overdue'
+  const isOverdue = dueState(task.due_date, task.status, new Date(), task.due_at) === 'overdue'
 
   return (
     <span className={`${rowAligned ? 'relative block h-14' : 'flex w-fit flex-col items-start gap-0.5'} text-xs ${className ?? ''}`}>

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { AlertTriangle, Flame, Globe2, LockKeyhole, X } from 'lucide-react'
 import { StaffIdentity } from '@/components/ui/primitives'
 import { PRIORITY_OPTIONS, TASK_STATUS_LABELS } from '@/lib/constants'
-import { formatDate, formatDateTime, formatTime } from '@/lib/utils'
+import { formatDate, formatDateTime } from '@/lib/utils'
 import type { AssigneeOption } from '@/components/tasks/AssignButton'
 import { TaskStatusSelect } from '@/components/tasks/TaskStatusSelect'
 import { TaskPrioritySelect, TaskUrgentToggle } from '@/components/tasks/TaskPropertyControls'
@@ -12,7 +12,7 @@ import type { AppRole, Task, TaskStatus } from '@/types/database'
 
 /** Task properties and permitted inline controls shown in the task detail sidebar. */
 export function TaskProperties({
-  task, ticketLabel, assignees, assigneeName, assignedBy, assignedAt, scheduleTime, scheduleRepeatLabel,
+  task, ticketLabel, assignees, assigneeName, assignedBy, assignedAt,
   canChangeStatus = false,
   canEditPriority = false, canEditUrgent = false,
 }: {
@@ -22,8 +22,6 @@ export function TaskProperties({
   assigneeName: string | null
   assignedBy?: { name: string; avatarUrl: string | null; role: AppRole } | null
   assignedAt?: string | null
-  scheduleTime?: string | null
-  scheduleRepeatLabel?: string | null
   canChangeStatus?: boolean
   canEditPriority?: boolean
   canEditUrgent?: boolean
@@ -128,28 +126,32 @@ export function TaskProperties({
         </div>
       )}
 
-      {assignedAt && (
+      {task.is_scheduled && (
+        <>
+          <div className={row}>
+            <span className={label}>Assigned date &amp; time</span>
+            <span className={value}>{formatDateTime(assignedAt)}</span>
+          </div>
+          <div className={row}>
+            <span className={label}>Due date</span>
+            <span className={value}>{task.due_at ? formatDateTime(task.due_at) : 'No due date'}</span>
+          </div>
+        </>
+      )}
+
+      {!task.is_scheduled && assignedAt && (
         <div className={row}>
-          <span className={label}>{task.is_scheduled ? 'Scheduled on' : 'Assigned'}</span>
+          <span className={label}>Assigned</span>
           <span className={value}>{formatDateTime(assignedAt)}</span>
         </div>
       )}
 
-      <div className={row}>
+      {!task.is_scheduled && <div className={row}>
         <span className={label}>Due date</span>
         <span className={value}>
-          {task.due_date
-            ? `${formatDate(task.due_date)}${task.is_scheduled ? ' · 11:59 PM' : ''}`
-            : 'No due date'}
+          {task.due_date ? formatDate(task.due_date) : 'No due date'}
         </span>
-      </div>
-
-      {task.is_scheduled && scheduleTime && (
-        <div className={row}>
-          <span className={label}>Schedule</span>
-          <span className={value}>{[scheduleRepeatLabel, `${formatTime(scheduleTime)} IST`].filter(Boolean).join(' · ')}</span>
-        </div>
-      )}
+      </div>}
 
       <div className={row}>
         <span className={label}>Urgent</span>

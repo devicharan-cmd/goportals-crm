@@ -234,7 +234,7 @@ export async function searchClients(value: string, status: ClientStatusFilter, o
     throw new Error('Invalid client status filter')
   }
   if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('Invalid client page offset')
-  await requireRole(['super_admin', 'manager'])
+  await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
   const queryText = safeSearchText(value)
   let query = supabase.from('clients')

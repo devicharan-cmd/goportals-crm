@@ -91,7 +91,9 @@ export function Field({
       )}
       {children}
       {hint && !error && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
-      {error && <p id={errorId} className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && (
+        <p id={errorId} role="alert" className="field-error">{error}</p>
+      )}
     </div>
   )
 }
@@ -143,12 +145,17 @@ export function StaffIdentity({ name, src, role, roleLabel, className }: {
   )
 }
 
-export function CompanyAvatar({ name, src, size = 'md', className }: { name: string; src?: string | null; size?: 'xs' | 'sm' | 'md' | 'lg'; className?: string }) {
-  const sizes = { xs: 'h-5 w-5 text-xs', sm: 'h-10 w-10 text-sm', md: 'h-14 w-14 text-lg', lg: 'h-20 w-20 text-2xl' }
-  const imageSize = { xs: 20, sm: 40, md: 56, lg: 80 }[size]
+export function CompanyAvatar({ name, src, size = 'md', className, rounded = false }: { name: string; src?: string | null; size?: 'xs' | 'sm' | 'md' | 'lg'; className?: string; rounded?: boolean }) {
+  const sizes = rounded
+    ? { xs: 'h-5 w-5 text-xs', sm: 'h-7 w-7 text-xs', md: 'h-9 w-9 text-sm', lg: 'h-12 w-12 text-base' }
+    : { xs: 'h-5 w-5 text-xs', sm: 'h-10 w-10 text-sm', md: 'h-14 w-14 text-lg', lg: 'h-20 w-20 text-2xl' }
+  const imageSize = rounded
+    ? { xs: 20, sm: 28, md: 36, lg: 48 }[size]
+    : { xs: 20, sm: 40, md: 56, lg: 80 }[size]
   return (
     <div aria-label={`${name} company image`} role="img" className={cn(
-      'flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0A6F94] to-[#033B51] font-sans font-bold text-white',
+      'flex flex-shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-[#0A6F94] to-[#033B51] font-sans font-bold text-white',
+      rounded ? 'rounded-full' : 'rounded-lg',
       sizes[size], className,
     )} style={size === 'xs' ? { width: 20, height: 20, minWidth: 20, minHeight: 20 } : undefined}>
       {src ? <Image src={src} alt="" width={imageSize} height={imageSize} unoptimized className="h-full w-full object-cover" /> : getInitials(name)}

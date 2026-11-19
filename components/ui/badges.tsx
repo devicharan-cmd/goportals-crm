@@ -56,8 +56,8 @@ const DUE_STYLES = {
   cancelled: 'text-slate-400',
 }
 
-export function DueDate({ date, status, className }: { date: string | null; status?: TaskStatus; className?: string }) {
-  return <span className={cn('text-xs', DUE_STYLES[dueState(date, status)], className)} suppressHydrationWarning>{dueLabel(date, status)}</span>
+export function DueDate({ date, dueAt, status, className }: { date: string | null; dueAt?: string | null; status?: TaskStatus; className?: string }) {
+  return <span className={cn('text-xs', DUE_STYLES[dueState(date, status, new Date(), dueAt)], className)} suppressHydrationWarning>{dueLabel(date, status, new Date(), dueAt)}</span>
 }
 
 const DUE_BACKGROUND_STYLES = {
@@ -70,15 +70,15 @@ const DUE_BACKGROUND_STYLES = {
   cancelled: 'bg-slate-100',
 }
 
-export function DueDatePill({ date, status, className }: { date: string | null; status?: TaskStatus; className?: string }) {
-  const state = dueState(date, status)
+export function DueDatePill({ date, dueAt, status, className }: { date: string | null; dueAt?: string | null; status?: TaskStatus; className?: string }) {
+  const state = dueState(date, status, new Date(), dueAt)
   return (
     <span
       className={cn('inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs', DUE_STYLES[state], DUE_BACKGROUND_STYLES[state], className)}
       suppressHydrationWarning
     >
       <CalendarDays aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-      {dueLabel(date, status)}
+      {dueLabel(date, status, new Date(), dueAt)}
     </span>
   )
 }

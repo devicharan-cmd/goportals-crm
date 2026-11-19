@@ -197,10 +197,10 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
                 <thead className="bg-white text-xs text-slate-500">
                   <tr className="border-b border-slate-100">
                     <th className="w-12 px-4 py-3"><span className="sr-only">Select</span></th>
-                    <th className="px-3 py-3 font-semibold">Name</th>
+                    <th className="px-3 py-3 font-semibold">Name (All employees)</th>
                     <th className="px-3 py-3 font-semibold">Role</th>
                     <th className="px-3 py-3 font-semibold">Department</th>
-                    <th className="px-3 py-3 font-semibold">Current POC</th>
+                    <th className="px-3 py-3 font-semibold">Current POC (Reporting to)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -255,7 +255,7 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
         <div className="border-t border-slate-100 p-4">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900"><UserRoundPlus className="h-4 w-4 text-[#045E80]" />New POC</h3>
           <p className="mt-1 text-xs text-slate-500">Choose an active person with the correct role for every selected staff member.</p>
-          <SearchableSelect className="form-field mt-3 h-10 w-full rounded-xl text-sm" aria-label="New POC" searchable
+          <SearchableSelect className={cn('form-field mt-3 h-10 w-full rounded-xl text-sm', unchangedPocRows.length > 0 && 'border-red-400 bg-red-50/30 focus:border-red-500')} aria-label="New POC" aria-invalid={unchangedPocRows.length > 0} aria-describedby={unchangedPocRows.length > 0 ? 'new-poc-validation-error' : undefined} searchable
             searchPlaceholder="Search eligible POCs..." value={newPocId} disabled={!selectedRows.length || !pocOptions.length}
             onChange={event => { setNewPocId(event.target.value); setError('') }}>
             <option value="">{!selectedRows.length ? 'Select staff first' : compatibleRole ? 'Select new POC' : 'Selected roles need different POCs'}</option>
@@ -263,7 +263,7 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
           </SearchableSelect>
           {selectedRows.length > 0 && !compatibleRole && <p className="mt-2 text-xs text-amber-700">Select staff with the same reporting level to assign one POC in this change.</p>}
           {selectedRows.length > 0 && compatibleRole && !pocOptions.length && <p className="mt-2 text-xs text-amber-700">No active eligible POC is available for these staff members.</p>}
-          {unchangedPocRows.length > 0 && <p role="alert" className="mt-2 text-sm font-medium text-red-700">{newPoc?.full_name || newPoc?.email} is already the current POC for {unchangedPocRows.map(row => row.full_name || row.email).join(', ')}. Choose a different person.</p>}
+          {unchangedPocRows.length > 0 && <p id="new-poc-validation-error" role="alert" className="field-error">{newPoc?.full_name || newPoc?.email} is already the current POC for {unchangedPocRows.map(row => row.full_name || row.email).join(', ')}. Choose a different person.</p>}
           <div className="mt-4 rounded-xl bg-[#EAF4F8] p-3 text-xs leading-5 text-[#034C68]">
             Only active staff with the correct reporting role can be selected. This updates reporting relationships only; tasks, tickets, and client coverage stay with their current owners.
           </div>

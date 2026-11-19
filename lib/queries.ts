@@ -10,7 +10,7 @@ export const TASK_LIST_SELECT =
 
 /** Only the fields used by the staff task table and board. */
 export const TASK_SUMMARY_SELECT =
-  'id, task_number, title, status, priority, is_urgent, source, visibility, is_scheduled, schedule_id, due_date, created_at, client_id, ticket_id, assignee_id, assigned_by, client:clients(company_name), platform:platforms(name), department:departments(name)'
+  'id, task_number, title, status, priority, is_urgent, source, visibility, is_scheduled, schedule_id, platform_ids, due_date, due_at, created_at, client_id, ticket_id, assignee_id, assigned_by, client:clients(company_name), platform:platforms(name), department:departments(name)'
 
 export type TaskPageCursor = Pick<TaskSummary, 'id' | 'is_urgent' | 'due_date' | 'created_at'>
 
@@ -220,30 +220,6 @@ export function departmentIdsFor(profileId: string, lookups: StaffLookups): Set<
   return new Set(lookups.departmentMembers.filter(m => m.profile_id === profileId).map(m => m.department_id))
 }
 
-/**
- * Client IDs a team_lead actually has work with — unions three sources, since
- * any one of them can be how a client first became "theirs" in practice:
- *  - client_team coverage (personally, or through one of their departments —
- *    the same table manager_covers_client() (DB) uses for visibility)
- *  - tasks assigned to them or their department
- * Used to scope the "Client" picker on the new/edit task form, which
- * otherwise lists every company client (unlike /clients, Manager/Super Admin only).
- */
-export async function clientIdsForTeamLead(profileId: string, departmentIds: string[]): Promise<Set<string>> {
-  const supabase = await createClient()
-  const parts = [`profile_id.eq.${profileId}`]
-  const scopeParts = [`assignee_id.eq.${profileId}`]
-  if (departmentIds.length) {
-    parts.push(`department_id.in.(${departmentIds.join(',')})`)
-    scopeParts.push(`department_id.in.(${departmentIds.join(',')})`)
-  }
-  const [{ data: team }, { data: tasks }] = await Promise.all([
-    supabase.from('client_team').select('client_id').or(parts.join(',')),
-    supabase.from('tasks').select('client_id').or(scopeParts.join(',')),
-  ])
-  return new Set([...(team ?? []), ...(tasks ?? [])].map(r => r.client_id))
-}
-
 /** All profile IDs (excluding profileId itself) sharing at least one department with profileId. */
 export function profileIdsSharingDepartment(profileId: string, lookups: StaffLookups): Set<string> {
   const myDepts = departmentIdsFor(profileId, lookups)
@@ -255,7 +231,10 @@ export function profileIdsSharingDepartment(profileId: string, lookups: StaffLoo
 }
 
 /** Direct and nested staff reporting descendants for a profile. */
-export function profileIdsReportingTo(profileId: string, lookups: Pick<StaffLookups, 'people'>): Set<string> {
+type ReportingPerson = Pick<Profile, 'id' | 'reporting_to'>
+type AssignedScopePerson = Pick<Profile, 'id' | 'role' | 'status' | 'reporting_to'>
+
+export function profileIdsReportingTo(profileId: string, lookups: { people: ReportingPerson[] }): Set<string> {
   const descendants = new Set<string>()
   const pending = [profileId]
 
@@ -274,7 +253,7 @@ export function profileIdsReportingTo(profileId: string, lookups: Pick<StaffLook
 }
 
 /** Active staff in the same reporting tree, including peers, managers, and reports. */
-export function profileIdsInReportingHierarchy(profileId: string, lookups: StaffLookups): Set<string> {
+export function profileIdsInReportingHierarchy(profileId: string, lookups: { people: ReportingPerson[]; staff: AssignedScopePerson[] }): Set<string> {
   const childrenByParent = new Map<string, string[]>()
   const peopleById = new Map(lookups.people.map(person => [person.id, person]))
   for (const person of lookups.people) {
@@ -305,12 +284,15 @@ export function profileIdsInReportingHierarchy(profileId: string, lookups: Staff
 }
 
 /** Staff a user may assign to, grouped for the Tasks "Assigned by me" scope. */
-export function taskAssigneeIdsForAssignedScope(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): string[] {
+export function taskAssigneeIdsForAssignedScope(
+  me: Pick<Profile, 'id' | 'role'>,
+  lookups: { people: AssignedScopePerson[]; staff: AssignedScopePerson[] },
+): string[] {
   const clientAssigneeIds = lookups.people
     .filter(person => person.role === 'client')
     .map(person => person.id)
   if (me.role === 'super_admin') {
-    return [...activeStaffForSuperAdmin(lookups).map(person => person.id), ...clientAssigneeIds]
+    return [...lookups.staff.filter(person => person.status === 'active').map(person => person.id), ...clientAssigneeIds]
   }
 
   const hierarchyIds = profileIdsInReportingHierarchy(me.id, lookups)
@@ -334,15 +316,23 @@ export function taskAssigneeIdsForAssignedScope(me: Pick<Profile, 'id' | 'role'>
 export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
   if (me.role === 'super_admin') return activeStaffForSuperAdmin(lookups)
 
+  // Profiles can be hidden by profile-table RLS; the safe staff directory is
+  // the source for the full active Super Admin list across every staff role.
+  const superAdmins = activeStaffForSuperAdmin(lookups).filter(person => person.role === 'super_admin')
+
   if (me.role === 'manager') {
     const reportIds = profileIdsReportingTo(me.id, lookups)
-    return lookups.staff.filter(person =>
-      person.id === me.id || reportIds.has(person.id) || person.role === 'super_admin',
-    )
+    return Array.from(new Map([
+      ...lookups.staff.filter(person => person.id === me.id || reportIds.has(person.id)),
+      ...superAdmins,
+    ].map(person => [person.id, person])).values())
   }
 
   const allowedIds = profileIdsInReportingHierarchy(me.id, lookups)
-  return lookups.staff.filter(person => allowedIds.has(person.id))
+  return Array.from(new Map([
+    ...lookups.staff.filter(person => allowedIds.has(person.id)),
+    ...superAdmins,
+  ].map(person => [person.id, person])).values())
 }
 
 /** People available in the Tasks page assignee filter, scoped by reporting hierarchy. */

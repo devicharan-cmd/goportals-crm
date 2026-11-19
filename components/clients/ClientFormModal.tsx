@@ -39,6 +39,9 @@ export function ClientFormModal({
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [phoneError, setPhoneError] = useState('')
+  const [timezoneError, setTimezoneError] = useState('')
+  const [serviceError, setServiceError] = useState('')
   const [form, setForm] = useState({
     company_name:        client?.company_name ?? '',
     gstin:               client?.gstin ?? '',
@@ -67,25 +70,44 @@ export function ClientFormModal({
     place_id: client?.place_id ?? null,
     address_source: client?.address_source ?? null,
   })
-  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(f => ({ ...f, [k]: v }))
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => {
+    setForm(f => ({ ...f, [k]: v }))
+    if (k === 'contact_phone') setPhoneError('')
+    if (k === 'timezone') setTimezoneError('')
+  }
 
   const addAccount = () => setAccountDrafts(d => [...d, { key: newDraftKey(), platform_id: '', account_name: '', seller_id: '' }])
-  const updateAccount = (key: string, patch: Partial<AccountDraft>) => setAccountDrafts(d => d.map(a => a.key === key ? { ...a, ...patch } : a))
+  const updateAccount = (key: string, patch: Partial<AccountDraft>) => {
+    setServiceError('')
+    setAccountDrafts(d => d.map(a => a.key === key ? { ...a, ...patch } : a))
+  }
   const removeAccount = (key: string) => {
     setAccountDrafts(d => d.filter(a => a.key !== key))
     setServiceDrafts(d => d.map(s => s.account_key === key ? { ...s, account_key: '' } : s))
   }
 
-  const addService = () => setServiceDrafts(d => [...d, { key: newDraftKey(), service_id: '', custom_name: '', account_key: '', price: '', billing_type: 'monthly' }])
-  const updateService = (key: string, patch: Partial<ServiceDraft>) => setServiceDrafts(d => d.map(s => s.key === key ? { ...s, ...patch } : s))
-  const removeService = (key: string) => setServiceDrafts(d => d.filter(s => s.key !== key))
+  const addService = () => {
+    setServiceError('')
+    setServiceDrafts(d => [...d, { key: newDraftKey(), service_id: '', custom_name: '', account_key: '', price: '', billing_type: 'monthly' }])
+  }
+  const updateService = (key: string, patch: Partial<ServiceDraft>) => {
+    setServiceError('')
+    setServiceDrafts(d => d.map(s => s.key === key ? { ...s, ...patch } : s))
+  }
+  const removeService = (key: string) => {
+    setServiceError('')
+    setServiceDrafts(d => d.filter(s => s.key !== key))
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    const phoneError = validateMobilePhone(form.contact_phone)
-    if (phoneError) return setError(phoneError)
-    if (!isValidTimeZone(form.timezone)) return setError('Select a valid timezone.')
+    const nextPhoneError = validateMobilePhone(form.contact_phone) ?? ''
+    const nextTimezoneError = !isValidTimeZone(form.timezone) ? 'Select a valid timezone.' : ''
+    setPhoneError(nextPhoneError)
+    setTimezoneError(nextTimezoneError)
+    setServiceError('')
+    if (nextPhoneError || nextTimezoneError) return
 
     if (!isEdit) {
       const seen = new Set<string>()
@@ -94,7 +116,7 @@ export function ClientFormModal({
         if (!svcKey) continue
         const comboKey = `${svcKey}::${s.account_key}`
         if (seen.has(comboKey)) {
-          return setError('The same service is added twice for the same account (or both "whole client") — remove one before saving.')
+          return setServiceError('The same service is added twice for the same account (or both "whole client") — remove one before saving.')
         }
         seen.add(comboKey)
       }
@@ -215,11 +237,11 @@ export function ClientFormModal({
             <Field label="Contact email" required={!isEdit && form.send_invite}>
               <input className="form-field" type="email" required={!isEdit && form.send_invite} value={form.contact_email} onChange={e => set('contact_email', e.target.value)} />
             </Field>
-            <Field label="Mobile number" required>
-              <InternationalPhoneField value={form.contact_phone} onChange={value => set('contact_phone', value)} />
+            <Field label="Mobile number" required error={phoneError} errorId="client-mobile-error">
+              <InternationalPhoneField value={form.contact_phone} onChange={value => set('contact_phone', value)} invalid={!!phoneError} ariaDescribedBy={phoneError ? 'client-mobile-error' : undefined} />
             </Field>
-            <Field label="Timezone" required>
-              <TimezoneSelect value={form.timezone} onChange={value => set('timezone', value)} />
+            <Field label="Timezone" required error={timezoneError} errorId="client-timezone-error">
+              <TimezoneSelect value={form.timezone} onChange={value => set('timezone', value)} invalid={!!timezoneError} ariaDescribedBy={timezoneError ? 'client-timezone-error' : undefined} />
             </Field>
             <Field label="GSTIN"><input className="form-field uppercase" value={form.gstin} onChange={e => set('gstin', e.target.value)} /></Field>
             <Field label="WhatsApp group link"><input className="form-field" value={form.whatsapp_group_link} onChange={e => set('whatsapp_group_link', e.target.value)} /></Field>
@@ -257,6 +279,7 @@ export function ClientFormModal({
             <div className="rounded-xl bg-slate-50 p-4">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Services & pricing</p>
               <p className="mb-3 text-xs text-slate-500">The client sees this price in the agreement — it won&apos;t change if the service&apos;s default price changes later.</p>
+              {serviceError && <p role="alert" className="field-error mb-3">{serviceError}</p>}
               {serviceDrafts.map(s => (
                 <div key={s.key} className="mb-2 flex flex-wrap items-center gap-2">
                   <SearchableSelect className="form-field h-9 w-40 py-1.5" searchable searchPlaceholder="Search services..." value={s.service_id} onChange={e => updateService(s.key, { service_id: e.target.value })}>

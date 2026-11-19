@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, FileSignature, Mail, MapPin, MessageCircle, Phone, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
-import { addTaskAssigneeHistory, getClientProfileImageUrls, getTicketDetailLookups, nameMap, TASK_LIST_SELECT, taskAssigneeOptionsFor } from '@/lib/queries'
+import { getClientProfileImageUrls, getTicketDetailLookups, nameMap, TASK_SUMMARY_SELECT, taskAssigneeOptionsFor } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/primitives'
 import { AccountStatusBadge, Badge } from '@/components/ui/badges'
@@ -18,36 +18,38 @@ import { DeleteButton } from '@/components/shared/DeleteButton'
 import { CompanyAvatar } from '@/components/ui/primitives'
 import { STAGE_LABELS, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import { formatDate, formatINR } from '@/lib/utils'
-import type { Client, ClientInternal, TaskListItem } from '@/types/database'
+import type { Client, ClientInternal, TaskSummary } from '@/types/database'
 
 export default async function ClientDetailPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
-  const me = await requireRole(['super_admin', 'manager'])
+  const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const supabase = await createClient()
   const id = params.id
 
-  const tasksWithHistoryPromise = (async () => {
-    const { data, error } = await supabase.from('tasks').select(TASK_LIST_SELECT)
-      .eq('client_id', id).order('status').order('due_date', { nullsFirst: false }).limit(100)
-    if (error) throw error
-    return addTaskAssigneeHistory(supabase, (data ?? []) as TaskListItem[])
-  })()
+  const clientPromise = supabase.from('clients').select('*').eq('id', id).maybeSingle()
+  const clientImageUrlsPromise: Promise<Record<string, string>> = Promise.resolve(clientPromise).then(async ({ data }): Promise<Record<string, string>> => data
+    ? getClientProfileImageUrls([{ company_profile_image_path: data.company_profile_image_path }])
+    : {})
+  const tasksPromise = supabase.from('tasks').select(TASK_SUMMARY_SELECT)
+    .eq('client_id', id).order('status').order('due_date', { nullsFirst: false }).limit(100)
   const [
     { data: clientData }, { data: internalData }, { data: accounts }, { data: services }, { data: team },
-    allTasks, { data: acceptances }, lookups,
+    taskResult, { data: acceptances }, lookups, clientImageUrls,
   ] = await Promise.all([
-    supabase.from('clients').select('*').eq('id', id).maybeSingle(),
+    clientPromise,
     supabase.from('client_internal').select('*').eq('client_id', id).maybeSingle(),
     supabase.from('ecommerce_accounts').select('id, platform_id, account_name, seller_id, status').eq('client_id', id).order('created_at'),
     supabase.from('client_services').select('id, service_id, custom_name, status, ecommerce_account_id, agreed_price, currency, billing_type').eq('client_id', id).order('created_at'),
     supabase.from('client_team').select('profile_id, department_id').eq('client_id', id),
-    tasksWithHistoryPromise,
+    tasksPromise,
     supabase.from('agreement_acceptances').select('accepted_at, agreement:agreements(version)').eq('client_id', id).order('accepted_at', { ascending: false }),
     getTicketDetailLookups(),
+    clientImageUrlsPromise,
   ])
   if (!clientData) notFound()
+  if (taskResult.error) throw taskResult.error
+  const allTasks = (taskResult.data ?? []) as unknown as TaskSummary[]
   const client = clientData as Client
-  const clientImageUrls = await getClientProfileImageUrls([{ company_profile_image_path: client.company_profile_image_path }])
   const companyAddressParts = [client.address_line, client.city, client.state, client.postal_code, client.country]
     .filter((part): part is string => !!part?.trim())
     .filter((part, index, parts) => !parts.slice(0, index).some(previous => previous.toLowerCase().includes(part.toLowerCase())))

@@ -199,7 +199,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
       <section className="content-card self-start overflow-visible" aria-labelledby="brand-logo-title">
-        {/* Brand banner with the logo circle overlapping its bottom edge */}
+        {/* Brand banner with the square logo overlapping its bottom edge */}
         <div className="h-24 rounded-t-xl bg-gradient-to-br from-[#0A6F94] via-[#034C68] to-[#022B3B]" />
         <div className="-mt-14 flex flex-col items-center px-5 pb-6 text-center">
             <div className="relative">
@@ -207,7 +207,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
               busy={imageBusy}
               onClick={openImageDialog}
               label={currentImage ? 'Change company logo' : 'Add company logo'}
-              className="h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-[#0A6F94] to-[#022B3B] text-4xl font-bold text-white shadow-lg ring-4 ring-white transition"
+              className="h-28 w-28 items-center justify-center rounded-xl bg-gradient-to-br from-[#0A6F94] to-[#022B3B] text-4xl font-bold text-white shadow-lg ring-4 ring-white transition"
             >
               {currentImage
                 ? <Image src={currentImage} alt={`${form.company_name} logo`} width={112} height={112} unoptimized className="h-full w-full object-cover" />
@@ -222,7 +222,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
             {form.company_name.trim() || 'Your company'}
           </h2>
           {form.contact_name.trim() && <p className="mt-1 text-sm text-slate-500">{form.contact_name.trim()}</p>}
-          {imageError && !imageDialogOpen && <p role="alert" className="mt-2 text-xs text-red-600">{imageError}</p>}
+          {imageError && !imageDialogOpen && <p role="alert" className="field-error">{imageError}</p>}
 
           <div className="mt-5 w-full space-y-2 border-t border-slate-100 pt-4 text-center text-xs text-slate-500">
             {(address.city.trim() || address.state.trim()) && (
@@ -294,7 +294,7 @@ export function PortalProfileForm({ client, imageUrl }: { client: Client; imageU
       >
         <div className="space-y-5">
           <div className="flex items-center gap-5 rounded-2xl border-2 border-dashed border-[#9FCCDE] bg-gradient-to-r from-[#EAF4F8]/70 to-white p-5 transition hover:border-[#63A9C4] sm:gap-6 sm:p-6">
-            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0A6F94] to-[#022B3B] text-3xl font-bold text-white shadow-lg ring-4 ring-white sm:h-24 sm:w-24 sm:text-4xl">
+            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[#0A6F94] to-[#022B3B] text-3xl font-bold text-white shadow-lg ring-4 ring-white sm:h-24 sm:w-24 sm:text-4xl">
               {selectedImagePreview || currentImage
                 ? <Image src={selectedImagePreview ?? currentImage ?? ''} alt={selectedImage ? 'Selected company logo preview' : 'Current company logo'} width={96} height={96} unoptimized className="h-full w-full object-cover" />
                 : form.company_name.trim().charAt(0).toUpperCase() || '?' }

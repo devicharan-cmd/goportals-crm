@@ -25,8 +25,8 @@ type CardProps = {
   scope?: 'mine' | 'assigned' | 'all'
 }
 
-function BoardDueDate({ date, status }: { date: TaskSummary['due_date']; status: TaskSummary['status'] }) {
-  return <DueDate date={date} status={status} className="block text-[11px] font-medium" />
+function BoardDueDate({ date, dueAt, status }: { date: TaskSummary['due_date']; dueAt?: TaskSummary['due_at']; status: TaskSummary['status'] }) {
+  return <DueDate date={date} dueAt={dueAt} status={status} className="block text-[11px] font-medium" />
 }
 
 function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: CardProps & { overlay?: boolean; linked?: boolean }) {
@@ -66,7 +66,7 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
         {task.client?.company_name && <p className="truncate text-xs text-slate-500">{task.client.company_name}</p>}
         <div className={cn('flex min-w-0 flex-nowrap items-center gap-1.5 text-xs text-slate-500', task.client?.company_name && 'mt-1')}>
           <div className="w-fit shrink-0">
-            <BoardDueDate date={task.due_date} status={task.status} />
+          <BoardDueDate date={task.due_date} dueAt={task.due_at} status={task.status} />
           </div>
           {isScheduled && <span title="Scheduled task" className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-[#F5FAE8] px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-[#5B771A] ring-1 ring-inset ring-[#D3E896]"><CalendarClock aria-hidden="true" className="h-3 w-3" />Scheduled</span>}
         </div>

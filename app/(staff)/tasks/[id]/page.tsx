@@ -23,7 +23,7 @@ import { TaskEditModal } from '@/components/tasks/TaskEditModal'
 import { TaskScheduleControl } from '@/components/tasks/TaskScheduleControl'
 import { FileAttachmentDownload } from '@/components/shared/FileAttachmentDownload'
 import { TYPE_LABELS } from '@/lib/constants'
-import { dueState, formatDate, formatRelative, taskCode, ticketCode } from '@/lib/utils'
+import { dueState, formatDate, formatDateTime, formatRelative, formatTime, taskCode, ticketCode } from '@/lib/utils'
 import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TimeLog } from '@/types/database'
 
 export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
@@ -59,8 +59,8 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     ticket: { id: string; ticket_number: number; subject: string } | null
   }
   const scheduleLookup = task.schedule_id
-    ? supabase.from('task_schedules').select('id, created_by, enabled, repeat_type, interval_days, start_date, schedule_time').eq('id', task.schedule_id)
-    : supabase.from('task_schedules').select('id, created_by, enabled, repeat_type, interval_days, start_date, schedule_time').eq('task_id', task.id)
+    ? supabase.from('task_schedules').select('id, created_by, enabled, repeat_type, interval_days, start_date, schedule_time, created_at, current_task_id').eq('id', task.schedule_id)
+    : supabase.from('task_schedules').select('id, created_by, enabled, repeat_type, interval_days, start_date, schedule_time, created_at, current_task_id').eq('task_id', task.id)
   const taskHistoryPromise = getTaskAssigneeHistory(supabase, [task.id])
   const schedulePromise = scheduleLookup.maybeSingle()
   const clientImagePath = task.client?.company_profile_image_path
@@ -134,9 +134,10 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     || (!task.assigned_by && !task.assignee_id && createdByMe))
   const canEditChecklist = !isFormerAssignee && (canManageTask || task.assignee_id === me.id)
   const tasksHref = scopedTasksContext ? `/tasks?scope=${searchParams.scope}` : '/tasks'
-  const scheduleCanManage = !isFormerAssignee && taskSchedule?.created_by === me.id
+  const isCurrentScheduleTask = Boolean(taskSchedule && taskSchedule.current_task_id === task.id)
+  const scheduleCanManage = !isFormerAssignee && isCurrentScheduleTask && taskSchedule?.created_by === me.id
   const scheduleRepeatLabel = taskSchedule?.repeat_type === 'weekly'
-    ? 'Daily for one week'
+    ? 'For a week'
     : taskSchedule?.repeat_type === 'custom'
       ? `Every ${taskSchedule.interval_days} days`
         : 'Daily'
@@ -168,7 +169,27 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
       <div className="mb-4 flex items-center justify-between gap-3">
         <Link href={tasksHref} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
         <div className="flex items-center gap-2">
-          {canManageTask && <DeleteButton table="tasks" id={task.id} redirectTo={tasksHref} variant="danger" />}
+          {canManageTask && <DeleteButton
+            table="tasks"
+            id={task.id}
+            redirectTo={tasksHref}
+            variant="danger"
+            disabled={Boolean(task.is_scheduled && isCurrentScheduleTask && taskSchedule?.enabled)}
+            disabledReason="Pause the schedule before deleting its current task."
+            deleteCurrentScheduledTask={Boolean(task.is_scheduled && isCurrentScheduleTask && taskSchedule && !taskSchedule.enabled)}
+            confirmationTitle={task.is_scheduled && isCurrentScheduleTask && taskSchedule && !taskSchedule.enabled
+              ? 'Delete this task and stop the schedule?'
+              : undefined}
+            description={task.is_scheduled && isCurrentScheduleTask && taskSchedule && !taskSchedule.enabled
+              ? 'This deletes the current task and stops future assignments. Older scheduled tasks will remain.'
+              : undefined}
+            confirmLabel={task.is_scheduled && isCurrentScheduleTask && taskSchedule && !taskSchedule.enabled
+              ? 'Delete task and stop schedule'
+              : undefined}
+            successMessage={task.is_scheduled && isCurrentScheduleTask && taskSchedule && !taskSchedule.enabled
+              ? 'Task deleted and schedule stopped'
+              : undefined}
+          />}
           {canManageTask && me.role !== 'employee' && <AssignButton
             taskId={task.id}
             currentId={task.assignee_id}
@@ -222,8 +243,9 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                 {task.source === 'client' && <Badge className="bg-[#F5FAE8] text-[#465B17] ring-[#D3E896]">Client request</Badge>}
                 <DueDatePill
                   date={task.due_date}
+                  dueAt={task.due_at}
                   status={task.status}
-                  className={dueState(task.due_date, task.status) === 'ok' ? 'ml-auto font-semibold' : 'ml-auto'}
+                  className={dueState(task.due_date, task.status, new Date(), task.due_at) === 'ok' ? 'ml-auto font-semibold' : 'ml-auto'}
                 />
               </div>
               <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
@@ -313,15 +335,13 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                 role: taskAssigner.role,
               } : null}
               assignedAt={task.assigned_at}
-              scheduleTime={taskSchedule?.schedule_time}
-              scheduleRepeatLabel={task.is_scheduled ? scheduleRepeatLabel : null}
               canChangeStatus={task.assignee_id === me.id || task.assigned_by === me.id}
               canEditPriority={canManageTask}
               canEditUrgent={canManageTask}
             />
           </Card>
           <Card>
-            <CardHeader title="Details" />
+            <CardHeader title="Task details" />
             <dl className="divide-y divide-slate-100 text-sm">
               {details.map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3 px-5 py-2">
@@ -331,6 +351,23 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               ))}
             </dl>
           </Card>
+          {task.is_scheduled && taskSchedule && (
+            <Card>
+              <CardHeader title="Scheduled task details" />
+              <dl className="divide-y divide-slate-100 text-sm">
+                <div className="flex justify-between gap-3 px-5 py-2">
+                  <dt className="text-slate-500">Schedule created</dt>
+                  <dd className="text-right text-slate-800">{formatDateTime(taskSchedule.created_at)}</dd>
+                </div>
+                <div className="flex justify-between gap-3 px-5 py-2">
+                  <dt className="text-slate-500">Schedule run</dt>
+                  <dd className="text-right text-slate-800">
+                    {[scheduleRepeatLabel, `${formatTime(taskSchedule.schedule_time)} IST`].filter(Boolean).join(' · ')}
+                  </dd>
+                </div>
+              </dl>
+            </Card>
+          )}
           <Card>
             <CardHeader title="Time logged" />
             <div className="p-5">

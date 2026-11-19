@@ -151,7 +151,7 @@ export default async function UrgentPage() {
                   <TaskPreviousAssignees history={t.assignee_history} compact />
                 </Link>
                 <div className="flex items-center gap-4">
-                  <DueDate date={t.due_date} status={t.status} />
+                  <DueDate date={t.due_date} dueAt={t.due_at} status={t.status} />
                   <ClaimButton taskId={t.id} />
                 </div>
               </li>

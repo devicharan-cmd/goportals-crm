@@ -112,7 +112,7 @@ export default async function PortalTaskDetailPage(props: { params: Promise<{ id
               />
               <PriorityBadge priority={task.priority} />
               {task.is_scheduled && <Badge className="gap-1 bg-indigo-50 text-indigo-700 ring-indigo-200"><CalendarClock aria-hidden="true" className="h-3.5 w-3.5" />Scheduled</Badge>}
-              <DueDatePill date={task.due_date} status={task.status} className="ml-auto" />
+              <DueDatePill date={task.due_date} dueAt={task.due_at} status={task.status} className="ml-auto" />
             </div>
             <div className="border-b border-[#E2E8F0] pb-4">
               <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>

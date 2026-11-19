@@ -94,10 +94,11 @@ function daysUntilDue(dueDate: string, now: Date): number {
 }
 
 /** Date-only deadlines use India calendar days; the due date remains current through its full local day. */
-export function dueState(dueDate: string | null | undefined, status?: TaskStatus, now = new Date()): DueState {
+export function dueState(dueDate: string | null | undefined, status?: TaskStatus, now = new Date(), dueAt?: string | null): DueState {
   if (status === 'completed') return 'completed'
   if (status === 'cancelled') return 'cancelled'
   if (!dueDate) return 'none'
+  if (dueAt && new Date(dueAt).getTime() < now.getTime()) return 'overdue'
   const days = daysUntilDue(dueDate, now)
   if (days < 0) return 'overdue'
   if (days === 0) return 'today'
@@ -105,8 +106,8 @@ export function dueState(dueDate: string | null | undefined, status?: TaskStatus
   return 'ok'
 }
 
-export function dueLabel(dueDate: string | null | undefined, status?: TaskStatus, now = new Date()): string {
-  const state = dueState(dueDate, status, now)
+export function dueLabel(dueDate: string | null | undefined, status?: TaskStatus, now = new Date(), dueAt?: string | null): string {
+  const state = dueState(dueDate, status, now, dueAt)
   if (state === 'completed') return 'Completed'
   if (state === 'cancelled') return 'Cancelled'
   if (state === 'none') return 'No due date'
@@ -114,6 +115,7 @@ export function dueLabel(dueDate: string | null | undefined, status?: TaskStatus
   const days = daysUntilDue(dueDate!, now)
   if (state === 'overdue') {
     const overdueDays = -days
+    if (overdueDays <= 0) return 'Overdue'
     return `${overdueDays} ${overdueDays === 1 ? 'day' : 'days'} overdue`
   }
   return `Due in ${days} ${days === 1 ? 'day' : 'days'}`

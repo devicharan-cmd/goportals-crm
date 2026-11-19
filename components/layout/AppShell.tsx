@@ -553,7 +553,7 @@ export function AppShell({
         <div className={cn('flex items-center rounded-lg', compact ? 'flex-col gap-2 py-1' : 'gap-3 px-2 py-2')}>
           <span title={compact ? `${user.name || user.email} · ${ROLE_LABELS[user.role]}` : undefined}>
             {isClient
-              ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="md" />
+              ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="md" rounded />
               : <Avatar name={user.name || user.email} src={liveAvatarUrl} role={user.role} size="md" />}
           </span>
           {!compact && (
@@ -647,7 +647,7 @@ export function AppShell({
                   aria-haspopup="true"
                 >
                   {isClient
-                    ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="sm" />
+                    ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="sm" rounded />
                     : <Avatar name={user.name || user.email} src={liveAvatarUrl} role={user.role} size="sm" />}
                   <div className="hidden min-w-0 sm:flex sm:flex-col sm:justify-center text-left">
                     <p className="max-w-[130px] truncate text-xs font-semibold text-slate-900 leading-[1.2]">
@@ -670,7 +670,7 @@ export function AppShell({
                   <div className="absolute right-0 top-full z-50 mt-1.5 w-full rounded-xl border border-slate-200/80 bg-white p-0.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] animate-in fade-in zoom-in-95 duration-100">
                     <div className="flex min-w-0 items-start gap-2 px-1.5 py-1.5">
                       {isClient
-                        ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="sm" className="mt-0.5" />
+                        ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="sm" className="mt-0.5" rounded />
                         : <Avatar name={user.name || user.email} src={liveAvatarUrl} role={user.role} size="sm" className="mt-0.5" />}
                       <div className="min-w-0">
                         <p className="truncate text-xs font-semibold leading-4 text-slate-900">{user.name || user.email}</p>

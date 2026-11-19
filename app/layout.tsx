@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <Toaster
           position="top-right"
-          containerStyle={{ top: 12, right: 12 }}
+          containerStyle={{ top: 76, right: 12 }}
           gutter={10}
           toastOptions={{
             duration: 4000,

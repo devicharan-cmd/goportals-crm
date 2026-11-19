@@ -44,11 +44,13 @@ export default async function EmployeeStatsPage(props: { params: Promise<{ id: s
 
   const open = tasks.filter(t => !TASK_TERMINAL_STATUSES.includes(t.status))
   const done = tasks.filter(t => t.status === 'completed' && t.closed_at)
-  const overdue = open.filter(t => dueState(t.due_date, t.status) === 'overdue')
+  const overdue = open.filter(t => dueState(t.due_date, t.status, new Date(), t.due_at) === 'overdue')
   const doneWeek = done.filter(t => new Date(t.closed_at!) >= weekStart)
   const doneMonth = done.filter(t => new Date(t.closed_at!) >= monthStart)
   const withDue = done.filter(t => t.due_date)
-  const onTime = withDue.filter(t => dateKeyInTimeZone(new Date(t.closed_at!)) <= t.due_date!)
+  const onTime = withDue.filter(t => t.due_at
+    ? new Date(t.closed_at!).getTime() <= new Date(t.due_at).getTime()
+    : dateKeyInTimeZone(new Date(t.closed_at!)) <= t.due_date!)
   const onTimePct = withDue.length ? Math.round((onTime.length / withDue.length) * 100) : null
   const durations = done.filter(t => t.assigned_at).map(t => differenceInHours(new Date(t.closed_at!), new Date(t.assigned_at!)))
   const avgDays = durations.length ? Math.round((durations.reduce((a, b) => a + b, 0) / durations.length / 24) * 10) / 10 : null

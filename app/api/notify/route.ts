@@ -9,8 +9,8 @@ const FROM = 'GoPortals <notifications@goportals.co>'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://agency-crm-gilt-sigma.vercel.app'
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
-const fmt = (d: string) => new Date(d).toLocaleDateString('en-IN', {
-  day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata',
+const fmt = (d: string) => new Date(d).toLocaleString('en-IN', {
+  day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata',
 })
 
 /**
@@ -37,14 +37,14 @@ export async function POST(req: NextRequest) {
   try {
     if (type === 'overdue' || type === 'all') {
       const { data } = await db.from('tasks')
-        .select('id, task_number, title, due_date, priority, client:clients(company_name), assignee:profiles!tasks_assignee_id_fkey(full_name, email)')
-        .lt('due_date', today).not('status', 'in', '(completed,cancelled)').not('assignee_id', 'is', null)
-      for (const t of (data ?? []) as unknown as { id: string; task_number: number; title: string; due_date: string; priority: string; client: { company_name: string } | null; assignee: { email: string } | null }[]) {
+        .select('id, task_number, title, due_at, priority, client:clients(company_name), assignee:profiles!tasks_assignee_id_fkey(full_name, email)')
+        .lt('due_at', new Date().toISOString()).not('status', 'in', '(completed,cancelled)').not('assignee_id', 'is', null)
+      for (const t of (data ?? []) as unknown as { id: string; task_number: number; title: string; due_at: string; priority: string; client: { company_name: string } | null; assignee: { email: string } | null }[]) {
         if (!t.assignee?.email) continue
         await resend.emails.send({
           from: FROM, to: t.assignee.email, subject: `Overdue GP-${t.task_number}: ${t.title}`,
           html: brandedEmailHtml('Task overdue',
-            [`<strong>GP-${t.task_number} · ${esc(t.title)}</strong>`, `Client: ${esc(t.client?.company_name ?? '—')}`, `Priority: ${t.priority}`, `Was due: ${fmt(t.due_date)}`],
+            [`<strong>GP-${t.task_number} · ${esc(t.title)}</strong>`, `Client: ${esc(t.client?.company_name ?? '—')}`, `Priority: ${t.priority}`, `Was due: ${fmt(t.due_at)}`],
             `${APP_URL}/tasks/${t.id}`, 'Open task', '#DC2626'),
         })
         sent.push(`overdue:${t.id}`)

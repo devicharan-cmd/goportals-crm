@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { errorMessage } from '@/lib/utils'
-import { showErrorToast, showSuccessToast } from '@/lib/ui-toast'
+import { showSuccessToast } from '@/lib/ui-toast'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 export function DeleteButton({
@@ -38,6 +38,7 @@ export function DeleteButton({
     setError('')
     setLoading(true)
     let failure: string | null = null
+    let warning: string | null = null
     if (table === 'clients') {
       try {
         const response = await fetch(`/api/admin/clients/${encodeURIComponent(id)}`, { method: 'DELETE' })
@@ -46,24 +47,33 @@ export function DeleteButton({
       } catch (requestError) {
         failure = errorMessage(requestError)
       }
-    } else {
+    } else if (table === 'tasks') {
       const client = createClient()
-      if (table === 'tasks' && deleteCurrentScheduledTask) {
+      if (deleteCurrentScheduledTask) {
         const { error } = await client.rpc('delete_current_scheduled_task', { p_task_id: id })
         if (error) failure = errorMessage(error)
       } else {
-        const { data, error } = await client.from(table).delete().eq('id', id).select('id')
-        if (error) failure = errorMessage(error)
-        else if (!data?.length) failure = `Could not delete this ${itemName}; you may not have permission.`
+        try {
+          const response = await fetch(`/api/tasks/${encodeURIComponent(id)}`, { method: 'DELETE' })
+          const result = await response.json() as { error?: unknown; warning?: unknown }
+          if (!response.ok) failure = typeof result.error === 'string' ? result.error : 'Could not delete this task.'
+          else if (typeof result.warning === 'string') warning = result.warning
+        } catch (requestError) {
+          failure = errorMessage(requestError)
+        }
       }
+    } else {
+      const client = createClient()
+      const { data, error } = await client.from(table).delete().eq('id', id).select('id')
+      if (error) failure = errorMessage(error)
+      else if (!data?.length) failure = `Could not delete this ${itemName}; you may not have permission.`
     }
     setLoading(false)
     if (failure) {
       setError(failure)
-      showErrorToast(failure)
       return
     }
-    showSuccessToast(successMessage ?? `${itemName[0].toUpperCase()}${itemName.slice(1)} deleted`)
+    showSuccessToast(warning ?? successMessage ?? `${itemName[0].toUpperCase()}${itemName.slice(1)} deleted`)
     router.push(redirectTo)
     router.refresh()
   }

@@ -138,8 +138,8 @@ function Column({ status, label, tasks, names, assignOptions, hrefBase, scope, c
     cancelled: 'bg-slate-500',
   }
   return (
-    <div className="flex min-w-0 flex-col flex-1 rounded-xl border border-slate-200 bg-white p-2">
-      <div className={cn('flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-white', boardStyle[status])}>
+    <div className="flex min-w-0 flex-col flex-1 rounded-xl border border-slate-200 bg-white p-2 max-sm:rounded-lg max-sm:p-1.5 sm:max-lg:p-1.5">
+      <div className={cn('flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-white max-sm:h-7 max-sm:gap-1.5 max-sm:px-2', boardStyle[status])}>
         <h3 className="!text-white min-w-0 truncate text-xs font-semibold">{label}</h3>
         <div ref={sortMenuRef} className="relative -mr-2 ml-auto flex shrink-0 items-center gap-1">
           <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-white/20 px-1.5 text-[11px] font-semibold leading-none text-white">{tasks.length}</span>
@@ -154,7 +154,7 @@ function Column({ status, label, tasks, names, assignOptions, hrefBase, scope, c
         </div>
       </div>
       <div ref={setNodeRef}
-           className={cn('box-border w-full flex-1 flex flex-col gap-2 pt-2 transition-colors', isOver ? 'bg-[#EAF5F9]' : 'bg-white')}
+           className={cn('box-border w-full flex-1 flex flex-col gap-2 pt-2 transition-colors max-sm:gap-1.5 max-sm:pt-1.5', isOver ? 'bg-[#EAF5F9]' : 'bg-white')}
            style={{ backgroundImage: 'radial-gradient(rgba(148,163,184,.24) 1px, transparent 1px)', backgroundSize: '14px 14px' }}>
         {tasks.map(t => <DraggableCard key={t.id} task={t} names={names} assignOptions={assignOptions} hrefBase={hrefBase} scope={scope} disabled={!canEditTask(t)} />)}
       </div>
@@ -261,7 +261,7 @@ export function TaskBoard({
         </p>
       )}
       <DndContext id="task-board" sensors={sensors} onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))} onDragEnd={event => void runOnce('drag-update', () => onDragEnd(event))} onDragCancel={() => setActiveId(null)}>
-        <div className={cn('-mx-4 grid auto-cols-[minmax(200px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0', tasks.length === 0 && 'min-h-[200px]')}>
+        <div className={cn('-mx-4 grid auto-cols-[minmax(200px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 max-sm:auto-cols-[minmax(9rem,calc((100vw_-_3rem)_/_2))] max-sm:gap-2 max-sm:pb-3 sm:max-lg:auto-cols-[minmax(180px,1fr)] sm:max-lg:gap-2 sm:mx-0 sm:px-0', tasks.length === 0 && 'min-h-[200px]')}>
           {TASK_STATUS_OPTIONS.map(s => (
             <Column
               key={s.value}

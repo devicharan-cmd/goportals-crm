@@ -102,12 +102,12 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="grid h-9 min-w-0 grid-cols-3 gap-px rounded-xl border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)]">
+      <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="grid h-8 w-full min-w-0 grid-cols-3 gap-px rounded-lg border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] sm:h-9 sm:w-fit sm:rounded-xl">
           {TABS.map(t => (
             <Link key={t.key} href={t.key === 'all' ? '/team' : `/team?show=${t.key}`}
                   className={cn(
-                    'relative flex h-full min-w-0 items-center gap-2 rounded-lg px-3 pr-7 text-xs transition-[background-color,color,box-shadow] duration-200 ease-out',
+                    'relative flex h-full min-w-0 items-center justify-center gap-1 rounded-md px-2 pr-5 text-[11px] transition-[background-color,color,box-shadow] duration-200 ease-out sm:gap-2 sm:rounded-lg sm:px-3 sm:pr-7 sm:text-xs',
                     show === t.key
                       ? 'bg-[#034C68] font-semibold text-white shadow-[0_2px_5px_rgba(2,43,59,0.2)]'
                       : 'bg-white font-medium text-slate-800 hover:bg-slate-50',
@@ -115,7 +115,7 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
               <t.icon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', show === t.key ? 'text-white' : 'text-slate-800')} />
               <span className="min-w-0 truncate">{t.label}</span>
               <span className={cn(
-                'absolute right-1 top-1/2 inline-grid h-4 min-w-4 -translate-y-1/2 place-items-center rounded-full px-1 text-center text-[10px] font-semibold leading-4 tabular-nums',
+                'absolute right-1 top-1/2 inline-grid h-3.5 min-w-3.5 -translate-y-1/2 place-items-center rounded-full px-0.5 text-center text-[9px] font-semibold leading-3.5 tabular-nums sm:h-4 sm:min-w-4 sm:px-1 sm:text-[10px] sm:leading-4',
                 counts[t.key] > 0 ? 'bg-[#95C12C] text-white' : 'bg-slate-200 text-[#0F172A]',
               )}>
                 {counts[t.key] > 99 ? '99+' : counts[t.key]}
@@ -123,7 +123,7 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
             </Link>
           ))}
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="flex w-full items-center justify-end gap-2 sm:ml-auto sm:w-auto">
           {['super_admin', 'manager'].includes(me.role) && <ButtonLink href="/admin/users" variant="secondary" size="sm">Manage users & invites</ButtonLink>}
           {me.role !== 'team_lead' && <InviteStaffButton departments={lookups.departments} roles={['employee']} reportingPeople={lookups.people
             .filter(p => p.role !== 'client')
@@ -134,10 +134,10 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
       {members.length === 0 ? (
         <Card><EmptyState icon={<Users className="h-6 w-6" />} title={show === 'inactive' ? 'Everyone is active' : 'No team members yet'} /></Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {members.map(m => (
             <Link key={m.id} href={`/team/${m.id}`} className="group">
-            <Card className={cn('h-full p-5 transition group-hover:[box-shadow:var(--shadow-pop)] group-hover:ring-1 group-hover:ring-[#9FCCDE]', !m.active && 'bg-slate-50 opacity-80')}>
+            <Card className={cn('h-full p-3 transition group-hover:[box-shadow:var(--shadow-pop)] group-hover:ring-1 group-hover:ring-[#9FCCDE] sm:p-5', !m.active && 'bg-slate-50 opacity-80')}>
               <div className="flex items-start gap-3">
                 <Avatar name={m.full_name || m.email} src={m.avatar_url} role={m.role} className={cn(!m.active && 'grayscale')} />
                 <div className="min-w-0 flex-1">
@@ -148,18 +148,18 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
                   ? <Badge className="bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]"><span className="h-1.5 w-1.5 rounded-full bg-[#95C12C]" /> Active</Badge>
                   : <Badge className="bg-slate-100 text-slate-500 ring-slate-200"><span className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Not active</Badge>}
               </div>
-              <dl className="mt-4 grid grid-cols-3 divide-x divide-slate-100 rounded-lg bg-slate-50 py-2 text-center">
+              <dl className="mt-3 grid grid-cols-3 divide-x divide-slate-100 rounded-lg bg-slate-50 py-1.5 text-center sm:mt-4 sm:py-2">
                 <div><dt className="text-xs text-slate-500">Open</dt><dd className="font-sans text-lg font-bold text-slate-900">{m.open}</dd></div>
                 <div><dt className="text-xs text-slate-500">Overdue</dt><dd className={cn('font-sans text-lg font-bold', m.overdue ? 'text-red-600' : 'text-slate-900')}>{m.overdue}</dd></div>
                 <div><dt className="text-xs text-slate-500">Done (month)</dt><dd className="font-sans text-lg font-bold text-[#5B771A]">{m.done}</dd></div>
               </dl>
               {m.active ? (
-                <div className="mt-4">
+                <div className="mt-3 sm:mt-4">
                   <div className="mb-1.5 flex justify-between text-xs"><span className="text-slate-500">Workload {m.hours}h / {m.weekly_capacity_hours}h</span><span className={cn('font-semibold', capacityTextColor(m.pct))}>{m.pct}%</span></div>
                   <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className={cn('h-full rounded-full', capacityColor(m.pct))} style={{ width: `${Math.min(100, m.pct)}%` }} /></div>
                 </div>
               ) : <p className="mt-4 text-xs text-slate-400">Can&apos;t sign in or be assigned new tasks.</p>}
-              <div className="mt-4 flex items-center justify-between gap-2">
+              <div className="mt-3 flex items-center justify-between gap-2 sm:mt-4">
                 <div className="flex min-w-0 flex-wrap gap-1">{m.depts.map(d => <Badge key={d}>{d}</Badge>)}</div>
                 <span className="whitespace-nowrap text-xs font-semibold text-[#045E80]">View stats →</span>
               </div>

@@ -80,12 +80,14 @@ export default async function StaffTicketsPage(props: { searchParams: Promise<{ 
       status={tab}
     >
       <div className="lg:-mx-2">
-        <div className="mb-4 flex min-w-0 flex-wrap items-center gap-3">
-          <StaffTicketTabs activeStatus={tab} initialCounts={ticketCounts} />
-          <TicketSearchField className="min-w-[220px] flex-1 sm:max-w-xs" />
-          {me.role !== 'team_lead' && (
-            <ButtonLink href="/tickets/new" prefetch={false} size="sm" className="ml-auto"><Plus className="h-3.5 w-3.5" /> New ticket</ButtonLink>
-          )}
+        <div className="mb-3 flex min-w-0 flex-col gap-2 sm:mb-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+          <div className="w-full min-w-0 overflow-x-auto sm:contents"><StaffTicketTabs activeStatus={tab} initialCounts={ticketCounts} /></div>
+          <div className="flex w-full min-w-0 items-center gap-2 sm:contents">
+            <TicketSearchField className="min-w-0 flex-1 sm:max-w-xs" />
+            {me.role !== 'team_lead' && (
+              <ButtonLink href="/tickets/new" prefetch={false} size="sm" className="shrink-0 whitespace-nowrap"><Plus className="h-3.5 w-3.5" /> New ticket</ButtonLink>
+            )}
+          </div>
         </div>
         <TicketSearchResults />
       </div>

@@ -333,7 +333,7 @@ export function InviteLoginButton({ clientId, email, name }: { clientId: string;
     const data = await res.json()
     setBusy(false)
     if (!res.ok) return setMsg({ tone: 'err', text: data.error })
-    setMsg({ tone: 'ok', text: `Invite sent to ${form.email}.` })
+    setMsg({ tone: 'ok', text: `Invitation email sent to ${form.email}. They can use its “Accept invitation” link to create a password and sign in.` })
     router.refresh()
   }
 
@@ -341,7 +341,7 @@ export function InviteLoginButton({ clientId, email, name }: { clientId: string;
     <>
       <Button size="sm" variant="secondary" onClick={() => setOpen(true)}><Mail className="h-3.5 w-3.5" /> Invite to portal</Button>
       <Modal open={open} onClose={() => setOpen(false)} title="Invite to client portal"
-             description="They'll get an email to set a password, then accept the agreement.">
+             description="We’ll email a secure invitation link. They’ll create a password, sign in, then accept the agreement.">
         <form onSubmit={event => void runOnce('send-invite', () => send(event))} className="space-y-4">
           {msg && <p className={cn('rounded-lg px-3 py-2 text-sm', msg.tone === 'ok' ? 'bg-[#F5FAE8] text-[#465B17]' : 'bg-red-50 text-red-700')}>{msg.text}</p>}
           <div>
@@ -354,7 +354,7 @@ export function InviteLoginButton({ clientId, email, name }: { clientId: string;
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Close</Button>
-            <Button type="submit" loading={busy}>Send invite</Button>
+            <Button type="submit" loading={busy}>Send invitation email</Button>
           </div>
         </form>
       </Modal>

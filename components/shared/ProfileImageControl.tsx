@@ -25,11 +25,11 @@ export function ProfileImageControl({
       >
         {children}
         <span className="absolute inset-0 flex items-center justify-center bg-slate-900/35 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
-          <Camera className="h-7 w-7 text-white" />
+          <Camera className="h-5 w-5 text-white sm:h-7 sm:w-7" />
         </span>
         {busy && (
           <span className="absolute inset-0 flex items-center justify-center bg-slate-900/50">
-            <Loader2 className="h-6 w-6 animate-spin text-white" />
+            <Loader2 className="h-5 w-5 animate-spin text-white sm:h-6 sm:w-6" />
           </span>
         )}
       </button>
@@ -38,9 +38,9 @@ export function ProfileImageControl({
         disabled={busy}
         onClick={onClick}
         aria-label={label}
-        className="absolute bottom-0 right-0 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-[#95C12C] text-white shadow-md ring-2 ring-white transition hover:bg-[#789C20] disabled:opacity-50"
+        className="absolute bottom-0 right-0 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[#95C12C] text-white shadow-md ring-2 ring-white transition hover:bg-[#789C20] disabled:opacity-50 sm:h-9 sm:w-9"
       >
-        <Camera className="h-4 w-4" />
+        <Camera className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
       </button>
     </div>
   )

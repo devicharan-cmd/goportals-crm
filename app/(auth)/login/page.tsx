@@ -42,7 +42,23 @@ function LoginForm() {
       const supabase = createClient()
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        setError(error.message === 'Invalid login credentials' ? 'Wrong email or password.' : error.message)
+        if (error.message === 'Invalid login credentials') {
+          try {
+            const accountResponse = await fetch('/api/auth/account-exists', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: email.trim().toLowerCase() }),
+            })
+            const accountStatus = await accountResponse.json() as { exists?: boolean }
+            setError(accountResponse.ok && accountStatus.exists === false
+              ? 'No account exists for this email.'
+              : 'Wrong email or password.')
+          } catch {
+            setError('Wrong email or password.')
+          }
+        } else {
+          setError(error.message)
+        }
         setLoading(false)
         return
       }

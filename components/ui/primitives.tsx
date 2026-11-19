@@ -173,13 +173,13 @@ export function StatCard({
     amber: 'bg-amber-50 text-amber-600',
   }
   const body = (
-    <div className="content-card flex items-center gap-4 p-5 transition hover:[box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">
-      <div className={cn('flex h-11 w-11 items-center justify-center rounded-xl', tones[tone])}>
+    <div className="content-card flex min-h-[76px] items-center gap-3 p-3 transition hover:[box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] sm:min-h-0 sm:gap-4 sm:p-5">
+      <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11', tones[tone])}>
         <span className="[&>svg]:h-5 [&>svg]:w-5">{icon}</span>
       </div>
       <div className="min-w-0">
         <p className="text-2xl font-bold text-slate-900 font-sans">{value}</p>
-        <p className="text-xs font-medium text-slate-500">{label}</p>
+        <p className="line-clamp-2 text-xs font-medium leading-4 text-slate-500">{label}</p>
         {hint && <p className="text-xs text-slate-400">{hint}</p>}
       </div>
     </div>

@@ -49,18 +49,19 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, actorRole,
 
   return (
     <>
-      <div className="flex flex-col gap-1 border-b border-slate-100 px-5 py-4">
-        <h2 className="text-base font-semibold text-slate-900">
+      <div className="flex flex-col gap-0.5 border-b border-slate-100 px-3 py-2.5 sm:gap-1 sm:px-5 sm:py-4">
+        <h2 className="text-sm font-semibold text-slate-900 sm:text-base">
           {actorRole === 'team_lead' ? `Reporting team (${rows.length})` : `Team management (${rows.length})`}
         </h2>
-        <p className="text-xs text-slate-500">
+        <p className="text-[11px] leading-4 text-slate-500 sm:text-xs sm:leading-normal">
           {actorRole === 'team_lead'
             ? 'View staff profiles in your reporting hierarchy. User invitations are managed by administrators.'
             : 'Manage team roles, departments, and capacity. Managers can see every department; Team Leads can see and assign within their own.'}
         </p>
       </div>
-      <div className="grid grid-cols-2 items-center gap-2 border-b border-slate-100 p-4 sm:grid-cols-[minmax(0,1fr)_130px_150px_auto]">
-        <label className="relative col-span-2 min-w-0 flex-1 sm:col-span-1">
+      <div className="flex flex-col gap-2 border-b border-slate-100 p-2.5 sm:grid sm:grid-cols-[minmax(0,1fr)_130px_150px_auto] sm:items-center sm:gap-2 sm:p-4">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:contents">
+        <label className="relative order-1 min-w-0 flex-1 sm:order-1">
           <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="search"
@@ -68,11 +69,14 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, actorRole,
             onChange={event => setQuery(event.target.value)}
             placeholder="Search team members..."
             aria-label="Search team members"
-            className="form-field search-input-with-icon h-9 w-full min-w-0 rounded-xl text-sm focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none"
+            className="form-field search-input-with-icon h-8 w-full min-w-0 rounded-lg text-xs focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none sm:h-9 sm:rounded-xl sm:text-sm"
           />
         </label>
+        <div className="order-2 justify-self-end [&_button]:h-8 [&_button]:gap-1.5 [&_button]:px-2.5 [&_button]:text-xs sm:order-4 sm:[&_button]:h-9 sm:[&_button]:gap-2 sm:[&_button]:px-4 sm:[&_button]:text-sm">{inviteButton}</div>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 sm:contents">
         <SearchableSelect
-          className="form-field h-9 w-full min-w-0 rounded-xl py-1.5 text-sm focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none sm:w-[130px]"
+          className="form-field h-8 w-full min-w-0 rounded-lg px-2 py-1 text-[11px] focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none sm:order-2 sm:h-9 sm:w-[130px] sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-sm"
           aria-label="Filter by role"
           value={role}
           onChange={event => setRole(event.target.value)}
@@ -83,7 +87,7 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, actorRole,
           ))}
         </SearchableSelect>
         <SearchableSelect
-          className="form-field h-9 w-full min-w-0 rounded-xl py-1.5 text-sm focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none sm:w-[150px]"
+          className="form-field h-8 w-full min-w-0 rounded-lg px-2 py-1 text-[11px] focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none sm:order-3 sm:h-9 sm:w-[150px] sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-sm"
           aria-label="Filter by department"
           searchable
           searchPlaceholder="Search departments..."
@@ -93,10 +97,10 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, actorRole,
           <option value="">All departments</option>
           {departments.map(department => <option key={department.id} value={department.id}>{department.name}</option>)}
         </SearchableSelect>
-        <div className="col-span-2 justify-self-start sm:col-span-1">{inviteButton}</div>
+        </div>
       </div>
       {filteredRows.length ? (
-        <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid w-full min-w-0 grid-cols-[repeat(2,minmax(0,1fr))] gap-3 p-1 sm:p-4 md:grid-cols-3 2xl:grid-cols-4">
           {filteredRows.map(row => (
             <StaffProfileCard key={row.id} row={row} departments={departments} canEdit={canEdit} actorId={actorId} />
           ))}
@@ -493,88 +497,88 @@ export function StaffProfileCard({ row, departments, canEdit, actorId }: {
 
   return (
     <article
-      className="relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)]"
+      className="group relative flex h-full min-w-0 transform-gpu flex-col overflow-visible rounded-xl border border-slate-200 bg-white shadow-sm transition-[transform,box-shadow,border-color] duration-500 ease-out hover:-translate-y-0.5 hover:border-[#9FCCDE] hover:shadow-[0_10px_24px_-18px_rgb(2_43_59_/_0.5)] focus-within:-translate-y-0.5 focus-within:border-[#9FCCDE] focus-within:shadow-[0_10px_24px_-18px_rgb(2_43_59_/_0.5)] motion-reduce:transition-none motion-reduce:hover:transform-none motion-reduce:focus-within:transform-none sm:overflow-hidden sm:rounded-2xl"
     >
-        <div className="pointer-events-none relative z-30 h-32 overflow-hidden rounded-t-2xl bg-gradient-to-br from-sky-400 via-sky-300 to-blue-400">
+        <div className="pointer-events-none relative z-30 h-20 overflow-hidden rounded-t-xl bg-gradient-to-br from-sky-400 via-sky-300 to-blue-400 transition-[filter] duration-300 group-hover:brightness-105 sm:h-32 sm:rounded-t-2xl">
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-8 left-[-10%] h-24 w-[120%] rounded-[50%] bg-white" />
-          <Badge className={cn('absolute left-3 top-3 z-10', row.status === 'active'
+          <Badge className={cn('absolute left-2 top-2 z-10 px-1.5 py-0.5 text-[10px] sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-xs', row.status === 'active'
             ? 'bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]'
             : 'bg-slate-100 text-slate-600 ring-slate-200')}>
             <span className={cn('h-1.5 w-1.5 rounded-full', row.status === 'active' ? 'bg-[#95C12C]' : 'bg-slate-400')} />
             {row.status === 'active' ? 'Active' : 'Suspended'}
           </Badge>
-          {canDelete && (
-            <div ref={menuRef} className="pointer-events-auto absolute right-3 top-3 z-40" onClick={event => event.stopPropagation()}>
-              <button
-                type="button"
-                aria-label={`Actions for ${row.full_name || row.email}`}
-                aria-expanded={menuOpen}
-                onClick={() => setMenuOpen(open => !open)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-sky-100 text-[#033B51] shadow-sm hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#045E80]"
-              >
-                <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 top-9 z-50 min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false)
-                      setDeleteError('')
-                      setDeleteOpen(true)
-                    }}
-                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-                  >
-                    <Trash2 aria-hidden="true" className="h-4 w-4" />
-                    Delete
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
           <Avatar name={row.full_name || row.email} src={row.avatar_url} role={row.role} size="lg"
-            className={cn('absolute left-1/2 top-8 z-10 h-20 w-20 -translate-x-1/2 border-4 border-white text-2xl shadow-sm', row.status !== 'active' && 'grayscale')} />
+            className={cn('absolute left-1/2 top-4 z-10 h-14 w-14 -translate-x-1/2 border-[3px] border-white text-lg shadow-sm transition-transform duration-500 ease-out group-hover:scale-[1.03] sm:top-8 sm:h-20 sm:w-20 sm:border-4 sm:text-2xl', row.status !== 'active' && 'grayscale')} />
         </div>
-        <div className="pointer-events-none relative z-30 flex flex-1 flex-col bg-white px-3.5 pb-4 pt-2">
+        {canDelete && (
+          <div ref={menuRef} className="pointer-events-auto absolute right-2 top-2 z-50 sm:right-3 sm:top-3" onClick={event => event.stopPropagation()}>
+            <button
+              type="button"
+              aria-label={`Actions for ${row.full_name || row.email}`}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(open => !open)}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-sky-200 bg-sky-100 text-[#033B51] shadow-sm hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#045E80] sm:h-8 sm:w-8"
+            >
+              <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-9 z-50 min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    setDeleteError('')
+                    setDeleteOpen(true)
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                >
+                  <Trash2 aria-hidden="true" className="h-4 w-4" />
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="pointer-events-none relative z-30 flex flex-1 flex-col bg-white px-2 pb-2 pt-1 sm:px-3.5 sm:pb-4 sm:pt-2">
           <div className="text-center">
-            <p title={row.full_name || row.email} className="truncate text-base font-bold leading-6 text-slate-900">
+            <p title={row.full_name || row.email} className="truncate text-xs font-bold leading-4 text-slate-900 sm:text-base sm:leading-6">
               {row.full_name.trim() || '--'}
             </p>
-            <p title={row.job_title || undefined} className="mt-0.5 truncate text-sm leading-5 text-slate-500">{row.job_title?.trim() || '--'}</p>
-            <Badge className="mt-2 bg-sky-100 text-blue-700 ring-sky-200">{ROLE_LABELS[row.role]}</Badge>
+            <p title={row.job_title || undefined} className="truncate text-[11px] leading-4 text-slate-500 sm:mt-0.5 sm:text-sm sm:leading-5">{row.job_title?.trim() || '--'}</p>
+            <Badge className="mt-1 bg-sky-100 px-1.5 py-0.5 text-[10px] leading-4 text-blue-700 ring-sky-200 sm:mt-2 sm:px-2.5 sm:py-1 sm:text-xs">{ROLE_LABELS[row.role]}</Badge>
           </div>
 
-          <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3 text-xs">
+          <div className="mt-2 space-y-1 border-t border-slate-100 pt-2 text-[10px] sm:mt-3 sm:space-y-1.5 sm:pt-3 sm:text-xs">
             <div className="flex min-w-0 items-center gap-2">
-              <Mail aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-700" />
+              <Mail aria-hidden="true" className="h-3 w-3 shrink-0 text-slate-700 sm:h-3.5 sm:w-3.5" />
               {row.email.trim()
                 ? <a href={`mailto:${row.email}`} title={row.email} onClick={event => event.stopPropagation()} className="pointer-events-auto block min-w-0 flex-1 truncate whitespace-nowrap text-slate-900 hover:text-[#034C68]">{row.email}</a>
                 : <span className="text-slate-800">--</span>}
             </div>
             <div className="flex min-w-0 items-center gap-2">
-              <Phone aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-700" />
+              <Phone aria-hidden="true" className="h-3 w-3 shrink-0 text-slate-700 sm:h-3.5 sm:w-3.5" />
               {row.phone?.trim()
                 ? <a href={`tel:${row.phone.trim().replace(/[^+\d]/g, '')}`} onClick={event => event.stopPropagation()} className="pointer-events-auto truncate whitespace-nowrap text-slate-900 hover:text-[#034C68]">{row.phone}</a>
                 : <span className="text-slate-900">--</span>}
             </div>
           </div>
 
-          <div className="mt-3 space-y-2.5 border-t border-slate-100 pt-3 text-xs">
+          <div className="mt-2 space-y-1.5 border-t border-slate-100 pt-2 text-[10px] sm:mt-3 sm:space-y-2.5 sm:pt-3 sm:text-xs">
             <div className="flex min-w-0 items-start gap-2">
-              <UsersRound aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-700" />
+              <UsersRound aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0 text-slate-700 sm:h-3.5 sm:w-3.5" />
               <div className="min-w-0">
-                <p className="text-xs text-slate-500">Reporting To</p>
-                <p className="break-words font-medium text-slate-900">{row.reporting_to_name?.trim() || '--'}</p>
+                <p className="text-[10px] text-slate-500 sm:text-xs">Reporting To</p>
+                <p className="break-words text-[10px] font-medium text-slate-900 sm:text-xs">{row.reporting_to_name?.trim() || '--'}</p>
               </div>
             </div>
             <div className="flex min-w-0 items-start gap-2">
-              <Layers3 aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-700" />
+              <Layers3 aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0 text-slate-700 sm:h-3.5 sm:w-3.5" />
               <div className="min-w-0">
                 <p className="text-xs text-slate-500">Departments</p>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {row.departmentIds.map(id => departmentsById.get(id)).filter((name): name is string => !!name).length
                     ? row.departmentIds.map(id => departmentsById.get(id)).filter((name): name is string => !!name).map(name => (
-                      <span key={name} className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-900">{name}</span>
+                      <span key={name} className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-900 sm:px-2.5 sm:py-1 sm:text-xs">{name}</span>
                     ))
                     : <span className="text-slate-900">--</span>}
                 </div>
@@ -593,13 +597,27 @@ export function StaffProfileCard({ row, departments, canEdit, actorId }: {
           onClose={() => !deleting && setDeleteOpen(false)}
           title={`Permanently delete ${row.full_name || row.email}?`}
           description="This action cannot be undone."
+          titleClassName="text-sm sm:text-base"
+          headerClassName="gap-3 border-b border-slate-100 px-4 py-3 sm:gap-4 sm:px-6 sm:py-4"
+          bodyClassName="px-4 py-4 sm:px-6 sm:py-5"
         >
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600">
-              This permanently removes the staff account and profile. Existing tasks, tickets, comments, activity, attachments, and time logs will remain. Tasks and tickets assigned to this person will be reassigned to their Reporting To person. Tasks they assigned to others will stay assigned as they are; only this person&apos;s profile reference will be cleared.
-            </p>
+          <div className="space-y-3">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-5 text-amber-950 sm:px-4 sm:py-3.5 sm:text-sm">
+              <p className="font-semibold">This action permanently removes the staff account and profile.</p>
+              <p className="mt-1 text-amber-900/80">Existing tasks, tickets, comments, activity, attachments, and time logs will remain. Tasks and tickets assigned to this person will be reassigned to their Reporting To person. Tasks they assigned to others will stay assigned as they are; only this person&apos;s profile reference will be cleared.</p>
+            </div>
             {deleteError && <Alert tone="error">{deleteError}</Alert>}
-            <div className="flex justify-end gap-2">
+            {deleteError.includes('direct reports and reporting invitations') && (
+              <div className="flex justify-end">
+                <Link
+                  href="/admin/users?tab=change-poc"
+                  className="inline-flex h-9 items-center justify-center rounded-lg bg-[#045E80] px-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#034C68] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#045E80] focus-visible:ring-offset-2"
+                >
+                  Change reporting
+                </Link>
+              </div>
+            )}
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
               <Button variant="secondary" disabled={deleting} onClick={() => setDeleteOpen(false)}>Cancel</Button>
               <Button variant="danger" loading={deleting} onClick={() => void runOnce('delete-staff-account', deleteStaffAccount)}>
                 <Trash2 className="h-4 w-4" />
@@ -755,7 +773,7 @@ export function InviteStaffButton({
     const err = await postInvite({ kind: 'staff', ...form, full_name: form.full_name.trim(), email: form.email.trim(), job_title: form.job_title.trim() })
     setBusy(false)
     if (err) return setMsg({ ok: false, text: err })
-    setMsg({ ok: true, text: `Invite sent to ${form.email}.` })
+    setMsg({ ok: true, text: `Invitation email sent to ${form.email}. They can use its “Accept invitation” link to create a password, then sign in.` })
     setForm(empty)
     setErrors({})
     setTouched({})
@@ -765,7 +783,7 @@ export function InviteStaffButton({
   return (
     <>
       <Button size="sm" onClick={() => { setOpen(true); setMsg(null); setErrors({}); setTouched({}) }}><UserPlus className="h-3.5 w-3.5" /> {onlyEmployees ? 'Add employee' : 'Invite team member'}</Button>
-      <Modal open={open} onClose={() => setOpen(false)} title={onlyEmployees ? 'Add an employee' : 'Invite a team member'} description="They'll get an email to set their password.">
+      <Modal open={open} onClose={() => setOpen(false)} title={onlyEmployees ? 'Add an employee' : 'Invite a team member'} description="We’ll email a secure invitation link. They’ll create a password, then sign in.">
         <form onSubmit={event => void runOnce('invite-staff', () => submit(event))} className="space-y-4" noValidate spellCheck={false}>
           {msg && <Alert tone={msg.ok ? 'success' : 'error'}>{msg.text}</Alert>}
           <Field label="Full name" required error={errors.full_name} errorId="staff-invite-name-error">
@@ -854,7 +872,7 @@ export function InviteStaffButton({
           </Field>
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Close</Button>
-            <Button type="submit" loading={busy}>Send invite</Button>
+            <Button type="submit" loading={busy}>Send invitation email</Button>
           </div>
         </form>
       </Modal>
@@ -911,7 +929,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
     const err = await postInvite(body)
     setBusy(false)
     if (err) return setMsg({ ok: false, text: err })
-    setMsg({ ok: true, text: `Invite sent to ${form.email}.` })
+    setMsg({ ok: true, text: `Invitation email sent to ${form.email}. They can use its “Accept invitation” link to create a password, then sign in.` })
     setForm(emptyInviteUserForm())
     setErrors({})
     setTouched({})
@@ -930,8 +948,8 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
       <Modal open={open} onClose={closeModal}
              title={form.kind === 'staff' ? 'Invite a team member' : 'Invite a client'}
              description={form.kind === 'staff'
-               ? 'Add their details, choose a role and department, then send an email to set up their account.'
-               : 'Add their contact email. They’ll complete their company profile after setting a password.'}
+               ? 'Add their details and send a secure email link. They’ll create a password, then sign in.'
+               : 'Send a secure email link. They’ll create a password, then sign in to the client portal.'}
              dialogClassName="flex max-h-[92vh] flex-col overflow-hidden"
              bodyClassName="!py-3 flex min-h-0 flex-1 flex-col overflow-hidden">
         <form onSubmit={event => void runOnce('invite-user', () => submit(event))} className="flex min-h-0 flex-1 flex-col" noValidate>
@@ -1048,14 +1066,14 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
             </>
           ) : (
             <p className="text-xs text-slate-500">
-              They&apos;ll set a password, fill in their company details and address, and accept the agreement — no approval step needed.
+              They&apos;ll create a password from the invitation link, sign in, then complete their company profile and agreement.
             </p>
           )}
             </div>
           </div>
           <div className="mt-4 -mx-6 flex justify-end gap-2 border-t border-slate-100 px-6 pt-4">
             <Button type="button" variant="secondary" onClick={closeModal}>Close</Button>
-            <Button type="submit" loading={busy}><Mail className="h-4 w-4" /> Send invite</Button>
+            <Button type="submit" loading={busy}><Mail className="h-4 w-4" /> Send invitation email</Button>
           </div>
         </form>
       </Modal>

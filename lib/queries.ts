@@ -129,18 +129,28 @@ export type UserAdminLookups = {
 }
 
 /** Minimal data required by /admin/users; avoids loading task-form and client lookups. */
-export async function getUserAdminLookups(): Promise<UserAdminLookups> {
+const USER_ADMIN_PROFILE_SELECT =
+  'id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to, phone'
+
+/** Load only the people and fields needed by the user-management screens. */
+export async function getUserAdminLookups({ includeClients = true }: { includeClients?: boolean } = {}): Promise<UserAdminLookups> {
   const supabase = await createClient()
-  const [people, departments, members] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to, phone'),
-    supabase.from('departments').select('*').order('sort_order'),
+  const [staff, clients, departments, members] = await Promise.all([
+    supabase.from('profiles').select(USER_ADMIN_PROFILE_SELECT).neq('role', 'client'),
+    includeClients
+      ? supabase.from('profiles').select(USER_ADMIN_PROFILE_SELECT).eq('role', 'client')
+      : Promise.resolve({ data: [], error: null }),
+    supabase.from('departments').select('id, name, slug, sort_order').order('sort_order'),
     supabase.from('department_members').select('department_id, profile_id, is_lead'),
   ])
-  for (const result of [people, departments, members]) {
+  for (const result of [staff, clients, departments, members]) {
     if (result.error) throw result.error
   }
   return {
-    people: sortPeopleByRoleAndJoiningDate((people.data ?? []) as UserAdminPerson[]),
+    people: sortPeopleByRoleAndJoiningDate([
+      ...((staff.data ?? []) as UserAdminPerson[]),
+      ...((clients.data ?? []) as UserAdminPerson[]),
+    ]),
     departments: (departments.data ?? []) as Department[],
     departmentMembers: (members.data ?? []) as DepartmentMember[],
   }

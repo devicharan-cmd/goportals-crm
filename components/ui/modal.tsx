@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +24,12 @@ export function Modal({
   bodyClassName?: string
   headerIcon?: React.ReactNode
 }) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   useEffect(() => {
     if (!open) return
     const previousBodyOverflow = document.body.style.overflow
@@ -35,9 +42,9 @@ export function Modal({
     }
   }, [open, onClose])
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-[1100] flex items-end justify-center bg-[#011B26]/40 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
       <div
         role="dialog"
@@ -66,5 +73,5 @@ export function Modal({
         <div className={cn('min-h-0 flex-1 overflow-y-auto px-6 py-5 text-left', bodyClassName)}>{children}</div>
       </div>
     </div>
-  )
+  ), document.body)
 }

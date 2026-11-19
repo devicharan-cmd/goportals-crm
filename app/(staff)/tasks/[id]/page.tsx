@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, Clock3, Globe2, LockKeyhole } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
@@ -53,7 +53,12 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   if (checklistError) throw new Error(checklistError.message)
   if (attachmentsError) throw new Error(attachmentsError.message)
   if (reassignmentNotesError) throw new Error(reassignmentNotesError.message)
-  if (!data) notFound()
+  if (!data) {
+    const destination = searchParams.scope === 'mine' || searchParams.scope === 'assigned' || searchParams.scope === 'all'
+      ? `/tasks?scope=${searchParams.scope}`
+      : '/tasks'
+    redirect(destination)
+  }
   const task = data as TaskListItem & {
     service: { id: string; name: string } | null
     ticket: { id: string; ticket_number: number; subject: string } | null

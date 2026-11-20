@@ -100,9 +100,9 @@ export async function getStaffLookups({ includeDirectory = true }: { includeDire
     supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to'),
     includeDirectory ? supabase.rpc('staff_directory') : Promise.resolve({ data: [], error: null }),
     supabase.from('clients').select('id, company_name, company_profile_image_path, owner_id').order('company_name'),
-    supabase.from('departments').select('*').order('sort_order'),
-    supabase.from('platforms').select('*').order('sort_order'),
-    supabase.from('services').select('*').order('sort_order'),
+    supabase.from('departments').select('id, name, slug, sort_order').order('sort_order'),
+    supabase.from('platforms').select('id, name, category, is_active, sort_order').order('sort_order'),
+    supabase.from('services').select('id, name, description, department_id, is_active, sort_order, default_price, default_billing_type').order('sort_order'),
     supabase.from('department_members').select('department_id, profile_id, is_lead'),
   ])
   for (const result of [people, directory, clients, departments, platforms, services, members]) {
@@ -161,7 +161,7 @@ export async function getTicketDetailLookups(): Promise<StaffLookups> {
   const supabase = await createClient()
   const [people, departments, platforms, services, members] = await Promise.all([
     supabase.from('profiles').select('id, full_name, email, phone, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to'),
-    supabase.from('departments').select('*').order('sort_order'),
+    supabase.from('departments').select('id, name, slug, sort_order').order('sort_order'),
     supabase.from('platforms').select('*').order('sort_order'),
     supabase.from('services').select('*').order('sort_order'),
     supabase.from('department_members').select('department_id, profile_id, is_lead'),
@@ -193,7 +193,7 @@ export async function getTaskPageLookups({ includePeople, includeAssignments }: 
       ? supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to')
       : Promise.resolve({ data: [], error: null }),
     supabase.from('clients').select('id, company_name, company_profile_image_path, owner_id').order('company_name'),
-    supabase.from('departments').select('*').order('sort_order'),
+    supabase.from('departments').select('id, name, slug, sort_order').order('sort_order'),
     includeAssignments
       ? supabase.from('department_members').select('department_id, profile_id, is_lead')
       : Promise.resolve({ data: [], error: null }),

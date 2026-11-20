@@ -8,7 +8,7 @@ import {
   Check, ImagePlus, Lock, Mail, Pencil, Phone, Trash2, Upload, Loader2, ChevronDown, Search
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { ROLE_LABELS } from '@/lib/constants'
+import { ACCOUNT_STATUS_STYLES, ROLE_LABELS } from '@/lib/constants'
 import { Alert, Avatar } from '@/components/ui/primitives'
 import { Button } from '@/components/ui/button'
 import { cn, errorMessage, formatDate } from '@/lib/utils'
@@ -19,7 +19,7 @@ import { InternationalPhoneField } from '@/components/shared/InternationalPhoneF
 import { TimezoneSelect } from '@/components/shared/TimezoneSelect'
 import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
 import { showSuccessToast } from '@/lib/ui-toast'
-import type { AppRole, Department, Profile, StaffRole } from '@/types/database'
+import type { AccountStatus, AppRole, Department, Profile, StaffRole } from '@/types/database'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 const PROFILE_IMAGE_BUCKET = 'staff-profile-images'
@@ -148,8 +148,9 @@ export function StaffProfileSettings({
   const runOnce = useSingleFlight()
   const isSuperAdmin = actorRole === 'super_admin'
   const canEditProfile = isOwnProfile || isSuperAdmin || actorRole === 'manager'
-  const canChangeRole = isSuperAdmin && (isOwnProfile || actorId !== profile.id)
+  const canChangeRole = isSuperAdmin && !isOwnProfile && profile.role !== 'super_admin'
   const canChangeStatus = isSuperAdmin && !isOwnProfile && actorId !== profile.id
+    && (profile.status === 'active' || profile.status === 'suspended')
 
   // View vs Edit mode state (defaults to uneditable view mode)
   const [isEditing, setIsEditing] = useState(false)
@@ -162,7 +163,10 @@ export function StaffProfileSettings({
   const [permanentAddress, setPermanentAddress] = useState(initialAddress.permanent_address || '')
   const [jobTitle, setJobTitle] = useState(profile.job_title || '')
   const [role, setRole] = useState<AppRole>(profile.role)
-  const [employmentStatus, setEmploymentStatus] = useState<'active' | 'suspended'>(profile.status === 'active' ? 'active' : 'suspended')
+  const [employmentStatus, setEmploymentStatus] = useState<AccountStatus>(profile.status)
+  useEffect(() => {
+    if (!isEditing) setEmploymentStatus(profile.status)
+  }, [profile.status, isEditing])
   const [reportingTo, setReportingTo] = useState(profile.reporting_to || '')
   const [weeklyCapacity, setWeeklyCapacity] = useState<string>(
     profile.weekly_capacity_hours != null ? String(profile.weekly_capacity_hours) : '40'
@@ -343,7 +347,7 @@ export function StaffProfileSettings({
     setPermanentAddress(initialAddress.permanent_address || '')
     setJobTitle(profile.job_title || '')
     setRole(profile.role)
-    setEmploymentStatus(profile.status === 'active' ? 'active' : 'suspended')
+    setEmploymentStatus(profile.status)
     setReportingTo(profile.reporting_to || '')
     setWeeklyCapacity(profile.weekly_capacity_hours != null ? String(profile.weekly_capacity_hours) : '40')
     setSelectedDeptIds(initialDepartmentIds)
@@ -455,9 +459,8 @@ export function StaffProfileSettings({
         updated_at: new Date().toISOString(),
       }
 
-      // Privileged fields: only super admin can modify role, job_title, capacity
+      // A Super Admin may update their own job title and capacity, but not their role.
       if (isSuperAdmin) {
-        updates.role = role
         updates.job_title = jobTitle.trim() || null
         updates.weekly_capacity_hours = weeklyCapacity ? parseInt(weeklyCapacity, 10) : 40
       }
@@ -627,15 +630,15 @@ export function StaffProfileSettings({
                 </div>
                 <span className={cn(
                   'inline-flex shrink-0 items-center gap-1.5 self-center rounded-full px-2.5 py-1 text-xs font-medium sm:self-start',
-                  employmentStatus === 'active' ? 'bg-[#F5FAE8] text-[#5B771A]' : 'bg-slate-100 text-slate-600',
+                  ACCOUNT_STATUS_STYLES[employmentStatus],
                 )}>
-                  <span className={cn('h-1.5 w-1.5 rounded-full', employmentStatus === 'active' ? 'bg-[#95C12C]' : 'bg-slate-400')} />
-                  {employmentStatus === 'active' ? 'Active' : 'Suspended'}
+                  <span className={cn('h-1.5 w-1.5 rounded-full', employmentStatus === 'active' ? 'bg-[#95C12C]' : employmentStatus === 'pending' ? 'bg-amber-500' : employmentStatus === 'rejected' ? 'bg-red-500' : 'bg-slate-400')} />
+                  <span className="capitalize">{employmentStatus}</span>
                 </span>
               </div>
 
               {/* Form Fields Grid */}
-              <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 sm:gap-y-6">
+              <div className="staff-profile-fields grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 sm:gap-y-6">
                 {/* Full Name */}
                 <div>
                   <label className="mb-1.5 block text-sm font-semibold text-slate-700">
@@ -855,9 +858,11 @@ export function StaffProfileSettings({
                     <SearchableSelect
                       value={employmentStatus}
                       disabled={!canChangeStatus || !isEditing}
-                      onChange={event => setEmploymentStatus(event.target.value as 'active' | 'suspended')}
+                      onChange={event => setEmploymentStatus(event.target.value as AccountStatus)}
                       className="h-[42px] w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900"
                     >
+                      {employmentStatus === 'pending' && <option value="pending">Pending</option>}
+                      {employmentStatus === 'rejected' && <option value="rejected">Rejected</option>}
                       <option value="active">Active</option>
                       <option value="suspended">Suspended</option>
                     </SearchableSelect>

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Flame, LockKeyhole } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { addTaskAssigneeHistory, TASK_LIST_SELECT } from '@/lib/queries'
+import { addTaskAssigneeHistory } from '@/lib/queries'
 import { TICKET_CATEGORY_LABELS } from '@/lib/ticket-categories'
 import { Avatar, Card, CardHeader, EmptyState } from '@/components/ui/primitives'
 import { DueDate, PriorityBadge, StatusBadge } from '@/components/ui/badges'
@@ -19,11 +19,13 @@ export default async function UrgentPage() {
   const me = await requireStaff()
   const canSeeTickets = ['super_admin', 'manager', 'team_lead'].includes(me.role)
   const supabase = await createClient()
+  const urgentTaskSelect = 'id, task_number, title, status, priority, is_urgent, visibility, due_date, due_at, created_at, client_id, assignee_id, platform_id, department_id, client:clients(id, company_name, company_profile_image_path), platform:platforms(id, name), department:departments(id, name)'
+  const urgentTicketSelect = 'id, ticket_number, subject, category, status, priority, is_urgent, created_at, client:clients(id, company_name)'
   const taskPromise = (async () => {
     const rows: TaskListItem[] = []
     let afterId: string | null = null
     while (true) {
-      let query = supabase.from('tasks').select(TASK_LIST_SELECT)
+      let query = supabase.from('tasks').select(urgentTaskSelect)
         .eq('is_urgent', true)
         .not('status', 'in', '(completed,cancelled)')
         .order('id', { ascending: true })
@@ -31,7 +33,7 @@ export default async function UrgentPage() {
       if (afterId) query = query.gt('id', afterId)
       const { data, error } = await query
       if (error) throw error
-      const page = (data ?? []) as TaskListItem[]
+      const page = (data ?? []) as unknown as TaskListItem[]
       rows.push(...page)
       if (page.length < 1000) break
       afterId = page[page.length - 1].id
@@ -45,7 +47,7 @@ export default async function UrgentPage() {
     if (!canSeeTickets) return rows
     let afterId: string | null = null
     while (true) {
-      let query = supabase.from('tickets').select('*, client:clients(id, company_name)')
+      let query = supabase.from('tickets').select(urgentTicketSelect)
         .eq('is_urgent', true)
         .neq('status', 'closed')
         .order('id', { ascending: true })
@@ -53,7 +55,7 @@ export default async function UrgentPage() {
       if (afterId) query = query.gt('id', afterId)
       const { data, error } = await query
       if (error) throw error
-      const page = (data ?? []) as (Ticket & { client: { id: string; company_name: string } | null })[]
+      const page = (data ?? []) as unknown as (Ticket & { client: { id: string; company_name: string } | null })[]
       rows.push(...page)
       if (page.length < 1000) break
       afterId = page[page.length - 1].id

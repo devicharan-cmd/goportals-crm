@@ -302,10 +302,10 @@ export function ClientStatusSelect({ clientId, status }: { clientId: string; sta
   return (
     <span className="inline-flex flex-col items-end">
       <SearchableSelect className="form-field h-8 w-auto py-1 text-xs" value={status} disabled={busy} onChange={e => change(e.target.value)}>
-        <option value="active">Active</option>
-        <option value="suspended">Suspended</option>
+        {status !== 'rejected' && <option value="active">Active</option>}
+        {status !== 'rejected' && <option value="suspended">Suspended</option>}
         <option value="pending">Pending</option>
-        <option value="rejected">Rejected</option>
+        {status === 'rejected' && <option value="rejected">Rejected</option>}
       </SearchableSelect>
       {error && <span className="text-xs text-red-600">{error}</span>}
     </span>

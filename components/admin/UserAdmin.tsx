@@ -11,10 +11,10 @@ import { Button } from '@/components/ui/button'
 import { Alert, Avatar, EmptyState, Field } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
-import { ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
+import { ACCOUNT_STATUS_STYLES, ROLE_LABELS, ROLE_STYLES } from '@/lib/constants'
 import { cn, errorMessage, formatRelative } from '@/lib/utils'
 import { showErrorToast, showSuccessToast } from '@/lib/ui-toast'
-import type { AccountStatus, AppRole, Department, Invite, StaffRole } from '@/types/database'
+import type { AccountStatus, AppRole, Department, InviteListItem, StaffRole } from '@/types/database'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
 export type StaffRow = {
@@ -112,16 +112,12 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, actorRole,
   )
 }
 
-function reportingRoleFor(role: StaffRole | ''): StaffRole | null {
-  if (role === 'manager') return 'super_admin'
-  if (role === 'team_lead') return 'manager'
-  if (role === 'employee') return 'team_lead'
-  return null
-}
-
 function reportingOptionsFor(role: StaffRole | '', people: ReportingPerson[]) {
-  const expectedRole = reportingRoleFor(role)
-  return expectedRole ? people.filter(person => person.role === expectedRole && person.status === 'active') : []
+  // Any staff member may be selected as the direct POC. Reporting visibility
+  // continues to follow this link, while role permissions remain role-based.
+  return role && role !== 'super_admin'
+    ? people.filter(person => person.status === 'active')
+    : []
 }
 
 function ReportingToField({
@@ -149,11 +145,7 @@ function ReportingToField({
     return options.filter(person =>
       `${person.full_name} ${person.email} ${ROLE_LABELS[person.role]}`.toLowerCase().includes(query))
   }, [options, search])
-  const noOptionsText = role === 'manager'
-    ? 'No active Super Admin is available.'
-    : role === 'team_lead'
-      ? 'No active Managers are available.'
-      : 'No active Team Leads are available.'
+  const noOptionsText = 'No active staff members are available.'
 
   useLayoutEffect(() => {
     if (!open) {
@@ -453,7 +445,7 @@ export function StaffProfileCard({ row, departments, canEdit, actorId }: {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
-  const canDelete = canEdit && row.id !== actorId && row.role !== 'super_admin'
+  const canDelete = canEdit && row.id !== actorId
 
   useEffect(() => {
     if (!menuOpen) return
@@ -501,11 +493,9 @@ export function StaffProfileCard({ row, departments, canEdit, actorId }: {
     >
         <div className="pointer-events-none relative z-30 h-20 overflow-hidden rounded-t-xl bg-gradient-to-br from-sky-400 via-sky-300 to-blue-400 transition-[filter] duration-300 group-hover:brightness-105 sm:h-32 sm:rounded-t-2xl">
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-8 left-[-10%] h-24 w-[120%] rounded-[50%] bg-white" />
-          <Badge className={cn('absolute left-2 top-2 z-10 px-1.5 py-0.5 text-[10px] sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-xs', row.status === 'active'
-            ? 'bg-[#F5FAE8] text-[#5B771A] ring-[#D3E896]'
-            : 'bg-slate-100 text-slate-600 ring-slate-200')}>
-            <span className={cn('h-1.5 w-1.5 rounded-full', row.status === 'active' ? 'bg-[#95C12C]' : 'bg-slate-400')} />
-            {row.status === 'active' ? 'Active' : 'Suspended'}
+          <Badge className={cn('absolute left-2 top-2 z-10 px-1.5 py-0.5 text-[10px] capitalize sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-xs', ACCOUNT_STATUS_STYLES[row.status])}>
+            <span className={cn('h-1.5 w-1.5 rounded-full', row.status === 'active' ? 'bg-[#95C12C]' : row.status === 'pending' ? 'bg-amber-500' : row.status === 'rejected' ? 'bg-red-500' : 'bg-slate-400')} />
+            {row.status}
           </Badge>
           <Avatar name={row.full_name || row.email} src={row.avatar_url} role={row.role} size="lg"
             className={cn('absolute left-1/2 top-4 z-10 h-14 w-14 -translate-x-1/2 border-[3px] border-white text-lg shadow-sm transition-transform duration-500 ease-out group-hover:scale-[1.03] sm:top-8 sm:h-20 sm:w-20 sm:border-4 sm:text-2xl', row.status !== 'active' && 'grayscale')} />
@@ -544,8 +534,8 @@ export function StaffProfileCard({ row, departments, canEdit, actorId }: {
             <p title={row.full_name || row.email} className="truncate text-xs font-bold leading-4 text-slate-900 sm:text-base sm:leading-6">
               {row.full_name.trim() || '--'}
             </p>
-            <p title={row.job_title || undefined} className="truncate text-[11px] leading-4 text-slate-500 sm:mt-0.5 sm:text-sm sm:leading-5">{row.job_title?.trim() || '--'}</p>
-            <Badge className="mt-1 bg-sky-100 px-1.5 py-0.5 text-[10px] leading-4 text-blue-700 ring-sky-200 sm:mt-2 sm:px-2.5 sm:py-1 sm:text-xs">{ROLE_LABELS[row.role]}</Badge>
+            <p title={row.job_title || undefined} className="truncate text-xs leading-4 text-slate-500 sm:mt-0.5 sm:text-[13px] sm:leading-5">{row.job_title?.trim() || '--'}</p>
+            <Badge className="mt-1 bg-sky-100 px-1.5 py-0.5 text-[10px] leading-4 text-blue-700 ring-sky-200 sm:mt-2 sm:px-2.5 sm:py-1 sm:text-[11px]">{ROLE_LABELS[row.role]}</Badge>
           </div>
 
           <div className="mt-2 space-y-1 border-t border-slate-100 pt-2 text-[10px] sm:mt-3 sm:space-y-1.5 sm:pt-3 sm:text-xs">
@@ -573,12 +563,12 @@ export function StaffProfileCard({ row, departments, canEdit, actorId }: {
             </div>
             <div className="flex min-w-0 items-start gap-2">
               <Layers3 aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0 text-slate-700 sm:h-3.5 sm:w-3.5" />
-              <div className="min-w-0">
-                <p className="text-xs text-slate-500">Departments</p>
-                <div className="mt-1 flex flex-wrap gap-1.5">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] text-slate-500 sm:text-xs">Departments</p>
+                <div className="mt-1 flex flex-wrap gap-1.5 sm:gap-1">
                   {row.departmentIds.map(id => departmentsById.get(id)).filter((name): name is string => !!name).length
                     ? row.departmentIds.map(id => departmentsById.get(id)).filter((name): name is string => !!name).map(name => (
-                      <span key={name} className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-900 sm:px-2.5 sm:py-1 sm:text-xs">{name}</span>
+                      <span key={name} className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-900 sm:px-2 sm:py-1 sm:text-[11px]">{name}</span>
                     ))
                     : <span className="text-slate-900">--</span>}
                 </div>
@@ -604,7 +594,7 @@ export function StaffProfileCard({ row, departments, canEdit, actorId }: {
           <div className="space-y-3">
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-5 text-amber-950 sm:px-4 sm:py-3.5 sm:text-sm">
               <p className="font-semibold">This action permanently removes the staff account and profile.</p>
-              <p className="mt-1 text-amber-900/80">Existing tasks, tickets, comments, activity, attachments, and time logs will remain. Tasks and tickets assigned to this person will be reassigned to their Reporting To person. Tasks they assigned to others will stay assigned as they are; only this person&apos;s profile reference will be cleared.</p>
+              <p className="mt-1 text-amber-900/80">Existing tasks, tickets, comments, activity, attachments, and time logs will remain. Tasks and tickets assigned to this person will be reassigned to {row.role === 'super_admin' ? 'you' : 'their Reporting To person'}. Tasks they assigned to others will stay assigned as they are; only this person&apos;s profile reference will be cleared.</p>
             </div>
             {deleteError && <Alert tone="error">{deleteError}</Alert>}
             {deleteError.includes('direct reports and reporting invitations') && (
@@ -719,14 +709,16 @@ export function StaffRowEditor({ row, departments, isMe, actorRole }: {
                    className="form-field h-8 w-16 py-1 text-xs" /> h/wk
           </label>
           {canEditProfile ? (
-            <SearchableSelect value={row.status} disabled={busy || isMe} onChange={e => update({ status: e.target.value })}
-                    className={cn('form-field h-8 w-auto py-1 text-xs', row.status !== 'active' && 'text-red-700')}>
+            <SearchableSelect value={row.status} disabled={busy || isMe || (row.status !== 'active' && row.status !== 'suspended')} onChange={e => update({ status: e.target.value })}
+                    className={cn('form-field h-8 w-auto py-1 text-xs', row.status === 'pending' && 'text-amber-700', (row.status === 'suspended' || row.status === 'rejected') && 'text-red-700')}>
+              {row.status === 'pending' && <option value="pending">Pending</option>}
+              {row.status === 'rejected' && <option value="rejected">Rejected</option>}
               <option value="active">Active</option>
               <option value="suspended">Suspended</option>
             </SearchableSelect>
           ) : (
-            <span className={cn('rounded-md bg-slate-100 px-2 py-1 text-xs font-medium', row.status !== 'active' ? 'text-red-700' : 'text-slate-600')}>
-              {row.status === 'active' ? 'Active' : 'Suspended'}
+            <span className={cn('rounded-md px-2 py-1 text-xs font-medium capitalize', ACCOUNT_STATUS_STYLES[row.status])}>
+              {row.status}
             </span>
           )}
         </div>
@@ -950,6 +942,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
              description={form.kind === 'staff'
                ? 'Add their details and send a secure email link. They’ll create a password, then sign in.'
                : 'Send a secure email link. They’ll create a password, then sign in to the client portal.'}
+             descriptionClassName="text-[13px] font-normal leading-5"
              dialogClassName="flex max-h-[92vh] flex-col overflow-hidden"
              bodyClassName="!py-3 flex min-h-0 flex-1 flex-col overflow-hidden">
         <form onSubmit={event => void runOnce('invite-user', () => submit(event))} className="flex min-h-0 flex-1 flex-col" noValidate>
@@ -1082,32 +1075,74 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
 }
 
 // ─── Pending invites ─────────────────────────────────────────
-export function PendingInvites({ invites }: { invites: Invite[] }) {
+export function PendingInvites({ invites, canReject }: { invites: InviteListItem[]; canReject: boolean }) {
   const router = useRouter()
   const runOnce = useSingleFlight()
   const [busy, setBusy] = useState<string | null>(null)
-  async function cancel(id: string) {
+  async function reject(id: string) {
     setBusy(id)
-    await fetch('/api/admin/invite', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
-    setBusy(null)
-    router.refresh()
+    try {
+      const response = await fetch('/api/admin/invite', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}))
+        showErrorToast(result.error || 'Could not reject the invitation and remove the pending account.')
+        router.refresh()
+        return
+      }
+      showSuccessToast('Invitation rejected and pending account removed.')
+      router.refresh()
+    } catch {
+      showErrorToast('Could not reject the invitation. Try again.')
+    } finally {
+      setBusy(null)
+    }
   }
-  if (invites.length === 0) return <p className="px-5 py-4 text-sm text-slate-400">No pending invites.</p>
+  if (invites.length === 0) return <p className="px-5 py-4 text-sm text-slate-400">No invitations yet.</p>
   return (
     <ul className="divide-y divide-slate-100">
       {invites.map(i => {
         const expired = new Date(i.expires_at) < new Date()
+        const inviteStatus = i.cancelled_at
+          ? 'Cancelled'
+          : i.used_at
+            ? 'Accepted'
+            : expired ? 'Expired' : 'Pending'
+        const inviteStatusStyle = inviteStatus === 'Accepted'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : inviteStatus === 'Pending'
+            ? 'border-sky-200 bg-sky-50 text-sky-700'
+            : 'border-slate-200 bg-slate-50 text-slate-600'
         return (
-          <li key={i.id} className="flex items-center gap-3 px-5 py-3">
+          <li key={i.id} className="flex flex-col gap-2.5 px-3 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-slate-800">{i.full_name || i.email}</p>
-              <p className="truncate text-xs text-slate-500" suppressHydrationWarning>{i.email} · sent {formatRelative(i.created_at)}</p>
+              <p className="truncate text-xs text-slate-500" suppressHydrationWarning>
+                {i.email} · {i.used_at ? `accepted ${formatRelative(i.used_at)}` : `sent ${formatRelative(i.created_at)}`}
+              </p>
+              <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
+                {i.inviter ? (
+                  <>
+                    <span className="shrink-0 text-xs text-slate-500">Invited by</span>
+                    <Avatar name={i.inviter.full_name || i.inviter.email} src={i.inviter.avatar_url} role={i.inviter.role} size="xs" />
+                    <span className="flex min-w-0 flex-col leading-tight">
+                      <span className="truncate text-xs font-medium text-slate-700">{i.inviter.full_name || i.inviter.email}</span>
+                      <span className="text-[10px] text-slate-500">{ROLE_LABELS[i.inviter.role]}</span>
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs text-slate-500">Inviter unavailable</span>
+                )}
+              </div>
             </div>
-            <Badge className={cn('border bg-white transition-colors', ROLE_STYLES[i.role].badge)}>{ROLE_LABELS[i.role]}</Badge>
-            {expired && <Badge className="bg-red-50 text-red-700 ring-red-200">Expired</Badge>}
-            <button onClick={() => void runOnce(`cancel-invite-${i.id}`, () => cancel(i.id))} disabled={busy === i.id} className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600" aria-label="Cancel invite">
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex shrink-0 items-center gap-2 self-end sm:self-center">
+              <Badge className={cn('border bg-white transition-colors', ROLE_STYLES[i.role].badge)}>{ROLE_LABELS[i.role]}</Badge>
+              <Badge className={cn('border', inviteStatusStyle)}>{inviteStatus}</Badge>
+              {canReject && !i.used_at && (
+                <button type="button" onClick={() => void runOnce(`reject-invite-${i.id}`, () => reject(i.id))} disabled={busy === i.id} className="inline-flex h-8 items-center justify-center rounded-lg border border-red-200 px-2.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-wait disabled:opacity-60" title="Reject invitation and remove pending account">
+                  {busy === i.id ? 'Rejecting…' : 'Reject'}
+                </button>
+              )}
+            </div>
           </li>
         )
       })}

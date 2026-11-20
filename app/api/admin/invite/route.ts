@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getProfile } from '@/lib/auth'
+import { authEmailCallbackUrl } from '@/lib/auth-email-flow'
 import type { AppRole } from '@/types/database'
 
 /**
@@ -19,12 +20,6 @@ import type { AppRole } from '@/types/database'
 const ROLES_INVITABLE_BY: Partial<Record<AppRole, AppRole[]>> = {
   super_admin: ['super_admin', 'manager', 'team_lead', 'employee'],
   manager:       ['team_lead', 'employee'],
-}
-
-const REPORTING_ROLE_FOR: Partial<Record<AppRole, AppRole>> = {
-  manager: 'super_admin',
-  team_lead: 'manager',
-  employee: 'team_lead',
 }
 
 function inviteApiError(message: string) {
@@ -90,10 +85,8 @@ export async function POST(req: NextRequest) {
       console.error('[invite] Could not validate the Reporting To person:', reportingPersonError.message)
       return NextResponse.json({ error: 'Could not validate the Reporting To person.' }, { status: 500 })
     }
-    if (!reportingPerson
-        || reportingPerson.role !== REPORTING_ROLE_FOR[role]
-        || reportingPerson.status !== 'active') {
-      return NextResponse.json({ error: 'Select an active Reporting To person with the required role.' }, { status: 400 })
+    if (!reportingPerson || reportingPerson.role === 'client' || reportingPerson.status !== 'active') {
+      return NextResponse.json({ error: 'Select an active staff member as the Reporting To person.' }, { status: 400 })
     }
     if (reportingPerson.email.toLowerCase() === email) {
       return NextResponse.json({ error: 'A person cannot report to themselves.' }, { status: 400 })
@@ -133,12 +126,9 @@ export async function POST(req: NextRequest) {
   }).select('id').single()
   if (inviteErr) return NextResponse.json({ error: inviteApiError(inviteErr.message) }, { status: 400 })
 
-  const origin = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin
-  const callbackUrl = new URL('/auth/callback', origin)
-  callbackUrl.searchParams.set('flow', 'invite')
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { full_name: fullName },
-    redirectTo: callbackUrl.toString(),
+    redirectTo: authEmailCallbackUrl('invite'),
   })
 
   if (error) {
@@ -160,14 +150,63 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
-/** DELETE /api/admin/invite { id } — cancel an unused invite. */
+/** DELETE /api/admin/invite { id } — reject an unaccepted invite and remove its pending login. */
 export async function DELETE(req: NextRequest) {
   const me = await getProfile()
   if (!me || me.role !== 'super_admin' || me.status !== 'active') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const { id } = await req.json()
-  const { error } = await createAdminClient().from('invites').delete().eq('id', id).is('used_at', null)
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return NextResponse.json({ error: 'Invalid invitation.' }, { status: 400 })
+  }
+
+  const admin = createAdminClient()
+  const { data: invite, error: inviteError } = await admin.from('invites')
+    .select('id, email, role, used_at, cancelled_at, created_at').eq('id', id).maybeSingle()
+  if (inviteError) return NextResponse.json({ error: 'Could not load the invitation.' }, { status: 500 })
+  if (!invite) return NextResponse.json({ error: 'Invitation not found.' }, { status: 404 })
+  if (invite.used_at) return NextResponse.json({ error: 'Accepted invitations cannot be removed here.' }, { status: 409 })
+
+  const emailPattern = invite.email.replace(/[\\%_]/g, '\\$&')
+  const { data: profiles, error: profileError } = await admin.from('profiles')
+    .select('id, email, role, status, created_at').ilike('email', emailPattern).limit(2)
+  if (profileError) return NextResponse.json({ error: 'Could not verify the pending account.' }, { status: 500 })
+  if ((profiles ?? []).length > 1) return NextResponse.json({ error: 'More than one account matches this email. No account was removed.' }, { status: 409 })
+  const profile = profiles?.[0]
+  if (profile && (profile.status !== 'pending' || profile.role !== invite.role || profile.created_at < invite.created_at)) {
+    return NextResponse.json({ error: 'This invitation is linked to another account state. No account was removed.' }, { status: 409 })
+  }
+
+  // Exclude the invite from complete_invite_setup() before deleting Auth.
+  // A cancelled row remains visible for retry if a later cleanup step fails.
+  if (!invite.cancelled_at) {
+    const { data: cancelled, error: cancelError } = await admin.from('invites')
+      .update({ cancelled_at: new Date().toISOString() })
+      .eq('id', id).is('used_at', null).is('cancelled_at', null).select('id').maybeSingle()
+    if (cancelError) return NextResponse.json({ error: 'Could not cancel the invitation.' }, { status: 500 })
+    if (!cancelled) return NextResponse.json({ error: 'The invitation was accepted or changed. Refresh and try again.' }, { status: 409 })
+  }
+
+  if (profile) {
+    const { data: authAccount, error: authLookupError } = await admin.auth.admin.getUserById(profile.id)
+    if (authLookupError || authAccount.user?.email?.toLowerCase() !== invite.email.toLowerCase()) {
+      return NextResponse.json({ error: 'Could not verify the pending login. The invitation is cancelled; retry cleanup later.' }, { status: 500 })
+    }
+    const { error: authDeleteError } = await admin.auth.admin.deleteUser(profile.id)
+    if (authDeleteError) {
+      console.error('[invite] Could not delete pending Auth user:', authDeleteError.message)
+      return NextResponse.json({ error: 'The invitation is cancelled, but the pending account could not be removed. Try Reject again.' }, { status: 500 })
+    }
+    const { data: remainingProfile, error: verifyError } = await admin.from('profiles')
+      .select('id').eq('id', profile.id).maybeSingle()
+    if (verifyError || remainingProfile) {
+      return NextResponse.json({ error: 'The pending account could not be fully removed. Try Reject again.' }, { status: 500 })
+    }
+  }
+
+  const { data: deleted, error: deleteError } = await admin.from('invites')
+    .delete().eq('id', id).is('used_at', null).select('id').maybeSingle()
+  if (deleteError || !deleted) return NextResponse.json({ error: 'The pending account was removed, but its invitation remains. Try Reject again.' }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

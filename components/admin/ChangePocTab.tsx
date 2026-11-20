@@ -18,13 +18,6 @@ const PAGE_SIZE = 6
 const NONE = '__no_poc__'
 type PocPerson = Pick<StaffRow, 'id' | 'full_name' | 'email' | 'avatar_url' | 'role' | 'status' | 'reporting_to'>
 
-function expectedPocRole(role: StaffRole): StaffRole | null {
-  if (role === 'manager') return 'super_admin'
-  if (role === 'team_lead') return 'manager'
-  if (role === 'employee') return 'team_lead'
-  return null
-}
-
 export function ChangePocTab({ rows, departments, people, initialSelectedIds = [] }: {
   rows: StaffRow[]
   departments: Department[]
@@ -65,12 +58,7 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
   const unchangedPocRows = selectedRows.filter(row => row.reporting_to === newPocId && !!newPocId)
   const newPoc = peopleById.get(newPocId)
   const allFilteredSelected = filteredRows.length > 0 && filteredRows.every(row => selectedIds.includes(row.id))
-  const commonPocRole = selectedRows.length
-    ? expectedPocRole(selectedRows[0].role)
-    : null
-  const compatibleRole = commonPocRole && selectedRows.every(row => expectedPocRole(row.role) === commonPocRole)
-    ? commonPocRole
-    : null
+  const canChangePoc = selectedRows.length > 0 && selectedRows.every(row => row.role !== 'super_admin')
   const candidateIdsInCycle = useMemo(() => {
     const selected = new Set(selectedIds)
     const cyclic = new Set<string>()
@@ -85,8 +73,8 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
     }
     return cyclic
   }, [people, peopleById, selectedIds])
-  const pocOptions = compatibleRole
-    ? people.filter(person => person.status === 'active' && person.role === compatibleRole && !candidateIdsInCycle.has(person.id))
+  const pocOptions = canChangePoc
+    ? people.filter(person => person.status === 'active' && !candidateIdsInCycle.has(person.id))
     : []
 
   function toggleSelected(id: string) {
@@ -258,18 +246,17 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
         </div>
         <div className="border-t border-slate-100 p-4">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900"><UserRoundPlus className="h-4 w-4 text-[#045E80]" />New POC</h3>
-          <p className="mt-1 text-xs text-slate-500">Choose an active person with the correct role for every selected staff member.</p>
+          <p className="mt-1 text-xs text-slate-500">Choose any active staff member to become the direct reporting POC.</p>
           <SearchableSelect className={cn('form-field mt-3 h-10 w-full rounded-xl text-sm', unchangedPocRows.length > 0 && 'border-red-400 bg-red-50/30 focus:border-red-500')} aria-label="New POC" aria-invalid={unchangedPocRows.length > 0} aria-describedby={unchangedPocRows.length > 0 ? 'new-poc-validation-error' : undefined} searchable
-            searchPlaceholder="Search eligible POCs..." value={newPocId} disabled={!selectedRows.length || !pocOptions.length}
+            searchPlaceholder="Search staff..." value={newPocId} disabled={!canChangePoc || !pocOptions.length}
             onChange={event => { setNewPocId(event.target.value); setError('') }}>
-            <option value="">{!selectedRows.length ? 'Select staff first' : compatibleRole ? 'Select new POC' : 'Selected roles need different POCs'}</option>
+            <option value="">{!selectedRows.length ? 'Select staff first' : canChangePoc ? 'Select new POC' : 'Super Admins cannot have a POC'}</option>
             {pocOptions.map(person => <option key={person.id} value={person.id}>{person.full_name || person.email} · {ROLE_LABELS[person.role]}</option>)}
           </SearchableSelect>
-          {selectedRows.length > 0 && !compatibleRole && <p className="mt-2 text-xs text-amber-700">Select staff with the same reporting level to assign one POC in this change.</p>}
-          {selectedRows.length > 0 && compatibleRole && !pocOptions.length && <p className="mt-2 text-xs text-amber-700">No active eligible POC is available for these staff members.</p>}
+          {canChangePoc && !pocOptions.length && <p className="mt-2 text-xs text-amber-700">No active staff member is available as a POC without creating a reporting cycle.</p>}
           {unchangedPocRows.length > 0 && <p id="new-poc-validation-error" role="alert" className="field-error">{newPoc?.full_name || newPoc?.email} is already the current POC for {unchangedPocRows.map(row => row.full_name || row.email).join(', ')}. Choose a different person.</p>}
           <div className="mt-4 rounded-xl bg-[#EAF4F8] p-3 text-xs leading-5 text-[#034C68]">
-            Only active staff with the correct reporting role can be selected. This updates reporting relationships only; tasks, tickets, and client coverage stay with their current owners.
+            Any active staff member can be selected. This updates reporting relationships only; role permissions, tasks, tickets, and client coverage stay with their current owners.
           </div>
           <Button className="mt-4 w-full" disabled={!selectedRows.length || !newPocId || unchangedPocRows.length > 0} onClick={() => { setError(''); setConfirmOpen(true) }}>
             <UserRoundPlus className="h-4 w-4" /> Review POC change

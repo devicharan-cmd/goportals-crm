@@ -49,29 +49,27 @@ export default async function DashboardPage() {
   const today = todayDateKey()
 
   const dashboardDataPromise = Promise.all([
-    supabase.from('tasks').select(DASHBOARD_TASK_SELECT, { count: 'exact' }).eq('assignee_id', me.id).not('status', 'in', '(completed,cancelled)')
+    supabase.from('tasks').select(DASHBOARD_TASK_SELECT).eq('assignee_id', me.id).not('status', 'in', '(completed,cancelled)')
       .order('due_date', { ascending: true, nullsFirst: false }).limit(50),
-    supabase.from('tasks').select(DASHBOARD_TASK_SELECT, { count: 'exact' }).eq('assignee_id', me.id)
+    supabase.from('tasks').select(DASHBOARD_TASK_SELECT).eq('assignee_id', me.id)
       .not('status', 'in', '(completed,cancelled)').eq('due_date', today)
       .order('priority').order('created_at', { ascending: false }).limit(50),
-    supabase.from('tasks').select(DASHBOARD_TASK_SELECT, { count: 'exact' }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
+    supabase.from('tasks').select(DASHBOARD_TASK_SELECT).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
       .order('priority').order('created_at').limit(5),
     canSeeTickets
-      ? supabase.from('tickets').select(TICKET_LIST_SELECT, { count: 'exact' }).eq('status', 'unassigned')
+      ? supabase.from('tickets').select(TICKET_LIST_SELECT).eq('status', 'unassigned')
           .order('created_at', { ascending: false }).limit(6)
       : Promise.resolve({ data: [], count: 0, error: null }),
-    isSuperAdmin
-      ? supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending')
-      : Promise.resolve({ count: 0, error: null }),
+    Promise.resolve({ data: [], count: 0, error: null }),
     supabase.from('profiles').select('id, full_name, email, avatar_url'),
     isManager
-      ? supabase.from('tasks').select(DASHBOARD_TASK_SELECT, { count: 'exact' }).not('status', 'in', '(completed,cancelled)')
+      ? supabase.from('tasks').select(DASHBOARD_TASK_SELECT).not('status', 'in', '(completed,cancelled)')
           .order('is_urgent', { ascending: false })
           .order('due_date', { ascending: true, nullsFirst: false })
           .limit(15)
       : Promise.resolve({ data: [], count: 0, error: null }),
     isManager
-      ? supabase.from('tasks').select(DASHBOARD_TASK_SELECT, { count: 'exact' }).eq('status', 'completed')
+      ? supabase.from('tasks').select(DASHBOARD_TASK_SELECT).eq('status', 'completed')
           .order('closed_at', { ascending: false, nullsFirst: false })
           .limit(15)
       : Promise.resolve({ data: [], count: 0, error: null }),
@@ -80,6 +78,8 @@ export default async function DashboardPage() {
           .order('closed_at', { ascending: false, nullsFirst: false }).limit(15)
       : Promise.resolve({ data: [], error: null }),
   ])
+
+  const dashboardCountsPromise = supabase.rpc('staff_dashboard_counts', { p_today: today })
 
   const teamLeadDataPromise = isTeamLead
     ? (async () => {
@@ -140,13 +140,16 @@ export default async function DashboardPage() {
 
   const [
     [mine, dueTodayTasksResult, urgent, requests, approvals, people, allWorking, allDone, myCompleted],
+    dashboardCountsResult,
     teamLeadData,
     urgentHistory,
-  ] = await Promise.all([dashboardDataPromise, teamLeadDataPromise, urgentHistoryPromise])
+  ] = await Promise.all([dashboardDataPromise, dashboardCountsPromise, teamLeadDataPromise, urgentHistoryPromise])
 
   for (const result of [mine, dueTodayTasksResult, urgent, requests, approvals, people, allWorking, allDone, myCompleted]) {
     if (result.error) throw result.error
   }
+  if (dashboardCountsResult.error) throw dashboardCountsResult.error
+  const dashboardCounts = dashboardCountsResult.data?.[0]
 
   const rawMyTasks = (mine.data ?? []) as unknown as DashboardTask[]
   const rawUrgentTasks = (urgent.data ?? []) as unknown as DashboardTask[]
@@ -154,14 +157,14 @@ export default async function DashboardPage() {
   const clientRequests = (requests.data ?? []) as unknown as TicketListItem[]
   const names = nameMap(people.data ?? [])
   const assigneeAvatarUrls = Object.fromEntries((people.data ?? []).map(person => [person.id, person.avatar_url]))
-  const myOpenCount = mine.count ?? 0
-  const dueTodayCount = dueTodayTasksResult.count ?? 0
-  const urgentCount = urgent.count ?? 0
-  const requestCount = requests.count ?? 0
+  const myOpenCount = Number(dashboardCounts?.my_open_count ?? 0)
+  const dueTodayCount = Number(dashboardCounts?.due_today_count ?? 0)
+  const urgentCount = Number(dashboardCounts?.urgent_waiting_count ?? 0)
+  const requestCount = Number(dashboardCounts?.unassigned_ticket_count ?? 0)
   const rawWorkingTasks = (allWorking.data ?? []) as unknown as DashboardTask[]
   const rawDoneTasks = (allDone.data ?? []) as unknown as DashboardTask[]
-  const workingCount = allWorking.count ?? 0
-  const doneCount = allDone.count ?? 0
+  const workingCount = Number(dashboardCounts?.working_count ?? 0)
+  const doneCount = Number(dashboardCounts?.done_count ?? 0)
 
   // Employee branch: pure client-side slices of `myTasks`, plus the one extra "completed" query above.
   const rawMyCompletedTasks = (myCompleted.data ?? []) as unknown as DashboardTask[]
@@ -209,7 +212,7 @@ export default async function DashboardPage() {
         <StatCard label="Due today" value={dueTodayCount} icon={<AlarmClock className="h-5 w-5" />} tone={dueTodayCount ? 'amber' : 'lime'} href="/tasks" prefetch={false} />
         <StatCard label="Urgent waiting" value={urgentCount} icon={<Flame className="h-5 w-5" />} tone={urgentCount ? 'red' : 'lime'} href="/urgent" />
         {isSuperAdmin
-          ? <StatCard label="Clients awaiting approval" value={approvals.count ?? 0} icon={<ShieldCheck className="h-5 w-5" />} tone={approvals.count ? 'amber' : 'lime'} href="/admin/approvals" />
+          ? <StatCard label="Clients awaiting approval" value={Number(dashboardCounts?.pending_client_count ?? 0)} icon={<ShieldCheck className="h-5 w-5" />} tone={dashboardCounts?.pending_client_count ? 'amber' : 'lime'} href="/admin/approvals" />
           : canSeeTickets
             ? <StatCard label="New client tickets" value={requestCount} icon={<Inbox className="h-5 w-5" />} tone="brand" href="/tickets" />
             : null}

@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/auth'
 import { getUserAdminLookups, profileIdsReportingTo } from '@/lib/queries'
 import { InviteUserButton, type StaffRow, type UnlinkedClientAccount } from '@/components/admin/UserAdmin'
 import { UsersAdminTabs } from '@/components/admin/UsersAdminTabs'
-import type { Invite, StaffRole } from '@/types/database'
+import type { Invite, InviteListItem, StaffRole } from '@/types/database'
 
 export const metadata = { title: 'Users & invites' }
 
@@ -15,7 +15,7 @@ export default async function UsersPage(props: { searchParams: Promise<{ tab?: s
     getUserAdminLookups({ includeClients: me.role === 'super_admin' }),
     me.role === 'team_lead'
       ? Promise.resolve({ data: [], error: null })
-      : supabase.from('invites').select('id, email, role, reporting_to, full_name, job_title, department_ids, client_id, expires_at, used_at, cancelled_at, created_at').is('used_at', null).order('created_at', { ascending: false }),
+      : supabase.from('invites').select('id, email, role, invited_by, used_by, reporting_to, full_name, job_title, department_ids, client_id, expires_at, used_at, cancelled_at, created_at').order('created_at', { ascending: false }),
     me.role === 'super_admin'
       ? supabase.from('clients').select('owner_id').not('owner_id', 'is', null)
       : Promise.resolve({ data: [], error: null }),
@@ -23,6 +23,19 @@ export default async function UsersPage(props: { searchParams: Promise<{ tab?: s
   if (invitesResult.error) throw new Error(`Could not load pending invites: ${invitesResult.error.message}`)
   if (clientLinksResult.error) throw new Error(`Could not load client account links: ${clientLinksResult.error.message}`)
   const peopleById = new Map(lookups.people.map(person => [person.id, person]))
+  const inviteRows: InviteListItem[] = ((invitesResult.data ?? []) as Invite[]).map(invite => {
+    const inviter = invite.invited_by ? peopleById.get(invite.invited_by) : null
+    return {
+      ...invite,
+      inviter: inviter ? {
+        id: inviter.id,
+        full_name: inviter.full_name,
+        email: inviter.email,
+        avatar_url: inviter.avatar_url,
+        role: inviter.role,
+      } : null,
+    }
+  })
   const departmentIdsByPerson = new Map<string, string[]>()
   for (const membership of lookups.departmentMembers) {
     const ids = departmentIdsByPerson.get(membership.profile_id) ?? []
@@ -63,7 +76,7 @@ export default async function UsersPage(props: { searchParams: Promise<{ tab?: s
     <UsersAdminTabs
       rows={rows}
       departments={lookups.departments}
-      invites={(invitesResult.data ?? []) as Invite[]}
+      invites={inviteRows}
       inviteButton={<InviteUserButton departments={lookups.departments} actorRole={me.role} reportingPeople={reportingPeople} />}
       unlinkedClientAccounts={unlinkedClientAccounts}
       actorId={me.id}

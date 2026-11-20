@@ -176,6 +176,8 @@ export interface Invite {
   id: string
   email: string
   role: AppRole
+  invited_by: string | null
+  used_by: string | null
   reporting_to: string | null
   full_name: string | null
   job_title: string | null
@@ -185,6 +187,10 @@ export interface Invite {
   used_at: string | null
   cancelled_at: string | null
   created_at: string
+}
+
+export type InviteListItem = Invite & {
+  inviter: Pick<Profile, 'id' | 'full_name' | 'email' | 'avatar_url' | 'role'> | null
 }
 
 export interface Task {

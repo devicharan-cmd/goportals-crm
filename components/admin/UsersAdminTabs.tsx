@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { ContactRound, Mail, UsersRound } from 'lucide-react'
 import { Card, CardHeader } from '@/components/ui/primitives'
 import { cn } from '@/lib/utils'
-import type { AppRole, Department, Invite } from '@/types/database'
+import type { AppRole, Department, InviteListItem } from '@/types/database'
 import type { StaffRow, UnlinkedClientAccount } from '@/components/admin/UserAdmin'
 import { PendingInvites, StaffDirectory, UnlinkedClientAccounts } from '@/components/admin/UserAdmin'
 import { ChangePocTab } from '@/components/admin/ChangePocTab'
@@ -15,7 +15,7 @@ type Tab = 'users' | 'invites' | 'change-poc'
 export function UsersAdminTabs({ rows, departments, invites, inviteButton, unlinkedClientAccounts = [], actorId, actorRole, initialTab = 'users', initialSelectedIds = [] }: {
   rows: StaffRow[]
   departments: Department[]
-  invites: Invite[]
+  invites: InviteListItem[]
   inviteButton: ReactNode
   unlinkedClientAccounts?: UnlinkedClientAccount[]
   actorId: string
@@ -57,7 +57,7 @@ export function UsersAdminTabs({ rows, departments, invites, inviteButton, unlin
       <div role="tablist" aria-label="Users and invites" className="mb-3 flex flex-wrap gap-2">
         {tabs.map(({ id, label, Icon }) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => selectTab(id)}
-            className={cn('inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors sm:h-10 sm:gap-2 sm:px-4 sm:text-sm',
+            className={cn('inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#63A9C4] focus-visible:ring-offset-2 sm:h-10 sm:gap-1.5 sm:px-3.5 sm:text-sm',
               tab === id ? 'bg-[#045E80] text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50 hover:text-slate-900')}>
             <Icon aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{label}
           </button>
@@ -84,10 +84,10 @@ export function UsersAdminTabs({ rows, departments, invites, inviteButton, unlin
           <CardHeader
             className="items-center gap-2 px-3 py-3 sm:gap-4 sm:px-5 sm:py-4"
             title="Invites"
-            description="Send staff or client invitations and manage pending invitations."
+            description="Send invitations and track acceptance, role, and who sent each one."
             action={<div className="shrink-0 whitespace-nowrap [&_button]:h-8 [&_button]:gap-1.5 [&_button]:px-2.5 [&_button]:text-xs sm:[&_button]:h-9 sm:[&_button]:gap-2 sm:[&_button]:px-4 sm:[&_button]:text-sm">{inviteButton}</div>}
           />
-          <PendingInvites invites={invites} />
+          <PendingInvites invites={invites} canReject={actorRole === 'super_admin'} />
         </Card>
       )}
 

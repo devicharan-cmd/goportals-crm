@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
 import { Alert, Field } from '@/components/ui/primitives'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
+import { authEmailCallbackUrl } from '@/lib/auth-email-flow'
 
 export default function ForgotPasswordPage() {
   const runOnce = useSingleFlight()
@@ -36,10 +37,15 @@ export default function ForgotPasswordPage() {
         return
       }
 
-      const callbackUrl = new URL('/auth/callback', window.location.origin)
-      callbackUrl.searchParams.set('flow', 'recovery')
-      const { error } = await createClient().auth.resetPasswordForEmail(normalizedEmail, {
-        redirectTo: callbackUrl.toString(),
+      // Use an implicit recovery link: a PKCE verifier started on localhost
+      // cannot be read by the callback on the live website.
+      const recoveryClient = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { flowType: 'implicit', autoRefreshToken: false, persistSession: false } },
+      )
+      const { error } = await recoveryClient.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: authEmailCallbackUrl('recovery'),
       })
       if (error) setError(error.message)
       else setSent(true)

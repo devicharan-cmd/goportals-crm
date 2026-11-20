@@ -69,12 +69,16 @@ export async function DELETE(_request: Request, props: { params: Promise<{ id: s
   }
   if (!target || target.role === 'client') return NextResponse.json({ error: 'Staff account not found.' }, { status: 404 })
   if (target.role === 'super_admin') {
-    return NextResponse.json({ error: 'Super Admin accounts cannot be deleted from the staff directory.' }, { status: 409 })
+    const { data: superAdminDeletionReady, error: superAdminReadinessError } = await admin.rpc('super_admin_deletion_ready')
+    if (superAdminReadinessError || superAdminDeletionReady !== true) {
+      console.error('[staff-delete] Super Admin deletion migration is missing or incomplete:', superAdminReadinessError?.message)
+      return NextResponse.json({ error: 'Super Admin deletion is not enabled yet. Apply migration 193_super_admin_profile_protection_and_deletion.sql in Supabase, then retry.' }, { status: 503 })
+    }
   }
 
   const [{ data: reports, error: reportsError }, { data: invites, error: invitesError }] = await Promise.all([
     admin.from('profiles').select('id').eq('reporting_to', target.id).limit(1),
-    admin.from('invites').select('id').eq('reporting_to', target.id).limit(1),
+    admin.from('invites').select('id').eq('reporting_to', target.id).is('used_at', null).is('cancelled_at', null).limit(1),
   ])
   if (reportsError || invitesError) {
     console.error('[staff-delete] Could not verify reporting relationships:', reportsError?.message ?? invitesError?.message)
@@ -103,7 +107,7 @@ export async function DELETE(_request: Request, props: { params: Promise<{ id: s
     }
     console.error('[staff-delete] Could not transfer assigned work:', transferError.message)
     return NextResponse.json({
-      error: 'Could not transfer this person’s assigned tasks and tickets to their Reporting To person. The account was not deleted.',
+      error: `Could not transfer this person’s assigned tasks and tickets to ${target.role === 'super_admin' ? 'your account' : 'their Reporting To person'}. The account was not deleted.`,
     }, { status: 500 })
   }
 

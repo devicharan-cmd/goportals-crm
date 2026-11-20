@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { CircleCheck, Layers3, UsersRound } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 
 type StaffTicketStatus = 'unassigned' | 'assigned' | 'closed'
 const TABS: { key: StaffTicketStatus; label: string; icon: typeof Layers3 }[] = [
@@ -24,10 +25,58 @@ function isTicketStatus(value: string | null | undefined): value is StaffTicketS
   return TABS.some(tab => tab.key === value)
 }
 
-export function StaffTicketTabs({ activeStatus, initialCounts }: { activeStatus: StaffTicketStatus; initialCounts: Counts }) {
-  const [counts, setCounts] = useState(initialCounts)
+export function StaffTicketTabs({ activeStatus }: { activeStatus: StaffTicketStatus }) {
+  const [counts, setCounts] = useState<Counts | null>(null)
+  const pendingDeltas = useRef<Partial<Counts>>({})
+  const countsLoaded = useRef(false)
 
-  useEffect(() => setCounts(initialCounts), [initialCounts])
+  useEffect(() => {
+    let active = true
+    const supabase = createClient()
+    void (async () => {
+      let loadedCounts: Counts
+      const { data, error } = await supabase.rpc('staff_ticket_status_counts')
+      if (!error && data?.[0]) {
+        loadedCounts = {
+          unassigned: Number(data[0].unassigned_count) || 0,
+          assigned: Number(data[0].assigned_count) || 0,
+          closed: Number(data[0].closed_count) || 0,
+        }
+      } else {
+        const results = await Promise.all(TABS.map(({ key }) => supabase.from('tickets')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', key)))
+        loadedCounts = Object.fromEntries(TABS.map((tab, index) => [
+          tab.key,
+          results[index].count ?? 0,
+        ])) as Counts
+      }
+      if (!active) return
+      const deltas = pendingDeltas.current
+      pendingDeltas.current = {}
+      countsLoaded.current = true
+      setCounts(previous => {
+        const base = previous ?? loadedCounts
+        return Object.fromEntries(TABS.map(({ key }) => [
+          key,
+          Math.max(0, base[key] + (deltas[key] ?? 0)),
+        ])) as Counts
+      })
+    })().catch(() => {
+      if (!active) return
+      const deltas = pendingDeltas.current
+      pendingDeltas.current = {}
+      countsLoaded.current = true
+      setCounts(previous => {
+        const base = previous ?? { unassigned: 0, assigned: 0, closed: 0 }
+        return Object.fromEntries(TABS.map(({ key }) => [
+          key,
+          Math.max(0, base[key] + (deltas[key] ?? 0)),
+        ])) as Counts
+      })
+    })
+    return () => { active = false }
+  }, [])
 
   useEffect(() => {
     const processedEvents = new Set<string>()
@@ -50,14 +99,22 @@ export function StaffTicketTabs({ activeStatus, initialCounts }: { activeStatus:
         if (isTicketStatus(change.nextStatus)) deltas[change.nextStatus] = (deltas[change.nextStatus] ?? 0) + 1
       }
 
-      if (Object.keys(deltas).length) {
-        setCounts(previous => ({
-          ...previous,
-          ...Object.fromEntries(Object.entries(deltas).map(([status, delta]) => [
-            status,
-            Math.max(0, previous[status as StaffTicketStatus] + (delta ?? 0)),
-          ])),
-        }))
+      if (Object.keys(deltas).length && !countsLoaded.current) {
+        for (const [status, delta] of Object.entries(deltas)) {
+          const key = status as StaffTicketStatus
+          pendingDeltas.current[key] = (pendingDeltas.current[key] ?? 0) + (delta ?? 0)
+        }
+      } else if (Object.keys(deltas).length) {
+        setCounts(previous => {
+          const current = previous ?? { unassigned: 0, assigned: 0, closed: 0 }
+          return {
+            ...current,
+            ...Object.fromEntries(Object.entries(deltas).map(([status, delta]) => [
+              status,
+              Math.max(0, current[status as StaffTicketStatus] + (delta ?? 0)),
+            ])),
+          }
+        })
       }
     }
 
@@ -79,9 +136,9 @@ export function StaffTicketTabs({ activeStatus, initialCounts }: { activeStatus:
           <span className="min-w-0 truncate">{tab.label}</span>
           <span className={cn(
             'absolute right-1 top-1/2 inline-grid h-3.5 min-w-3.5 -translate-y-1/2 place-items-center rounded-full px-0.5 text-center text-[9px] font-semibold leading-3.5 tabular-nums sm:h-4 sm:min-w-4 sm:px-1 sm:text-[10px] sm:leading-4',
-            counts[tab.key] > 0 ? 'bg-[#95C12C] text-white' : 'bg-slate-200 text-[#0F172A]',
+            counts?.[tab.key] ? 'bg-[#95C12C] text-white' : 'bg-slate-200 text-[#0F172A]',
           )}>
-            {counts[tab.key] > 99 ? '99+' : counts[tab.key]}
+            {counts ? (counts[tab.key] > 99 ? '99+' : counts[tab.key]) : '·'}
           </span>
         </Link>
       ))}

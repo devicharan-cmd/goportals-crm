@@ -1,5 +1,14 @@
 export type AuthEmailFlow = 'invite' | 'recovery'
 
+// Email links always finish on the live site, including when requested from localhost.
+const AUTH_EMAIL_ORIGIN = 'https://goportals-crm.vercel.app'
+
+export function authEmailCallbackUrl(flow: AuthEmailFlow): string {
+  const url = new URL('/auth/callback', AUTH_EMAIL_ORIGIN)
+  url.searchParams.set('flow', flow)
+  return url.toString()
+}
+
 export function resolveAuthEmailFlow(
   linkType: string | null | undefined,
   next: string | null | undefined,

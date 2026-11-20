@@ -161,43 +161,27 @@ export function AppShell({
     let channel: ReturnType<typeof supabase.channel> | null = null
 
     const refreshCounts = async (kinds: Set<'notifications' | 'urgent' | 'approvals'>) => {
-      const updates: Partial<ShellCounts> = {}
-      const queries: Promise<void>[] = []
-      const addCount = (key: keyof ShellCounts, query: PromiseLike<{ count: number | null; error: { message: string } | null }>) => {
-        queries.push(Promise.resolve(query).then(result => {
-          if (result.error) throw result.error
-          updates[key] = result.count ?? 0
-        }))
-      }
-
-      if (kinds.has('notifications')) {
-        addCount('notifications', supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('recipient_id', userId).eq('is_read', false))
-      }
-      if (kinds.has('urgent') && !isClient) {
-        const urgentQueries = [
-          supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)'),
-          ...(['super_admin', 'manager', 'team_lead'].includes(user.role)
-            ? [supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('is_urgent', true).eq('status', 'unassigned')]
-            : []),
-        ]
-        queries.push(Promise.all(urgentQueries).then(results => {
-          const failed = results.find(result => result.error)
-          if (failed?.error) throw failed.error
-          updates.urgent = results.reduce((total, result) => total + (result.count ?? 0), 0)
-        }))
-      }
-      if (kinds.has('approvals') && !isClient && user.role === 'super_admin') {
-        addCount('approvals', supabase.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'pending'))
-      }
-
+      if (!kinds.size) return
       try {
-        await Promise.all(queries)
-      } catch (error) {
-        if (active) showErrorToast(`Live sidebar counts could not be updated. ${errorMessage(error)}`)
-        return
+        const { data, error } = await supabase.rpc('staff_shell_counts', {
+          p_include_notifications: kinds.has('notifications'),
+          p_include_urgent: kinds.has('urgent') && !isClient,
+          p_include_approvals: kinds.has('approvals') && !isClient && user.role === 'super_admin',
+        })
+        if (error) throw error
+        const result = Array.isArray(data) ? data[0] : data
+        if (!result) throw new Error('The live badge counts were empty.')
+        const updates: Partial<ShellCounts> = {}
+        if (kinds.has('notifications')) updates.notifications = Number(result.unread_notifications_count) || 0
+        if (kinds.has('urgent') && !isClient) updates.urgent = Number(result.urgent_count) || 0
+        if (kinds.has('approvals') && !isClient && user.role === 'super_admin') {
+          updates.approvals = Number(result.pending_clients_count) || 0
+        }
+        if (!active) return
+        setLiveCounts(previous => ({ ...previous, ...updates }))
+      } catch {
+        if (active) showErrorToast('Live counts could not be refreshed. Notification, urgent-task, and approval badges may be out of date; refresh the page to try again.')
       }
-      if (!active) return
-      setLiveCounts(previous => ({ ...previous, ...updates }))
     }
 
     const schedulePageRefresh = () => {
@@ -601,7 +585,7 @@ export function AppShell({
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#f7f7fa]">
       {/* Desktop sidebar */}
-      <aside className={cn('fixed inset-y-0 left-0 z-30 hidden border-r border-slate-200 bg-white transition-[width] duration-200 lg:block',
+      <aside className={cn('fixed inset-y-0 left-0 z-50 hidden border-r border-slate-200 bg-white transition-[width] duration-200 lg:block',
         collapsed ? 'w-16' : 'w-64')}>
         {renderSidebar(collapsed, true)}
         {toggleButton}
@@ -617,7 +601,7 @@ export function AppShell({
 
       {/* Only the area under the top bar scrolls, so the scrollbar never runs beside the top bar. */}
       <div className={cn('flex h-full min-h-0 flex-col transition-[padding] duration-200', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
-        <header className="z-20 flex h-16 flex-shrink-0 items-center gap-2.5 border-b border-slate-200 bg-white/85 px-3 backdrop-blur sm:gap-3 sm:px-6">
+        <header className="relative z-40 flex h-16 flex-shrink-0 items-center gap-2.5 border-b border-slate-200 bg-white/85 px-3 backdrop-blur sm:gap-3 sm:px-6">
           <button className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="h-[22px] w-[22px]" />
           </button>
@@ -682,7 +666,7 @@ export function AppShell({
 
                 {/* Dropdown Menu: Clean & Minimalist */}
                 {profileMenuOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-1.5 w-52 max-w-[calc(100vw-1rem)] rounded-xl border border-slate-200/80 bg-white p-0.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute right-0 top-full z-50 mt-1.5 w-48 max-w-[calc(100vw-1rem)] rounded-xl border border-slate-200/80 bg-white p-0.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] animate-in fade-in zoom-in-95 duration-100">
                     <div className="flex min-w-0 items-start gap-2 px-1.5 py-1.5">
                       {isClient
                         ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="sm" className="mt-0.5" rounded />

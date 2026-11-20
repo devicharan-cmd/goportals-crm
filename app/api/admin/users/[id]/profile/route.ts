@@ -5,12 +5,6 @@ import type { StaffRole } from '@/types/database'
 import { validateMobilePhone, isValidTimeZone } from '@/lib/contact'
 
 const STAFF_ROLES: StaffRole[] = ['super_admin', 'manager', 'team_lead', 'employee']
-const REPORTING_ROLE: Partial<Record<StaffRole, StaffRole>> = {
-  manager: 'super_admin',
-  team_lead: 'manager',
-  employee: 'team_lead',
-}
-
 export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params
   const sessionClient = await createClient()
@@ -52,9 +46,6 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
   if (typeof role !== 'string' || !STAFF_ROLES.includes(role as StaffRole)) {
     return NextResponse.json({ error: 'Choose a valid staff role.' }, { status: 400 })
   }
-  if (status !== 'active' && status !== 'suspended') {
-    return NextResponse.json({ error: 'Choose Active or Suspended status.' }, { status: 400 })
-  }
   if (!Number.isInteger(capacity) || (capacity as number) < 1 || (capacity as number) > 168) {
     return NextResponse.json({ error: 'Weekly capacity must be between 1 and 168 hours.' }, { status: 400 })
   }
@@ -69,6 +60,15 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
     return NextResponse.json({ error: 'Could not load this staff profile.' }, { status: 500 })
   }
   if (!target || target.role === 'client') return NextResponse.json({ error: 'Staff profile not found.' }, { status: 404 })
+  if (status !== target.status && !(
+    (target.status === 'active' || target.status === 'suspended')
+    && (status === 'active' || status === 'suspended')
+  )) {
+    return NextResponse.json({ error: 'Pending invitations become active only after the invitee completes password setup. Only active and suspended staff can be changed manually.' }, { status: 409 })
+  }
+  if (target.role === 'super_admin' && role !== 'super_admin') {
+    return NextResponse.json({ error: 'A Super Admin’s role cannot be changed.' }, { status: 409 })
+  }
   if (target.id === actor.id && (role !== target.role || status !== target.status)) {
     return NextResponse.json({ error: 'You cannot change your own role or employment status.' }, { status: 409 })
   }
@@ -82,15 +82,14 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Select a Reporting To person.' }, { status: 400 })
     } else {
       if (reportingTo === target.id) return NextResponse.json({ error: 'A person cannot report to themselves.' }, { status: 400 })
-      const expectedRole = REPORTING_ROLE[role as StaffRole]
       const { data: reportingPerson, error: reportingError } = await admin.from('profiles')
         .select('id, role, status').eq('id', reportingTo).maybeSingle()
       if (reportingError) {
         console.error('[staff-profile] Could not verify the Reporting To person:', reportingError.message)
         return NextResponse.json({ error: 'Could not verify the Reporting To person.' }, { status: 500 })
       }
-      if (!reportingPerson || reportingPerson.role !== expectedRole || reportingPerson.status !== 'active') {
-        return NextResponse.json({ error: 'Reporting To must be an active person in the role directly above this staff role.' }, { status: 400 })
+      if (!reportingPerson || reportingPerson.role === 'client' || reportingPerson.status !== 'active') {
+        return NextResponse.json({ error: 'Reporting To must be an active staff member.' }, { status: 400 })
       }
       reportingToId = reportingPerson.id
     }

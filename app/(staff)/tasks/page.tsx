@@ -25,24 +25,13 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     : defaultScope
   const board = searchParams.view !== 'list'
   const status = searchParams.status ?? 'all'
-  const countAllWithTaskQuery = scope === 'all'
-    && (board || status === 'all')
-    && !searchParams.assignee
-    && !searchParams.assigned_by
-    && !searchParams.client
-    && !searchParams.dept
-    && !searchParams.due
-
   const lookupsPromise = getTaskPageLookups({
     includePeople: true,
     includeAssignments: true,
   })
 
   function taskQuery(assignedScopeAssigneeIds: string[]) {
-    const taskSelect = countAllWithTaskQuery
-      ? supabase.from('tasks').select(TASK_SUMMARY_SELECT, { count: 'exact' })
-      : supabase.from('tasks').select(TASK_SUMMARY_SELECT)
-    let query = taskSelect
+    let query = supabase.from('tasks').select(TASK_SUMMARY_SELECT)
       .order('is_urgent', { ascending: false })
       .order('due_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
@@ -90,28 +79,21 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     return query
   })
 
-  const [lookups, taskResult, myTaskCountResult, allTaskCountResult, assignedTaskCountResult] = await Promise.all([
+  const [lookups, taskResult, taskCountsResult, assignedTaskCountResult] = await Promise.all([
     lookupsPromise,
     taskResultPromise,
-    supabase.from('tasks').select('id', { count: 'exact', head: true })
-      .eq('assignee_id', me.id)
-      .not('status', 'in', '(completed,cancelled)'),
-    countAllWithTaskQuery
-      ? Promise.resolve(null)
-      : supabase.from('tasks').select('id', { count: 'exact', head: true }),
+    supabase.rpc('staff_task_scope_counts'),
     assignedTaskCountPromise,
   ])
   if (taskResult.error) throw taskResult.error
-  if (myTaskCountResult.error) throw myTaskCountResult.error
-  if (allTaskCountResult?.error) throw allTaskCountResult.error
+  if (taskCountsResult.error) throw taskCountsResult.error
   if (assignedTaskCountResult.error) throw assignedTaskCountResult.error
+  const taskCounts = taskCountsResult.data?.[0]
   const tasks = normalizeTaskSummaryRows(
     (taskResult.data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0],
   )
   const hasMoreTasks = (taskResult.data?.length ?? 0) > TASK_PAGE_SIZE
-  const allTaskCount = countAllWithTaskQuery
-    ? taskResult.count ?? 0
-    : allTaskCountResult?.count ?? 0
+  const allTaskCount = Number(taskCounts?.all_visible_count ?? 0)
   const lastTask = tasks[tasks.length - 1]
   const initialTaskCursor = hasMoreTasks && lastTask
     ? { id: lastTask.id, is_urgent: lastTask.is_urgent, due_date: lastTask.due_date, created_at: lastTask.created_at }
@@ -148,7 +130,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       initialNames={names}
       initialTaskAssigners={taskAssigners}
       initialScopeCounts={{
-        mine: myTaskCountResult.count ?? 0,
+        mine: Number(taskCounts?.mine_active_count ?? 0),
         assigned: assignedTaskCountResult.count ?? 0,
         all: allTaskCount,
       }}

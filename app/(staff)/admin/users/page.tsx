@@ -13,7 +13,10 @@ export default async function UsersPage(props: { searchParams: Promise<{ tab?: s
   const initialTab = searchParams.tab === 'invites' || (searchParams.tab === 'change-poc' && me.role === 'super_admin') ? searchParams.tab : 'users'
   const supabase = await createClient()
   const [lookups, invitesResult, clientLinksResult] = await Promise.all([
-    getUserAdminLookups({ includeClients: me.role === 'super_admin' && initialTab === 'users' }),
+    getUserAdminLookups({
+      includeClients: me.role === 'super_admin' && initialTab === 'users',
+      includeDepartmentMembers: initialTab !== 'invites',
+    }),
     initialTab === 'invites' && me.role !== 'team_lead'
       ? supabase.from('invites').select('id, email, role, invited_by, used_by, reporting_to, full_name, job_title, department_ids, client_id, expires_at, used_at, cancelled_at, created_at').order('created_at', { ascending: false })
       : Promise.resolve({ data: [], error: null }),

@@ -135,33 +135,43 @@ const USER_ADMIN_PROFILE_SELECT =
 /** Load only the people and fields needed by the user-management screens. */
 export async function getUserAdminLookups({
   includeClients = true,
+  includeDepartmentMembers = true,
   departmentMemberProfileId,
 }: {
   includeClients?: boolean
+  /** Omit memberships for tabs that do not render the directory. */
+  includeDepartmentMembers?: boolean
   /** Limit memberships when a screen only needs one person's departments. */
   departmentMemberProfileId?: string
 } = {}): Promise<UserAdminLookups> {
   const supabase = await createClient()
-  const [staff, clients, departments, members] = await Promise.all([
-    supabase.from('profiles').select(USER_ADMIN_PROFILE_SELECT).neq('role', 'client'),
-    includeClients
-      ? supabase.from('profiles').select(USER_ADMIN_PROFILE_SELECT).eq('role', 'client')
-      : Promise.resolve({ data: [], error: null }),
+  const profileSelect = includeDepartmentMembers
+    ? `${USER_ADMIN_PROFILE_SELECT}, department_members(department_id, profile_id, is_lead)`
+    : USER_ADMIN_PROFILE_SELECT
+  const profilesQuery = supabase.from('profiles').select(profileSelect)
+  if (!includeClients) profilesQuery.neq('role', 'client')
+
+  const [profiles, departments, scopedMembers] = await Promise.all([
+    profilesQuery,
     supabase.from('departments').select('id, name, slug, sort_order').order('sort_order'),
     departmentMemberProfileId
       ? supabase.from('department_members').select('department_id, profile_id, is_lead').eq('profile_id', departmentMemberProfileId)
-      : supabase.from('department_members').select('department_id, profile_id, is_lead'),
+      : Promise.resolve({ data: [], error: null }),
   ])
-  for (const result of [staff, clients, departments, members]) {
+  for (const result of [profiles, departments, scopedMembers]) {
     if (result.error) throw result.error
   }
+  type ProfileWithMemberships = UserAdminPerson & { department_members?: DepartmentMember[] | null }
+  // The typed Supabase client cannot parse a runtime-composed nested select;
+  // the relation itself is enforced by the profiles → department_members FK.
+  const profileRows = (profiles.data ?? []) as unknown as ProfileWithMemberships[]
+  const people = profileRows.map(({ department_members: _departmentMembers, ...person }) => person)
   return {
-    people: sortPeopleByRoleAndJoiningDate([
-      ...((staff.data ?? []) as UserAdminPerson[]),
-      ...((clients.data ?? []) as UserAdminPerson[]),
-    ]),
+    people: sortPeopleByRoleAndJoiningDate(people),
     departments: (departments.data ?? []) as Department[],
-    departmentMembers: (members.data ?? []) as DepartmentMember[],
+    departmentMembers: includeDepartmentMembers
+      ? profileRows.flatMap(profile => profile.department_members ?? [])
+      : (scopedMembers.data ?? []) as DepartmentMember[],
   }
 }
 

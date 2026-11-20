@@ -10,13 +10,14 @@ export const metadata = { title: 'Users & invites' }
 export default async function UsersPage(props: { searchParams: Promise<{ tab?: string; select?: string }> }) {
   const searchParams = await props.searchParams
   const me = await requireRole(['super_admin', 'manager', 'team_lead'])
+  const initialTab = searchParams.tab === 'invites' || (searchParams.tab === 'change-poc' && me.role === 'super_admin') ? searchParams.tab : 'users'
   const supabase = await createClient()
   const [lookups, invitesResult, clientLinksResult] = await Promise.all([
-    getUserAdminLookups({ includeClients: me.role === 'super_admin' }),
-    me.role === 'team_lead'
-      ? Promise.resolve({ data: [], error: null })
-      : supabase.from('invites').select('id, email, role, invited_by, used_by, reporting_to, full_name, job_title, department_ids, client_id, expires_at, used_at, cancelled_at, created_at').order('created_at', { ascending: false }),
-    me.role === 'super_admin'
+    getUserAdminLookups({ includeClients: me.role === 'super_admin' && initialTab === 'users' }),
+    initialTab === 'invites' && me.role !== 'team_lead'
+      ? supabase.from('invites').select('id, email, role, invited_by, used_by, reporting_to, full_name, job_title, department_ids, client_id, expires_at, used_at, cancelled_at, created_at').order('created_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    me.role === 'super_admin' && initialTab === 'users'
       ? supabase.from('clients').select('owner_id').not('owner_id', 'is', null)
       : Promise.resolve({ data: [], error: null }),
   ])
@@ -71,7 +72,6 @@ export default async function UsersPage(props: { searchParams: Promise<{ tab?: s
       .map(({ id, email, full_name }) => ({ id, email, full_name }))
   }
 
-  const initialTab = searchParams.tab === 'invites' || (searchParams.tab === 'change-poc' && me.role === 'super_admin') ? searchParams.tab : 'users'
   return (
     <UsersAdminTabs
       rows={rows}

@@ -133,7 +133,14 @@ const USER_ADMIN_PROFILE_SELECT =
   'id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to, phone'
 
 /** Load only the people and fields needed by the user-management screens. */
-export async function getUserAdminLookups({ includeClients = true }: { includeClients?: boolean } = {}): Promise<UserAdminLookups> {
+export async function getUserAdminLookups({
+  includeClients = true,
+  departmentMemberProfileId,
+}: {
+  includeClients?: boolean
+  /** Limit memberships when a screen only needs one person's departments. */
+  departmentMemberProfileId?: string
+} = {}): Promise<UserAdminLookups> {
   const supabase = await createClient()
   const [staff, clients, departments, members] = await Promise.all([
     supabase.from('profiles').select(USER_ADMIN_PROFILE_SELECT).neq('role', 'client'),
@@ -141,7 +148,9 @@ export async function getUserAdminLookups({ includeClients = true }: { includeCl
       ? supabase.from('profiles').select(USER_ADMIN_PROFILE_SELECT).eq('role', 'client')
       : Promise.resolve({ data: [], error: null }),
     supabase.from('departments').select('id, name, slug, sort_order').order('sort_order'),
-    supabase.from('department_members').select('department_id, profile_id, is_lead'),
+    departmentMemberProfileId
+      ? supabase.from('department_members').select('department_id, profile_id, is_lead').eq('profile_id', departmentMemberProfileId)
+      : supabase.from('department_members').select('department_id, profile_id, is_lead'),
   ])
   for (const result of [staff, clients, departments, members]) {
     if (result.error) throw result.error

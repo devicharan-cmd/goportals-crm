@@ -18,7 +18,7 @@ export default async function StaffProfilePage(props: { params: Promise<{ id: st
     me.role === 'super_admin'
       ? supabase.from('staff_profile_details').select('current_address, permanent_address').eq('profile_id', params.id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    getUserAdminLookups(),
+    getUserAdminLookups({ includeClients: false, departmentMemberProfileId: params.id }),
   ])
 
   if (profileRes.error) throw new Error(`Could not load the staff profile: ${profileRes.error.message}`)

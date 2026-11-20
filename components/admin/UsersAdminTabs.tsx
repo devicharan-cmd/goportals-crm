@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ContactRound, Mail, UsersRound } from 'lucide-react'
 import { Card, CardHeader } from '@/components/ui/primitives'
 import { cn } from '@/lib/utils'
@@ -25,6 +25,7 @@ export function UsersAdminTabs({ rows, departments, invites, inviteButton, unlin
 }) {
   const searchParams = useSearchParams()
   const pathname = usePathname()
+  const router = useRouter()
   const [tab, setTab] = useState<Tab>(initialTab)
   const people = rows.map(({ id, full_name, email, avatar_url, role, status, reporting_to }) => ({ id, full_name, email, avatar_url, role, status, reporting_to }))
 
@@ -42,7 +43,7 @@ export function UsersAdminTabs({ rows, departments, invites, inviteButton, unlin
     if (nextTab === 'users') next.delete('tab')
     else next.set('tab', nextTab)
     const query = next.toString()
-    window.history.pushState(null, '', query ? `${pathname}?${query}` : pathname)
+    router.replace(query ? `${pathname}?${query}` : pathname)
   }
 
   const tabs: { id: Tab; label: string; Icon: typeof UsersRound }[] = [

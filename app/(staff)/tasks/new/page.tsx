@@ -11,10 +11,14 @@ export default async function NewTaskPage(
   props: { searchParams: Promise<{ client_id?: string; assignee?: string }> }
 ) {
   const searchParams = await props.searchParams
-  const me = await requireStaff()
   // The profiles query already returns staff visible to staff RLS; this form
   // does not need the separate public staff-directory RPC as well.
-  const lookups = await getStaffLookups({ includeDirectory: false })
+  // Fetch independent lookups alongside the access check so the initial form
+  // render does not wait an extra server round trip.
+  const [me, lookups] = await Promise.all([
+    requireStaff(),
+    getStaffLookups({ includeDirectory: false }),
+  ])
 
   const clients = lookups.clients
 

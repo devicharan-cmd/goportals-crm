@@ -8,9 +8,11 @@ import { PortalTicketForm } from '@/components/portal/PortalTicketForm'
 export const metadata = { title: 'New ticket' }
 
 export default async function NewStaffTicketPage() {
-  const me = await requireRole(['super_admin', 'manager'])
   const supabase = await createClient()
-  const [{ data: clients }, { data: accounts }, { data: platforms }] = await Promise.all([
+  // The guard and static form lookups are independent requests. Starting them
+  // together avoids putting the profile lookup in front of the form data.
+  const [me, { data: clients }, { data: accounts }, { data: platforms }] = await Promise.all([
+    requireRole(['super_admin', 'manager']),
     supabase.from('clients').select('id, company_name').eq('status', 'active').order('company_name'),
     supabase.from('ecommerce_accounts').select('id, client_id, account_name, platform:platforms(name)').eq('status', 'active'),
     supabase.from('platforms').select('id, name').eq('is_active', true).order('sort_order'),

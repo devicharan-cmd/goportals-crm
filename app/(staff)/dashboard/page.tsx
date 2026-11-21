@@ -51,17 +51,24 @@ export default async function DashboardPage() {
   const dashboardDataPromise = Promise.all([
     supabase.from('tasks').select(DASHBOARD_TASK_SELECT).eq('assignee_id', me.id).not('status', 'in', '(completed,cancelled)')
       .order('due_date', { ascending: true, nullsFirst: false }).limit(50),
-    supabase.from('tasks').select(DASHBOARD_TASK_SELECT).eq('assignee_id', me.id)
-      .not('status', 'in', '(completed,cancelled)').eq('due_date', today)
-      .order('priority').order('created_at', { ascending: false }).limit(50),
+    // Only employees render the detailed "Due today" panel. The count still
+    // comes from the combined dashboard RPC for every role.
+    isEmployee
+      ? supabase.from('tasks').select(DASHBOARD_TASK_SELECT).eq('assignee_id', me.id)
+          .not('status', 'in', '(completed,cancelled)').eq('due_date', today)
+          .order('priority').order('created_at', { ascending: false }).limit(50)
+      : Promise.resolve({ data: [], count: 0, error: null }),
     supabase.from('tasks').select(DASHBOARD_TASK_SELECT).eq('is_urgent', true).is('assignee_id', null).not('status', 'in', '(completed,cancelled)')
       .order('priority').order('created_at').limit(5),
     canSeeTickets
       ? supabase.from('tickets').select(TICKET_LIST_SELECT).eq('status', 'unassigned')
           .order('created_at', { ascending: false }).limit(6)
       : Promise.resolve({ data: [], count: 0, error: null }),
-    Promise.resolve({ data: [], count: 0, error: null }),
-    supabase.from('profiles').select('id, full_name, email, avatar_url'),
+    // The manager workload panel is the only shared panel that needs the
+    // full staff name/avatar map. Avoid that directory read for employees.
+    isManager
+      ? supabase.from('profiles').select('id, full_name, avatar_url')
+      : Promise.resolve({ data: [], count: 0, error: null }),
     isManager
       ? supabase.from('tasks').select(DASHBOARD_TASK_SELECT).not('status', 'in', '(completed,cancelled)')
           .order('is_urgent', { ascending: false })
@@ -128,8 +135,9 @@ export default async function DashboardPage() {
       })()
     : Promise.resolve(null)
 
-  // Begin this small lookup as soon as the urgent-task query finishes, so it
-  // can run alongside the team-lead-only data load instead of after it.
+  // The compact urgent preview includes reassignment history. Avoid calling
+  // the RPC entirely when no urgent rows are present while preserving that UI
+  // when there is work to show.
   const urgentHistoryPromise = dashboardDataPromise.then(async ([, , urgentResult]) => {
     if (urgentResult.error) throw urgentResult.error
     return getTaskAssigneeHistory(
@@ -139,13 +147,13 @@ export default async function DashboardPage() {
   })
 
   const [
-    [mine, dueTodayTasksResult, urgent, requests, approvals, people, allWorking, allDone, myCompleted],
+    [mine, dueTodayTasksResult, urgent, requests, people, allWorking, allDone, myCompleted],
     dashboardCountsResult,
     teamLeadData,
     urgentHistory,
   ] = await Promise.all([dashboardDataPromise, dashboardCountsPromise, teamLeadDataPromise, urgentHistoryPromise])
 
-  for (const result of [mine, dueTodayTasksResult, urgent, requests, approvals, people, allWorking, allDone, myCompleted]) {
+  for (const result of [mine, dueTodayTasksResult, urgent, requests, people, allWorking, allDone, myCompleted]) {
     if (result.error) throw result.error
   }
   if (dashboardCountsResult.error) throw dashboardCountsResult.error
@@ -169,8 +177,6 @@ export default async function DashboardPage() {
   // Employee branch: pure client-side slices of `myTasks`, plus the one extra "completed" query above.
   const rawMyCompletedTasks = (myCompleted.data ?? []) as unknown as DashboardTask[]
   const rawTeamTasks = (teamLeadData?.deptTasks ?? []) as DashboardTask[]
-  // Only the urgent pool displays previous assignees. Looking up activity for
-  // every dashboard task added an unnecessary database round-trip and work.
   const urgentTasks = rawUrgentTasks.map(task => ({
     ...task,
     assignee_history: urgentHistory.get(task.id) ?? [],

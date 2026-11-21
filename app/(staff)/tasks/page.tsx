@@ -58,16 +58,10 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     return query
   }
 
-  const assignedScopeIdsPromise = scope === 'assigned'
-    ? supabase.from('profiles').select('id, role, status, reporting_to').then(({ data, error }) => {
-      if (error) throw error
-      const people = data ?? []
-      return taskAssigneeIdsForAssignedScope(me, {
-        people,
-        staff: people.filter(person => person.role !== 'client' && person.status === 'active'),
-      })
-    })
-    : lookupsPromise.then(lookups => taskAssigneeIdsForAssignedScope(me, lookups))
+  // Reuse the profiles/membership data already needed by the filters. The
+  // previous assigned scope path fetched all profiles a second time.
+  const assignedScopeIdsPromise = lookupsPromise
+    .then(lookups => taskAssigneeIdsForAssignedScope(me, lookups))
   const taskResultPromise = scope === 'assigned'
     ? assignedScopeIdsPromise.then(taskQuery)
     : taskQuery([])

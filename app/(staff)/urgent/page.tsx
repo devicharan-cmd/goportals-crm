@@ -19,7 +19,7 @@ export default async function UrgentPage() {
   const me = await requireStaff()
   const canSeeTickets = ['super_admin', 'manager', 'team_lead'].includes(me.role)
   const supabase = await createClient()
-  const urgentTaskSelect = 'id, task_number, title, status, priority, is_urgent, visibility, due_date, due_at, created_at, client_id, assignee_id, platform_id, department_id, client:clients(id, company_name, company_profile_image_path), platform:platforms(id, name), department:departments(id, name)'
+  const urgentTaskSelect = 'id, task_number, title, status, priority, is_urgent, visibility, due_date, due_at, created_at, client_id, assignee_id, platform_id, department_id, client:clients(id, company_name), platform:platforms(id, name), department:departments(id, name)'
   const urgentTicketSelect = 'id, ticket_number, subject, category, status, priority, is_urgent, created_at, client:clients(id, company_name)'
   const taskPromise = (async () => {
     const rows: TaskListItem[] = []
@@ -62,17 +62,21 @@ export default async function UrgentPage() {
     }
     return rows.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
   })()
-  const [tasks, tickets, peopleResult, profileResult] = await Promise.all([
+  const [tasks, tickets] = await Promise.all([
     taskPromise,
     ticketPromise,
-    supabase.rpc('staff_directory'),
-    supabase.from('profiles').select('id, avatar_url'),
+  ])
+  // Names and avatars are only rendered for already-claimed urgent tasks.
+  // Skip the directory RPC entirely when the urgent pool is empty/unclaimed.
+  const hasClaimedTasks = tasks.some(task => task.assignee_id)
+  const [peopleResult, tasksWithAssigneeHistory] = await Promise.all([
+    hasClaimedTasks ? supabase.rpc('staff_directory') : Promise.resolve({ data: [], error: null }),
+    addTaskAssigneeHistory(supabase, tasks),
   ])
   if (peopleResult.error) throw peopleResult.error
-  if (profileResult.error) throw profileResult.error
-  const names = Object.fromEntries((peopleResult.data ?? []).map((p: { id: string; full_name: string }) => [p.id, p.full_name]))
-  const avatarUrls = Object.fromEntries((profileResult.data ?? []).map((p: { id: string; avatar_url: string | null }) => [p.id, p.avatar_url]))
-  const tasksWithAssigneeHistory = await addTaskAssigneeHistory(supabase, tasks)
+  const people = (peopleResult.data ?? []) as { id: string; full_name: string; avatar_url: string | null }[]
+  const names = Object.fromEntries(people.map(person => [person.id, person.full_name]))
+  const avatarUrls = Object.fromEntries(people.map(person => [person.id, person.avatar_url]))
   const openTasks = tasksWithAssigneeHistory.filter(t => !t.assignee_id)
   const takenTasks = tasksWithAssigneeHistory.filter(t => t.assignee_id)
   const openTickets = tickets.filter(t => t.status === 'unassigned')

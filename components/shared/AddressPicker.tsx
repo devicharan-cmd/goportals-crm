@@ -1,5 +1,6 @@
 'use client'
 
+import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
 import { MapPin, Pencil, Search } from 'lucide-react'
 import { Field } from '@/components/ui/primitives'

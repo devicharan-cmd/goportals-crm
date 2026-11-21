@@ -1,15 +1,20 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { searchTasks } from '@/app/actions/search'
 import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
-import { TaskBoard } from '@/components/tasks/TaskBoard'
-import { TaskTable } from '@/components/tasks/TaskTable'
 import { Button, ButtonLink } from '@/components/ui/button'
 import { Alert, Card } from '@/components/ui/primitives'
+import { TASK_STATUS_OPTIONS } from '@/lib/constants'
+import { cn, errorMessage } from '@/lib/utils'
 import type { AssigneeOption, TaskAssignerInfo, TaskPageCursor } from '@/lib/queries'
-import type { TaskSummary } from '@/types/database'
-import { errorMessage } from '@/lib/utils'
+import type { TaskStatus, TaskSummary } from '@/types/database'
+
+// Drag-and-drop is useful only after work exists. Keeping it out of the
+// initial task-search bundle avoids parsing dnd-kit for an empty board.
+const TaskBoard = dynamic(() => import('@/components/tasks/TaskBoard').then(module => module.TaskBoard))
+const TaskTable = dynamic(() => import('@/components/tasks/TaskTable').then(module => module.TaskTable))
 
 type TaskSearchContextValue = {
   tasks: TaskSummary[]
@@ -243,6 +248,33 @@ export function TaskSearchField({
   )
 }
 
+function EmptyTaskBoard() {
+  const headerColors: Record<TaskStatus, string> = {
+    todo: 'bg-slate-500',
+    in_progress: 'bg-[#0A6F94]',
+    in_system_process: 'bg-sky-500',
+    ready_for_review: 'bg-violet-500',
+    client_review: 'bg-amber-500',
+    changes_requested: 'bg-orange-500',
+    completed: 'bg-[#95C12C]',
+    cancelled: 'bg-slate-500',
+  }
+
+  return (
+    <div className="-mx-4 grid min-h-[200px] auto-cols-[minmax(200px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 max-sm:auto-cols-[minmax(9rem,calc((100vw_-_3rem)_/_2))] max-sm:gap-2 max-sm:pb-3 sm:mx-0 sm:max-lg:auto-cols-[minmax(180px,1fr)] sm:max-lg:gap-2 sm:px-0">
+      {TASK_STATUS_OPTIONS.map(status => (
+        <section key={status.value} className="flex min-w-0 flex-1 flex-col rounded-xl border border-slate-200 bg-white p-2 max-sm:rounded-lg max-sm:p-1.5 sm:max-lg:p-1.5">
+          <div className={cn('flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-white max-sm:h-7 max-sm:gap-1.5 max-sm:px-2', headerColors[status.value])}>
+            <h3 className="min-w-0 truncate text-xs font-semibold text-white">{status.label}</h3>
+            <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-white/20 px-1.5 text-[11px] font-semibold leading-none text-white">0</span>
+          </div>
+          <div className="mt-2 min-h-28 flex-1 bg-white max-sm:mt-1.5" style={{ backgroundImage: 'radial-gradient(rgba(148,163,184,.24) 1px, transparent 1px)', backgroundSize: '14px 14px' }} />
+        </section>
+      ))}
+    </div>
+  )
+}
+
 export function TaskSearchResults() {
   const search = useTaskSearch()
   return (
@@ -253,6 +285,8 @@ export function TaskSearchResults() {
         <div className="flex min-h-32 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500" role="status">
           Loading {search.scope === 'mine' ? 'your' : search.scope === 'assigned' ? 'assigned' : 'all'} tasks…
         </div>
+      ) : search.board && search.tasks.length === 0 ? (
+        <EmptyTaskBoard />
       ) : search.board ? (
         <TaskBoard
           tasks={search.tasks}

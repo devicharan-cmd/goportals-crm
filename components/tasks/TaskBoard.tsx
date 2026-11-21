@@ -261,7 +261,7 @@ export function TaskBoard({
         </p>
       )}
       <DndContext id="task-board" sensors={sensors} onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))} onDragEnd={event => void runOnce('drag-update', () => onDragEnd(event))} onDragCancel={() => setActiveId(null)}>
-        <div className={cn('-mx-4 grid auto-cols-[minmax(200px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 max-sm:auto-cols-[minmax(9rem,calc((100vw_-_3rem)_/_2))] max-sm:gap-2 max-sm:pb-3 sm:max-lg:auto-cols-[minmax(180px,1fr)] sm:max-lg:gap-2 sm:mx-0 sm:px-0', tasks.length === 0 && 'min-h-[200px]')}>
+        <div className={cn('-mx-4 grid auto-cols-[minmax(200px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 max-sm:auto-cols-[minmax(9rem,calc((100vw_-_3rem)_/_2))] max-sm:gap-2 max-sm:pb-3 sm:max-lg:auto-cols-[minmax(180px,1fr)] sm:max-lg:gap-2 sm:mx-0 sm:px-0 2xl:auto-cols-[minmax(180px,1fr)]', tasks.length === 0 && 'min-h-[200px]')}>
           {TASK_STATUS_OPTIONS.map(s => (
             <Column
               key={s.value}

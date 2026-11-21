@@ -19,7 +19,7 @@ type Props = {
   onBlur?: () => void
 }
 
-export function TaskDatePicker({ id, value, onChange, disabled, required, invalid, describedBy, label, className, buttonClassName, onBlur }: Props) {
+export function TaskDatePicker({ id, value, onChange, disabled, invalid, describedBy, label, className, buttonClassName, onBlur }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
   const dialogId = useId()
   const [open, setOpen] = useState(false)
@@ -85,8 +85,6 @@ export function TaskDatePicker({ id, value, onChange, disabled, required, invali
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? dialogId : undefined}
-        aria-required={required || undefined}
-        aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
         onClick={() => {
           if (!open) setMonth(startOfMonth(selectedDate ?? new Date()))

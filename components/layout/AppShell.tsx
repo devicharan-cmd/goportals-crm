@@ -719,7 +719,7 @@ export function AppShell({
           </div>
         )}
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f7f7fa] [scrollbar-color:#9aa8b8_transparent] [scrollbar-width:thin]">
-          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 2xl:max-w-[1600px]">
             {children}
           </main>
         </div>

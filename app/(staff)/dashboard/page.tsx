@@ -224,7 +224,7 @@ export default async function DashboardPage() {
             : null}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
         <Card className="overflow-hidden">
           <CardHeader title="My tasks" description="Soonest deadline first" action={<Link href="/tasks" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
           <TaskTable
@@ -340,7 +340,7 @@ export default async function DashboardPage() {
               </div>
             </Card>
 
-            <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
               <Card className="overflow-hidden">
                 <CardHeader title="Team tasks" description="Your department's open work" action={<Link href="/tasks?scope=all&status=active" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
                 <TaskTable tasks={teamTasks.slice(0, 10)} names={names} empty={{ title: 'Nothing open on the team' }} />

@@ -988,7 +988,6 @@ export function TaskForm(p: TaskFormProps) {
                     type="button"
                     id={option.value === 'public' ? 'task-visibility-public' : undefined}
                     aria-pressed={selected}
-                    aria-invalid={!!visibilityError}
                     aria-describedby={visibilityError ? 'task-visibility-error' : undefined}
                     disabled={visibilityLocked || (option.value === 'private' && p.clientAssignees?.some(assignee => assignee.id === form.assignee_id))}
                     onClick={() => pickVisibility(option.value)}
@@ -1111,7 +1110,6 @@ export function TaskForm(p: TaskFormProps) {
                   aria-label={scheduleTime ? `Schedule time ${formatSelectedScheduleTime()}` : 'Select schedule time'}
                   aria-haspopup="dialog"
                   aria-expanded={scheduleTimePickerOpen}
-                  aria-invalid={scheduleTimeMissing}
                   aria-describedby={scheduleError ? 'task-schedule-error' : undefined}
                   onClick={() => scheduleTimePickerOpen ? setScheduleTimePickerOpen(false) : openScheduleTimePicker()}
                   className={cn('form-field mt-1 flex h-9 w-full items-center gap-2 text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400', scheduleTimeMissing && 'border-red-400 bg-red-50/40 focus:border-red-500')}
@@ -1192,7 +1190,6 @@ export function TaskForm(p: TaskFormProps) {
                   aria-label="Schedule start date"
                   aria-haspopup="dialog"
                   aria-expanded={scheduleCalendarOpen}
-                  aria-invalid={scheduleStartDateMissing}
                   aria-describedby={scheduleError ? 'task-schedule-error' : undefined}
                   onClick={() => {
                     if (!scheduleCalendarOpen) {

@@ -66,7 +66,7 @@ export function UsersAdminTabs({ rows, departments, invites, inviteButton, unlin
       </div>
 
       {tab === 'users' && (
-        <div className={cn('w-full min-w-0', actorRole === 'super_admin' && unlinkedClientAccounts.length > 0 ? 'grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]' : '')}>
+        <div className={cn('w-full min-w-0', actorRole === 'super_admin' && unlinkedClientAccounts.length > 0 ? 'grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]' : '')}>
           <Card className="w-full min-w-0 overflow-hidden">
             <StaffDirectory rows={rows} departments={departments} canEdit={actorRole === 'super_admin'} actorId={actorId} actorRole={actorRole} inviteButton={inviteButton} />
           </Card>

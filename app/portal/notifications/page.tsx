@@ -11,7 +11,7 @@ export default async function PortalNotificationsPage() {
   const { data } = await (await createClient()).from('notifications').select('*')
     .eq('recipient_id', me.id).order('created_at', { ascending: false }).limit(100)
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-3xl 2xl:max-w-5xl">
       <Card className="overflow-hidden"><NotificationsList items={(data ?? []) as Notification[]} taskHref="/portal/tasks" ticketHref="/portal/tickets" /></Card>
     </div>
   )

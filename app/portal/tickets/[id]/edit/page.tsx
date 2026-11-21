@@ -31,7 +31,7 @@ export default async function EditPortalTicketPage(props: { params: Promise<{ id
     .map(a => ({ id: a.id, account_name: a.account_name, platform_name: a.platform?.name ?? '' }))
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-3xl 2xl:max-w-5xl">
       <PageHeader
         title="Edit ticket"
         back={<Link href={`/portal/tickets/${ticket.id}`} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Back</Link>}

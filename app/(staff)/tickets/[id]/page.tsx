@@ -168,7 +168,7 @@ export default async function StaffTicketDetailPage(props: { params: Promise<{ i
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-5">
           <TicketOverviewCard
             ticketNumber={ticketCode(ticket.ticket_number)}

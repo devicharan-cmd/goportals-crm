@@ -14,7 +14,7 @@ export default async function PortalProfilePage() {
     : { data: null }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-6xl 2xl:max-w-[1440px]">
       <PortalProfileForm client={client as Client} imageUrl={image?.signedUrl} />
     </div>
   )

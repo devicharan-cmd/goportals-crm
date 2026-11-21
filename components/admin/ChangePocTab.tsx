@@ -122,7 +122,7 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
       <Card className="overflow-hidden">
         <CardHeader
           title={<span className="flex items-center gap-2"><UsersRound className="h-5 w-5 text-[#045E80]" />Change POC (Reporting Person)</span>}

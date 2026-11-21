@@ -1,9 +1,8 @@
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 import { requireStaff } from '@/lib/auth'
 import { assignableFor, getStaffLookups, taskAssigneeOptionsFor } from '@/lib/queries'
 import { ROLE_LABELS } from '@/lib/constants'
 import { TaskForm } from '@/components/tasks/TaskForm'
+import { TaskBackLink } from '@/components/tasks/TaskBackLink'
 
 export const metadata = { title: 'Create New Task' }
 
@@ -28,7 +27,7 @@ export default async function NewTaskPage(
   return (
     <div>
       <div className="mb-4">
-        <Link href="/tasks" prefetch={false} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
+        <TaskBackLink />
       </div>
       <TaskForm
         mode="create"

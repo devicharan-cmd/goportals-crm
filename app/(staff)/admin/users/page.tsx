@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/auth'
 import { getUserAdminLookups, profileIdsReportingTo } from '@/lib/queries'
 import { InviteUserButton, type StaffRow, type UnlinkedClientAccount } from '@/components/admin/UserAdmin'
 import { UsersAdminTabs } from '@/components/admin/UsersAdminTabs'
-import type { Invite, InviteListItem, StaffRole } from '@/types/database'
+import type { Department, Invite, InviteListItem, StaffRole } from '@/types/database'
 
 export const metadata = { title: 'Users & invites' }
 
@@ -12,34 +12,68 @@ export default async function UsersPage(props: { searchParams: Promise<{ tab?: s
   const me = await requireRole(['super_admin', 'manager', 'team_lead'])
   const initialTab = searchParams.tab === 'invites' || (searchParams.tab === 'change-poc' && me.role === 'super_admin') ? searchParams.tab : 'users'
   const supabase = await createClient()
-  const [lookups, invitesResult, clientLinksResult] = await Promise.all([
+
+  // The invites tab does not render the staff directory. Loading every profile
+  // (including cards, capacities, phones and department memberships) made this
+  // otherwise small view wait on unrelated data. Keep the invite modal's POC
+  // list, departments and each invitation's inviter in its purpose-built query.
+  if (initialTab === 'invites' && me.role !== 'team_lead') {
+    const [invitesResult, departmentsResult, reportingPeopleResult] = await Promise.all([
+      supabase
+        .from('invites')
+        .select('id, email, role, invited_by, used_by, reporting_to, full_name, job_title, department_ids, client_id, expires_at, used_at, cancelled_at, created_at, inviter:profiles!invites_invited_by_fkey(id, full_name, email, avatar_url, role)')
+        .order('created_at', { ascending: false }),
+      supabase.from('departments').select('id, name, slug, sort_order').order('sort_order'),
+      supabase
+        .from('profiles')
+        .select('id, full_name, email, avatar_url, role, status')
+        .neq('role', 'client')
+        .eq('status', 'active'),
+    ])
+    for (const result of [invitesResult, departmentsResult, reportingPeopleResult]) {
+      if (result.error) throw new Error(`Could not load invitations: ${result.error.message}`)
+    }
+    type InviteWithInviter = Invite & {
+      inviter: { id: string; full_name: string | null; email: string; avatar_url: string | null; role: StaffRole } | null
+    }
+    const inviteRows: InviteListItem[] = ((invitesResult.data ?? []) as unknown as InviteWithInviter[]).map(({ inviter, ...invite }) => ({
+      ...invite,
+      inviter: inviter ? { ...inviter, full_name: inviter.full_name ?? '', role: inviter.role as StaffRole } : null,
+    }))
+    const reportingPeople = (reportingPeopleResult.data ?? []).map(({ id, full_name, email, avatar_url, role, status }) => ({
+      id,
+      full_name,
+      email,
+      avatar_url,
+      role: role as StaffRole,
+      status,
+    }))
+
+    return (
+      <UsersAdminTabs
+        rows={[]}
+        departments={(departmentsResult.data ?? []) as Department[]}
+        invites={inviteRows}
+        inviteButton={<InviteUserButton departments={(departmentsResult.data ?? []) as Department[]} actorRole={me.role} reportingPeople={reportingPeople} />}
+        actorId={me.id}
+        actorRole={me.role}
+        initialTab={initialTab}
+      />
+    )
+  }
+
+  const [lookups, clientLinksResult] = await Promise.all([
     getUserAdminLookups({
       includeClients: me.role === 'super_admin' && initialTab === 'users',
       includeDepartmentMembers: initialTab !== 'invites',
     }),
-    initialTab === 'invites' && me.role !== 'team_lead'
-      ? supabase.from('invites').select('id, email, role, invited_by, used_by, reporting_to, full_name, job_title, department_ids, client_id, expires_at, used_at, cancelled_at, created_at').order('created_at', { ascending: false })
-      : Promise.resolve({ data: [], error: null }),
     me.role === 'super_admin' && initialTab === 'users'
       ? supabase.from('clients').select('owner_id').not('owner_id', 'is', null)
       : Promise.resolve({ data: [], error: null }),
   ])
-  if (invitesResult.error) throw new Error(`Could not load pending invites: ${invitesResult.error.message}`)
   if (clientLinksResult.error) throw new Error(`Could not load client account links: ${clientLinksResult.error.message}`)
   const peopleById = new Map(lookups.people.map(person => [person.id, person]))
-  const inviteRows: InviteListItem[] = ((invitesResult.data ?? []) as Invite[]).map(invite => {
-    const inviter = invite.invited_by ? peopleById.get(invite.invited_by) : null
-    return {
-      ...invite,
-      inviter: inviter ? {
-        id: inviter.id,
-        full_name: inviter.full_name,
-        email: inviter.email,
-        avatar_url: inviter.avatar_url,
-        role: inviter.role,
-      } : null,
-    }
-  })
+  const inviteRows: InviteListItem[] = []
   const departmentIdsByPerson = new Map<string, string[]>()
   for (const membership of lookups.departmentMembers) {
     const ids = departmentIdsByPerson.get(membership.profile_id) ?? []

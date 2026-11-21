@@ -147,7 +147,7 @@ export default async function EmployeeStatsPage(props: { params: Promise<{ id: s
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-6">
           <Card className="overflow-hidden">
             <CardHeader title={`Working on now (${open.length})`} description="Soonest deadline first" />

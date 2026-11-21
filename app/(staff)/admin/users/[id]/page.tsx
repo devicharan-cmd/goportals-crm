@@ -37,7 +37,7 @@ export default async function StaffProfilePage(props: { params: Promise<{ id: st
   const departments = lookups.departments
 
   return (
-    <div className="mx-auto w-full max-w-7xl pb-12">
+    <div className="mx-auto w-full max-w-7xl pb-12 2xl:max-w-[1600px]">
       <div className="mb-4">
         <ButtonLink href="/admin/users" variant="ghost" size="sm">
           <ArrowLeft className="h-4 w-4" /> Users & invites

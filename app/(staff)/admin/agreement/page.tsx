@@ -22,7 +22,7 @@ export default async function AgreementPage() {
 
   return (
     <>
-      <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card>
           <CardHeader title="Client agreement" description={current ? `Currently live: ${current.version}` : 'No agreement is live yet'} />
           <div className="p-5"><AgreementEditor current={current} nextVersion={nextVersion} /></div>

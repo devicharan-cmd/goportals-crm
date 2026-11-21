@@ -27,7 +27,7 @@ export default async function ApprovalsPage() {
   const rows = (data ?? []) as unknown as Row[]
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-4xl 2xl:max-w-6xl">
       {rows.length === 0 ? (
         <Card><EmptyState icon={<ShieldCheck className="h-6 w-6" />} title="No clients waiting" description="Clients appear here once they finish onboarding, until you approve them." /></Card>
       ) : (

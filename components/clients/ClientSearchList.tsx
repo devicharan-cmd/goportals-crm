@@ -231,7 +231,7 @@ export function ClientSearchResults() {
                     </div>
                   </div>
 
-                  <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:w-[440px] lg:flex-none">
+                  <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:w-[440px] lg:flex-none 2xl:w-[520px]">
                     <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-medium text-slate-500">Open work</span>

@@ -49,7 +49,7 @@ export default async function PortalHome() {
         <StatCard label="Closed this month" value={doneThisMonth.length} icon={<CheckCircle2 className="h-5 w-5" />} tone="lime" href="/portal/tickets?status=closed" />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px]">
         <Card className="overflow-hidden">
           <CardHeader title="Recent activity" action={<Link href="/portal/tickets" className="text-xs font-semibold text-[#045E80]">View all</Link>} />
           <TicketTable

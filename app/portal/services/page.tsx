@@ -51,7 +51,7 @@ export default async function PortalServicesPage() {
   const groups = groupByAccount(rows)
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-3xl 2xl:max-w-5xl">
       {rows.length === 0 ? (
         <Card>
           <EmptyState icon={<Layers className="h-6 w-6" />} title="No services yet" description="Once GoPortals adds a service to your account, it'll show up here." />

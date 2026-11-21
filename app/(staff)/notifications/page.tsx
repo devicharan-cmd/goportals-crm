@@ -12,7 +12,7 @@ export default async function NotificationsPage() {
     .select('id, recipient_id, type, title, body, task_id, ticket_id, client_id, is_read, created_at')
     .eq('recipient_id', me.id).order('created_at', { ascending: false }).limit(100)
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-3xl 2xl:max-w-5xl">
       <Card className="overflow-hidden"><NotificationsList items={(data ?? []) as Notification[]} taskHref="/tasks" ticketHref="/tickets" /></Card>
     </div>
   )

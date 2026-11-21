@@ -22,7 +22,7 @@ export default async function NewStaffTicketPage() {
     .map(a => ({ id: a.id, client_id: a.client_id, account_name: a.account_name, platform_name: a.platform?.name ?? '' }))
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-3xl 2xl:max-w-5xl">
       <PageHeader
         title="New ticket"
         description="Create a ticket on behalf of a client."

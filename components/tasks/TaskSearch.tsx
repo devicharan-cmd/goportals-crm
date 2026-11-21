@@ -261,11 +261,11 @@ function EmptyTaskBoard() {
   }
 
   return (
-    <div className="-mx-4 grid min-h-[200px] auto-cols-[minmax(200px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 max-sm:auto-cols-[minmax(9rem,calc((100vw_-_3rem)_/_2))] max-sm:gap-2 max-sm:pb-3 sm:mx-0 sm:max-lg:auto-cols-[minmax(180px,1fr)] sm:max-lg:gap-2 sm:px-0">
+    <div className="-mx-4 grid min-h-[200px] auto-cols-[minmax(200px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 max-sm:auto-cols-[minmax(9rem,calc((100vw_-_3rem)_/_2))] max-sm:gap-2 max-sm:pb-3 sm:mx-0 sm:max-lg:auto-cols-[minmax(180px,1fr)] sm:max-lg:gap-2 sm:px-0 2xl:auto-cols-[minmax(180px,1fr)]">
       {TASK_STATUS_OPTIONS.map(status => (
         <section key={status.value} className="flex min-w-0 flex-1 flex-col rounded-xl border border-slate-200 bg-white p-2 max-sm:rounded-lg max-sm:p-1.5 sm:max-lg:p-1.5">
           <div className={cn('flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-white max-sm:h-7 max-sm:gap-1.5 max-sm:px-2', headerColors[status.value])}>
-            <h3 className="min-w-0 truncate text-xs font-semibold text-white">{status.label}</h3>
+            <h3 className="min-w-0 truncate text-xs font-semibold !text-white">{status.label}</h3>
             <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-white/20 px-1.5 text-[11px] font-semibold leading-none text-white">0</span>
           </div>
           <div className="mt-2 min-h-28 flex-1 bg-white max-sm:mt-1.5" style={{ backgroundImage: 'radial-gradient(rgba(148,163,184,.24) 1px, transparent 1px)', backgroundSize: '14px 14px' }} />

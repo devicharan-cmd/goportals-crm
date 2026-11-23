@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, CheckCheck, Flame, Inbox, MessageSquare, RefreshCw, Trash2, UserCheck } from 'lucide-react'
+import { FiAlertTriangle as Flame, FiCheckCircle as CheckCheck, FiInbox as Inbox, FiMessageSquare as MessageSquare, FiRefreshCw as RefreshCw, FiTrash2 as Trash2, FiUserCheck as UserCheck } from 'react-icons/fi'
+import { NotificationIcon } from '@/components/shared/NotificationIcon'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/primitives'
@@ -44,7 +45,7 @@ export function NotificationsList({ items, taskHref, ticketHref }: { items: Noti
     router.refresh()
   }
 
-  if (items.length === 0) return <EmptyState icon={<Bell className="h-6 w-6" />} title="No notifications" description="You're all caught up." />
+  if (items.length === 0) return <EmptyState icon={<NotificationIcon className="h-6 w-6" />} title="No notifications" description="You're all caught up." />
 
   return (
     <div>
@@ -56,7 +57,7 @@ export function NotificationsList({ items, taskHref, ticketHref }: { items: Noti
       )}
       <ul className="divide-y divide-slate-100">
         {items.map(n => {
-          const Icon = ICONS[n.type] ?? Bell
+          const Icon = ICONS[n.type] ?? NotificationIcon
           return (
             <li key={n.id}>
               <button onClick={() => void runOnce(`open-${n.id}`, () => open(n))} className={cn('flex w-full items-start gap-3 px-5 py-4 text-left hover:bg-slate-50', !n.is_read && 'bg-[#EAF4F8]/40')}>

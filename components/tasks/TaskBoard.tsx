@@ -131,7 +131,7 @@ function Column({ status, label, tasks, names, assignOptions, hrefBase, scope, c
     todo: 'bg-slate-500',
     in_progress: 'bg-[#0A6F94]',
     in_system_process: 'bg-sky-500',
-    ready_for_review: 'bg-violet-500',
+    ready_for_review: 'bg-[#1D4B40]',
     client_review: 'bg-amber-500',
     changes_requested: 'bg-orange-500',
     completed: 'bg-[#95C12C]',

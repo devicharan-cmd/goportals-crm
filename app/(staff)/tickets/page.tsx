@@ -70,7 +70,7 @@ export default async function StaffTicketsPage(props: { searchParams: Promise<{ 
       audience="staff"
       status={tab}
     >
-      <div className="lg:-mx-2">
+      <div>
         <div className="mb-3 flex min-w-0 flex-col gap-2 sm:mb-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
           <div className="w-full min-w-0 overflow-x-auto sm:contents"><StaffTicketTabs activeStatus={tab} /></div>
           <div className="flex w-full min-w-0 items-center gap-2 sm:contents">

@@ -49,16 +49,16 @@ export function Modal({
   if (!open || !mounted) return null
 
   return createPortal((
-    <div className="fixed inset-0 z-[1100] flex items-end justify-center bg-[#011B26]/40 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+    <div className="app-modal-backdrop fixed inset-0 z-[1100] flex items-end justify-center p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         onClick={e => e.stopPropagation()}
-        className={cn('flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white text-left [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] sm:rounded-2xl',
+        className={cn('app-modal flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl text-left sm:rounded-2xl',
           size === 'md' ? 'sm:max-w-md' : size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-5xl',
           dialogClassName)}
       >
-        <div className={cn('relative flex flex-shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-6 py-4 text-left', centerHeader && 'justify-center text-center', headerClassName)}>
+        <div className={cn('app-modal-header relative flex flex-shrink-0 items-start justify-between gap-4 border-b px-6 py-4 text-left', centerHeader && 'justify-center text-center', headerClassName)}>
           <div className={cn('flex min-w-0 items-start gap-4 text-left', centerHeader && 'justify-center text-center')}>
             {headerIcon}
             <div className={cn('min-w-0 text-left', centerHeader && 'text-center')}>
@@ -68,7 +68,7 @@ export function Modal({
           </div>
           <button
             onClick={onClose}
-            className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#EAF4F8] text-[#034C68] transition-all duration-150 hover:bg-red-50 hover:text-red-600 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63A9C4] focus-visible:ring-offset-2', centerHeader && 'absolute right-6 top-4', closeButtonClassName)}
+            className={cn('app-modal-close flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-all duration-150 hover:bg-red-50 hover:text-red-600 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D4B40] focus-visible:ring-offset-2', centerHeader && 'absolute right-6 top-4', closeButtonClassName)}
             aria-label="Close"
           >
             <X className={cn('h-5 w-5', closeIconClassName)} />

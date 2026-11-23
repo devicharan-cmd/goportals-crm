@@ -213,7 +213,7 @@ export default async function DashboardPage() {
         {!isManager && <ButtonLink href="/tasks/new" prefetch={false}><Plus className="h-4 w-4" /> New task</ButtonLink>}
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="My open tasks" value={myOpenCount} icon={<CheckSquare className="h-5 w-5" />} href="/tasks" prefetch={false} />
         <StatCard label="Due today" value={dueTodayCount} icon={<AlarmClock className="h-5 w-5" />} tone={dueTodayCount ? 'amber' : 'lime'} href="/tasks" prefetch={false} />
         <StatCard label="Urgent waiting" value={urgentCount} icon={<Flame className="h-5 w-5" />} tone={urgentCount ? 'red' : 'lime'} href="/urgent" />
@@ -224,7 +224,7 @@ export default async function DashboardPage() {
             : null}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
         <Card className="overflow-hidden">
           <CardHeader title="My tasks" description="Soonest deadline first" action={<Link href="/tasks" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
           <TaskTable
@@ -235,7 +235,7 @@ export default async function DashboardPage() {
           />
         </Card>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           <Card className="overflow-hidden">
             <CardHeader
               title={<span className="flex items-center gap-1.5"><Flame className="h-4 w-4 text-red-600" /> Urgent pool</span>}
@@ -292,7 +292,7 @@ export default async function DashboardPage() {
       </div>
 
       {isEmployee && (
-        <div className="mt-6 grid gap-6 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Card className="overflow-hidden">
             <CardHeader title="Due today" action={<Link href={`/tasks?due=${today}`} prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
             <TaskTable tasks={dueTodayTasks} names={names} showAssignee={false} empty={{ title: 'Nothing due today' }} />
@@ -314,11 +314,11 @@ export default async function DashboardPage() {
 
       {isTeamLead && (
         deptMateIds.length === 0 ? (
-          <Card className="mt-6">
+          <Card className="mt-4">
             <EmptyState icon={<Users className="h-6 w-6" />} title="No department yet" description="Ask a manager to add you to a department to see your team's work here." />
           </Card>
         ) : (
-          <div className="mt-6 space-y-6">
+          <div className="mt-4 space-y-4">
             <Card className="overflow-hidden">
               <CardHeader title="My team" action={<Link href="/team" className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View team</Link>} />
               <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -340,7 +340,7 @@ export default async function DashboardPage() {
               </div>
             </Card>
 
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
               <Card className="overflow-hidden">
                 <CardHeader title="Team tasks" description="Your department's open work" action={<Link href="/tasks?scope=all&status=active" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
                 <TaskTable tasks={teamTasks.slice(0, 10)} names={names} empty={{ title: 'Nothing open on the team' }} />
@@ -356,7 +356,7 @@ export default async function DashboardPage() {
       )}
 
       {isManager && (
-        <div className="mt-6">
+        <div className="mt-4">
           <DashboardTaskPanel
             workingTasks={workingTasks}
             doneTasks={doneTasks}

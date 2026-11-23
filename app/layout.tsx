@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import './globals.css'
 
-const sans = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const sans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-jakarta' })
 
 export const metadata: Metadata = {
   title: { default: 'GoPortals', template: '%s · GoPortals' },
@@ -31,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               background: '#ffffff',
               color: '#0f172a',
               padding: '10px 12px',
-              fontFamily: 'var(--font-inter), system-ui, sans-serif',
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
               fontSize: 13,
               fontWeight: 600,
               lineHeight: 1.35,

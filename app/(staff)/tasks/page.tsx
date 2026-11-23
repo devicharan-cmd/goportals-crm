@@ -139,7 +139,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       due={searchParams.due ?? ''}
       board={board}
     >
-      <div className="lg:-mx-2">
+      <div>
         <TaskFilters
           showScope
           showAssigneeFilter={canSeeMore}

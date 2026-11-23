@@ -388,7 +388,7 @@ export function CreateTasksModal({
         if (!row.assignee_id) errors[`${index}.assignee_id`] = 'Select an assignee.'
         if (!row.schedule_enabled && !row.due_date) errors[`${index}.due_date`] = 'Select a due date.'
         if (row.schedule_enabled && (!row.schedule_repeat || !row.schedule_time || !row.schedule_start_date
-          || (row.schedule_repeat === 'custom' && (!row.schedule_custom_days || Number(row.schedule_custom_days) < 2)))) {
+          || (row.schedule_repeat === 'custom' && (!row.schedule_custom_days || Number(row.schedule_custom_days) < 1)))) {
           errors[`${index}.schedule`] = 'Choose a repeat schedule, time, and start date.'
         }
         if (!row.priority) errors[`${index}.priority`] = 'Select a priority.'
@@ -765,7 +765,7 @@ export function CreateTasksModal({
                       ]}
                       keepOpenOnSelect={value => value === 'custom'}
                       onClose={() => {
-                        if (r.schedule_repeat === 'custom' && (!r.schedule_custom_days || Number(r.schedule_custom_days) < 2)) {
+                        if (r.schedule_repeat === 'custom' && (!r.schedule_custom_days || Number(r.schedule_custom_days) < 1)) {
                           update(i, { schedule_repeat: '', schedule_custom_days: '' })
                         }
                       }}
@@ -775,13 +775,13 @@ export function CreateTasksModal({
                       }}
                       dropdownFooter={r.schedule_repeat === 'custom' ? (
                         <div>
-                          <label htmlFor={`task-schedule-days-${i}`} className="mb-1 block text-xs font-medium text-slate-600">Repeat every</label>
+                          <label htmlFor={`task-schedule-days-${i}`} className="mb-1 block text-xs font-medium text-slate-600">Run for</label>
                           <div className="flex h-9 overflow-hidden rounded-lg">
-                            <input id={`task-schedule-days-${i}`} type="number" min={2} step={1} value={r.schedule_custom_days}
+                            <input id={`task-schedule-days-${i}`} type="number" min={1} step={1} value={r.schedule_custom_days}
                               disabled={!!createdTaskIds} aria-label="Repeat every number of days"
                               onChange={event => {
                                 const days = event.target.value
-                                update(i, { schedule_custom_days: !days || Number(days) < 2 ? '' : days })
+                                update(i, { schedule_custom_days: !days || Number(days) < 1 ? '' : days })
                               }} className="form-field h-9 min-w-0 flex-1 rounded-r-none" />
                             <span className="flex h-9 items-center border border-l-0 border-slate-300 bg-slate-50 px-3 text-sm text-slate-600">day</span>
                           </div>

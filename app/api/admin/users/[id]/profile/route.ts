@@ -30,6 +30,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
   }
 
   const fullName = typeof body.full_name === 'string' ? body.full_name.trim() : ''
+  const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
   const role = body.role
   const status = body.status
   const reportingTo = body.reporting_to
@@ -39,6 +40,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
   const timezone = typeof body.timezone === 'string' ? body.timezone.trim() : ''
   const jobTitle = typeof body.job_title === 'string' ? body.job_title.trim() : ''
   if (!fullName) return NextResponse.json({ error: 'Full name is required.' }, { status: 400 })
+  if (!/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 })
   if (!jobTitle) return NextResponse.json({ error: 'Job title is required.' }, { status: 400 })
   const phoneError = validateMobilePhone(phone)
   if (phoneError) return NextResponse.json({ error: phoneError }, { status: 400 })
@@ -54,7 +56,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
   }
 
   const { data: target, error: targetError } = await admin.from('profiles')
-    .select('id, role, status, reporting_to').eq('id', params.id).maybeSingle()
+    .select('id, email, role, status, reporting_to').eq('id', params.id).maybeSingle()
   if (targetError) {
     console.error('[staff-profile] Could not load the target profile:', targetError.message)
     return NextResponse.json({ error: 'Could not load this staff profile.' }, { status: 500 })
@@ -71,6 +73,28 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
   }
   if (target.id === actor.id && (role !== target.role || status !== target.status)) {
     return NextResponse.json({ error: 'You cannot change your own role or employment status.' }, { status: 409 })
+  }
+
+  const emailChanged = email !== target.email.trim().toLowerCase()
+  if (emailChanged) {
+    const { data: matchingProfile, error: matchingProfileError } = await admin.from('profiles')
+      .select('id').ilike('email', email).neq('id', target.id).maybeSingle()
+    if (matchingProfileError) {
+      console.error('[staff-profile] Could not verify email availability:', matchingProfileError.message)
+      return NextResponse.json({ error: 'Could not verify whether this email is available.' }, { status: 500 })
+    }
+    if (matchingProfile) return NextResponse.json({ error: 'This email address is already in use.' }, { status: 409 })
+
+    // Update the authentication identity as well as the profile record. This
+    // endpoint is Super Admin-only, so the replacement email is confirmed by
+    // the authorized administrator rather than leaving a pending login change.
+    const { error: authEmailError } = await admin.auth.admin.updateUserById(target.id, {
+      email,
+      email_confirm: true,
+    })
+    if (authEmailError) {
+      return NextResponse.json({ error: authEmailError.message || 'Could not update the email address.' }, { status: 400 })
+    }
   }
 
   let reportingToId: string | null = null
@@ -110,6 +134,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
   const optionalText = (key: string) => typeof body[key] === 'string' ? (body[key] as string).trim() || null : null
   const { error: updateError } = await admin.from('profiles').update({
     full_name: fullName,
+    email,
     phone: optionalText('phone'),
     timezone,
     job_title: optionalText('job_title'),
@@ -119,6 +144,13 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
     status,
   }).eq('id', target.id)
   if (updateError) {
+    if (emailChanged) {
+      const { error: rollbackError } = await admin.auth.admin.updateUserById(target.id, {
+        email: target.email,
+        email_confirm: true,
+      })
+      if (rollbackError) console.error('[staff-profile] Could not roll back the authentication email:', rollbackError.message)
+    }
     console.error('[staff-profile] Could not update the profile:', updateError.message)
     return NextResponse.json({ error: updateError.message }, { status: 400 })
   }

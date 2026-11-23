@@ -138,6 +138,25 @@ export function AppShell({
   pathnameRef.current = pathname
 
   useEffect(() => {
+    const syncActivePill = () => {
+      document.querySelectorAll<HTMLElement>('.sidebar-nav-scroll').forEach(nav => {
+        const active = nav.querySelector<HTMLElement>('.sidebar-nav-item-active')
+        const pill = nav.querySelector<HTMLElement>('.sidebar-nav-active-pill')
+        if (!active || !pill) return
+        const navBox = nav.getBoundingClientRect()
+        const activeBox = active.getBoundingClientRect()
+        pill.style.height = `${activeBox.height}px`
+        pill.style.transform = `translateY(${activeBox.top - navBox.top + nav.scrollTop}px)`
+        pill.style.opacity = '1'
+        pill.classList.add('is-ready')
+      })
+    }
+    const frame = requestAnimationFrame(syncActivePill)
+    window.addEventListener('resize', syncActivePill)
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('resize', syncActivePill) }
+  }, [pathname, collapsed, isClient])
+
+  useEffect(() => {
     if (!isClient) setLiveAvatarUrl(user.avatarUrl ?? null)
   }, [isClient, user.avatarUrl])
 
@@ -520,7 +539,7 @@ export function AppShell({
   )
 
   const renderSidebar = (compact: boolean, desktop: boolean) => (
-    <div className="flex h-full flex-col">
+    <div className="sidebar-content-clip flex h-full flex-col">
       {compact ? (
         <div className="flex h-16 items-center justify-center px-2">
           <Link href={isClient ? '/portal' : '/dashboard'} prefetch title="GoPortals">
@@ -541,7 +560,8 @@ export function AppShell({
         </div>
       )}
 
-      <nav className={cn('sidebar-nav-scroll flex-1 overflow-y-auto py-3', compact ? 'space-y-3 px-2' : 'space-y-6 px-3')}>
+      <nav className={cn('sidebar-nav-scroll flex-1 overflow-y-auto py-3', compact ? 'sidebar-nav-compact space-y-3 px-2' : 'space-y-6 px-3')}>
+        <span className="sidebar-nav-active-pill" aria-hidden="true" />
         {groups.map((group, gi) => (
           <div key={gi}>
             {group.label && (compact
@@ -564,7 +584,6 @@ export function AppShell({
                         active ? 'sidebar-nav-active sidebar-nav-item-active' : 'sidebar-nav-item-inactive',
                       )}
                     >
-                      {active && <span className="sidebar-nav-active-marker" />}
                       <item.icon
                         className={cn('sidebar-nav-icon', active ? 'sidebar-nav-icon-active' : 'sidebar-nav-icon-inactive')}
                       />
@@ -651,7 +670,7 @@ export function AppShell({
   return (
     <div className="app-shell fixed inset-0 overflow-hidden">
       {/* Desktop sidebar */}
-      <aside className={cn('app-sidebar fixed inset-y-0 left-0 z-50 hidden transition-[width] duration-200 lg:block',
+      <aside className={cn('app-sidebar app-sidebar-width-transition fixed inset-y-0 left-0 z-50 hidden lg:block',
         collapsed ? 'w-16' : 'w-64')}>
         {renderSidebar(collapsed, true)}
         {toggleButton}
@@ -666,7 +685,7 @@ export function AppShell({
       )}
 
       {/* Only the area under the top bar scrolls, so the scrollbar never runs beside the top bar. */}
-      <div className={cn('flex h-full min-h-0 flex-col transition-[padding] duration-200', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
+      <div className={cn('app-content-sidebar-transition flex h-full min-h-0 flex-col', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
         <header className="app-navbar relative z-40 flex h-16 flex-shrink-0 items-center gap-2.5 px-3 backdrop-blur sm:gap-3 sm:px-6">
           <button className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="h-[22px] w-[22px]" />

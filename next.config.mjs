@@ -2,9 +2,12 @@
 const nextConfig = {
   devIndicators: false,
   images: {
-    // Avatar and client images are signed Supabase Storage URLs. Optimizing
-    // them avoids downloading full-size originals for small UI thumbnails.
+    // Keep the existing image format/cache settings for local and optimized
+    // images; remote avatars bypass the optimizer to avoid server fetch timeouts.
     formats: ['image/avif', 'image/webp'],
+    // Avatar images currently request quality=90; keep that existing quality
+    // explicit so it remains supported by Next 16+.
+    qualities: [90],
     minimumCacheTTL: 31536000,
     remotePatterns: [
       ...(process.env.NEXT_PUBLIC_SUPABASE_URL

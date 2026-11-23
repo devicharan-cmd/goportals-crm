@@ -141,6 +141,18 @@ h3 {
   border-right: 1px solid #E5E8E0;
 }
 
+.app-sidebar-width-transition {
+  transition: width 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sidebar-content-clip {
+  overflow: hidden;
+}
+
+.app-content-sidebar-transition {
+  transition: padding-left 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .app-shell {
   background-color: #F4F5F0;
 }
@@ -713,9 +725,37 @@ h3 {
 
 .sidebar-nav-active {
   --sidebar-active-accent: #1D4B40;
-  background-color: #E9ECE4;
-  box-shadow: inset 0 1px 0 #D6DAD0, inset 0 -1px 0 #D6DAD0, inset -1px 0 0 #D6DAD0;
+  background-color: transparent;
+  box-shadow: none;
 }
+
+.sidebar-nav-scroll { position: relative; }
+.sidebar-nav-active-pill {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 0.75rem;
+  right: 0.75rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  background: #E9ECE4;
+  box-shadow: inset 0 1px 0 #D6DAD0, inset 0 -1px 0 #D6DAD0, inset -1px 0 0 #D6DAD0;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+.sidebar-nav-compact .sidebar-nav-active-pill { left: 0.5rem; right: 0.5rem; }
+.sidebar-nav-active-pill::after {
+  content: '';
+  position: absolute;
+  inset-block: 0.375rem;
+  left: 0;
+  width: 0.25rem;
+  border-radius: 0 9999px 9999px 0;
+  background: #1D4B40;
+}
+.sidebar-nav-active-pill.is-ready { transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease; }
+.sidebar-nav-scroll > *:not(.sidebar-nav-active-pill) { position: relative; z-index: 1; }
 
 .sidebar-nav-link {
   position: relative;
@@ -729,7 +769,7 @@ h3 {
   font-weight: 500;
   line-height: 1.5;
   font-feature-settings: "cv11", "ss01";
-  transition: background-color 200ms ease, color 200ms ease;
+  transition: background-color 360ms cubic-bezier(0.22, 1, 0.36, 1), color 200ms ease;
 }
 
 .sidebar-nav-link-expanded {
@@ -747,7 +787,7 @@ h3 {
 }
 
 .sidebar-nav-link.sidebar-nav-active:hover {
-  background-color: #E9ECE4;
+  background-color: transparent;
 }
 
 .sidebar-nav-scroll a.sidebar-nav-item-inactive:hover {
@@ -757,15 +797,6 @@ h3 {
 
 .sidebar-nav-scroll a.sidebar-nav-item-inactive:hover .sidebar-nav-icon-inactive {
   color: #15201C;
-}
-
-.sidebar-nav-active-marker {
-  position: absolute;
-  inset-block: 0.375rem;
-  left: 0;
-  width: 0.25rem;
-  border-radius: 0 9999px 9999px 0;
-  background-color: var(--sidebar-active-accent);
 }
 
 .sidebar-nav-icon {
@@ -795,7 +826,7 @@ h3 {
 .sidebar-nav-scroll a.sidebar-nav-item-active {
   color: #15201C !important;
   font-weight: 650 !important;
-  transition: color 200ms ease, background-color 200ms ease;
+  transition: color 200ms ease, background-color 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebar-nav-scroll a.sidebar-nav-item-inactive {

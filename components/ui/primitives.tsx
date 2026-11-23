@@ -126,7 +126,7 @@ export function Avatar({ name, src, role, size = 'md', className }: { name: stri
         sizes[size], (role ? ROLE_STYLES[role].avatar : undefined) ?? AVATAR_COLORS[hash % AVATAR_COLORS.length], className)}
     >
       {imageSrc && !imageFailed
-        ? <Image src={imageSrc} alt="" width={imageSize} height={imageSize} sizes={imageSizes} quality={90} className="h-full w-full rounded-[inherit] object-cover" onError={() => setImageFailed(true)} />
+        ? <Image src={imageSrc} alt="" width={imageSize} height={imageSize} sizes={imageSizes} quality={90} unoptimized={imageSrc.startsWith('http')} className="h-full w-full rounded-[inherit] object-cover" onError={() => setImageFailed(true)} />
         : getInitials(name)}
     </span>
   )
@@ -168,7 +168,7 @@ export function CompanyAvatar({ name, src, size = 'md', className, rounded = fal
       rounded ? 'rounded-full' : 'rounded-lg',
       sizes[size], className,
     )} style={size === 'xs' ? { width: 20, height: 20, minWidth: 20, minHeight: 20 } : undefined}>
-      {src ? <Image src={src} alt="" width={imageSize} height={imageSize} sizes={`${imageSize}px`} quality={90} className="h-full w-full object-cover" /> : getInitials(name)}
+      {src ? <Image src={src} alt="" width={imageSize} height={imageSize} sizes={`${imageSize}px`} quality={90} unoptimized={src.startsWith('http')} className="h-full w-full object-cover" /> : getInitials(name)}
     </div>
   )
 }

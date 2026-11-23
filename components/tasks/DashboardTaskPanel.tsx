@@ -60,7 +60,7 @@ export function DashboardTaskPanel({
         tasks={tasks}
         names={names}
         assigneeAvatarUrls={assigneeAvatarUrls}
-        empty={{ title: group === 'working' ? 'Nothing in progress' : 'Nothing completed yet', description: group === 'working' ? 'No active tasks right now.' : undefined }}
+        empty={{ title: group === 'working' ? 'Nothing in manual process' : 'Nothing completed yet', description: group === 'working' ? 'No active tasks right now.' : undefined }}
       />
     </Card>
   )

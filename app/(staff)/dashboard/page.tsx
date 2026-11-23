@@ -187,7 +187,7 @@ export default async function DashboardPage() {
   const doneTasks = rawDoneTasks
   const myCompletedTasks = rawMyCompletedTasks
   const teamTasks = rawTeamTasks
-  const inProgressTasks = myTasks.filter(t => t.status === 'in_progress' || t.status === 'in_system_process')
+  const inProgressTasks = myTasks.filter(t => t.status === 'in_manual_process' || t.status === 'in_system_process')
   const readyForReviewTasks = myTasks.filter(t => t.status === 'ready_for_review')
 
   // Team leads only see tasks assigned to their department.
@@ -298,8 +298,8 @@ export default async function DashboardPage() {
             <TaskTable tasks={dueTodayTasks} names={names} showAssignee={false} empty={{ title: 'Nothing due today' }} />
           </Card>
           <Card className="overflow-hidden">
-            <CardHeader title="Active work" description="In manual progress or in system process" action={<Link href="/tasks?status=active" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
-            <TaskTable tasks={inProgressTasks} names={names} showAssignee={false} empty={{ title: 'Nothing in progress' }} />
+            <CardHeader title="Active work" description="In manual process or in system process" action={<Link href="/tasks?status=active" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />
+            <TaskTable tasks={inProgressTasks} names={names} showAssignee={false} empty={{ title: 'Nothing in manual process' }} />
           </Card>
           <Card className="overflow-hidden">
             <CardHeader title="In review" description="Waiting on your team lead — you can't self-approve" action={<Link href="/tasks?status=ready_for_review" prefetch={false} className="text-xs font-semibold text-[#045E80] hover:text-[#034C68]">View all</Link>} />

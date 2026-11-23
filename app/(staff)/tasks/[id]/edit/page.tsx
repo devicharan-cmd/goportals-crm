@@ -72,7 +72,7 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
         mode="edit"
         task={task}
         meId={me.id}
-        canMarkUrgent={me.role !== 'employee'}
+        canMarkUrgent
         canEditAssignment={me.role !== 'employee'}
         clients={clients}
         clientImageUrlByPath={clientImageUrlByPath}

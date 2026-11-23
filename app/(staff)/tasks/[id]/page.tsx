@@ -212,7 +212,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               schedule={taskSchedule}
               canManageSchedule={scheduleCanManage}
               meId={me.id}
-              canMarkUrgent={me.role !== 'employee'}
+              canMarkUrgent
               canEditAssignment={me.role !== 'employee'}
               clients={editClients}
               clientImageUrlByPath={editClientImageUrlByPath}

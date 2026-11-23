@@ -58,7 +58,7 @@ export default async function EmployeeStatsPage(props: { params: Promise<{ id: s
   const openHours = open.reduce((s, t) => s + Number(t.estimated_hours ?? 3), 0)
   const workload = Math.round((openHours / (person.weekly_capacity_hours || 40)) * 100)
 
-  const byStatus = (['todo', 'in_progress', 'in_system_process', 'ready_for_review', 'client_review', 'changes_requested'] as TaskStatus[])
+  const byStatus = (['todo', 'in_manual_process', 'in_system_process', 'ready_for_review', 'client_review', 'changes_requested'] as TaskStatus[])
     .map(s => ({ s, n: open.filter(t => t.status === s).length }))
 
   // Completed per week, last 8 weeks (Mon–Sun)

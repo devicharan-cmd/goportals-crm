@@ -128,8 +128,8 @@ export function ClientTaskActions({
       <div className="flex flex-wrap gap-2">
         {status !== 'ready_for_review' && (
           <Button variant="secondary" size="sm" loading={saving || pendingStatusFrom !== null} disabled={saving || pendingStatusFrom !== null}
-                  onClick={() => updateStatus('in_progress')}>
-            {status === 'in_progress' || status === 'in_system_process' ? 'Continue working' : 'Start task'}
+                  onClick={() => updateStatus('in_manual_process')}>
+            {status === 'in_manual_process' || status === 'in_system_process' ? 'Continue working' : 'Start task'}
           </Button>
         )}
         {status !== 'ready_for_review' ? (
@@ -138,7 +138,7 @@ export function ClientTaskActions({
           </Button>
         ) : (
           <Button variant="secondary" size="sm" loading={saving || pendingStatusFrom !== null} disabled={saving || pendingStatusFrom !== null}
-                  onClick={() => updateStatus('in_progress')}>
+                  onClick={() => updateStatus('in_manual_process')}>
             Continue working
           </Button>
         )}

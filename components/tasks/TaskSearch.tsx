@@ -2,11 +2,13 @@
 
 import dynamic from 'next/dynamic'
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { searchTasks } from '@/app/actions/search'
 import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
 import { Button, ButtonLink } from '@/components/ui/button'
 import { Alert, Card } from '@/components/ui/primitives'
 import { TASK_STATUS_OPTIONS } from '@/lib/constants'
+import { createClient } from '@/lib/supabase/client'
 import { cn, errorMessage } from '@/lib/utils'
 import type { AssigneeOption, TaskAssignerInfo, TaskPageCursor } from '@/lib/queries'
 import type { TaskStatus, TaskSummary } from '@/types/database'
@@ -90,6 +92,7 @@ export function TaskSearchProvider({
   board: boolean
   children: React.ReactNode
 }) {
+  const router = useRouter()
   const [query, setQuery] = useState('')
   const [tasks, setTasks] = useState(initialTasks)
   const [names, setNames] = useState(initialNames)
@@ -107,6 +110,34 @@ export function TaskSearchProvider({
   const taskRequestId = useRef(0)
   const previousServerMineCount = useRef(initialScopeCounts.mine)
   const { all: initialAllCount, assigned: initialAssignedCount, mine: initialMineCount } = initialScopeCounts
+
+  // Keep the task board/list in sync independently of the app-shell counters.
+  // The shell deliberately batches several kinds of live updates, which can
+  // leave this page showing an old task for too long when several changes land
+  // close together. Task rows are already published to Supabase Realtime, so
+  // refresh the current server query as soon as a visible task changes.
+  useEffect(() => {
+    let active = true
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`tasks-page-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        if (!active) return
+        if (refreshTimer) clearTimeout(refreshTimer)
+        refreshTimer = setTimeout(() => {
+          refreshTimer = null
+          if (active) router.refresh()
+        }, 100)
+      })
+
+    channel.subscribe()
+    return () => {
+      active = false
+      if (refreshTimer) clearTimeout(refreshTimer)
+      void supabase.removeChannel(channel)
+    }
+  }, [router])
 
   useEffect(() => {
     const previousMineCount = previousServerMineCount.current
@@ -251,22 +282,29 @@ export function TaskSearchField({
 function EmptyTaskBoard() {
   const headerColors: Record<TaskStatus, string> = {
     todo: 'bg-slate-500',
-    in_progress: 'bg-[#0A6F94]',
+    in_manual_process: 'bg-[#0A6F94]',
     in_system_process: 'bg-sky-500',
     ready_for_review: 'bg-[#1D4B40]',
     client_review: 'bg-amber-500',
     changes_requested: 'bg-orange-500',
     completed: 'bg-[#95C12C]',
-    cancelled: 'bg-slate-500',
+    cancelled: 'bg-red-500',
   }
 
   return (
-    <div className="-mx-4 grid min-h-[200px] auto-cols-[minmax(200px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 max-sm:auto-cols-[minmax(9rem,calc((100vw_-_3rem)_/_2))] max-sm:gap-2 max-sm:pb-3 sm:mx-0 sm:max-lg:auto-cols-[minmax(180px,1fr)] sm:max-lg:gap-2 sm:px-0 2xl:auto-cols-[minmax(180px,1fr)]">
+    <div className="-mx-4 grid min-h-[200px] auto-cols-[minmax(240px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 max-sm:auto-cols-[minmax(12rem,calc((100vw_-_3rem)_/_2))] max-sm:gap-2 max-sm:pb-3 sm:mx-0 sm:max-lg:auto-cols-[minmax(220px,1fr)] sm:max-lg:gap-2 sm:px-0 2xl:auto-cols-[minmax(240px,1fr)]">
       {TASK_STATUS_OPTIONS.map(status => (
-        <section key={status.value} className="flex min-w-0 flex-1 flex-col rounded-xl border border-slate-200 bg-white p-2 max-sm:rounded-lg max-sm:p-1.5 sm:max-lg:p-1.5">
+        <section key={status.value} className="flex min-w-0 flex-1 flex-col rounded-xl border border-slate-200 bg-white p-2.5 max-sm:rounded-lg max-sm:p-2 sm:max-lg:p-2">
           <div className={cn('flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-white max-sm:h-7 max-sm:gap-1.5 max-sm:px-2', headerColors[status.value])}>
-            <h3 className="min-w-0 truncate text-xs font-semibold !text-white">{status.label}</h3>
-            <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-white/20 px-1.5 text-[11px] font-semibold leading-none text-white">0</span>
+            <h3 className="min-w-0 flex-1 truncate text-xs font-semibold !text-white">{status.label}</h3>
+            <div className="ml-auto flex shrink-0 items-center gap-0.5">
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white/20 px-1 text-[11px] font-semibold leading-none text-white">0</span>
+              <button type="button" aria-label={`${status.label} options`} className="-mr-1 inline-flex h-5 w-5 shrink-0 flex-col items-center justify-center gap-0.5 rounded-md text-white/90 transition-colors hover:bg-white/20 hover:text-white">
+                <span className="h-0.5 w-0.5 rounded-full bg-current" />
+                <span className="h-0.5 w-0.5 rounded-full bg-current" />
+                <span className="h-0.5 w-0.5 rounded-full bg-current" />
+              </button>
+            </div>
           </div>
           <div className="mt-2 min-h-28 flex-1 bg-white max-sm:mt-1.5" style={{ backgroundImage: 'radial-gradient(rgba(148,163,184,.24) 1px, transparent 1px)', backgroundSize: '14px 14px' }} />
         </section>

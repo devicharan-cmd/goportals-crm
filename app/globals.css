@@ -742,6 +742,7 @@ h3 {
   box-shadow: inset 0 1px 0 #D6DAD0, inset 0 -1px 0 #D6DAD0, inset -1px 0 0 #D6DAD0;
   opacity: 0;
   pointer-events: none;
+  transform-origin: center;
   will-change: transform;
 }
 .sidebar-nav-compact .sidebar-nav-active-pill { left: 0.5rem; right: 0.5rem; }
@@ -797,6 +798,19 @@ h3 {
 
 .sidebar-nav-scroll a.sidebar-nav-item-inactive:hover .sidebar-nav-icon-inactive {
   color: #15201C;
+}
+
+.task-scope-active-pill {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  border-radius: 0.5rem;
+  background: #034C68;
+  box-shadow: 0 2px 5px rgba(2, 43, 59, 0.2);
+  pointer-events: none;
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1), width 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, width;
 }
 
 .sidebar-nav-icon {
@@ -921,6 +935,15 @@ h3 {
 .search-input-with-icon::placeholder {
   color: #64748b;
   opacity: 1;
+}
+.dropdown-search-input,
+.dropdown-search-input:focus {
+  background-color: #F6F7F3 !important;
+  border-color: #D6DAD0 !important;
+}
+.dropdown-search-input:focus {
+  box-shadow: none !important;
+  outline: none;
 }
 .form-field:focus {
   border-color: #1D4B40;

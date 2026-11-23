@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek, subMonths } from 'date-fns'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, KanbanSquare, List, Send, UserRound, UsersRound, X } from 'lucide-react'
 import { AssigneeOptionContent } from '@/components/tasks/AssigneeOptionContent'
@@ -60,7 +60,9 @@ export function TaskFilterToolbar({
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(due ? new Date(`${due}T00:00:00`) : new Date()))
   const [yearPickerOpen, setYearPickerOpen] = useState(false)
   const calendarRef = useRef<HTMLDivElement | null>(null)
+  const scopeTabsRef = useRef<HTMLDivElement | null>(null)
   const selectedYearRef = useRef<HTMLButtonElement | null>(null)
+  const [scopePill, setScopePill] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: Math.max(1, currentYear - 1999) }, (_, index) => currentYear - index)
   const calendarDays = eachDayOfInterval({
@@ -111,8 +113,29 @@ export function TaskFilterToolbar({
     if (yearPickerOpen) selectedYearRef.current?.scrollIntoView({ block: 'nearest' })
   }, [yearPickerOpen])
 
+  useLayoutEffect(() => {
+    const syncScopePill = () => {
+      const tabs = scopeTabsRef.current
+      const selected = tabs?.querySelector<HTMLElement>('[aria-pressed="true"]')
+      if (!tabs || !selected) return
+      setScopePill({ x: selected.offsetLeft, y: selected.offsetTop, width: selected.offsetWidth, height: selected.offsetHeight })
+    }
+    syncScopePill()
+    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(syncScopePill)
+    if (resizeObserver && scopeTabsRef.current) {
+      resizeObserver.observe(scopeTabsRef.current)
+      const selected = scopeTabsRef.current.querySelector<HTMLElement>('[aria-pressed="true"]')
+      if (selected) resizeObserver.observe(selected)
+    }
+    window.addEventListener('resize', syncScopePill)
+    return () => {
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', syncScopePill)
+    }
+  }, [scope, showAssignedScope, scopeCounts.mine, scopeCounts.assigned, scopeCounts.all])
+
   const toggle = 'inline-flex h-9 items-center rounded-lg bg-slate-100 p-1 sm:max-lg:h-8 sm:max-lg:p-0.5 max-sm:h-8 max-sm:p-0.5'
-  const scopeToggle = 'inline-flex h-9 gap-px rounded-xl border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] sm:max-lg:h-8 max-sm:h-8 max-sm:min-w-0 max-sm:flex-1 max-sm:rounded-lg'
+  const scopeToggle = 'relative inline-flex h-9 gap-px rounded-xl border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] sm:max-lg:h-8 max-sm:h-8 max-sm:min-w-0 max-sm:flex-1 max-sm:rounded-lg'
   const select = 'task-filter-select h-9 w-full rounded-lg px-2.5 pr-2 py-1 !text-xs sm:max-lg:h-8 sm:max-lg:px-2 sm:max-lg:!text-[11px] max-sm:h-8 max-sm:rounded-md max-sm:px-1.5 max-sm:!text-[10px]'
   const staffOptions = (label: string, staff: Option[]) => [
     { value: '', text: label, label, selectedLabel: label },
@@ -149,7 +172,8 @@ export function TaskFilterToolbar({
   return (
     <div className="mb-4 space-y-3 max-sm:mb-2 max-sm:space-y-2">
       <div className="flex flex-wrap items-center gap-2 max-sm:gap-1.5">
-        {showScope && <div className={scopeToggle}>
+        {showScope && <div ref={scopeTabsRef} className={scopeToggle}>
+          {scopePill && <span aria-hidden="true" className="task-scope-active-pill" style={{ transform: `translate(${scopePill.x}px, ${scopePill.y}px)`, width: scopePill.width, height: scopePill.height }} />}
           {([
             { value: 'mine', label: 'My tasks', icon: UserRound },
             { value: 'assigned', label: 'Assigned by me', icon: Send },
@@ -162,16 +186,16 @@ export function TaskFilterToolbar({
               aria-pressed={scope === option.value}
               onClick={() => onScopeChange(option.value)}
               className={cn(
-                'relative flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 pr-6 text-xs transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none disabled:cursor-wait disabled:opacity-70 sm:max-lg:gap-1 sm:max-lg:px-2 sm:max-lg:pr-5 sm:max-lg:text-[11px] max-sm:gap-1 max-sm:px-1.5 max-sm:pr-5 max-sm:text-[10px]',
+                'relative z-[1] flex h-full min-w-max shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-xs transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none disabled:cursor-wait disabled:opacity-70 sm:max-lg:gap-1 sm:max-lg:px-2 sm:max-lg:text-[11px] max-sm:gap-1 max-sm:px-1.5 max-sm:text-[10px]',
                 scope === option.value
-                  ? 'bg-[#034C68] font-semibold text-white shadow-[0_2px_5px_rgba(2,43,59,0.2)]'
+                  ? 'font-semibold text-white'
                   : 'bg-white font-medium text-slate-800',
               )}
             >
               <option.icon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0 max-sm:h-3 max-sm:w-3', scope === option.value ? 'text-white' : 'text-slate-800')} />
-              <span>{option.label}</span>
+              <span className="shrink-0">{option.label}</span>
               <span className={cn(
-                'absolute right-1 top-1/2 inline-grid h-4 min-w-4 -translate-y-1/2 place-items-center rounded-full px-1 text-center text-[10px] font-semibold leading-4 tabular-nums max-sm:right-0.5 max-sm:h-3.5 max-sm:min-w-3.5 max-sm:px-0.5 max-sm:text-[9px] max-sm:leading-3.5',
+                'ml-1 inline-grid h-4 min-w-4 shrink-0 place-items-center rounded-full px-1 text-center text-[10px] font-semibold leading-4 tabular-nums max-sm:h-3.5 max-sm:min-w-3.5 max-sm:px-0.5 max-sm:text-[9px] max-sm:leading-3.5',
                 (scopeCounts[option.value] ?? 0) > 0 ? 'bg-[#95C12C] text-white' : 'bg-slate-200 text-[#0F172A]',
               )}>
                 {(scopeCounts[option.value] ?? 0) > 99 ? '99+' : scopeCounts[option.value] ?? 0}

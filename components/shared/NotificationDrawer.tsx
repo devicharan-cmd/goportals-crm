@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Bell, CheckCheck, Flame, Inbox, Loader2, MessageSquare, RefreshCw, UserCheck, X } from 'lucide-react'
+import { FiAlertTriangle as Flame, FiCheckCircle as CheckCheck, FiInbox as Inbox, FiLoader as Loader2, FiMessageSquare as MessageSquare, FiRefreshCw as RefreshCw, FiUserCheck as UserCheck, FiX as X } from 'react-icons/fi'
+import { NotificationIcon } from '@/components/shared/NotificationIcon'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatRelative } from '@/lib/utils'
@@ -14,15 +15,6 @@ type Props = {
   isClient: boolean
   onClose: () => void
   onUnreadCountChange: (count: number) => void
-}
-
-function NotificationBellIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z" />
-      <path d="M10 20.5a2.2 2.2 0 0 0 4 0" />
-    </svg>
-  )
 }
 
 const ICONS: Record<string, React.ElementType> = {
@@ -127,8 +119,8 @@ export function NotificationDrawer({ open, userId, isClient, onClose, onUnreadCo
           )}
         </div>
         <div className="notification-drawer-list">
-          {loading && items.length === 0 ? <div className="notification-drawer-state"><Loader2 className="animate-spin" /> Loading notifications…</div> : visible.length === 0 ? <div className="notification-drawer-state"><NotificationBellIcon /><span>{filter === 'all' ? "You're all caught up." : `No ${filter} notifications.`}</span></div> : visible.map(notification => {
-            const Icon = ICONS[notification.type] ?? Bell
+          {loading && items.length === 0 ? <div className="notification-drawer-state"><Loader2 className="animate-spin" /> Loading notifications…</div> : visible.length === 0 ? <div className="notification-drawer-state"><NotificationIcon aria-hidden="true" /><span>{filter === 'all' ? "You're all caught up." : `No ${filter} notifications.`}</span></div> : visible.map(notification => {
+            const Icon = ICONS[notification.type] ?? NotificationIcon
             return (
               <button key={notification.id} type="button" className={cn('notification-drawer-item', !notification.is_read && 'notification-drawer-item-unread')} onClick={() => void openNotification(notification)}>
                 <span className="notification-drawer-item-icon"><Icon /></span>

@@ -28,6 +28,7 @@ import { Logo } from '@/components/layout/Logo'
 import { Avatar, CompanyAvatar } from '@/components/ui/primitives'
 import { TaskAssignmentAlert } from '@/components/shared/TaskAssignmentAlert'
 import { NotificationDrawer } from '@/components/shared/NotificationDrawer'
+import { NotificationIcon as SprigNotificationIcon } from '@/components/shared/NotificationIcon'
 import { ROLE_LABELS } from '@/lib/constants'
 import { cn, errorMessage } from '@/lib/utils'
 import { showErrorToast, showSuccessToast } from '@/lib/ui-toast'
@@ -35,24 +36,6 @@ import type { AppRole } from '@/types/database'
 
 type NavItem = { href: string; label: string; icon: React.ElementType; roles?: AppRole[]; badge?: 'urgent' | 'approvals' }
 type NavGroup = { label?: string; items: NavItem[] }
-
-function SprigNotificationIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z" />
-      <path d="M10 20.5a2.2 2.2 0 0 0 4 0" />
-    </svg>
-  )
-}
 
 type RealtimeWorkChange = {
   eventType?: 'INSERT' | 'UPDATE' | 'DELETE'
@@ -145,10 +128,27 @@ export function AppShell({
         if (!active || !pill) return
         const navBox = nav.getBoundingClientRect()
         const activeBox = active.getBoundingClientRect()
+        const firstPosition = pill.dataset.positioned !== 'true'
+        const y = activeBox.top - navBox.top + nav.scrollTop
         pill.style.height = `${activeBox.height}px`
-        pill.style.transform = `translateY(${activeBox.top - navBox.top + nav.scrollTop}px)`
-        pill.style.opacity = '1'
-        pill.classList.add('is-ready')
+        if (firstPosition) {
+          pill.classList.remove('is-ready')
+          pill.style.transform = `translateY(${y}px) scale(0.86)`
+          pill.style.opacity = '0'
+        } else {
+          pill.style.transform = `translateY(${y}px) scale(1)`
+          pill.style.opacity = '1'
+        }
+        if (firstPosition) {
+          pill.dataset.positioned = 'true'
+          requestAnimationFrame(() => {
+            pill.classList.add('is-ready')
+            pill.style.transform = `translateY(${y}px) scale(1)`
+            pill.style.opacity = '1'
+          })
+        } else {
+          pill.classList.add('is-ready')
+        }
       })
     }
     const frame = requestAnimationFrame(syncActivePill)
@@ -314,8 +314,10 @@ export function AppShell({
       if (currentPath === '/portal/tickets' || routeMatches(['/portal/tickets/'])) schedulePageRefresh()
     }
     const refreshForNotificationChange = () => {
-      scheduleCountRefresh('notifications')
-      if (routeMatches(['/notifications', '/portal/notifications'])) schedulePageRefresh()
+      // Notifications are user-facing and should update as soon as Realtime
+      // delivers the row; do not wait for the general 350ms batching window.
+      void refreshCounts(new Set(['notifications']))
+      if (routeMatches(['/notifications', '/portal/notifications'])) router.refresh()
     }
     const refreshForClientChange = (changedClientId?: string) => {
       if (!isClient && user.role === 'super_admin') scheduleCountRefresh('approvals')

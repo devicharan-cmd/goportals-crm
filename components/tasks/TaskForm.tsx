@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Flame, Globe2, Info, LockKeyhole, X } from 'lucide-react'
+import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Flame, Globe2, Info, LockKeyhole, Search, X } from 'lucide-react'
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek, subMonths } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -229,6 +229,7 @@ export function TaskForm(p: TaskFormProps) {
   const [loadingTickets, setLoadingTickets] = useState(false)
   const [ticketLoadError, setTicketLoadError] = useState('')
   const [assigneeOpen, setAssigneeOpen] = useState(false)
+  const [assigneeQuery, setAssigneeQuery] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [scheduleEnabled, setScheduleEnabled] = useState(p.schedule?.enabled ?? false)
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
@@ -283,6 +284,11 @@ export function TaskForm(p: TaskFormProps) {
   const assigneeOptions = canAssignClient
     ? [clientAssignee, ...p.assignees]
     : p.assignees
+  const filteredAssigneeOptions = useMemo(() => {
+    const query = assigneeQuery.trim().toLowerCase()
+    if (!query) return assigneeOptions
+    return assigneeOptions.filter(option => `${option.name} ${option.role ?? ''}`.toLowerCase().includes(query))
+  }, [assigneeOptions, assigneeQuery])
   const selectedSchedulerDate = scheduleStartDate ? new Date(`${scheduleStartDate}T12:00:00`) : null
 
   useEffect(() => {
@@ -898,7 +904,10 @@ export function TaskForm(p: TaskFormProps) {
             )}
                     disabled={!canEditAssignment} aria-haspopup="listbox" aria-expanded={assigneeOpen}
                     aria-required={p.mode === 'create'} aria-invalid={!!assigneeError}
-                    onClick={() => setAssigneeOpen(open => !open)}>
+                    onClick={() => setAssigneeOpen(open => {
+                      if (open) setAssigneeQuery('')
+                      return !open
+                    })}>
               <span className="flex min-w-0 items-center gap-2">
                 {form.assignee_id
                   ? (() => {
@@ -912,13 +921,24 @@ export function TaskForm(p: TaskFormProps) {
             {assigneeOpen && (
               <div className="absolute z-30 mt-1 w-full rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
                 <p className="px-3 pb-2 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Assigned to</p>
+                <div className="relative mb-1.5 px-1">
+                  <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    autoFocus
+                    value={assigneeQuery}
+                    onChange={event => setAssigneeQuery(event.target.value)}
+                    placeholder="Search assignees..."
+                    aria-label="Search assignees"
+                    className="form-field dropdown-search-input search-input-with-icon h-9 w-full rounded-lg text-sm focus:ring-0"
+                  />
+                </div>
                 <div id={`${assigneeSelectId}-options`} role="listbox" aria-label="Assigned to" className="max-h-64 space-y-1 overflow-y-auto">
-                  {assigneeOptions.map(a => {
+                  {filteredAssigneeOptions.map(a => {
                     const selected = form.assignee_id === a.id
                     return (
                       <button key={a.id} type="button" role="option" aria-selected={selected}
                               onClick={() => pickAssignee(a.id)}
-                              className={cn('w-full rounded-lg px-3 py-2 text-left transition-colors', selected ? 'bg-[#EAF4F8] font-medium text-[#034C68]' : 'hover:bg-[#f3f5f4]')}>
+                              className={cn('flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors', selected ? 'bg-[#EAF4F8] font-medium text-[#034C68]' : 'hover:bg-[#f3f5f4]')}>
                         <AssigneeOptionContent
                           name={a.name}
                           avatarUrl={a.avatarUrl}
@@ -926,9 +946,11 @@ export function TaskForm(p: TaskFormProps) {
                           roleLabel={a.role}
                           isMe={a.id === p.meId}
                         />
+                        {selected && <Check aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-[#045E80]" />}
                       </button>
                     )
                   })}
+                  {filteredAssigneeOptions.length === 0 && <p className="px-3 py-2 text-sm text-slate-500">No assignees found.</p>}
                 </div>
               </div>
             )}

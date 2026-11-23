@@ -21,7 +21,7 @@ function showToast(message: string, tone: ToastTone) {
           ? <Check className="h-3.5 w-3.5" strokeWidth={3} />
           : <TriangleAlert className="h-3.5 w-3.5" strokeWidth={2.5} />}
       </span>
-      <span className="min-w-0 flex-1 text-[11px] font-medium leading-[1.35] tracking-[0.01em] text-white/95">{message}</span>
+      <span className="min-w-0 flex-1 text-xs font-medium leading-[1.35] tracking-[0.01em] text-white/95">{message}</span>
     </div>
   ), { duration: success ? 3500 : 4500, position: 'top-right' })
 }

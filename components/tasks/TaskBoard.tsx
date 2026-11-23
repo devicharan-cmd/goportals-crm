@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, CalendarClock, Globe2, LockKeyhole, MoreVertical, X } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Globe2, LockKeyhole, X } from 'lucide-react'
 import {
   DndContext, DragOverlay, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors,
   type DragEndEvent, type DragStartEvent,
@@ -40,8 +40,8 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
   const taskHref = `${hrefBase}/${task.id}${scope ? `?scope=${scope}` : ''}`
   const body = (
     <>
-      <div className="mb-1.5 flex min-w-0 items-start gap-1.5">
-        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+      <div className="mb-1.5 flex min-w-0 items-center gap-1.5">
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
           <span className="shrink-0 whitespace-nowrap font-mono text-xs font-semibold text-[#045E80]">{taskCode(task.task_number)}</span>
           <span className={cn('inline-flex shrink-0 items-center rounded-md px-1.5 py-0 text-xs font-bold leading-4 ring-1 ring-inset', PRIORITY_STYLES[task.priority])}>
             {task.priority}
@@ -49,7 +49,7 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
         </span>
         {(task.visibility === 'private' || task.visibility === 'public') && (
           <span className={cn(
-            'inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold leading-4 ring-1 ring-inset',
+            'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10px] font-semibold leading-4 ring-1 ring-inset',
             task.visibility === 'private'
               ? 'bg-violet-50 text-violet-700 ring-violet-200'
               : 'bg-teal-50 text-teal-700 ring-teal-200',
@@ -91,8 +91,33 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
 
 function DraggableCard({ task, names, assignOptions, hrefBase, scope, disabled }: CardProps & { disabled: boolean }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, disabled })
+  const suppressClickRef = useRef(false)
+
+  // A long pointer/touch drag can be followed by the browser's delayed click
+  // event. Suppress that synthetic click so dropping a card never opens it.
+  useEffect(() => {
+    if (isDragging) suppressClickRef.current = true
+  }, [isDragging])
+
+  useEffect(() => {
+    if (isDragging || !suppressClickRef.current) return
+    const timeout = window.setTimeout(() => { suppressClickRef.current = false }, 500)
+    return () => window.clearTimeout(timeout)
+  }, [isDragging])
+
   return (
-    <div ref={setNodeRef} {...attributes} {...listeners} className={cn(!disabled && 'touch-none', isDragging && 'opacity-30')}>
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      onClick={event => {
+        if (!suppressClickRef.current) return
+        event.preventDefault()
+        event.stopPropagation()
+        suppressClickRef.current = false
+      }}
+      className={cn(!disabled && 'touch-none', isDragging && 'opacity-30')}
+    >
       <Card task={task} names={names} assignOptions={assignOptions} hrefBase={hrefBase} scope={scope} linked />
     </div>
   )
@@ -110,47 +135,27 @@ function Column({ status, label, tasks, names, assignOptions, hrefBase, scope, c
   canEditTask: (task: TaskSummary) => boolean
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status, disabled: !canDrop })
-  const sortMenuRef = useRef<HTMLDivElement>(null)
-  const [sortMenuOpen, setSortMenuOpen] = useState(false)
-  useEffect(() => {
-    if (!sortMenuOpen) return
-    const closeOnOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !sortMenuRef.current?.contains(event.target)) setSortMenuOpen(false)
-    }
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSortMenuOpen(false)
-    }
-    document.addEventListener('pointerdown', closeOnOutside)
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutside)
-      document.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [sortMenuOpen])
   const boardStyle: Record<TaskStatus, string> = {
     todo: 'bg-slate-500',
-    in_progress: 'bg-[#0A6F94]',
+    in_manual_process: 'bg-[#0A6F94]',
     in_system_process: 'bg-sky-500',
     ready_for_review: 'bg-[#1D4B40]',
     client_review: 'bg-amber-500',
     changes_requested: 'bg-orange-500',
     completed: 'bg-[#95C12C]',
-    cancelled: 'bg-slate-500',
+    cancelled: 'bg-red-500',
   }
   return (
-    <div className="flex min-w-0 flex-col flex-1 rounded-xl border border-slate-200 bg-white p-2 max-sm:rounded-lg max-sm:p-1.5 sm:max-lg:p-1.5">
+    <div className="flex min-w-0 flex-col flex-1 rounded-xl border border-slate-200 bg-white p-2.5 max-sm:rounded-lg max-sm:p-2 sm:max-lg:p-2">
       <div className={cn('flex h-8 shrink-0 items-center gap-2 rounded-md px-2.5 text-white max-sm:h-7 max-sm:gap-1.5 max-sm:px-2', boardStyle[status])}>
-        <h3 className="!text-white min-w-0 truncate text-xs font-semibold">{label}</h3>
-        <div ref={sortMenuRef} className="relative -mr-2 ml-auto flex shrink-0 items-center gap-1">
-          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-white/20 px-1.5 text-[11px] font-semibold leading-none text-white">{tasks.length}</span>
-          <button type="button" aria-label={`Sort ${label} tasks`} aria-haspopup="menu" aria-expanded={sortMenuOpen}
-            onClick={() => setSortMenuOpen(open => !open)}
-            className="inline-flex h-5 w-5 items-center justify-center rounded-md text-white/90 transition hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80">
-            <MoreVertical aria-hidden="true" className="h-4 w-4" />
+        <h3 className="!text-white min-w-0 flex-1 truncate text-xs font-semibold">{label}</h3>
+        <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white/20 px-1 text-[11px] font-semibold leading-none text-white">{tasks.length}</span>
+          <button type="button" aria-label={`${label} options`} className="-mr-1 inline-flex h-5 w-5 shrink-0 flex-col items-center justify-center gap-0.5 rounded-md text-white/90 transition-colors hover:bg-white/20 hover:text-white">
+            <span className="h-0.5 w-0.5 rounded-full bg-current" />
+            <span className="h-0.5 w-0.5 rounded-full bg-current" />
+            <span className="h-0.5 w-0.5 rounded-full bg-current" />
           </button>
-          {sortMenuOpen && (
-            <div role="menu" aria-label={`${label} column options`} className="absolute right-0 top-full z-30 mt-1 min-h-2 w-40 rounded-lg border border-slate-200 bg-white p-2 shadow-lg" />
-          )}
         </div>
       </div>
       <div ref={setNodeRef}
@@ -261,7 +266,7 @@ export function TaskBoard({
         </p>
       )}
       <DndContext id="task-board" sensors={sensors} onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))} onDragEnd={event => void runOnce('drag-update', () => onDragEnd(event))} onDragCancel={() => setActiveId(null)}>
-        <div className={cn('-mx-4 grid auto-cols-[minmax(200px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 max-sm:auto-cols-[minmax(9rem,calc((100vw_-_3rem)_/_2))] max-sm:gap-2 max-sm:pb-3 sm:max-lg:auto-cols-[minmax(180px,1fr)] sm:max-lg:gap-2 sm:mx-0 sm:px-0 2xl:auto-cols-[minmax(180px,1fr)]', tasks.length === 0 && 'min-h-[200px]')}>
+        <div className={cn('-mx-4 grid auto-cols-[minmax(240px,1fr)] grid-flow-col gap-3 overflow-x-auto px-4 pb-4 max-sm:auto-cols-[minmax(12rem,calc((100vw_-_3rem)_/_2))] max-sm:gap-2 max-sm:pb-3 sm:max-lg:auto-cols-[minmax(220px,1fr)] sm:max-lg:gap-2 sm:mx-0 sm:px-0 2xl:auto-cols-[minmax(240px,1fr)]', tasks.length === 0 && 'min-h-[200px]')}>
           {TASK_STATUS_OPTIONS.map(s => (
             <Column
               key={s.value}

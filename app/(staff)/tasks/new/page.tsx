@@ -34,7 +34,7 @@ export default async function NewTaskPage(
         meId={me.id}
         defaultClientId={searchParams.client_id}
         defaultAssigneeId={searchParams.assignee}
-        canMarkUrgent={me.role !== 'employee'}
+        canMarkUrgent
         clients={clients}
         assignees={assignableFor(me, lookups).map(p => ({ id: p.id, name: p.full_name || p.email, avatarUrl: p.avatar_url, employeeId: p.id, role: ROLE_LABELS[p.role], avatarRole: p.role }))}
         clientAssignees={clientAssignees}

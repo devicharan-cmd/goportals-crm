@@ -121,7 +121,7 @@ export function PortalTaskList({
           scope={scope}
           readOnly={scope !== 'mine'}
           editableTaskActorId={scope === 'mine' ? meId : undefined}
-          editableStatuses={['todo', 'in_progress', 'in_system_process', 'ready_for_review']}
+          editableStatuses={['todo', 'in_manual_process', 'in_system_process', 'ready_for_review']}
         />
       ) : (
         <Card className="overflow-hidden">

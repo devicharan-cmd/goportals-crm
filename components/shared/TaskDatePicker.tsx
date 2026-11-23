@@ -92,7 +92,7 @@ export function TaskDatePicker({ id, value, onChange, disabled, invalid, describ
         }}
         className={cn(
           'form-field flex h-8 w-full items-center gap-2 py-1 text-left text-sm',
-          invalid && 'border-red-400 bg-red-50/40 focus:border-red-500',
+          invalid && 'task-date-picker-invalid border-red-400 bg-red-50/40 focus:border-red-500',
           buttonClassName,
         )}
       >

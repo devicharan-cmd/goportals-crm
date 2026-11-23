@@ -250,7 +250,7 @@ export function TaskForm(p: TaskFormProps) {
       || (p.mode === 'edit' && Boolean(p.schedule) && Boolean(p.canManageSchedule))
     const scheduleIncomplete = scheduleRequired && (
       !scheduleRepeat
-      || (scheduleRepeat === 'custom' && (!scheduleCustomDays || Number(scheduleCustomDays) < 2))
+      || (scheduleRepeat === 'custom' && (!scheduleCustomDays || Number(scheduleCustomDays) < 1))
       || !scheduleTime
       || !scheduleStartDate
     )
@@ -273,10 +273,10 @@ export function TaskForm(p: TaskFormProps) {
   const standaloneSelected = form.ticket_id === STANDALONE_TICKET_OPTION
   const visibilityLocked = p.mode === 'edit'
   const scheduleFieldsRequired = p.mode === 'create' && scheduleEnabled
-  const scheduleRepeatMissing = scheduleFieldsRequired && (!scheduleRepeat
-    || (scheduleRepeat === 'custom' && (!scheduleCustomDays || Number(scheduleCustomDays) < 2)))
-  const scheduleTimeMissing = scheduleFieldsRequired && !scheduleTime
-  const scheduleStartDateMissing = scheduleFieldsRequired && !scheduleStartDate
+  const scheduleRepeatMissing = hasAttemptedSubmit && scheduleFieldsRequired && (!scheduleRepeat
+    || (scheduleRepeat === 'custom' && (!scheduleCustomDays || Number(scheduleCustomDays) < 1)))
+  const scheduleTimeMissing = hasAttemptedSubmit && scheduleFieldsRequired && !scheduleTime
+  const scheduleStartDateMissing = hasAttemptedSubmit && scheduleFieldsRequired && !scheduleStartDate
   const clientAssignee = p.clientAssignees?.find(option => option.clientId === form.client_id)
   const canAssignClient = clientAssignee
     && (form.visibility === 'public' || p.mode === 'create')
@@ -508,13 +508,13 @@ export function TaskForm(p: TaskFormProps) {
     const scheduledEdit = p.mode === 'edit' && Boolean(p.schedule) && Boolean(p.canManageSchedule)
     const schedulerMissing = scheduledCreate && (
       !scheduleRepeat
-      || (scheduleRepeat === 'custom' && (!scheduleCustomDays || Number(scheduleCustomDays) < 2))
+      || (scheduleRepeat === 'custom' && (!scheduleCustomDays || Number(scheduleCustomDays) < 1))
       || !scheduleTime
       || !scheduleStartDate
     )
     const scheduleEditMissing = scheduledEdit && (
       !scheduleRepeat
-      || (scheduleRepeat === 'custom' && (!scheduleCustomDays || Number(scheduleCustomDays) < 2))
+      || (scheduleRepeat === 'custom' && (!scheduleCustomDays || Number(scheduleCustomDays) < 1))
       || !scheduleTime
       || !scheduleStartDate
     )
@@ -993,13 +993,13 @@ export function TaskForm(p: TaskFormProps) {
                     onClick={() => pickVisibility(option.value)}
                     className={cn(
                       'flex min-h-14 min-w-0 items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors',
-                      selected ? 'border-[#045E80] bg-[#EAF4F8] ring-1 ring-inset ring-[#045E80]' : 'border-slate-300 bg-white hover:bg-slate-50',
+                      selected ? 'border-[#045E80] bg-white ring-1 ring-inset ring-[#045E80]' : 'border-slate-300 bg-white hover:bg-slate-50',
                       visibilityError && 'border-red-300 bg-red-50/30',
                       visibilityLocked && 'cursor-not-allowed opacity-70',
                     )}
                   >
                     <span className={cn('inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
-                      selected ? 'bg-[#CFE6EF] text-[#034C68]' : 'bg-slate-100 text-slate-600')}>
+                      selected ? 'bg-[#EAF4F8] text-[#034C68]' : 'bg-slate-100 text-slate-600')}>
                       {option.value === 'public' ? <Globe2 aria-hidden="true" className="h-4 w-4" /> : <LockKeyhole aria-hidden="true" className="h-4 w-4" />}
                     </span>
                     <span className="min-w-0 flex-1">
@@ -1042,7 +1042,7 @@ export function TaskForm(p: TaskFormProps) {
                     setScheduleCustomInputOpen(nextRepeat === 'custom')
                   }}
                   onClose={() => {
-                    if (scheduleCustomInputOpen && (!scheduleCustomDays || Number(scheduleCustomDays) < 2)) {
+                    if (scheduleCustomInputOpen && (!scheduleCustomDays || Number(scheduleCustomDays) < 1)) {
                       setScheduleRepeat('')
                       setScheduleCustomDays('')
                       setScheduleCustomInputOpen(false)
@@ -1068,12 +1068,12 @@ export function TaskForm(p: TaskFormProps) {
                   keepOpenOnSelect={value => value === 'custom'}
                   dropdownFooter={scheduleCustomInputOpen ? (
                     <div>
-                      <label htmlFor="task-schedule-custom-days" className="mb-1 block text-xs font-medium text-slate-600">Repeat every</label>
+                      <label htmlFor="task-schedule-custom-days" className="mb-1 block text-xs font-medium text-slate-600">Run for</label>
                       <div className="flex h-9 items-center overflow-hidden rounded-lg">
                         <input
                           id="task-schedule-custom-days"
                           type="number"
-                          min={2}
+                          min={1}
                           step={1}
                           disabled={!scheduleEnabled}
                           value={scheduleCustomDays}
@@ -1084,7 +1084,7 @@ export function TaskForm(p: TaskFormProps) {
                               setScheduleRepeat('custom')
                               return
                             }
-                            if (!/^\d+$/.test(days) || Number(days) < 2) {
+                            if (!/^\d+$/.test(days) || Number(days) < 1) {
                               setScheduleCustomDays('')
                               setScheduleRepeat('custom')
                               return
@@ -1099,7 +1099,7 @@ export function TaskForm(p: TaskFormProps) {
                       </div>
                     </div>
                   ) : undefined}
-                  className={cn('mt-1', scheduleRepeatMissing && 'border-red-400 bg-red-50/40 focus:border-red-500')}
+                  className={cn('task-scheduler-control mt-1 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400', scheduleRepeatMissing && 'border-red-400 bg-red-50/40 focus:border-red-500')}
                 />
               </div>
               <div className="order-3 relative block text-xs font-medium text-slate-600" ref={scheduleTimePickerRef}>
@@ -1112,7 +1112,7 @@ export function TaskForm(p: TaskFormProps) {
                   aria-expanded={scheduleTimePickerOpen}
                   aria-describedby={scheduleError ? 'task-schedule-error' : undefined}
                   onClick={() => scheduleTimePickerOpen ? setScheduleTimePickerOpen(false) : openScheduleTimePicker()}
-                  className={cn('form-field mt-1 flex h-9 w-full items-center gap-2 text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400', scheduleTimeMissing && 'border-red-400 bg-red-50/40 focus:border-red-500')}
+                  className={cn('task-scheduler-control form-field mt-1 flex h-9 w-full items-center gap-2 text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400', scheduleTimeMissing && 'border-red-400 bg-red-50/40 focus:border-red-500')}
                 >
                   <Clock3 aria-hidden="true" className={cn('h-4 w-4 shrink-0', scheduleEnabled ? 'text-[#045E80]' : 'text-slate-400')} />
                   <span className={cn('min-w-0 flex-1 truncate', !scheduleTime && (scheduleEnabled ? 'text-slate-900' : 'text-slate-500'))}>
@@ -1198,7 +1198,7 @@ export function TaskForm(p: TaskFormProps) {
                     }
                     setScheduleCalendarOpen(open => !open)
                   }}
-                  className={cn('form-field mt-1 flex h-9 w-full items-center gap-2 text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400', scheduleStartDateMissing && 'border-red-400 bg-red-50/40 focus:border-red-500')}
+                  className={cn('task-scheduler-control form-field mt-1 flex h-9 w-full items-center gap-2 text-left text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400', scheduleStartDateMissing && 'border-red-400 bg-red-50/40 focus:border-red-500')}
                 >
                   <CalendarDays aria-hidden="true" className={cn('h-4 w-4 shrink-0', scheduleEnabled ? 'text-[#045E80]' : 'text-slate-400')} />
                   <span className={cn(
@@ -1369,7 +1369,10 @@ export function TaskForm(p: TaskFormProps) {
               invalid={!!deadlineError}
               describedBy={deadlineError ? 'task-deadline-error' : undefined}
               className="task-deadline-date"
-              buttonClassName={p.modalLayout ? 'h-7 rounded-full px-3 py-1 text-xs leading-4' : undefined}
+              buttonClassName={cn(
+                p.modalLayout && 'h-7 rounded-full px-3 py-1 text-xs leading-4',
+                deadlineError && 'border-red-400 bg-red-50/40 focus:border-red-500 focus:ring-red-200',
+              )}
               onChange={dueDate => {
                 setDeadlineError('')
                 setForm(f => ({ ...f, due_date: dueDate, deadline_type: '' }))
@@ -1414,8 +1417,8 @@ export function TaskForm(p: TaskFormProps) {
                 <option value="daily">Daily</option><option value="weekly">For a week</option><option value="custom">Custom interval</option>
               </select>
             </label>
-            {scheduleRepeat === 'custom' && <label className="text-xs font-medium text-slate-600">Repeat every (days)
-              <input type="number" min={2} max={3650} step={1} className="form-field mt-1 h-9 w-full text-sm"
+            {scheduleRepeat === 'custom' && <label className="text-xs font-medium text-slate-600">Run for (days)
+              <input type="number" min={1} max={3650} step={1} className="form-field mt-1 h-9 w-full text-sm"
                 value={scheduleCustomDays} disabled={!p.canManageSchedule} onChange={event => setScheduleCustomDays(event.target.value)} />
             </label>}
             <label className="text-xs font-medium text-slate-600">Start date

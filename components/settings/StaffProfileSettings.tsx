@@ -157,6 +157,7 @@ export function StaffProfileSettings({
 
   // Form state
   const [fullName, setFullName] = useState(profile.full_name || '')
+  const [email, setEmail] = useState(profile.email)
   const [phone, setPhone] = useState(profile.phone || '')
   const [timezone, setTimezone] = useState(profile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata')
   const [currentAddress, setCurrentAddress] = useState(initialAddress.current_address || '')
@@ -175,6 +176,7 @@ export function StaffProfileSettings({
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [emailError, setEmailError] = useState('')
   const [phoneError, setPhoneError] = useState('')
   const [timezoneError, setTimezoneError] = useState('')
   const [jobTitleError, setJobTitleError] = useState('')
@@ -341,6 +343,7 @@ export function StaffProfileSettings({
 
   function handleDiscard() {
     setFullName(profile.full_name || '')
+    setEmail(profile.email)
     setPhone(profile.phone || '')
     setTimezone(profile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata')
     setCurrentAddress(initialAddress.current_address || '')
@@ -352,6 +355,7 @@ export function StaffProfileSettings({
     setWeeklyCapacity(profile.weekly_capacity_hours != null ? String(profile.weekly_capacity_hours) : '40')
     setSelectedDeptIds(initialDepartmentIds)
     setError('')
+    setEmailError('')
     setPhoneError('')
     setTimezoneError('')
     setJobTitleError('')
@@ -373,6 +377,7 @@ export function StaffProfileSettings({
   async function handleSave() {
     setSaving(true)
     setError('')
+    setEmailError('')
     setPhoneError('')
     setTimezoneError('')
     setJobTitleError('')
@@ -381,6 +386,12 @@ export function StaffProfileSettings({
     setPromotionBlocked(false)
     setReportingToError('')
     setCapacityError('')
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      setSaving(false)
+      setEmailError('Enter a valid email address.')
+      return
+    }
     if (!jobTitle.trim()) {
       setSaving(false)
       setJobTitleError('Job title is required.')
@@ -415,12 +426,14 @@ export function StaffProfileSettings({
     }
 
     try {
-      if (!isOwnProfile) {
+      const emailChanged = normalizedEmail !== profile.email.trim().toLowerCase()
+      if (!isOwnProfile || (isSuperAdmin && emailChanged)) {
         const response = await fetch(`/api/admin/users/${profile.id}/profile`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             full_name: fullName.trim(),
+            email: normalizedEmail,
             phone: phone.trim() || null,
             timezone,
             current_address: currentAddress.trim() || null,
@@ -513,7 +526,8 @@ export function StaffProfileSettings({
       router.refresh()
     } catch (err: unknown) {
       const message = errorMessage(err)
-      if (/mobile number|phone/i.test(message)) setPhoneError(message)
+      if (/email/i.test(message)) setEmailError(message)
+      else if (/mobile number|phone/i.test(message)) setPhoneError(message)
       else if (/timezone/i.test(message)) setTimezoneError(message)
       else if (/job title/i.test(message)) setJobTitleError(message)
       else if (/reporting (to|poc)/i.test(message)) setReportingToError(message)
@@ -557,48 +571,50 @@ export function StaffProfileSettings({
               {/* Profile Avatar Header */}
               <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:gap-5 sm:pb-6">
                 <div className="flex min-w-0 flex-1 flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-5">
-                  <div className="h-16 w-16 shrink-0 rounded-full ring-2 ring-[#9FCCDE] sm:h-20 sm:w-20">
+                  <div className="h-20 w-20 shrink-0 rounded-full sm:h-24 sm:w-24">
                     {canEditProfile ? (
                       <ProfileImageControl
                         busy={imageBusy}
                         onClick={openImageDialog}
                         label={currentImage ? 'Update profile photo' : 'Add profile photo'}
-                        className="flex h-16 w-16 items-center justify-center rounded-full shadow-sm sm:h-20 sm:w-20"
+                        className="flex h-20 w-20 items-center justify-center rounded-full shadow-sm sm:h-24 sm:w-24"
                       >
                         {currentImage && !imageLoadFailed ? (
                           <Image
                             src={currentImage}
-                            alt={fullName || profile.email}
-                            width={80}
-                            height={80}
-                            unoptimized
-                            className="h-full w-full rounded-full border-4 border-white object-cover"
+                            alt={fullName || email}
+                            width={512}
+                            height={512}
+                            sizes="256px"
+                            quality={100}
+                            className="h-full w-full rounded-full object-cover"
                             onError={() => setImageLoadFailed(true)}
                           />
                         ) : (
-                          <Avatar name={fullName || profile.email} role={role} size="lg" className="h-16 w-16 border-4 border-white text-xl sm:h-20 sm:w-20 sm:text-2xl" />
+                          <Avatar name={fullName || email} role={role} size="lg" className="h-20 w-20 text-xl sm:h-24 sm:w-24 sm:text-2xl" />
                         )}
                       </ProfileImageControl>
                     ) : (
                       currentImage && !imageLoadFailed ? (
                         <Image
                           src={currentImage}
-                          alt={fullName || profile.email}
-                          width={80}
-                          height={80}
-                          unoptimized
-                          className="h-16 w-16 rounded-full border-4 border-white object-cover sm:h-20 sm:w-20"
+                          alt={fullName || email}
+                          width={512}
+                          height={512}
+                          sizes="256px"
+                          quality={100}
+                          className="h-20 w-20 rounded-full object-cover sm:h-24 sm:w-24"
                           onError={() => setImageLoadFailed(true)}
                         />
                       ) : (
-                        <Avatar name={fullName || profile.email} role={role} size="lg" className="h-16 w-16 border-4 border-white text-xl sm:h-20 sm:w-20 sm:text-2xl" />
+                        <Avatar name={fullName || email} role={role} size="lg" className="h-20 w-20 text-xl sm:h-24 sm:w-24 sm:text-2xl" />
                       )
                     )}
                   </div>
 
                   <div className="min-w-0 flex-1 text-center sm:text-left">
                     <h3 className="truncate text-xl font-bold text-slate-900 sm:text-2xl">
-                      {fullName || profile.email}
+                      {fullName || email}
                     </h3>
                     <div className="mt-1.5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                       {jobTitle.trim() && (
@@ -608,19 +624,19 @@ export function StaffProfileSettings({
                     </div>
                     <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                       <a
-                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(profile.email)}`}
+                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex max-w-full items-center gap-1.5 break-all rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-[#63A9C4] hover:text-[#034C68]"
+                        className="inline-flex max-w-full items-center gap-1.5 break-all rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:border-[#63A9C4] hover:text-[#034C68]"
                       >
-                        <Mail className="h-3.5 w-3.5 flex-shrink-0" /> {profile.email}
+                        <Mail className="h-3.5 w-3.5 flex-shrink-0" /> {email}
                       </a>
                       {phone.trim() ? (
-                        <a href={`tel:${phone.trim().replace(/[^+\d]/g, '')}`} className="inline-flex max-w-full items-center gap-1.5 break-all rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-[#63A9C4] hover:text-[#034C68]">
+                        <a href={`tel:${phone.trim().replace(/[^+\d]/g, '')}`} className="inline-flex max-w-full items-center gap-1.5 break-all rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600 transition-colors hover:border-[#63A9C4] hover:text-[#034C68]">
                           <Phone className="h-3.5 w-3.5 flex-shrink-0" /> {phone}
                         </a>
                       ) : (
-                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600">
+                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
                           <Phone className="h-3.5 w-3.5 flex-shrink-0" /> --
                         </span>
                       )}
@@ -655,23 +671,41 @@ export function StaffProfileSettings({
                       'w-full rounded-xl border px-3.5 py-2.5 text-sm transition shadow-sm',
                       isEditing && (isOwnProfile || isSuperAdmin)
                         ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#0A6F94] focus:outline-none'
-                        : 'border-slate-200 bg-slate-50/70 text-slate-700 cursor-default'
+                        : 'border-slate-200 bg-slate-50 text-slate-700 cursor-default'
                     )}
                   />
                 </div>
 
-                {/* Email (Always Read-Only) */}
                 <div>
-                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                    Email
+                  <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
+                    <span>Email <span className="text-red-500">*</span></span>
+                    {(!isSuperAdmin || !isEditing) && !(isOwnProfile && isSuperAdmin) && (
+                      <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
+                        <Lock className="h-3 w-3" /> Managed by Super Admin
+                      </span>
+                    )}
                   </label>
                   <input
                     type="email"
-                    value={profile.email}
-                    disabled
-                    readOnly
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2.5 text-sm text-slate-600 cursor-not-allowed shadow-sm"
+                    required
+                    value={email}
+                    disabled={!isSuperAdmin || !isEditing}
+                    onChange={event => {
+                      setEmail(event.target.value)
+                      if (emailError) setEmailError('')
+                    }}
+                    aria-invalid={!!emailError}
+                    aria-describedby={emailError ? 'profile-email-error' : undefined}
+                    className={cn(
+                      'w-full rounded-xl border px-3.5 py-2.5 text-sm transition shadow-sm',
+                      isSuperAdmin && isEditing
+                        ? emailError
+                          ? 'border-red-500 text-slate-900 focus:border-red-500 focus:outline-none'
+                          : 'border-slate-200 bg-white text-slate-900 focus:border-[#0A6F94] focus:outline-none'
+                        : 'border-slate-200 bg-slate-50 text-slate-700 cursor-not-allowed',
+                    )}
                   />
+                  {emailError && <p id="profile-email-error" role="alert" className="field-error">{emailError}</p>}
                 </div>
 
                 {/* Phone */}
@@ -720,7 +754,7 @@ export function StaffProfileSettings({
                         ? jobTitleError
                           ? '!border-red-500 text-slate-900 placeholder-slate-400 focus:border-red-500 focus:outline-none'
                           : 'text-slate-900 placeholder-slate-400 focus:border-[#0A6F94] focus:outline-none'
-                        : 'bg-slate-50/70 text-slate-600 cursor-not-allowed'
+                        : 'bg-slate-50 text-slate-600 cursor-not-allowed'
                     )}
                     aria-invalid={!!jobTitleError}
                   />
@@ -732,7 +766,7 @@ export function StaffProfileSettings({
                 <div>
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Role <span className="text-red-500">*</span></span>
-                    {(!canChangeRole || !isEditing) && (
+                    {(!canChangeRole || !isEditing) && !(isOwnProfile && isSuperAdmin) && (
                       <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
@@ -747,10 +781,15 @@ export function StaffProfileSettings({
                         if (roleError) setRoleError('')
                         setPromotionBlocked(false)
                         setPromotionBlockedIds([])
-                        const reportingRole = nextRole === 'manager' ? 'super_admin'
-                          : nextRole === 'team_lead' ? 'manager'
-                            : nextRole === 'employee' ? 'team_lead' : null
-                        if (!reportingPeople.some(person => person.id === reportingTo && person.role === reportingRole && person.status === 'active')) {
+                        // A reporting POC may be any active staff member. Role-based
+                        // permissions for task visibility and assignment are enforced
+                        // independently of this reporting link.
+                        if (nextRole === 'super_admin' || !reportingPeople.some(person =>
+                          person.id === reportingTo
+                          && person.id !== profile.id
+                          && person.status === 'active'
+                          && person.role !== 'client'
+                        )) {
                           setReportingTo('')
                         }
                       }}
@@ -767,7 +806,7 @@ export function StaffProfileSettings({
                       <option value="employee">Employee</option>
                     </SearchableSelect>
                   ) : (
-                    <div className="flex h-[42px] items-center rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 text-sm font-medium text-slate-700">
+                    <div className="flex h-[42px] items-center rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm font-medium text-slate-700">
                       {ROLE_LABELS[role]}
                     </div>
                   )}
@@ -787,7 +826,7 @@ export function StaffProfileSettings({
                 <div>
                   <label className="mb-1.5 flex items-center justify-between text-sm font-semibold text-slate-700">
                     <span>Reporting To (POC) {role !== 'super_admin' && <span className="text-red-500">*</span>}</span>
-                    {(!canChangeRole || !isEditing) && (
+                    {(!canChangeRole || !isEditing) && !(isOwnProfile && isSuperAdmin) && (
                       <span className="flex items-center gap-1 text-xs font-normal text-slate-400 lowercase">
                         <Lock className="h-3 w-3" /> Managed by Super Admin
                       </span>
@@ -802,15 +841,13 @@ export function StaffProfileSettings({
                       }}
                       invalid={!!reportingToError}
                       people={reportingPeople.filter(person =>
-                        person.id !== profile.id &&
-                        person.status === 'active' &&
-                        person.role === (
-                          role === 'manager' ? 'super_admin' : role === 'team_lead' ? 'manager' : 'team_lead'
-                        )
+                        person.id !== profile.id
+                        && person.status === 'active'
+                        && person.role !== 'client'
                       )}
                     />
                   ) : (
-                    <div className="flex h-[42px] items-center rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 text-sm font-medium text-slate-700">
+                    <div className="flex h-[42px] items-center rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm font-medium text-slate-700">
                       {(() => {
                         const reportingPerson = reportingPeople.find(person => person.id === reportingTo)
                         return reportingPerson ? (
@@ -881,7 +918,7 @@ export function StaffProfileSettings({
                       'w-full rounded-xl border px-3.5 py-2.5 text-sm transition shadow-sm',
                       isEditing && (isOwnProfile || isSuperAdmin)
                         ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#0A6F94] focus:outline-none'
-                        : 'border-slate-200 bg-slate-50/70 text-slate-700 cursor-default'
+                        : 'border-slate-200 bg-slate-50 text-slate-700 cursor-default'
                     )}
                   />
                 </div>
@@ -897,7 +934,7 @@ export function StaffProfileSettings({
                       'w-full rounded-xl border px-3.5 py-2.5 text-sm transition shadow-sm',
                       isEditing && (isOwnProfile || isSuperAdmin)
                         ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#0A6F94] focus:outline-none'
-                        : 'border-slate-200 bg-slate-50/70 text-slate-700 cursor-default'
+                        : 'border-slate-200 bg-slate-50 text-slate-700 cursor-default'
                     )}
                   />
                 </div>
@@ -929,7 +966,7 @@ export function StaffProfileSettings({
                         'h-[42px] w-full rounded-xl border px-3.5 py-2.5 text-sm pr-16 transition shadow-sm',
                         isSuperAdmin && isEditing
                           ? 'border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#0A6F94] focus:outline-none'
-                          : 'border-slate-200 bg-slate-50/70 text-slate-600 cursor-not-allowed',
+                          : 'border-slate-200 bg-slate-50 text-slate-600 cursor-not-allowed',
                         capacityError && isEditing && 'border-red-500'
                       )}
                     />
@@ -1041,7 +1078,7 @@ export function StaffProfileSettings({
         <div className="space-y-5">
           <div className="flex items-center gap-5 rounded-2xl border-2 border-dashed border-[#9FCCDE] bg-gradient-to-r from-[#EAF4F8]/70 to-white p-5">
             <Avatar
-              name={fullName || profile.email}
+              name={fullName || email}
               src={selectedImagePreview ?? currentImage}
               role={role}
               size="lg"

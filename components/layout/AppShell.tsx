@@ -4,14 +4,30 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Bell, Briefcase, Building2, ChevronDown, ChevronLeft, ChevronRight,
-  ClipboardList, FileSignature, Flame, LayoutDashboard, Layers, ListTodo, Loader2, LogOut,
-  Menu, PieChart, Settings, Settings2, ShieldCheck, User, UserCircle, UserPlus, Users, WifiOff, X,
+  ChevronLeft, ChevronRight, Loader2, Menu, User, WifiOff, X,
 } from 'lucide-react'
+import {
+  LuBriefcase as Briefcase,
+  LuBuilding2 as Building2,
+  LuChartPie as PieChart,
+  LuCircleUserRound as UserCircle,
+  LuClipboardList as ClipboardList,
+  LuFilePenLine as FileSignature,
+  LuFlame as Flame,
+  LuLayers as Layers,
+  LuLayoutDashboard,
+  LuListTodo as ListTodo,
+  LuSettings2 as Settings2,
+  LuShieldCheck as ShieldCheck,
+  LuUserPlus as UserPlus,
+  LuUsers as Users,
+} from 'react-icons/lu'
+import { IoLogOutOutline as SignOutIcon, IoSettingsOutline as Settings } from 'react-icons/io5'
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
 import { Avatar, CompanyAvatar } from '@/components/ui/primitives'
 import { TaskAssignmentAlert } from '@/components/shared/TaskAssignmentAlert'
+import { NotificationDrawer } from '@/components/shared/NotificationDrawer'
 import { ROLE_LABELS } from '@/lib/constants'
 import { cn, errorMessage } from '@/lib/utils'
 import { showErrorToast, showSuccessToast } from '@/lib/ui-toast'
@@ -19,6 +35,25 @@ import type { AppRole } from '@/types/database'
 
 type NavItem = { href: string; label: string; icon: React.ElementType; roles?: AppRole[]; badge?: 'urgent' | 'approvals' }
 type NavGroup = { label?: string; items: NavItem[] }
+
+function SprigNotificationIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z" />
+      <path d="M10 20.5a2.2 2.2 0 0 0 4 0" />
+    </svg>
+  )
+}
+
 type RealtimeWorkChange = {
   eventType?: 'INSERT' | 'UPDATE' | 'DELETE'
   eventKey?: string
@@ -40,14 +75,14 @@ type RealtimeEvent = {
 const STAFF_NAV: NavGroup[] = [
   {
     items: [
-      { href: '/dashboard',     label: 'Dashboard',   icon: LayoutDashboard },
+      { href: '/dashboard',     label: 'Dashboard',   icon: LuLayoutDashboard },
       { href: '/tickets',       label: 'Tickets',     icon: ClipboardList, roles: ['super_admin', 'manager', 'team_lead'] },
       { href: '/tasks',         label: 'Tasks',       icon: ListTodo },
       { href: '/urgent',        label: 'Urgent pool', icon: Flame, badge: 'urgent' },
       { href: '/clients',       label: 'Clients',     icon: Building2, roles: ['super_admin', 'manager', 'team_lead'] },
       { href: '/team',          label: 'Team',        icon: Users, roles: ['super_admin', 'manager', 'team_lead'] },
       { href: '/reports',       label: 'Reports',     icon: PieChart, roles: ['super_admin', 'manager'] },
-      { href: '/settings',      label: 'Setting',     icon: Settings },
+      { href: '/settings',      label: 'Settings',    icon: Settings },
     ],
   },
   {
@@ -64,7 +99,7 @@ const STAFF_NAV: NavGroup[] = [
 const CLIENT_NAV: NavGroup[] = [
   {
     items: [
-      { href: '/portal',             label: 'Overview',    icon: LayoutDashboard },
+      { href: '/portal',             label: 'Overview',    icon: LuLayoutDashboard },
       { href: '/portal/tasks',       label: 'Tasks',       icon: ListTodo },
       { href: '/portal/tickets',     label: 'My tickets', icon: ClipboardList },
       { href: '/portal/tickets/new', label: 'New ticket', icon: Briefcase },
@@ -89,6 +124,7 @@ export function AppShell({
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [notificationDrawerOpen, setNotificationDrawerOpen] = useState(false)
   const [liveCounts, setLiveCounts] = useState(counts)
   const [isOffline, setIsOffline] = useState(false)
   const [networkRevision, setNetworkRevision] = useState(0)
@@ -408,6 +444,7 @@ export function AppShell({
   useEffect(() => {
     setOpen(false)
     setProfileMenuOpen(false)
+    setNotificationDrawerOpen(false)
   }, [pathname])
 
   // Close profile dropdown on click outside
@@ -476,7 +513,7 @@ export function AppShell({
       title={collapsed ? 'Show sidebar (Ctrl+B)' : 'Hide sidebar (Ctrl+B)'}
       aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'}
       aria-expanded={!collapsed}
-      className="absolute -right-3 top-5 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] transition hover:border-[#63A9C4] hover:bg-[#EAF4F8] hover:text-[#034C68]"
+      className="app-sidebar-toggle absolute -right-3 top-5 z-40 flex h-6 w-6 items-center justify-center rounded-full [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)]"
     >
       {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
     </button>
@@ -486,13 +523,13 @@ export function AppShell({
     <div className="flex h-full flex-col">
       {compact ? (
         <div className="flex h-16 items-center justify-center px-2">
-          <Link href={isClient ? '/portal' : '/dashboard'} prefetch={false} title="GoPortals">
+          <Link href={isClient ? '/portal' : '/dashboard'} prefetch title="GoPortals">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#045E80] font-sans text-sm font-extrabold text-white">G<span className="text-[#A5CD3F]">P</span></span>
           </Link>
         </div>
       ) : (
         <div className="flex h-16 items-center justify-between gap-2 pl-5 pr-3">
-          <Link href={isClient ? '/portal' : '/dashboard'} prefetch={false} title="GoPortals"><Logo priority /></Link>
+          <Link href={isClient ? '/portal' : '/dashboard'} prefetch title="GoPortals"><Logo priority /></Link>
           {!desktop && <button className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" onClick={() => setOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button>}
         </div>
       )}
@@ -504,7 +541,7 @@ export function AppShell({
         </div>
       )}
 
-      <nav className={cn('flex-1 overflow-y-auto py-3', compact ? 'space-y-3 px-2' : 'space-y-6 px-3')}>
+      <nav className={cn('sidebar-nav-scroll flex-1 overflow-y-auto py-3', compact ? 'space-y-3 px-2' : 'space-y-6 px-3')}>
         {groups.map((group, gi) => (
           <div key={gi}>
             {group.label && (compact
@@ -518,18 +555,20 @@ export function AppShell({
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      prefetch={false}
+                      prefetch
                       title={compact ? item.label + (count ? ` (${count})` : '') : undefined}
                       aria-label={compact ? item.label : undefined}
                       className={cn(
-                        'group relative flex items-center rounded-lg py-2 text-sm font-medium transition-colors',
-                        compact ? 'justify-center px-2' : 'gap-3 px-3',
-                        active ? 'bg-[#EAF4F8] text-[#034C68]' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+                        'sidebar-nav-link',
+                        compact ? 'sidebar-nav-link-compact' : 'sidebar-nav-link-expanded',
+                        active ? 'sidebar-nav-active sidebar-nav-item-active' : 'sidebar-nav-item-inactive',
                       )}
                     >
-                      {active && <span className="absolute inset-y-1.5 left-0 w-1 rounded-r-full bg-[#95C12C]" />}
-                      <item.icon className={cn('h-[18px] w-[18px] flex-shrink-0', active ? 'text-[#045E80]' : 'text-slate-400 group-hover:text-slate-500')} />
-                      {!compact && <span className="flex-1">{item.label}</span>}
+                      {active && <span className="sidebar-nav-active-marker" />}
+                      <item.icon
+                        className={cn('sidebar-nav-icon', active ? 'sidebar-nav-icon-active' : 'sidebar-nav-icon-inactive')}
+                      />
+                      {!compact && <span className="sidebar-nav-label">{item.label}</span>}
                       {!!count && (compact
                         ? <span className={cn('absolute right-1 top-1 h-2 w-2 rounded-full', item.badge === 'urgent' ? 'bg-gradient-to-r from-red-600 to-rose-500' : 'bg-[#95C12C]')} />
                         : <span className={cn('flex items-center justify-center rounded-full text-xs font-bold leading-none',
@@ -546,35 +585,63 @@ export function AppShell({
       </nav>
 
       {/* Sidebar Footer: User details (not clickable as link) */}
-      <div className={cn('border-t border-slate-200', compact ? 'p-2' : 'p-3')}>
+      <div className="sidebar-profile-footer relative border-t border-slate-200 p-2" ref={profileMenuRef}>
         {signOutError && !compact && <p role="alert" className="mb-2 px-2 text-xs text-red-600">Could not sign out. Please try again.</p>}
-        <div className={cn('flex items-center rounded-lg', compact ? 'flex-col gap-2 py-1' : 'gap-3 px-2 py-2')}>
-          <span title={compact ? `${user.name || user.email} · ${ROLE_LABELS[user.role]}` : undefined}>
-            {isClient
-              ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="md" rounded />
-              : <Avatar name={user.name || user.email} src={liveAvatarUrl} role={user.role} size="md" />}
-          </span>
-          {!compact && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-900">{user.name || user.email}</p>
-              <p className="truncate text-xs text-slate-500">{ROLE_LABELS[user.role]}</p>
-            </div>
-          )}
+        <div className={cn('sidebar-profile-row', compact && 'sidebar-profile-row-compact')}>
+          <button
+            type="button"
+            onClick={() => setProfileMenuOpen(v => !v)}
+            className={cn('sidebar-profile-trigger', compact && 'sidebar-profile-trigger-compact')}
+            aria-expanded={profileMenuOpen}
+            aria-haspopup="menu"
+          >
+            <span className="sidebar-profile-avatar" title={compact ? `${user.name || user.email} · ${ROLE_LABELS[user.role]}` : undefined}>
+              {isClient
+                ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="md" rounded />
+                : <Avatar name={user.name || user.email} src={liveAvatarUrl} role={user.role} size="md" />}
+            </span>
+            {!compact && (
+              <span className="sidebar-profile-content">
+                <span className="sidebar-profile-name truncate text-sm">{user.name || user.email}</span>
+                <span className="sidebar-profile-meta truncate text-xs">{ROLE_LABELS[user.role]}</span>
+              </span>
+            )}
+          </button>
           <button
             onClick={signOut}
             disabled={signingOut}
             title={signingOut ? 'Signing out…' : 'Sign out'}
             aria-label={signingOut ? 'Signing out' : 'Sign out'}
-            className={cn(
-              'group inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-all duration-150',
-              'text-slate-400 hover:bg-red-50 hover:text-red-700 active:scale-90',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2',
-              'disabled:cursor-wait disabled:opacity-60',
-            )}
+            className="sidebar-profile-signout"
           >
-            {signingOut
-              ? <Loader2 className="h-4 w-4 animate-spin" />
-              : <LogOut className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
+            {signingOut ? <Loader2 className="animate-spin" /> : <SignOutIcon />}
+          </button>
+        </div>
+
+        <div className={cn('sidebar-profile-menu', compact && 'sidebar-profile-menu-compact')} data-open={profileMenuOpen} role="menu" aria-hidden={!profileMenuOpen}>
+          <Link
+            href={isClient ? '/portal/profile' : '/settings'}
+            prefetch
+            onClick={() => setProfileMenuOpen(false)}
+            className="sidebar-profile-menu-item"
+            role="menuitem"
+            tabIndex={profileMenuOpen ? 0 : -1}
+          >
+            <User className="sidebar-profile-menu-icon" />
+            {isClient ? 'Company profile' : 'Profile'}
+          </Link>
+          <button
+            onClick={() => {
+              setProfileMenuOpen(false)
+              signOut()
+            }}
+            disabled={signingOut}
+            className="sidebar-profile-menu-item sidebar-profile-menu-item-danger"
+            role="menuitem"
+            tabIndex={profileMenuOpen ? 0 : -1}
+          >
+            {signingOut ? <Loader2 className="sidebar-profile-menu-icon animate-spin" /> : <SignOutIcon className="sidebar-profile-menu-icon" />}
+            Sign out
           </button>
         </div>
       </div>
@@ -582,9 +649,9 @@ export function AppShell({
   )
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-[#f7f7fa]">
+    <div className="app-shell fixed inset-0 overflow-hidden">
       {/* Desktop sidebar */}
-      <aside className={cn('fixed inset-y-0 left-0 z-50 hidden border-r border-slate-200 bg-white transition-[width] duration-200 lg:block',
+      <aside className={cn('app-sidebar fixed inset-y-0 left-0 z-50 hidden transition-[width] duration-200 lg:block',
         collapsed ? 'w-16' : 'w-64')}>
         {renderSidebar(collapsed, true)}
         {toggleButton}
@@ -594,13 +661,13 @@ export function AppShell({
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-[#011B26]/40 backdrop-blur-sm transition-opacity duration-200" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-64 bg-white [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">{renderSidebar(false, false)}</aside>
+          <aside className="app-sidebar absolute inset-y-0 left-0 w-64 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">{renderSidebar(false, false)}</aside>
         </div>
       )}
 
       {/* Only the area under the top bar scrolls, so the scrollbar never runs beside the top bar. */}
       <div className={cn('flex h-full min-h-0 flex-col transition-[padding] duration-200', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
-        <header className="relative z-40 flex h-16 flex-shrink-0 items-center gap-2.5 border-b border-slate-200 bg-white/85 px-3 backdrop-blur sm:gap-3 sm:px-6">
+        <header className="app-navbar relative z-40 flex h-16 flex-shrink-0 items-center gap-2.5 px-3 backdrop-blur sm:gap-3 sm:px-6">
           <button className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="h-[22px] w-[22px]" />
           </button>
@@ -608,7 +675,7 @@ export function AppShell({
           {pageTitle && (
             <div className="hidden min-w-0 items-center gap-2.5 sm:flex">
               <span className="hidden h-6 w-px bg-slate-200 sm:block lg:hidden" />
-              <p className="truncate font-sans text-xl font-semibold text-slate-900">{pageTitle}</p>
+              <p className="app-navbar-title truncate font-sans text-xl">{pageTitle}</p>
             </div>
           )}
           <div className="min-h-0 flex-1" />
@@ -616,96 +683,30 @@ export function AppShell({
           {/* Right Header Navigation */}
           <div className="flex items-center gap-2.5">
             {/* Notification Bell */}
-            <Link
-              href={notificationsHref}
-              prefetch={false}
-              className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#045E80] focus-visible:ring-offset-2"
+            <button
+              type="button"
+              onClick={() => setNotificationDrawerOpen(true)}
+              className="app-navbar-notification relative inline-flex h-9 w-9 items-center justify-center rounded-xl shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#045E80] focus-visible:ring-offset-2"
               aria-label="Notifications"
+              aria-expanded={notificationDrawerOpen}
             >
-              <Bell className="h-5 w-5" />
+        <SprigNotificationIcon className="h-5 w-5" />
               {liveCounts.notifications > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 inline-grid h-4 min-w-4 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full bg-[#95C12C] px-1 text-center text-[9px] font-semibold leading-none tabular-nums text-white ring-2 ring-white">
                   {liveCounts.notifications > 9 ? '9+' : liveCounts.notifications}
                 </span>
               )}
-            </Link>
+            </button>
 
-            {/* Profile Dropdown Trigger & Floating Menu */}
-            <div className="relative" ref={profileMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setProfileMenuOpen(v => !v)}
-                  className={cn(
-                    'flex items-center gap-2 rounded-full border border-slate-200 bg-white px-1.5 py-1 transition-[border-color] text-left focus:outline-none select-none shadow-xs',
-                    profileMenuOpen
-                      ? 'border-slate-400'
-                      : 'hover:border-slate-400'
-                  )}
-                  aria-expanded={profileMenuOpen}
-                  aria-haspopup="true"
-                >
-                  {isClient
-                    ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="sm" rounded />
-                    : <Avatar name={user.name || user.email} src={liveAvatarUrl} role={user.role} size="sm" />}
-                  <div className="hidden min-w-0 sm:flex sm:flex-col sm:justify-center text-left">
-                    <p className="max-w-[130px] truncate text-xs font-semibold text-slate-900 leading-[1.2]">
-                      {user.name || user.email}
-                    </p>
-                    <p className="text-[10px] font-medium leading-[1.2] text-slate-500">
-                      {ROLE_LABELS[user.role]}
-                    </p>
-                  </div>
-                  <ChevronDown
-                    className={cn(
-                      'h-3 w-3 flex-shrink-0 text-slate-400 transition-transform duration-200',
-                      profileMenuOpen && 'rotate-180 text-slate-700'
-                    )}
-                  />
-                </button>
-
-                {/* Dropdown Menu: Clean & Minimalist */}
-                {profileMenuOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-1.5 w-48 max-w-[calc(100vw-1rem)] rounded-xl border border-slate-200/80 bg-white p-0.5 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)] animate-in fade-in zoom-in-95 duration-100">
-                    <div className="flex min-w-0 items-start gap-2 px-1.5 py-1.5">
-                      {isClient
-                        ? <CompanyAvatar name={user.name || user.email} src={companyProfileImageUrl} size="sm" className="mt-0.5" rounded />
-                        : <Avatar name={user.name || user.email} src={liveAvatarUrl} role={user.role} size="sm" className="mt-0.5" />}
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold leading-4 text-slate-900">{user.name || user.email}</p>
-                        <p className="truncate text-[11px] leading-4 text-slate-500">{user.email}</p>
-                        <p className="truncate text-[11px] font-medium leading-4 text-[#045E80]">{ROLE_LABELS[user.role]}</p>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-slate-100 my-1" />
-                    <Link
-                      href={isClient ? '/portal/profile' : '/settings'}
-                      prefetch={false}
-                      onClick={() => setProfileMenuOpen(false)}
-                      className="flex items-center gap-2 whitespace-nowrap rounded-lg px-1.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
-                    >
-                      <User className="h-4 w-4 text-slate-500" />
-                      {isClient ? 'Company profile' : 'Profile'}
-                    </Link>
-
-                    <div className="border-t border-slate-100 my-1" />
-
-                    <button
-                      onClick={() => {
-                        setProfileMenuOpen(false)
-                        signOut()
-                      }}
-                      disabled={signingOut}
-                      className="flex w-full items-center gap-2 whitespace-nowrap rounded-lg px-1.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition"
-                    >
-                      {signingOut ? <Loader2 className="h-4 w-4 animate-spin text-red-600" /> : <LogOut className="h-4 w-4" />}
-                      Log out
-                    </button>
-                  </div>
-                )}
-            </div>
           </div>
         </header>
+        <NotificationDrawer
+          open={notificationDrawerOpen}
+          userId={user.id}
+          isClient={isClient}
+          onClose={() => setNotificationDrawerOpen(false)}
+          onUnreadCountChange={count => setLiveCounts(current => ({ ...current, notifications: count }))}
+        />
         {user.id && <TaskAssignmentAlert userId={user.id} taskHref={isClient ? '/portal/tasks' : '/tasks'} />}
         {isOffline && (
           <div role="status" aria-live="polite" className="flex flex-shrink-0 items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-950 sm:px-6">
@@ -718,8 +719,8 @@ export function AppShell({
             </span>
           </div>
         )}
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f7f7fa] [scrollbar-color:#9aa8b8_transparent] [scrollbar-width:thin]">
-          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 2xl:max-w-[1600px]">
+        <div className="app-main min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-color:#9aa8b8_transparent] [scrollbar-width:thin]">
+          <main className="app-page-main mx-auto w-full">
             {children}
           </main>
         </div>

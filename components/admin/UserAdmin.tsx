@@ -542,13 +542,13 @@ export function StaffProfileCard({ row, departments, canEdit, actorId }: {
             <div className="flex min-w-0 items-center gap-2">
               <Mail aria-hidden="true" className="h-3 w-3 shrink-0 text-slate-700 sm:h-3.5 sm:w-3.5" />
               {row.email.trim()
-                ? <a href={`mailto:${row.email}`} title={row.email} onClick={event => event.stopPropagation()} className="pointer-events-auto block min-w-0 flex-1 truncate whitespace-nowrap text-slate-900 hover:text-[#034C68]">{row.email}</a>
+                ? <span title={row.email} className="block min-w-0 flex-1 truncate whitespace-nowrap text-slate-900">{row.email}</span>
                 : <span className="text-slate-800">--</span>}
             </div>
             <div className="flex min-w-0 items-center gap-2">
               <Phone aria-hidden="true" className="h-3 w-3 shrink-0 text-slate-700 sm:h-3.5 sm:w-3.5" />
               {row.phone?.trim()
-                ? <a href={`tel:${row.phone.trim().replace(/[^+\d]/g, '')}`} onClick={event => event.stopPropagation()} className="pointer-events-auto truncate whitespace-nowrap text-slate-900 hover:text-[#034C68]">{row.phone}</a>
+                ? <span className="truncate whitespace-nowrap text-slate-900">{row.phone}</span>
                 : <span className="text-slate-900">--</span>}
             </div>
           </div>

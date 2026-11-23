@@ -211,6 +211,11 @@ export function CommentThread({
   const [error, setError] = useState('')
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [requestChanges, setRequestChanges] = useState(false)
+  const [visibleComments, setVisibleComments] = useState<CommentLike[]>(comments)
+  const [visibleAttachments, setVisibleAttachments] = useState<CommentAttachment[]>(attachments)
+
+  useEffect(() => setVisibleComments(comments), [comments])
+  useEffect(() => setVisibleAttachments(attachments), [attachments])
 
   useEffect(() => {
     if (myRole !== 'client') return
@@ -232,7 +237,67 @@ export function CommentThread({
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [comments.length])
+  }, [visibleComments.length])
+
+  async function loadComment(commentId: string) {
+    const client = createClient()
+    const [{ data: comment }, { data: rows }] = await Promise.all([
+      client.from('task_comments').select('id, author_id, body, is_internal, is_change_request, created_at').eq('id', commentId).maybeSingle(),
+      client.from('task_attachments').select('id, comment_id, uploaded_by, storage_path, file_name, mime_type, size_bytes').eq('comment_id', commentId),
+    ])
+    if (!comment) return
+    const attachmentRows = rows ?? []
+    const paths = attachmentRows.map(row => row.storage_path)
+    const [{ data: signed }, { data: downloads }] = paths.length
+      ? await Promise.all([
+          client.storage.from('task-files').createSignedUrls(paths, 3600),
+          client.storage.from('task-files').createSignedUrls(paths, 3600, { download: true }),
+        ])
+      : [{ data: [] }, { data: [] }]
+    const signedByPath = new Map((signed ?? []).map(item => [item.path, item.signedUrl]))
+    const downloadByPath = new Map((downloads ?? []).map(item => [item.path, item.signedUrl]))
+    const nextAttachments = attachmentRows.flatMap(row => {
+      const signedUrl = signedByPath.get(row.storage_path)
+      const downloadUrl = downloadByPath.get(row.storage_path)
+      return signedUrl && downloadUrl ? [{ ...row, signedUrl, downloadUrl }] : []
+    })
+    setVisibleComments(current => current.some(item => item.id === comment.id)
+      ? current.map(item => item.id === comment.id ? comment as CommentLike : item)
+      : [...current, comment as CommentLike].sort((a, b) => a.created_at.localeCompare(b.created_at)))
+    setVisibleAttachments(current => [
+      ...current.filter(item => item.comment_id !== comment.id),
+      ...nextAttachments,
+    ] as CommentAttachment[])
+  }
+
+  // Keep the open task discussion in sync for every participant. Attachments
+  // are loaded together with the new comment, so messages and their files
+  // appear in place without refreshing the page.
+  useEffect(() => {
+    const client = createClient()
+    const channel = client
+      .channel(`task-comments-live-${taskId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'task_comments',
+        filter: `task_id=eq.${taskId}`,
+      }, payload => {
+        const record = payload.new as { id?: unknown }
+        const previous = payload.old as { id?: unknown }
+        const commentId = typeof record.id === 'string' ? record.id : typeof previous.id === 'string' ? previous.id : null
+        if (!commentId) return
+        if (payload.eventType === 'DELETE') {
+          setVisibleComments(current => current.filter(comment => comment.id !== commentId))
+          setVisibleAttachments(current => current.filter(attachment => attachment.comment_id !== commentId))
+          return
+        }
+        void loadComment(commentId)
+      })
+      .subscribe()
+
+    return () => { void client.removeChannel(channel) }
+  }, [router, taskId])
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault()
@@ -267,7 +332,7 @@ export function CommentThread({
       mime_type: file.type || null,
       size_bytes: file.size,
     }))
-    const { error: commentError } = requestChanges && myRole === 'client'
+    const { data: commentId, error: commentError } = requestChanges && myRole === 'client'
       ? await client.rpc('client_request_task_changes', {
           p_task_id: taskId,
           p_feedback: body.trim(),
@@ -295,18 +360,18 @@ export function CommentThread({
     setBody('')
     setPendingFiles([])
     setRequestChanges(false)
-    router.refresh()
+    if (typeof commentId === 'string') await loadComment(commentId)
   }
 
   return (
     <div className={bounded ? 'flex h-full min-h-0 flex-col' : undefined}>
-      {comments.length === 0 ? (
+      {visibleComments.length === 0 ? (
         <p className={cn('flex items-center gap-2 py-6 text-sm text-slate-400', bounded && 'min-h-0 flex-1 justify-center')}>
           <MessageSquare className="h-4 w-4" /> {readOnly ? 'No messages yet.' : 'No messages yet — say hello.'}
         </p>
       ) : (
         <div ref={scrollRef} className={cn('space-y-1 overflow-y-auto overscroll-contain scroll-smooth pr-1', bounded ? 'min-h-0 flex-1' : 'max-h-[26rem]')}>
-          {comments.map((c, i) => {
+          {visibleComments.map((c, i) => {
             const author = c.author_id ?? ''
             const role = roles?.[author]
             const [senderName, senderQualifier] = splitTeamName(names[author] ?? '')
@@ -350,7 +415,7 @@ export function CommentThread({
                         </span>
                       )}
                       {c.body.trim() && <p className="whitespace-pre-wrap break-words">{c.body}</p>}
-                      {attachments.filter(attachment => attachment.comment_id === c.id).map(attachment => {
+                      {visibleAttachments.filter(attachment => attachment.comment_id === c.id).map(attachment => {
                         const isImage = attachment.mime_type?.startsWith('image/')
                         const isVideo = attachment.mime_type?.startsWith('video/')
                         return (
@@ -381,7 +446,7 @@ export function CommentThread({
                       {mine && !readOnly && (
                         <MessageMenu commentId={c.id} table="task_comments"
                                      mine={mine} canDelete={mine}
-                                     attachments={attachments.filter(attachment => attachment.comment_id === c.id)} />
+                                     attachments={visibleAttachments.filter(attachment => attachment.comment_id === c.id)} />
                       )}
                     </span>
                   </div>

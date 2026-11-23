@@ -4,12 +4,11 @@ import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/auth'
 import { profileIdsReportingTo, sortPeopleByRoleAndJoiningDate, type DepartmentMember, type Person } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
-import { InviteStaffButton } from '@/components/admin/UserAdmin'
 import { Avatar, Card, EmptyState } from '@/components/ui/primitives'
 import { Badge } from '@/components/ui/badges'
 import { ROLE_LABELS } from '@/lib/constants'
 import { capacityColor, capacityTextColor, cn, todayDateKey } from '@/lib/utils'
-import type { Department, StaffRole } from '@/types/database'
+import type { Department } from '@/types/database'
 
 export const metadata = { title: 'Team' }
 
@@ -125,9 +124,6 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
         </div>
         <div className="flex w-full items-center justify-end gap-2 sm:ml-auto sm:w-auto">
           {['super_admin', 'manager'].includes(me.role) && <ButtonLink href="/admin/users" variant="secondary" size="sm">Manage users & invites</ButtonLink>}
-          {me.role !== 'team_lead' && <InviteStaffButton departments={lookups.departments} roles={['employee']} reportingPeople={lookups.people
-            .filter(p => p.role !== 'client')
-            .map(({ id, full_name, email, avatar_url, role, status }) => ({ id, full_name, email, avatar_url, role: role as StaffRole, status }))} />}
         </div>
       </div>
 

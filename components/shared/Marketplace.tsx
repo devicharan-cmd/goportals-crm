@@ -182,17 +182,15 @@ export function MarketplacePlatformMultiSelect({ platforms, value, onChange, pla
       {open && <div role="listbox" aria-label="Select platforms" aria-multiselectable="true" className="absolute z-40 mt-1 w-full min-w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
         <div className="relative mb-2">
           <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search platforms..." className="form-field search-input-with-icon h-9 w-full rounded-lg border-slate-200 bg-slate-50/70 text-sm placeholder:text-slate-400 focus:bg-white" aria-label="Search platforms" />
+          <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search platforms..." className="form-field dropdown-search-input search-input-with-icon h-9 w-full rounded-lg text-sm focus:ring-0" aria-label="Search platforms" />
         </div>
         <div className="max-h-56 space-y-1 overflow-y-auto">
           {filtered.map(platform => {
             const checked = value.includes(platform.id)
             return <button key={platform.id} type="button" role="option" aria-selected={checked} onClick={() => toggle(platform.id)}
-              className={cn('flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-slate-50', checked && 'bg-[#EAF4F8]')}>
-              <span aria-hidden="true" className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded border', checked ? 'border-[#045E80] bg-[#045E80] text-white' : 'border-slate-300')}>
-                {checked && <Check className="h-3 w-3" />}
-              </span>
+              className={cn('flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-slate-50', checked && 'bg-[#EAF4F8]')}>
               <MarketplacePlatformLabel name={platform.name} />
+              {checked && <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />}
             </button>
           })}
           {!filtered.length && <p className="px-3 py-2 text-sm text-slate-500">No platforms found.</p>}

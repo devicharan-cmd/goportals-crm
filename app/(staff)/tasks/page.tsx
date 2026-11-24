@@ -10,7 +10,7 @@ import type { TaskSummary } from '@/types/database'
 
 export const metadata = { title: 'Tasks' }
 
-type SP = { view?: string; scope?: string; status?: string; client?: string; assignee?: string; assigned_by?: string; dept?: string; due?: string }
+type SP = { view?: string; scope?: string; status?: string; client?: string; assignee?: string; assigned_by?: string; dept?: string; due?: string; date_by?: string }
 
 export default async function TasksPage(props: { searchParams: Promise<SP> }) {
   const searchParams = await props.searchParams
@@ -54,7 +54,15 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     }
     if (searchParams.client) query = query.eq('client_id', searchParams.client)
     if (searchParams.dept) query = query.eq('department_id', searchParams.dept)
-    if (searchParams.due) query = query.eq('due_date', searchParams.due)
+    if (searchParams.due) {
+      if (searchParams.date_by === 'assigned') {
+        const start = `${searchParams.due}T00:00:00.000Z`
+        const end = `${searchParams.due}T23:59:59.999Z`
+        query = query.gte('assigned_at', start).lte('assigned_at', end)
+      } else {
+        query = query.eq('due_date', searchParams.due)
+      }
+    }
     return query
   }
 
@@ -65,23 +73,13 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
   const taskResultPromise = scope === 'assigned'
     ? assignedScopeIdsPromise.then(taskQuery)
     : taskQuery([])
-  const assignedTaskCountPromise = assignedScopeIdsPromise.then(assignedScopeAssigneeIds => {
-    let query = supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('assigned_by', me.id)
-    query = assignedScopeAssigneeIds.length
-      ? query.in('assignee_id', assignedScopeAssigneeIds)
-      : query.eq('id', '00000000-0000-0000-0000-000000000000')
-    return query
-  })
-
-  const [lookups, taskResult, taskCountsResult, assignedTaskCountResult] = await Promise.all([
+  const [lookups, taskResult, taskCountsResult] = await Promise.all([
     lookupsPromise,
     taskResultPromise,
     supabase.rpc('staff_task_scope_counts'),
-    assignedTaskCountPromise,
   ])
   if (taskResult.error) throw taskResult.error
   if (taskCountsResult.error) throw taskCountsResult.error
-  if (assignedTaskCountResult.error) throw assignedTaskCountResult.error
   const taskCounts = taskCountsResult.data?.[0]
   const tasks = normalizeTaskSummaryRows(
     (taskResult.data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0],
@@ -125,7 +123,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       initialTaskAssigners={taskAssigners}
       initialScopeCounts={{
         mine: Number(taskCounts?.mine_active_count ?? 0),
-        assigned: assignedTaskCountResult.count ?? 0,
+        assigned: Number(taskCounts?.assigned_by_me_count ?? 0),
         all: allTaskCount,
       }}
       assignOptions={assignOptions}
@@ -137,6 +135,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       assignedBy={searchParams.assigned_by ?? ''}
       department={searchParams.dept ?? ''}
       due={searchParams.due ?? ''}
+      dateBy={searchParams.date_by === 'assigned' ? 'assigned' : 'due'}
       board={board}
     >
       <div>

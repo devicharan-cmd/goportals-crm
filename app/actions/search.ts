@@ -25,6 +25,7 @@ type TaskSearchFilters = {
   assignedBy: string
   department: string
   due: string
+  dateBy: 'due' | 'assigned'
   board: boolean
 }
 
@@ -94,7 +95,15 @@ export async function searchTasks(value: string, filters: TaskSearchFilters, cur
   if (filters.client) query = query.eq('client_id', filters.client)
   if (filters.scope === 'all' && filters.assignedBy) query = query.eq('assigned_by', filters.assignedBy)
   if (filters.department) query = query.eq('department_id', filters.department)
-  if (filters.due) query = query.eq('due_date', filters.due)
+  if (filters.due) {
+    if (filters.dateBy === 'assigned') {
+      const start = `${filters.due}T00:00:00.000Z`
+      const end = `${filters.due}T23:59:59.999Z`
+      query = query.gte('assigned_at', start).lte('assigned_at', end)
+    } else {
+      query = query.eq('due_date', filters.due)
+    }
+  }
   if (taskNumber !== null) query = query.eq('task_number', taskNumber)
   else if (queryText) query = query.ilike('title', `%${queryText}%`)
 

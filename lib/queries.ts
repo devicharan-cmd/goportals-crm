@@ -207,31 +207,29 @@ export async function getTaskPageLookups({ includePeople, includeAssignments }: 
   includeAssignments: boolean
 }): Promise<StaffLookups> {
   const supabase = await createClient()
-  const [people, clients, departments, members] = await Promise.all([
-    includePeople
-      ? supabase.from('profiles').select('id, full_name, email, avatar_url, role, job_title, status, weekly_capacity_hours, created_at, reporting_to')
-      : Promise.resolve({ data: [], error: null }),
-    supabase.from('clients').select('id, company_name, company_profile_image_path, owner_id').order('company_name'),
-    supabase.from('departments').select('id, name, slug, sort_order').order('sort_order'),
-    includeAssignments
-      ? supabase.from('department_members').select('department_id, profile_id, is_lead')
-      : Promise.resolve({ data: [], error: null }),
-  ])
-  for (const result of [people, clients, departments, members]) {
-    if (result.error) throw result.error
+  const { data, error } = await supabase.rpc('staff_task_page_lookups', {
+    p_include_people: includePeople,
+    p_include_assignments: includeAssignments,
+  })
+  if (error) throw error
+  const payload = (data ?? {}) as {
+    people?: Person[]
+    clients?: ClientOption[]
+    departments?: Department[]
+    department_members?: DepartmentMember[]
   }
-  const all = sortPeopleByRoleAndJoiningDate((people.data ?? []) as Person[])
+  const all = sortPeopleByRoleAndJoiningDate(payload.people ?? [])
   return {
     people: all,
     staff: all.filter(p => p.role !== 'client' && p.status === 'active'),
     // This staff-only page already loads profiles under the staff profiles RLS
     // policy, so calling staff_directory() here would fetch the same identities again.
     directoryStaff: [],
-    clients: (clients.data ?? []) as ClientOption[],
-    departments: (departments.data ?? []) as Department[],
+    clients: payload.clients ?? [],
+    departments: payload.departments ?? [],
     platforms: [],
     services: [],
-    departmentMembers: (members.data ?? []) as DepartmentMember[],
+    departmentMembers: payload.department_members ?? [],
   }
 }
 
@@ -343,7 +341,13 @@ export function taskAssigneeIdsForAssignedScope(
 
 /** People a user may assign to — mirrors can_assign() in the DB. */
 export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
-  if (me.role === 'super_admin') return activeStaffForSuperAdmin(lookups)
+  const ensureSelf = (people: Person[]) => {
+    if (people.some(person => person.id === me.id)) return people
+    const self = lookups.people.find(person => person.id === me.id)
+    return self ? [self, ...people] : people
+  }
+
+  if (me.role === 'super_admin') return ensureSelf(activeStaffForSuperAdmin(lookups))
 
   // Profiles can be hidden by profile-table RLS; the safe staff directory is
   // the source for the full active Super Admin list across every staff role.
@@ -351,17 +355,17 @@ export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLo
 
   if (me.role === 'manager') {
     const reportIds = profileIdsReportingTo(me.id, lookups)
-    return Array.from(new Map([
+    return ensureSelf(Array.from(new Map([
       ...lookups.staff.filter(person => person.id === me.id || reportIds.has(person.id)),
       ...superAdmins,
-    ].map(person => [person.id, person])).values())
+    ].map(person => [person.id, person])).values()))
   }
 
   const allowedIds = profileIdsInReportingHierarchy(me.id, lookups)
-  return Array.from(new Map([
+  return ensureSelf(Array.from(new Map([
     ...lookups.staff.filter(person => allowedIds.has(person.id)),
     ...superAdmins,
-  ].map(person => [person.id, person])).values())
+  ].map(person => [person.id, person])).values()))
 }
 
 /** People available in the Tasks page assignee filter, scoped by reporting hierarchy. */

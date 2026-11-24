@@ -72,10 +72,11 @@ export function TaskFilters({
   const assignedBy = params.get('assigned_by') ?? ''
   const department = params.get('dept') ?? ''
   const due = params.get('due') ?? ''
+  const dateBy = params.get('date_by') === 'assigned' ? 'assigned' : 'due'
   const scopeParam = params.get('scope')
   const urlScope = scopeParam === 'assigned' ? 'assigned' : scopeParam === 'all' ? 'all' : 'mine'
   const filtered = Boolean(searchInput || taskSearch.query)
-    || ['status', 'client', 'assignee', 'assigned_by', 'dept', 'due'].some(key => params.get(key))
+    || ['status', 'client', 'assignee', 'assigned_by', 'dept', 'due', 'date_by'].some(key => params.get(key))
 
   useEffect(() => {
     if (urlScope === activeScope) return
@@ -86,9 +87,10 @@ export function TaskFilters({
       assignedBy,
       department,
       due,
+      dateBy,
       board: view === 'board',
     })
-  }, [activeScope, assignee, assignedBy, changeScope, client, department, due, status, urlScope, view])
+  }, [activeScope, assignee, assignedBy, changeScope, client, dateBy, department, due, status, urlScope, view])
 
   function setScope(value: 'mine' | 'assigned' | 'all') {
     if (value === activeScope) return
@@ -107,6 +109,7 @@ export function TaskFilters({
       assignedBy: value === 'all' ? assignedBy : '',
       department,
       due,
+      dateBy,
       board: view === 'board',
     })
   }
@@ -148,6 +151,8 @@ export function TaskFilters({
       department={department}
       onDepartmentChange={value => set('dept', value)}
       due={due}
+      dateBy={dateBy}
+      onDateByChange={value => set('date_by', value === 'due' ? '' : value)}
       onDueChange={value => set('due', value)}
       searchInput={searchInput}
       onSearchInput={setSearchInput}

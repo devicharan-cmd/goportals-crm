@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { AlarmClock, CheckSquare, Flame, Inbox, LockKeyhole, Plus, ShieldCheck, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { getTaskAssigneeHistory, nameMap, TASK_SUMMARY_SELECT, TICKET_LIST_SELECT } from '@/lib/queries'
+import { getTaskAssigneeHistory, nameMap, profileIdsReportingTo, TASK_SUMMARY_SELECT, TICKET_LIST_SELECT } from '@/lib/queries'
 import { ButtonLink } from '@/components/ui/button'
 import { Avatar, Card, CardHeader, EmptyState, StatCard } from '@/components/ui/primitives'
 import { DueDate, PriorityBadge } from '@/components/ui/badges'
@@ -90,30 +90,20 @@ export default async function DashboardPage() {
 
   const teamLeadDataPromise = isTeamLead
     ? (async () => {
-        const [peopleResult, membershipsResult] = await Promise.all([
-          supabase.from('profiles').select('id, full_name, email, avatar_url, role, weekly_capacity_hours'),
-          supabase.from('department_members').select('department_id, profile_id'),
+        const [peopleResult] = await Promise.all([
+          supabase.from('profiles').select('id, full_name, email, avatar_url, role, weekly_capacity_hours, reporting_to'),
         ])
         if (peopleResult.error) throw peopleResult.error
-        if (membershipsResult.error) throw membershipsResult.error
 
-        const memberships = membershipsResult.data ?? []
-        const myDepartmentIds = new Set(
-          memberships.filter(member => member.profile_id === me.id).map(member => member.department_id),
-        )
-        const departmentMemberIds = new Set(
-          memberships
-            .filter(member => member.profile_id !== me.id && myDepartmentIds.has(member.department_id))
-            .map(member => member.profile_id),
-        )
         const peopleById = new Map((peopleResult.data ?? []).map(person => [person.id, person]))
-        const deptMateIds = Array.from(departmentMemberIds)
+        const reportingIds = profileIdsReportingTo(me.id, { people: peopleResult.data ?? [] })
+        const reportIds = Array.from(reportingIds)
           .filter(id => peopleById.get(id)?.role === 'employee')
         const deptTasks: DashboardTask[] = []
         let afterId: string | null = null
-        while (deptMateIds.length > 0) {
+        while (reportIds.length > 0) {
           let query = supabase.from('tasks').select(DASHBOARD_TASK_SELECT)
-            .in('assignee_id', deptMateIds)
+            .in('assignee_id', reportIds)
             .not('status', 'in', '(completed,cancelled)')
             .order('id', { ascending: true })
             .limit(100)
@@ -131,7 +121,7 @@ export default async function DashboardPage() {
           return a.due_date.localeCompare(b.due_date) || b.created_at.localeCompare(a.created_at)
         })
 
-        return { people: peopleResult.data ?? [], deptMateIds, deptTasks }
+        return { people: peopleResult.data ?? [], reportIds, deptTasks }
       })()
     : Promise.resolve(null)
 
@@ -190,11 +180,11 @@ export default async function DashboardPage() {
   const inProgressTasks = myTasks.filter(t => t.status === 'in_manual_process' || t.status === 'in_system_process')
   const readyForReviewTasks = myTasks.filter(t => t.status === 'ready_for_review')
 
-  // Team leads only see tasks assigned to their department.
-  const deptMateIds = teamLeadData?.deptMateIds ?? []
+  // Team leads only see tasks assigned within their reporting hierarchy.
+  const reportIds = teamLeadData?.reportIds ?? []
   const pendingReviews = teamTasks.filter(t => t.status === 'ready_for_review')
   const workload = isTeamLead && teamLeadData
-    ? deptMateIds.map(id => {
+    ? reportIds.map(id => {
         const person = teamLeadData.people.find(p => p.id === id)!
         const openTasks = teamTasks.filter(t => t.assignee_id === id)
         const hours = openTasks.reduce((s, t) => s + Number(t.estimated_hours ?? 3), 0)
@@ -313,7 +303,7 @@ export default async function DashboardPage() {
       )}
 
       {isTeamLead && (
-        deptMateIds.length === 0 ? (
+        reportIds.length === 0 ? (
           <Card className="mt-4">
             <EmptyState icon={<Users className="h-6 w-6" />} title="No department yet" description="Ask a manager to add you to a department to see your team's work here." />
           </Card>

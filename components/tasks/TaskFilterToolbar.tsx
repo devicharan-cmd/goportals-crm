@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek, subMonths } from 'date-fns'
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, KanbanSquare, List, Send, UserRound, UsersRound, X } from 'lucide-react'
+import { addDays, format, parse, isValid } from 'date-fns'
+import { CalendarDays, ChevronDown, KanbanSquare, List, Send, UserRound, UsersRound, X } from 'lucide-react'
 import { AssigneeOptionContent } from '@/components/tasks/AssigneeOptionContent'
 import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
@@ -13,12 +13,24 @@ import type { AppRole } from '@/types/database'
 
 type Option = { value: string; label: string; avatarUrl?: string | null; role?: AppRole }
 
+function dateMask(digits: string) {
+  const value = digits.replace(/\D/g, '').slice(0, 8)
+  const day = value.slice(0, 2).padEnd(2, 'd')
+  const month = value.slice(2, 4).padEnd(2, 'm')
+  const year = value.slice(4, 8).padEnd(4, 'y')
+  return `${day}/${month}/${year}`
+}
+
+function dateDigitsToDisplay(digits: string) {
+  return digits.length === 8 ? `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}` : dateMask(digits)
+}
+
 export function TaskFilterToolbar({
   scope, onScopeChange, scopeCounts, scopeLoading = false, showScope = true, showAssignedScope = false, view, onViewChange, status, onStatusChange,
   clients = [], client = '', onClientChange, showClientFilter = false,
   people = [], assignee = '', onAssigneeChange, showAssigneeFilter = false,
   assigners = [], assignedBy = '', onAssignedByChange, showAssignedByFilter = false,
-  departments, department, onDepartmentChange, due, dateBy = 'due', onDateByChange, onDueChange,
+  departments, department, onDepartmentChange, due, dateBy = 'due', onDateByChange, onDueChange, onDateFilterApply, onDateFilterClear,
   searchInput, onSearchInput, onSearch, filtered, onClearFilters, action,
 }: {
   scope: 'mine' | 'assigned' | 'all'
@@ -47,9 +59,11 @@ export function TaskFilterToolbar({
   department: string
   onDepartmentChange: (department: string) => void
   due: string
+  onDueChange: (due: string) => void
   dateBy?: 'due' | 'assigned'
   onDateByChange?: (dateBy: 'due' | 'assigned') => void
-  onDueChange: (due: string) => void
+  onDateFilterApply?: (dateBy: 'due' | 'assigned', due: string) => void
+  onDateFilterClear?: () => void
   searchInput: string
   onSearchInput: (value: string) => void
   onSearch: (value: string) => void
@@ -59,36 +73,24 @@ export function TaskFilterToolbar({
 }) {
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number } | null>(null)
-  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(due ? new Date(`${due}T00:00:00`) : new Date()))
-  const [monthPickerOpen, setMonthPickerOpen] = useState(false)
-  const [yearPickerOpen, setYearPickerOpen] = useState(false)
+  const [draftDateBy, setDraftDateBy] = useState<'' | 'due' | 'assigned'>(due ? dateBy : '')
+  const [draftRange, setDraftRange] = useState('')
+  const [draftDate, setDraftDate] = useState(due ? format(new Date(`${due}T00:00:00`), 'ddMMyyyy') : '')
+  const [dateTypeOpen, setDateTypeOpen] = useState(false)
   const calendarRef = useRef<HTMLDivElement | null>(null)
   const scopeTabsRef = useRef<HTMLDivElement | null>(null)
-  const selectedYearRef = useRef<HTMLButtonElement | null>(null)
   const [scopePill, setScopePill] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
-  const currentYear = new Date().getFullYear()
-  const years = Array.from({ length: Math.max(1, currentYear - 1999) }, (_, index) => currentYear - index)
-  const monthLabels = Array.from({ length: 12 }, (_, month) => {
-    const full = format(new Date(2020, month, 1), 'MMMM')
-    return full.length > 5 ? format(new Date(2020, month, 1), 'MMM') : full
-  })
-  const calendarDays = eachDayOfInterval({
-    start: startOfWeek(startOfMonth(calendarMonth)),
-    end: endOfWeek(endOfMonth(calendarMonth)),
-  })
-
   useEffect(() => {
     if (!calendarOpen) {
-      setYearPickerOpen(false)
-      setMonthPickerOpen(false)
       setCalendarPosition(null)
+      setDateTypeOpen(false)
       return
     }
     const positionCalendar = () => {
       const button = calendarRef.current?.querySelector('button')
       if (!button) return
       const rect = button.getBoundingClientRect()
-      const width = Math.min(288, window.innerWidth - 32)
+      const width = Math.min(320, window.innerWidth - 32)
       setCalendarPosition({
         top: rect.bottom + 8,
         left: Math.max(16, Math.min(rect.left, window.innerWidth - width - 16)),
@@ -114,12 +116,16 @@ export function TaskFilterToolbar({
   }, [calendarOpen])
 
   useEffect(() => {
-    if (due) setCalendarMonth(startOfMonth(new Date(`${due}T00:00:00`)))
-  }, [due])
+    if (!calendarOpen) return
+    setDraftDateBy(due ? dateBy : '')
+    setDraftRange(due ? 'custom' : '')
+    setDraftDate(due ? format(new Date(`${due}T00:00:00`), 'ddMMyyyy') : '')
+  }, [calendarOpen, dateBy, due])
 
-  useEffect(() => {
-    if (yearPickerOpen) selectedYearRef.current?.scrollIntoView({ block: 'nearest' })
-  }, [yearPickerOpen])
+  const draftDateDisplay = dateDigitsToDisplay(draftDate)
+  const parsedDraftDate = parse(draftDateDisplay, 'dd/MM/yyyy', new Date())
+  const validDraftDate = draftDate.length === 8 && isValid(parsedDraftDate) && format(parsedDraftDate, 'dd/MM/yyyy') === draftDateDisplay
+  const canApplyDateFilter = Boolean(draftDateBy && draftRange && validDraftDate)
 
   useLayoutEffect(() => {
     const syncScopePill = () => {
@@ -203,10 +209,10 @@ export function TaskFilterToolbar({
               <option.icon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0 max-sm:h-3 max-sm:w-3', scope === option.value ? 'text-white' : 'text-slate-800')} />
               <span className="shrink-0">{option.label}</span>
               <span className={cn(
-                'ml-1 inline-grid h-4 min-w-4 shrink-0 place-items-center rounded-full px-1 text-center text-[10px] font-semibold leading-4 tabular-nums max-sm:h-3.5 max-sm:min-w-3.5 max-sm:px-0.5 max-sm:text-[9px] max-sm:leading-3.5',
+                'ml-1 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1 text-[11px] font-semibold leading-none tabular-nums',
                 (scopeCounts[option.value] ?? 0) > 0 ? 'bg-[#95C12C] text-white' : 'bg-slate-200 text-[#0F172A]',
               )}>
-                {(scopeCounts[option.value] ?? 0) > 99 ? '99+' : scopeCounts[option.value] ?? 0}
+                {scopeCounts[option.value] ?? 0}
               </span>
             </button>
           ))}
@@ -331,7 +337,7 @@ export function TaskFilterToolbar({
               {departments.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
             </SearchableSelect>
           </div>
-          <div className="min-w-0 max-sm:w-[94px] sm:w-36 sm:max-lg:w-32">
+          <div className="min-w-0 max-sm:w-[94px] sm:w-32 sm:max-lg:w-28">
             <div className="relative z-40" ref={calendarRef}>
               <button
                 type="button"
@@ -339,115 +345,84 @@ export function TaskFilterToolbar({
                 aria-haspopup="dialog"
                 aria-expanded={calendarOpen}
                 onClick={() => setCalendarOpen(open => !open)}
-                className="form-field task-filter-select flex h-9 w-full items-center gap-2 rounded-lg px-2.5 py-1 text-left !text-xs max-sm:h-8 max-sm:gap-1 max-sm:rounded-md max-sm:px-2 max-sm:!text-[10px]"
+                className="form-field task-filter-select flex h-9 w-full items-center gap-2 rounded-lg px-2.5 py-1 text-left !text-xs text-slate-700 max-sm:h-8 max-sm:gap-1 max-sm:rounded-md max-sm:px-2 max-sm:!text-[10px]"
               >
                 <CalendarDays aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />
                  <span className={cn('min-w-0 flex-1 truncate', !due && 'text-slate-500')}><span className="max-sm:hidden">{due ? format(new Date(`${due}T00:00:00`), 'dd MMM yyyy') : 'Date'}</span><span className="hidden max-sm:inline">{due ? format(new Date(`${due}T00:00:00`), 'dd MMM') : 'Date'}</span></span>
                 <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-500 max-sm:h-3 max-sm:w-3" />
               </button>
               {calendarOpen && calendarPosition && (
-                <div role="dialog" aria-label="Choose task date" style={calendarPosition ? { position: 'fixed', top: calendarPosition.top, left: calendarPosition.left } : undefined} className="fixed z-[100] w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-3 shadow-xl ring-1 ring-black/5">
-                  <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
-                    {([
-                      { value: 'due', label: 'Due date' },
-                      { value: 'assigned', label: 'Assigned date' },
-                    ] as const).map(option => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        aria-pressed={dateBy === option.value}
-                        onClick={() => onDateByChange?.(option.value)}
-                        className={cn('rounded-md px-2 py-1.5 text-xs font-medium transition-colors', dateBy === option.value ? 'bg-white text-[#034C68] shadow-sm' : 'text-slate-500 hover:text-slate-800')}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
+                <div role="dialog" aria-label="Choose task date" style={{ position: 'fixed', top: calendarPosition.top, left: calendarPosition.left }} className="fixed z-[100] w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl ring-1 ring-black/5">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-[#0F172A]">Date filter</p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">Choose the field, range, and date</p>
+                    </div>
+                    <CalendarDays aria-hidden="true" className="h-5 w-5 text-[#045E80]" />
                   </div>
-                  <div className="mb-2 flex items-center justify-between gap-1.5">
-                    <button type="button" aria-label="Previous month" onClick={() => setCalendarMonth(month => subMonths(month, 1))} className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#045E80] text-white transition hover:bg-[#034C68]">
-                      <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-                    </button>
-                    <div className="relative flex min-w-0 items-center gap-1.5">
-                      <div className="relative">
-                        <button
-                          id="task-due-filter-month"
-                          type="button"
-                          aria-label="Calendar month"
-                          aria-haspopup="listbox"
-                          aria-expanded={monthPickerOpen}
-                          onClick={() => { setMonthPickerOpen(open => !open); setYearPickerOpen(false) }}
-                          className="form-field flex h-8 w-28 items-center justify-between rounded-lg px-2 text-xs"
-                        >
-                          {monthLabels[calendarMonth.getMonth()]}
-                          <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 text-slate-500" />
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-slate-600">
+                      Date type
+                      <span className="relative mt-1.5 block">
+                        <button type="button" aria-haspopup="listbox" aria-expanded={dateTypeOpen} onClick={() => setDateTypeOpen(open => !open)} className="form-field flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left text-xs font-normal">
+                          <span className={cn(!draftDateBy && 'text-slate-500')}>{draftDateBy === 'due' ? 'Due date' : draftDateBy === 'assigned' ? 'Assigned date' : 'Select type'}</span>
+                          <ChevronDown aria-hidden="true" className="h-4 w-4 text-slate-500" />
                         </button>
-                        {monthPickerOpen && (
-                          <div role="listbox" aria-label="Calendar month" className="absolute left-0 top-9 z-30 max-h-52 w-28 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-                            {monthLabels.map((label, month) => (
-                              <button
-                                key={label}
-                                type="button"
-                                role="option"
-                                aria-selected={month === calendarMonth.getMonth()}
-                                onClick={() => {
-                                  setCalendarMonth(current => new Date(current.getFullYear(), month, 1))
-                                  setMonthPickerOpen(false)
-                                }}
-                                className={cn('w-full rounded-md px-2 py-1.5 text-left text-xs transition-colors', month === calendarMonth.getMonth() ? 'bg-[#EAF4F8] font-semibold text-[#034C68]' : 'text-slate-700 hover:bg-slate-50')}
-                              >
-                                {label}
+                        {dateTypeOpen && (
+                          <div role="listbox" aria-label="Date type" className="absolute left-0 right-0 top-10 z-20 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                            {[
+                              { value: '', label: 'Select type' },
+                              { value: 'due', label: 'Due date' },
+                              { value: 'assigned', label: 'Assigned date' },
+                            ].map(option => (
+                              <button key={option.value || 'empty'} type="button" role="option" aria-selected={draftDateBy === option.value} onClick={() => { setDraftDateBy(option.value as '' | 'due' | 'assigned'); setDateTypeOpen(false) }} className={cn('flex w-full items-center rounded-md px-2.5 py-2 text-left text-xs font-normal transition-colors', draftDateBy === option.value ? 'bg-[#EAF4F8] text-[#034C68]' : 'text-slate-700 hover:bg-slate-50')}>
+                                {option.label}
                               </button>
                             ))}
                           </div>
                         )}
+                      </span>
+                    </label>
+                    <fieldset>
+                      <legend className="text-xs font-semibold text-slate-600">Select date range</legend>
+                      <div className="mt-1.5 grid grid-cols-4 gap-2 max-sm:grid-cols-2">
+                        {[
+                          { value: 'today', label: 'Today' },
+                          { value: 'tomorrow', label: 'Tomorrow' },
+                          { value: 'week', label: 'This week' },
+                          { value: 'custom', label: 'Custom date' },
+                        ].map(option => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            aria-pressed={draftRange === option.value}
+                            onClick={() => {
+                              setDraftRange(option.value)
+                              if (option.value === 'today') setDraftDate(format(new Date(), 'ddMMyyyy'))
+                              else if (option.value === 'tomorrow') setDraftDate(format(addDays(new Date(), 1), 'ddMMyyyy'))
+                              else if (option.value === 'week') setDraftDate(format(new Date(), 'ddMMyyyy'))
+                              else setDraftDate('')
+                            }}
+                            className={cn(
+                              'h-8 rounded-lg border px-1 text-[10px] font-medium transition-colors',
+                              draftRange === option.value
+                                ? 'border-[#045E80] bg-[#045E80] text-white'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-[#7DB4C7] hover:text-[#034C68]',
+                            )}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
                       </div>
-                      <button type="button" aria-label="Calendar year" aria-haspopup="listbox" aria-expanded={yearPickerOpen} onClick={() => setYearPickerOpen(open => !open)} className="form-field flex h-8 w-20 items-center justify-between rounded-lg px-2 text-xs">
-                        {calendarMonth.getFullYear()}<ChevronDown aria-hidden="true" className="h-3.5 w-3.5 text-slate-500" />
-                      </button>
-                      {yearPickerOpen && (
-                        <div role="listbox" aria-label="Calendar year" className="absolute right-0 top-9 z-20 max-h-36 w-20 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-                          {years.map(year => (
-                            <button
-                              key={year}
-                              ref={year === calendarMonth.getFullYear() ? selectedYearRef : undefined}
-                              type="button"
-                              role="option"
-                              aria-selected={year === calendarMonth.getFullYear()}
-                              onClick={() => {
-                                setCalendarMonth(month => new Date(year, month.getMonth(), 1))
-                                setYearPickerOpen(false)
-                                setMonthPickerOpen(false)
-                              }}
-                              className={cn('w-full rounded-md px-2 py-1 text-left text-xs transition-colors', year === calendarMonth.getFullYear() ? 'bg-[#EAF4F8] font-semibold text-[#034C68]' : 'text-slate-700 hover:bg-slate-50')}
-                            >
-                              {year}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <button type="button" aria-label="Next month" onClick={() => setCalendarMonth(month => addMonths(month, 1))} className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#045E80] text-white transition hover:bg-[#034C68]">
-                      <ChevronRight aria-hidden="true" className="h-4 w-4" />
-                    </button>
+                    </fieldset>
+                    <label className="block text-xs font-semibold text-slate-600">
+                      Date
+                      <input value={draftDateDisplay} disabled={!draftRange} readOnly={draftRange !== 'custom'} onChange={event => setDraftDate(event.target.value.replace(/\D/g, '').slice(0, 8))} inputMode="numeric" aria-label="Date in day month year format" className={cn('form-field mt-1.5 h-9 w-full rounded-lg px-2.5 text-xs font-normal', (!draftRange || draftRange !== 'custom') && 'bg-slate-50 text-slate-600')} />
+                    </label>
                   </div>
-                  <div className="grid grid-cols-7 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400" aria-hidden="true">
-                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day, index) => <span key={`${day}-${index}`} className="py-1">{day}</span>)}
-                  </div>
-                  <div className="grid grid-cols-7 gap-y-1">
-                    {calendarDays.map(day => {
-                      const selected = due ? isSameDay(day, new Date(`${due}T00:00:00`)) : false
-                      const inMonth = isSameMonth(day, calendarMonth)
-                      const today = isToday(day)
-                      return (
-                        <button key={format(day, 'yyyy-MM-dd')} type="button" aria-label={format(day, 'EEEE, d MMMM yyyy')} aria-pressed={selected} onClick={() => { onDueChange(format(day, 'yyyy-MM-dd')); setCalendarOpen(false) }} className={cn('mx-auto flex h-8 w-8 items-center justify-center rounded-lg text-xs transition-colors', selected ? 'bg-[#045E80] font-semibold text-white shadow-sm' : today ? 'font-semibold text-[#045E80] ring-1 ring-inset ring-[#045E80]/40 hover:bg-[#EAF4F8]' : inMonth ? 'text-slate-700 hover:bg-[#EAF4F8] hover:text-[#034C68]' : 'text-slate-300 hover:bg-slate-50')}>
-                          {format(day, 'd')}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
-                    <button type="button" disabled={!due} onClick={() => { onDueChange(''); setCalendarOpen(false) }} className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Clear</button>
-                    <button type="button" onClick={() => { const today = new Date(); onDueChange(format(today, 'yyyy-MM-dd')); setCalendarMonth(startOfMonth(today)); setCalendarOpen(false) }} className="rounded-md px-2 py-1 text-xs font-semibold text-[#045E80] transition hover:bg-[#EAF4F8]">Today</button>
+                  <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                    <button type="button" disabled={!due} onClick={() => { onDateFilterClear?.(); setCalendarOpen(false) }} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Clear</button>
+                    <button type="button" disabled={!canApplyDateFilter} onClick={() => { const iso = format(parsedDraftDate, 'yyyy-MM-dd'); (onDateFilterApply ? onDateFilterApply(draftDateBy as 'due' | 'assigned', iso) : (onDateByChange?.(draftDateBy as 'due' | 'assigned'), onDueChange(iso))); setCalendarOpen(false) }} className="rounded-lg bg-[#045E80] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#034C68] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400">Apply</button>
                   </div>
                 </div>
               )}

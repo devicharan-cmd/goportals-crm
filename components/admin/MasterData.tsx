@@ -57,7 +57,7 @@ export function PlatformsEditor({ platforms }: { platforms: Platform[] }) {
             <MarketplaceLogo name={p.name} />
             <input defaultValue={p.name} className={cn(inlineInput, 'flex-1')}
                    onBlur={e => e.target.value.trim() && e.target.value !== p.name && save('platforms', p.id, { name: e.target.value.trim() })} />
-            <SearchableSelect defaultValue={p.category} className={cn(inlineInput, 'w-40')} onChange={e => save('platforms', p.id, { category: e.target.value })}>
+            <SearchableSelect id={`platform-category-${p.id}`} defaultValue={p.category} className={cn(inlineInput, 'w-40')} onChange={e => save('platforms', p.id, { category: e.target.value })}>
               {Object.entries(PLATFORM_CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </SearchableSelect>
             <ActiveToggle active={p.is_active} disabled={busy} onChange={() => save('platforms', p.id, { is_active: !p.is_active })} />
@@ -68,7 +68,7 @@ export function PlatformsEditor({ platforms }: { platforms: Platform[] }) {
       <form className="flex gap-2 border-t border-slate-100 px-5 py-3"
             onSubmit={async e => { e.preventDefault(); if (await save('platforms', null, { ...draft, name: draft.name.trim(), sort_order: platforms.length + 1 })) setDraft({ ...draft, name: '' }) }}>
         <input required placeholder="New platform (e.g. Tata CLiQ)" className={cn(inlineInput, 'flex-1')} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
-        <SearchableSelect className={cn(inlineInput, 'w-40')} value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value as PlatformCategory })}>
+        <SearchableSelect id="new-platform-category" className={cn(inlineInput, 'w-40')} value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value as PlatformCategory })}>
           {Object.entries(PLATFORM_CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </SearchableSelect>
         <Button size="sm" loading={busy}><Plus className="h-3.5 w-3.5" /> Add</Button>
@@ -88,7 +88,7 @@ export function ServicesEditor({ services, departments }: { services: Service[];
             <div className="flex items-center gap-2">
               <input defaultValue={s.name} className={cn(inlineInput, 'flex-1')}
                      onBlur={e => e.target.value.trim() && e.target.value !== s.name && save('services', s.id, { name: e.target.value.trim() })} />
-              <SearchableSelect defaultValue={s.department_id ?? ''} className={cn(inlineInput, 'w-36')} onChange={e => save('services', s.id, { department_id: e.target.value || null })}>
+              <SearchableSelect id={`service-department-${s.id}`} defaultValue={s.department_id ?? ''} className={cn(inlineInput, '!w-64')} onChange={e => save('services', s.id, { department_id: e.target.value || null })}>
                 <option value="">No department</option>
                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </SearchableSelect>
@@ -99,7 +99,7 @@ export function ServicesEditor({ services, departments }: { services: Service[];
             <div className="mt-1.5 flex items-center gap-2">
               <input defaultValue={s.default_price ?? ''} type="number" min="0" placeholder="Default price ₹" className={cn(inlineInput, 'w-32')}
                      onBlur={e => save('services', s.id, { default_price: e.target.value ? Number(e.target.value) : null })} />
-              <SearchableSelect defaultValue={s.default_billing_type ?? ''} className={cn(inlineInput, 'w-28')}
+              <SearchableSelect id={`service-billing-${s.id}`} defaultValue={s.default_billing_type ?? ''} className={cn(inlineInput, 'w-28')}
                       onChange={e => save('services', s.id, { default_billing_type: e.target.value || null })}>
                 <option value="">Billing…</option>
                 <option value="monthly">Monthly</option>
@@ -119,8 +119,8 @@ export function ServicesEditor({ services, departments }: { services: Service[];
                 setDraft({ name: '', department_id: '' })
             }}>
         <input required placeholder="New service" className={cn(inlineInput, 'flex-1')} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
-        <SearchableSelect className={cn(inlineInput, 'w-36')} value={draft.department_id} onChange={e => setDraft({ ...draft, department_id: e.target.value })}>
-          <option value="">Department…</option>
+        <SearchableSelect id="new-service-department" className={cn(inlineInput, '!w-64')} value={draft.department_id} onChange={e => setDraft({ ...draft, department_id: e.target.value })}>
+          <option value="">Select department</option>
           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </SearchableSelect>
         <Button size="sm" loading={busy}><Plus className="h-3.5 w-3.5" /> Add</Button>

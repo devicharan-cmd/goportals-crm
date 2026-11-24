@@ -26,14 +26,14 @@ export function StatusBadge({ label, className, dotClassName }: { label: string;
   )
 }
 
-export function PriorityBadge({ priority }: { priority: TaskPriority }) {
-  return <Badge className={cn('font-bold', PRIORITY_STYLES[priority])}>{priority}</Badge>
+export function PriorityBadge({ priority, className }: { priority: TaskPriority; className?: string }) {
+  return <Badge className={cn('font-bold', PRIORITY_STYLES[priority], className)}>{priority}</Badge>
 }
 
 export function UrgentBadge({ className }: { className?: string }) {
   return (
-    <Badge className={cn('rounded-md border border-red-700 bg-gradient-to-r from-red-600 to-red-700 px-1.5 py-0.5 text-xs font-semibold leading-4 text-white ring-red-700', className)}>
-      <Flame className="h-3 w-3" /> Urgent
+    <Badge className={cn('!items-center !justify-center !gap-0.5 rounded-md !border-0 bg-gradient-to-r from-red-600 to-red-700 !px-1 py-0.5 text-xs font-semibold leading-4 text-white !ring-0', className)}>
+      <Flame className="h-3 w-3 shrink-0" /> Urgent
     </Badge>
   )
 }

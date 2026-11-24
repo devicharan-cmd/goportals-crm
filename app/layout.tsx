@@ -8,6 +8,10 @@ const sans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-jakarta' 
 export const metadata: Metadata = {
   title: { default: 'GoPortals', template: '%s · GoPortals' },
   description: 'GoPortals — e-commerce & quick-commerce task management',
+  icons: {
+    icon: [{ url: '/icon.png', type: 'image/png' }],
+    shortcut: ['/icon.png'],
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

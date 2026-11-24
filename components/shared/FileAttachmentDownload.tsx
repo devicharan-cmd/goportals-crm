@@ -1,4 +1,7 @@
-import { Archive, Download, FileSpreadsheet, FileText, Film, Image as ImageIcon } from 'lucide-react'
+'use client'
+
+import { useState } from 'react'
+import { Archive, Download, FileSpreadsheet, FileText, Film, Image as ImageIcon, Loader2 } from 'lucide-react'
 
 export function FileTypeIcon({ fileName }: { fileName: string }) {
   const extension = fileName.split('.').pop()?.toLowerCase()
@@ -41,7 +44,33 @@ export function FileAttachmentDownload({
   downloadUrl: string
   className?: string
 }) {
+  const [downloading, setDownloading] = useState(false)
+  const [error, setError] = useState('')
   const size = formatFileSize(sizeBytes)
+
+  async function downloadFile() {
+    if (downloading) return
+    setDownloading(true)
+    setError('')
+    try {
+      const response = await fetch(downloadUrl)
+      if (!response.ok) throw new Error(`Download failed (${response.status})`)
+      const blob = await response.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(objectUrl)
+    } catch {
+      setError('Could not download this file. Please try again.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <div className={`inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-[10px] border border-[#CBD5E1] bg-white px-2 py-1 ${className}`}>
       <div className="flex min-w-0 items-center gap-1.5">
@@ -49,10 +78,13 @@ export function FileAttachmentDownload({
         <span className="min-w-0 max-w-[min(18rem,42vw)] truncate text-xs font-medium leading-4 text-[#0F172A]" title={fileName}>{fileName}</span>
         {size && <span className="shrink-0 rounded-md bg-[#F1F5F9] px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-[#475569]">{size}</span>}
       </div>
-      <a href={downloadUrl} download={fileName} aria-label={`Download ${fileName}`} title={`Download ${fileName}`} className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg border border-[#0D9488] px-2 py-1 text-[11px] font-semibold text-[#0D9488] hover:bg-[#E6F5F8]">
-        <Download aria-hidden="true" className="h-3.5 w-3.5" />
-        Download
-      </a>
+      <button type="button" onClick={() => void downloadFile()} disabled={downloading} aria-busy={downloading} aria-label={`Download ${fileName}`} title={error || `Download ${fileName}`} className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg border border-[#0D9488] px-2 py-1 text-[11px] font-semibold text-[#0D9488] hover:bg-[#E6F5F8] disabled:cursor-wait disabled:opacity-70">
+        {downloading
+          ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
+          : <Download aria-hidden="true" className="h-3.5 w-3.5" />}
+        {downloading ? 'Downloading…' : 'Download'}
+      </button>
+      {error && <span role="status" className="sr-only">{error}</span>}
     </div>
   )
 }

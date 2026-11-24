@@ -135,6 +135,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const canClaim = !isFormerAssignee && task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
   const scopedTasksContext = searchParams.scope === 'mine' || searchParams.scope === 'assigned' || searchParams.scope === 'all'
   const createdByMe = task.created_by === me.id
+  const selfCreatedAndAssigned = createdByMe && task.assignee_id === me.id
   const canManageTask = !isFormerAssignee && (task.assigned_by === me.id
     || (!task.assigned_by && !task.assignee_id && createdByMe))
   const canEditChecklist = !isFormerAssignee && (canManageTask || task.assignee_id === me.id)
@@ -195,7 +196,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               ? 'Task deleted and schedule stopped'
               : undefined}
           />}
-          {canManageTask && me.role !== 'employee' && <AssignButton
+          {canManageTask && (me.role !== 'employee' || selfCreatedAndAssigned) && <AssignButton
             taskId={task.id}
             currentId={task.assignee_id}
             options={assignees}
@@ -213,7 +214,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               canManageSchedule={scheduleCanManage}
               meId={me.id}
               canMarkUrgent
-              canEditAssignment={me.role !== 'employee'}
+               canEditAssignment={me.role !== 'employee' || selfCreatedAndAssigned}
               clients={editClients}
               clientImageUrlByPath={editClientImageUrlByPath}
               assignees={editAssignees}
@@ -232,14 +233,14 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
           <Card className="task-overview-card p-5">
             <div className="border-b border-[#E2E8F0] pb-4">
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                <TaskCode number={task.task_number} />
+                <TaskCode number={task.task_number} className="px-1.5" />
                 <span aria-hidden="true" className="h-4 w-px bg-[#DCE5EF]" />
                 {task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && <UrgentBadge className="border-0 ring-0" />}
-                <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={TASK_STATUS_STYLES[task.status]} dotClassName={TASK_STATUS_DOT[task.status]} />
-                <PriorityBadge priority={task.priority} />
+                <StatusBadge label={TASK_STATUS_LABELS[task.status]} className={`${TASK_STATUS_STYLES[task.status]} px-1.5`} dotClassName={TASK_STATUS_DOT[task.status]} />
+                <PriorityBadge priority={task.priority} className="px-1.5" />
                 <Badge className={task.visibility === 'private'
-                  ? 'gap-1 bg-violet-50 text-violet-700 ring-violet-200'
-                  : 'gap-1 bg-teal-50 text-teal-700 ring-teal-200'}>
+                  ? 'gap-1 bg-violet-50 px-1.5 text-violet-700 ring-violet-200'
+                  : 'gap-1 bg-teal-50 px-1.5 text-teal-700 ring-teal-200'}>
                   {task.visibility === 'private'
                     ? <LockKeyhole aria-hidden="true" className="h-3.5 w-3.5" />
                     : <Globe2 aria-hidden="true" className="h-3.5 w-3.5" />}
@@ -256,11 +257,11 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
             </div>
             <section className="mt-5">
-              <h2 className="mb-3 flex items-center gap-3 text-base font-semibold leading-6 text-slate-900">
-                <span aria-hidden="true" className="h-5 w-[5px] shrink-0 rounded-full bg-[#0D9488]" />
+              <h2 className="task-overview-section-heading">
+                <span aria-hidden="true" className="task-overview-section-marker" />
                 Description
               </h2>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700">
+              <div className="task-overview-description">
                 {task.description
                   ? <p className="whitespace-pre-wrap">{task.description}</p>
                   : <p className="italic text-slate-400">No description.</p>}
@@ -268,8 +269,8 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
             </section>
             {taskFileAttachments.length > 0 && (
               <section className="mt-5" aria-labelledby="task-attachments-heading">
-                <h2 id="task-attachments-heading" className="mb-3 flex items-center gap-3 text-base font-semibold leading-6 text-slate-900">
-                  <span aria-hidden="true" className="h-5 w-[5px] shrink-0 rounded-full bg-[#0D9488]" />
+                <h2 id="task-attachments-heading" className="task-overview-section-heading">
+                  <span aria-hidden="true" className="task-overview-section-marker" />
                   Attachments
                 </h2>
                 <ul className="space-y-2">

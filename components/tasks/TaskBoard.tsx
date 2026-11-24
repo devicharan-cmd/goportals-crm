@@ -76,7 +76,7 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
   return (
     <div className={cn('overflow-hidden rounded-lg border bg-white text-left transition-[border-color,box-shadow,transform] duration-200 ease-out',
       overlay ? 'rotate-1 border-[#2A87AA] [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]' : 'border-slate-200 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-[0_6px_14px_rgba(15,23,42,0.12)]',
-      task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && 'border-l-4 border-l-red-500')}>
+      task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && 'border-l-4 !border-l-red-600')}>
       {linked
         ? <Link href={taskHref} prefetch={false} draggable={false} className="block p-3 pb-2 hover:bg-slate-50/60">{body}</Link>
         : <div className="p-3 pb-2">{body}</div>}

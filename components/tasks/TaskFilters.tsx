@@ -76,7 +76,8 @@ export function TaskFilters({
   const scopeParam = params.get('scope')
   const urlScope = scopeParam === 'assigned' ? 'assigned' : scopeParam === 'all' ? 'all' : 'mine'
   const filtered = Boolean(searchInput || taskSearch.query)
-    || ['status', 'client', 'assignee', 'assigned_by', 'dept', 'due', 'date_by'].some(key => params.get(key))
+    || Boolean(due)
+    || ['status', 'client', 'assignee', 'assigned_by', 'dept'].some(key => params.get(key))
 
   useEffect(() => {
     if (urlScope === activeScope) return
@@ -153,7 +154,31 @@ export function TaskFilters({
       due={due}
       dateBy={dateBy}
       onDateByChange={value => set('date_by', value === 'due' ? '' : value)}
-      onDueChange={value => set('due', value)}
+      onDateFilterApply={(nextDateBy, nextDue) => {
+        const next = new URLSearchParams(params.toString())
+        next.delete('q')
+        next.set('due', nextDue)
+        if (nextDateBy === 'assigned') next.set('date_by', 'assigned')
+        else next.delete('date_by')
+        router.push(`${pathname}?${next.toString()}`)
+      }}
+      onDateFilterClear={() => {
+        const next = new URLSearchParams(params.toString())
+        next.delete('q')
+        next.delete('due')
+        next.delete('date_by')
+        router.push(`${pathname}?${next.toString()}`)
+      }}
+      onDueChange={value => {
+        const next = new URLSearchParams(params.toString())
+        next.delete('q')
+        if (value) next.set('due', value)
+        else {
+          next.delete('due')
+          next.delete('date_by')
+        }
+        router.push(`${pathname}?${next.toString()}`)
+      }}
       searchInput={searchInput}
       onSearchInput={setSearchInput}
       onSearch={taskSearch.setQuery}

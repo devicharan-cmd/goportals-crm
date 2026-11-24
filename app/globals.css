@@ -1048,7 +1048,36 @@ button[aria-haspopup="listbox"]:focus {
 }
 .task-overview-card {
   position: relative;
-  border-left: 5px solid #0d9488;
+  border-left: 5px solid #045E80;
+}
+
+/* Task detail sections: keep the primary description visually prominent while
+   using the current CRM brand teal consistently across the card. */
+.task-overview-section-heading {
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #15201C;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.5rem;
+}
+.task-overview-section-marker {
+  height: 1.5rem;
+  width: 0.3125rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background-color: #045E80;
+}
+.task-overview-description {
+  border-radius: 0.875rem;
+  background-color: #F6F7F3;
+  padding: 0.875rem 1rem;
+  color: #334155;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.625rem;
 }
 
 @media print {

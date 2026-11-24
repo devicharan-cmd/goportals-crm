@@ -154,7 +154,7 @@ export function AppShell({
     const frame = requestAnimationFrame(syncActivePill)
     window.addEventListener('resize', syncActivePill)
     return () => { cancelAnimationFrame(frame); window.removeEventListener('resize', syncActivePill) }
-  }, [pathname, collapsed, isClient])
+  }, [pathname, collapsed, isClient, open])
 
   useEffect(() => {
     if (!isClient) setLiveAvatarUrl(user.avatarUrl ?? null)
@@ -544,13 +544,13 @@ export function AppShell({
     <div className="sidebar-content-clip flex h-full flex-col">
       {compact ? (
         <div className="flex h-16 items-center justify-center px-2">
-          <Link href={isClient ? '/portal' : '/dashboard'} prefetch title="GoPortals">
+          <Link href={isClient ? '/portal' : '/dashboard'} prefetch={false} title="GoPortals">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#045E80] font-sans text-sm font-extrabold text-white">G<span className="text-[#A5CD3F]">P</span></span>
           </Link>
         </div>
       ) : (
         <div className="flex h-16 items-center justify-between gap-2 pl-5 pr-3">
-          <Link href={isClient ? '/portal' : '/dashboard'} prefetch title="GoPortals"><Logo priority /></Link>
+          <Link href={isClient ? '/portal' : '/dashboard'} prefetch={false} title="GoPortals"><Logo priority /></Link>
           {!desktop && <button className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" onClick={() => setOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button>}
         </div>
       )}
@@ -577,7 +577,7 @@ export function AppShell({
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      prefetch
+                      prefetch={false}
                       title={compact ? item.label + (count ? ` (${count})` : '') : undefined}
                       aria-label={compact ? item.label : undefined}
                       className={cn(

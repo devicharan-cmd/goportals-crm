@@ -339,7 +339,7 @@ export function taskAssigneeIdsForAssignedScope(
     .map(person => person.id), ...(me.role === 'manager' ? clientAssigneeIds : [])]
 }
 
-/** People a user may assign to — mirrors can_assign() in the DB. */
+/** People a user may assign to — cross-hierarchy assignment is allowed; visibility remains separately guarded. */
 export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLookups): Person[] {
   const ensureSelf = (people: Person[]) => {
     if (people.some(person => person.id === me.id)) return people
@@ -347,25 +347,7 @@ export function assignableFor(me: Pick<Profile, 'id' | 'role'>, lookups: StaffLo
     return self ? [self, ...people] : people
   }
 
-  if (me.role === 'super_admin') return ensureSelf(activeStaffForSuperAdmin(lookups))
-
-  // Profiles can be hidden by profile-table RLS; the safe staff directory is
-  // the source for the full active Super Admin list across every staff role.
-  const superAdmins = activeStaffForSuperAdmin(lookups).filter(person => person.role === 'super_admin')
-
-  if (me.role === 'manager') {
-    const reportIds = profileIdsReportingTo(me.id, lookups)
-    return ensureSelf(Array.from(new Map([
-      ...lookups.staff.filter(person => person.id === me.id || reportIds.has(person.id)),
-      ...superAdmins,
-    ].map(person => [person.id, person])).values()))
-  }
-
-  const allowedIds = profileIdsInReportingHierarchy(me.id, lookups)
-  return ensureSelf(Array.from(new Map([
-    ...lookups.staff.filter(person => allowedIds.has(person.id)),
-    ...superAdmins,
-  ].map(person => [person.id, person])).values()))
+  return ensureSelf(activeStaffForSuperAdmin(lookups))
 }
 
 /** People available in the Tasks page assignee filter, scoped by reporting hierarchy. */

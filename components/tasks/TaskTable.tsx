@@ -13,12 +13,12 @@ function TaskDueDisplay({ task, className, rowAligned = false }: { task: TaskSum
   const isOverdue = dueState(task.due_date, task.status, new Date(), task.due_at) === 'overdue'
 
   return (
-    <span className={`${rowAligned ? 'relative block h-14' : 'flex w-fit flex-col items-start gap-0.5'} text-xs ${className ?? ''}`}>
-      <span className={`${rowAligned ? 'absolute left-0 top-[calc(50%-7px)]' : 'block'} whitespace-nowrap ${task.due_date ? 'text-slate-600' : 'text-slate-400'}`}>
+    <span className={`${rowAligned ? 'relative block h-14 text-center' : 'flex w-fit flex-col items-start gap-0.5'} text-xs ${className ?? ''}`}>
+      <span className={`${rowAligned ? 'absolute left-1/2 top-[calc(50%-7px)] -translate-x-1/2' : 'block'} whitespace-nowrap ${task.due_date ? 'text-slate-600' : 'text-slate-400'}`}>
         {task.due_date ? formatDate(task.due_date) : 'No due date'}
       </span>
       {isOverdue && (
-        <span className={`${rowAligned ? 'absolute left-0 top-[calc(50%+11px)]' : 'block'} whitespace-nowrap rounded-full bg-red-50 px-1.5 py-0.5 text-xs font-medium leading-4 text-red-700`}>
+        <span className={`${rowAligned ? 'absolute left-1/2 top-[calc(50%+11px)] -translate-x-1/2' : 'block'} whitespace-nowrap rounded-full bg-red-50 px-1.5 py-0.5 text-xs font-medium leading-4 text-red-700`}>
           Overdue
         </span>
       )}
@@ -109,28 +109,28 @@ export function TaskTable({
           <tr className="border-b border-slate-100 text-left text-xs font-medium uppercase tracking-wide text-slate-400">
             {showAssignedBy ? (
               <>
-                <th className="whitespace-nowrap px-3 py-3">Task ID</th>
+                <th className="whitespace-nowrap px-3 py-3 text-center">Task ID</th>
                 <th className="px-3 py-3">Task title</th>
               </>
             ) : (
               <>
-                <th className="whitespace-nowrap px-3 py-3">Task ID</th>
+                <th className="whitespace-nowrap px-3 py-3 text-center">Task ID</th>
                 <th className="px-3 py-3">Task title</th>
               </>
             )}
-            {showClient && <th className="px-3 py-3">Client</th>}
+            {showClient && <th className="px-3 py-3 text-center">Client</th>}
             <th className="px-3 py-3 text-center">Status</th>
-            <th className="px-3 py-3">Priority</th>
-            {showAssignedBy && <th className="px-3 py-3">Assigned by</th>}
-            {showAssignee && <th className="px-3 py-3">Assignee</th>}
-            <th className={showAssignedBy ? 'px-2 py-3' : 'px-3 py-3'}>Due date</th>
-            {showReassignColumn && <th className="px-2 py-3">Reassign</th>}
+            <th className="px-3 py-3 text-center">Priority</th>
+            {showAssignedBy && <th className="px-3 py-3 text-center">Assigned by</th>}
+            {showAssignee && <th className="px-3 py-3 text-center">Assignee</th>}
+            <th className={showAssignedBy ? 'px-2 py-3 text-center' : 'px-3 py-3 text-center'}>Due date</th>
+            {showReassignColumn && <th className="px-2 py-3 text-center">Reassign</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {tasks.map(t => (
             <tr key={t.id} className="group hover:bg-slate-50/80">
-              <td className="whitespace-nowrap px-3 py-3 font-mono text-xs font-semibold text-[#045E80]">
+              <td className="whitespace-nowrap px-3 py-3 text-center font-mono text-xs font-semibold text-[#045E80]">
                 <Link href={taskHref(t.id)} prefetch={false} className="text-[#045E80] hover:text-[#034C68]">{taskCode(t.task_number)}</Link>
               </td>
               <td className="px-3 py-3">
@@ -156,34 +156,36 @@ export function TaskTable({
                   </span>
                 </Link>
               </td>
-              {showClient && <td className="px-3 py-3 text-slate-600">{t.client?.company_name ?? '—'}</td>}
-              <td className="px-3 py-3 text-center"><StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} /></td>
-              <td className="px-3 py-3"><PriorityBadge priority={t.priority} /></td>
+              {showClient && <td className="px-3 py-3 text-center text-slate-600">{t.client?.company_name ?? '—'}</td>}
+              <td className="px-3 py-3 text-center"><span className="flex justify-center"><StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} /></span></td>
+              <td className="px-3 py-3 text-center"><span className="flex justify-center"><PriorityBadge priority={t.priority} /></span></td>
               {showAssignedBy && (
-                <td className="px-3 py-3 text-slate-700">
+                <td className="px-3 py-3 text-center text-slate-700">
                   {t.assigned_by && taskAssigners[t.assigned_by] ? (
-                    <span className="flex h-14 min-w-0 items-center gap-2">
-                      <Avatar
-                        name={taskAssigners[t.assigned_by].name}
-                        src={taskAssigners[t.assigned_by].avatarUrl}
-                        role={taskAssigners[t.assigned_by].role}
-                        size="xs"
-                      />
-                      <span className="relative h-14 min-w-0 flex-1">
-                        <span className="absolute left-0 top-1/2 w-full -translate-y-1/2 truncate">{taskAssigners[t.assigned_by].name}</span>
-                        <span className="absolute left-0 top-[calc(50%+13px)] w-full -translate-y-1/2 truncate text-xs text-slate-400">({ROLE_LABELS[taskAssigners[t.assigned_by].role]})</span>
+                    <span className="mx-auto flex h-14 min-w-0 max-w-full translate-y-1.5 items-center justify-center gap-2 text-left">
+                      <span className="flex min-w-0 items-start gap-2">
+                        <Avatar
+                          name={taskAssigners[t.assigned_by].name}
+                          src={taskAssigners[t.assigned_by].avatarUrl}
+                          role={taskAssigners[t.assigned_by].role}
+                          size="xs"
+                        />
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate">{taskAssigners[t.assigned_by].name}</span>
+                          <span className="truncate text-xs leading-4 text-slate-400">{ROLE_LABELS[taskAssigners[t.assigned_by].role]}</span>
+                        </span>
                       </span>
                     </span>
                   ) : '—'}
                 </td>
               )}
               {showAssignee && (
-                <td className="px-3 py-3">
+                <td className="px-3 py-3 text-center">
                   {showAssignedBy ? (
-                    <span className="flex min-h-14 min-w-0 flex-col justify-center gap-1 text-slate-700">
+                    <span className="mx-auto flex min-h-14 min-w-0 max-w-full translate-y-1.5 items-center justify-center gap-2 text-left text-slate-700">
                       {t.assignee_id ? (
-                        <span className="flex min-w-0 items-center gap-2">
-                          <Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" />
+                        <span className="flex min-w-0 items-start gap-2">
+                          <Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" className="self-start" />
                           <span className="flex min-w-0 flex-col">
                             <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
                             {assigneeRoles[t.assignee_id] && <span className="truncate text-xs leading-4 text-slate-400">{assigneeRoles[t.assignee_id]}</span>}
@@ -194,8 +196,8 @@ export function TaskTable({
                   ) : (
                     <div className="min-w-0 space-y-1">
                       {t.assignee_id ? (
-                        <span className="flex min-w-0 items-center gap-2 text-slate-700">
-                          <Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" />
+                        <span className="flex min-w-0 items-start gap-2 text-slate-700">
+                          <Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" className="mt-0.5" />
                           <span className="flex min-w-0 flex-col">
                             <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
                             {assigneeRoles[t.assignee_id] && <span className="truncate text-xs leading-4 text-slate-400">{assigneeRoles[t.assignee_id]}</span>}
@@ -211,11 +213,13 @@ export function TaskTable({
                   )}
                 </td>
               )}
-              <td className={showAssignedBy ? 'px-2 py-3' : 'px-3 py-3'}><TaskDueDisplay task={t} rowAligned /></td>
+              <td className={showAssignedBy ? 'px-2 py-3 text-center' : 'px-3 py-3 text-center'}><TaskDueDisplay task={t} rowAligned /></td>
               {showReassignColumn && (
                 <td className="px-2 py-3 text-center">
                   {!TASK_TERMINAL_STATUSES.includes(t.status) && (
-                    <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={ticketLabel(t)} compact />
+                    <span className="flex justify-center">
+                      <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={ticketLabel(t)} compact />
+                    </span>
                   )}
                 </td>
               )}
@@ -249,9 +253,9 @@ export function TaskTable({
               <div className="flex min-w-0 items-start justify-between gap-2 px-4 pb-3 text-xs min-[560px]:min-h-14 min-[560px]:items-center">
                 <span className="flex min-w-0 flex-col items-start gap-1.5 text-slate-600">
                   <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Assignee</span>
-                  <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="flex min-w-0 items-start gap-1.5">
                   {t.assignee_id
-                    ? <><Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" /> <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span></>
+                    ? <><Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" className="mt-0.5" /> <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span></>
                     : <span className="italic text-slate-400">Unassigned</span>}
                   {assignOptions && !showReassignColumn && !TASK_TERMINAL_STATUSES.includes(t.status) && (
                     <span className="shrink-0">
@@ -260,7 +264,7 @@ export function TaskTable({
                   )}
                   </span>
                   {t.assignee_id && assigneeRoles[t.assignee_id] && (
-                    <span className="ml-7 text-xs text-slate-400">({assigneeRoles[t.assignee_id]})</span>
+                    <span className="ml-7 text-xs text-slate-400">{assigneeRoles[t.assignee_id]}</span>
                   )}
                 </span>
               </div>
@@ -268,16 +272,17 @@ export function TaskTable({
             {showAssignedBy && t.assigned_by && taskAssigners[t.assigned_by] && (
               <div className="flex min-w-0 flex-col items-start gap-1.5 px-4 pb-3 text-xs text-slate-500 min-[560px]:min-h-14">
                 <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Assigned by</span>
-                <span className="flex min-w-0 items-center gap-2">
+                <span className="flex min-w-0 items-start gap-2">
                   <Avatar
                     name={taskAssigners[t.assigned_by].name}
                     src={taskAssigners[t.assigned_by].avatarUrl}
                     role={taskAssigners[t.assigned_by].role}
                     size="xs"
+                    className="mt-0.5"
                   />
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate">{taskAssigners[t.assigned_by].name}</span>
-                    <span className="truncate">({ROLE_LABELS[taskAssigners[t.assigned_by].role]})</span>
+                    <span className="truncate">{ROLE_LABELS[taskAssigners[t.assigned_by].role]}</span>
                   </span>
                 </span>
               </div>

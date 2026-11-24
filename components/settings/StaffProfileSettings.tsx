@@ -586,7 +586,8 @@ export function StaffProfileSettings({
                             width={512}
                             height={512}
                             sizes="256px"
-                            quality={100}
+                            quality={90}
+                            unoptimized={currentImage.startsWith('http')}
                             className="h-full w-full rounded-full object-cover"
                             onError={() => setImageLoadFailed(true)}
                           />
@@ -602,7 +603,8 @@ export function StaffProfileSettings({
                           width={512}
                           height={512}
                           sizes="256px"
-                          quality={100}
+                          quality={90}
+                          unoptimized={currentImage.startsWith('http')}
                           className="h-20 w-20 rounded-full object-cover sm:h-24 sm:w-24"
                           onError={() => setImageLoadFailed(true)}
                         />

@@ -189,7 +189,17 @@ export function MarketplacePlatformMultiSelect({ platforms, value, onChange, pla
             const checked = value.includes(platform.id)
             return <button key={platform.id} type="button" role="option" aria-selected={checked} onClick={() => toggle(platform.id)}
               className={cn('flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-slate-50', checked && 'bg-[#EAF4F8]')}>
-              <MarketplacePlatformLabel name={platform.name} />
+              <span className="flex min-w-0 items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  readOnly
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="h-4 w-4 shrink-0 accent-[#045E80]"
+                />
+                <MarketplacePlatformLabel name={platform.name} />
+              </span>
               {checked && <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />}
             </button>
           })}

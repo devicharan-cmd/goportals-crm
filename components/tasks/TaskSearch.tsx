@@ -10,6 +10,7 @@ import { Alert, Card } from '@/components/ui/primitives'
 import { TASK_STATUS_OPTIONS } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/client'
 import { cn, errorMessage } from '@/lib/utils'
+import { TaskResultsSkeleton } from '@/components/tasks/TaskPageSkeleton'
 import type { AssigneeOption, TaskAssignerInfo, TaskPageCursor } from '@/lib/queries'
 import type { TaskStatus, TaskSummary } from '@/types/database'
 
@@ -50,6 +51,7 @@ type TaskSearchFilters = {
   assignedBy: string
   department: string
   due: string
+  dateBy: 'due' | 'assigned'
   board: boolean
 }
 
@@ -71,6 +73,7 @@ export function TaskSearchProvider({
   assignedBy,
   department,
   due,
+  dateBy,
   board,
   children,
 }: {
@@ -89,6 +92,7 @@ export function TaskSearchProvider({
   assignedBy: string
   department: string
   due: string
+  dateBy: 'due' | 'assigned'
   board: boolean
   children: React.ReactNode
 }) {
@@ -177,7 +181,7 @@ export function TaskSearchProvider({
     setHasMoreTasks(false)
     setNextTaskCursor(null)
     setError('')
-    const filters = scopeFilterOverrides ?? { status, client, assignee, assignedBy, department, due, board }
+    const filters = scopeFilterOverrides ?? { status, client, assignee, assignedBy, department, due, dateBy, board }
     void searchTasks(query, { ...filters, scope: activeScope })
       .then(result => {
         if (!active) return
@@ -201,7 +205,7 @@ export function TaskSearchProvider({
       active = false
       if (taskRequestId.current === requestId) taskRequestId.current += 1
     }
-  }, [activeScope, assignee, assignedBy, board, client, department, due, initialHasMoreTasks, initialNames, initialTaskAssigners, initialTaskCursor, initialTasks, query, scope, scopeFilterOverrides, status])
+  }, [activeScope, assignee, assignedBy, board, client, dateBy, department, due, initialHasMoreTasks, initialNames, initialTaskAssigners, initialTaskCursor, initialTasks, query, scope, scopeFilterOverrides, status])
 
   const handleSearch = useCallback((value: string) => setQuery(value), [])
   const changeScope = useCallback((
@@ -226,7 +230,7 @@ export function TaskSearchProvider({
     const requestId = taskRequestId.current
     setLoadingMoreTasks(true)
     setError('')
-    const filters = scopeFilterOverrides ?? { status, client, assignee, assignedBy, department, due, board }
+    const filters = scopeFilterOverrides ?? { status, client, assignee, assignedBy, department, due, dateBy, board }
     void searchTasks(query, { ...filters, scope: activeScope }, nextTaskCursor)
       .then(result => {
         if (taskRequestId.current !== requestId) return
@@ -245,7 +249,7 @@ export function TaskSearchProvider({
       .finally(() => {
         if (taskRequestId.current === requestId) setLoadingMoreTasks(false)
       })
-  }, [activeScope, assignee, assignedBy, board, client, department, due, hasMoreTasks, loadingMoreTasks, nextTaskCursor, query, scopeFilterOverrides, searching, status])
+  }, [activeScope, assignee, assignedBy, board, client, dateBy, department, due, hasMoreTasks, loadingMoreTasks, nextTaskCursor, query, scopeFilterOverrides, searching, status])
   const scopeCounts = {
     ...serverScopeCounts,
     mine: Math.max(0, serverScopeCounts.mine + pendingMyTaskCountDelta),
@@ -320,8 +324,8 @@ export function TaskSearchResults() {
       {search.error && <Alert>{search.error}</Alert>}
       {search.searching && <span className="sr-only" role="status">Searching tasks</span>}
       {search.scopeChanging ? (
-        <div className="flex min-h-32 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500" role="status">
-          Loading {search.scope === 'mine' ? 'your' : search.scope === 'assigned' ? 'assigned' : 'all'} tasks…
+        <div role="status" aria-label={`Loading ${search.scope === 'mine' ? 'your' : search.scope === 'assigned' ? 'assigned' : 'all'} tasks`}>
+          <TaskResultsSkeleton board={search.board} />
         </div>
       ) : search.board && search.tasks.length === 0 ? (
         <EmptyTaskBoard />

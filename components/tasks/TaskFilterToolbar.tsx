@@ -18,7 +18,7 @@ export function TaskFilterToolbar({
   clients = [], client = '', onClientChange, showClientFilter = false,
   people = [], assignee = '', onAssigneeChange, showAssigneeFilter = false,
   assigners = [], assignedBy = '', onAssignedByChange, showAssignedByFilter = false,
-  departments, department, onDepartmentChange, due, onDueChange,
+  departments, department, onDepartmentChange, due, dateBy = 'due', onDateByChange, onDueChange,
   searchInput, onSearchInput, onSearch, filtered, onClearFilters, action,
 }: {
   scope: 'mine' | 'assigned' | 'all'
@@ -47,6 +47,8 @@ export function TaskFilterToolbar({
   department: string
   onDepartmentChange: (department: string) => void
   due: string
+  dateBy?: 'due' | 'assigned'
+  onDateByChange?: (dateBy: 'due' | 'assigned') => void
   onDueChange: (due: string) => void
   searchInput: string
   onSearchInput: (value: string) => void
@@ -58,6 +60,7 @@ export function TaskFilterToolbar({
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number } | null>(null)
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(due ? new Date(`${due}T00:00:00`) : new Date()))
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false)
   const [yearPickerOpen, setYearPickerOpen] = useState(false)
   const calendarRef = useRef<HTMLDivElement | null>(null)
   const scopeTabsRef = useRef<HTMLDivElement | null>(null)
@@ -65,6 +68,10 @@ export function TaskFilterToolbar({
   const [scopePill, setScopePill] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: Math.max(1, currentYear - 1999) }, (_, index) => currentYear - index)
+  const monthLabels = Array.from({ length: 12 }, (_, month) => {
+    const full = format(new Date(2020, month, 1), 'MMMM')
+    return full.length > 5 ? format(new Date(2020, month, 1), 'MMM') : full
+  })
   const calendarDays = eachDayOfInterval({
     start: startOfWeek(startOfMonth(calendarMonth)),
     end: endOfWeek(endOfMonth(calendarMonth)),
@@ -73,6 +80,7 @@ export function TaskFilterToolbar({
   useEffect(() => {
     if (!calendarOpen) {
       setYearPickerOpen(false)
+      setMonthPickerOpen(false)
       setCalendarPosition(null)
       return
     }
@@ -327,27 +335,72 @@ export function TaskFilterToolbar({
             <div className="relative z-40" ref={calendarRef}>
               <button
                 type="button"
-                aria-label={due ? `Filter by due date: ${format(new Date(`${due}T00:00:00`), 'dd MMM yyyy')}` : 'Filter by due date'}
+                aria-label={due ? `Filter by ${dateBy === 'assigned' ? 'assigned' : 'due'} date: ${format(new Date(`${due}T00:00:00`), 'dd MMM yyyy')}` : 'Filter by date'}
                 aria-haspopup="dialog"
                 aria-expanded={calendarOpen}
                 onClick={() => setCalendarOpen(open => !open)}
                 className="form-field task-filter-select flex h-9 w-full items-center gap-2 rounded-lg px-2.5 py-1 text-left !text-xs max-sm:h-8 max-sm:gap-1 max-sm:rounded-md max-sm:px-2 max-sm:!text-[10px]"
               >
                 <CalendarDays aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />
-                <span className={cn('min-w-0 flex-1 truncate', !due && 'text-slate-500')}><span className="max-sm:hidden">{due ? format(new Date(`${due}T00:00:00`), 'dd MMM yyyy') : 'dd-mm-yyyy'}</span><span className="hidden max-sm:inline">{due ? format(new Date(`${due}T00:00:00`), 'dd MMM') : 'dd-mm-yy'}</span></span>
+                 <span className={cn('min-w-0 flex-1 truncate', !due && 'text-slate-500')}><span className="max-sm:hidden">{due ? format(new Date(`${due}T00:00:00`), 'dd MMM yyyy') : 'Date'}</span><span className="hidden max-sm:inline">{due ? format(new Date(`${due}T00:00:00`), 'dd MMM') : 'Date'}</span></span>
                 <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-500 max-sm:h-3 max-sm:w-3" />
               </button>
               {calendarOpen && calendarPosition && (
-                <div role="dialog" aria-label="Choose due date" style={calendarPosition ? { position: 'fixed', top: calendarPosition.top, left: calendarPosition.left } : undefined} className="fixed z-[100] w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-3 shadow-xl ring-1 ring-black/5">
+                <div role="dialog" aria-label="Choose task date" style={calendarPosition ? { position: 'fixed', top: calendarPosition.top, left: calendarPosition.left } : undefined} className="fixed z-[100] w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-3 shadow-xl ring-1 ring-black/5">
+                  <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+                    {([
+                      { value: 'due', label: 'Due date' },
+                      { value: 'assigned', label: 'Assigned date' },
+                    ] as const).map(option => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={dateBy === option.value}
+                        onClick={() => onDateByChange?.(option.value)}
+                        className={cn('rounded-md px-2 py-1.5 text-xs font-medium transition-colors', dateBy === option.value ? 'bg-white text-[#034C68] shadow-sm' : 'text-slate-500 hover:text-slate-800')}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                   <div className="mb-2 flex items-center justify-between gap-1.5">
                     <button type="button" aria-label="Previous month" onClick={() => setCalendarMonth(month => subMonths(month, 1))} className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#045E80] text-white transition hover:bg-[#034C68]">
                       <ChevronLeft aria-hidden="true" className="h-4 w-4" />
                     </button>
                     <div className="relative flex min-w-0 items-center gap-1.5">
-                      <label className="sr-only" htmlFor="task-due-filter-month">Calendar month</label>
-                      <select id="task-due-filter-month" aria-label="Calendar month" value={calendarMonth.getMonth()} onChange={event => setCalendarMonth(month => new Date(month.getFullYear(), Number(event.target.value), 1))} className="form-field h-8 min-w-0 w-32 rounded-lg px-2 text-xs">
-                        {Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{format(new Date(2020, month, 1), 'MMMM')}</option>)}
-                      </select>
+                      <div className="relative">
+                        <button
+                          id="task-due-filter-month"
+                          type="button"
+                          aria-label="Calendar month"
+                          aria-haspopup="listbox"
+                          aria-expanded={monthPickerOpen}
+                          onClick={() => { setMonthPickerOpen(open => !open); setYearPickerOpen(false) }}
+                          className="form-field flex h-8 w-28 items-center justify-between rounded-lg px-2 text-xs"
+                        >
+                          {monthLabels[calendarMonth.getMonth()]}
+                          <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 text-slate-500" />
+                        </button>
+                        {monthPickerOpen && (
+                          <div role="listbox" aria-label="Calendar month" className="absolute left-0 top-9 z-30 max-h-52 w-28 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                            {monthLabels.map((label, month) => (
+                              <button
+                                key={label}
+                                type="button"
+                                role="option"
+                                aria-selected={month === calendarMonth.getMonth()}
+                                onClick={() => {
+                                  setCalendarMonth(current => new Date(current.getFullYear(), month, 1))
+                                  setMonthPickerOpen(false)
+                                }}
+                                className={cn('w-full rounded-md px-2 py-1.5 text-left text-xs transition-colors', month === calendarMonth.getMonth() ? 'bg-[#EAF4F8] font-semibold text-[#034C68]' : 'text-slate-700 hover:bg-slate-50')}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <button type="button" aria-label="Calendar year" aria-haspopup="listbox" aria-expanded={yearPickerOpen} onClick={() => setYearPickerOpen(open => !open)} className="form-field flex h-8 w-20 items-center justify-between rounded-lg px-2 text-xs">
                         {calendarMonth.getFullYear()}<ChevronDown aria-hidden="true" className="h-3.5 w-3.5 text-slate-500" />
                       </button>
@@ -363,6 +416,7 @@ export function TaskFilterToolbar({
                               onClick={() => {
                                 setCalendarMonth(month => new Date(year, month.getMonth(), 1))
                                 setYearPickerOpen(false)
+                                setMonthPickerOpen(false)
                               }}
                               className={cn('w-full rounded-md px-2 py-1 text-left text-xs transition-colors', year === calendarMonth.getFullYear() ? 'bg-[#EAF4F8] font-semibold text-[#034C68]' : 'text-slate-700 hover:bg-slate-50')}
                             >

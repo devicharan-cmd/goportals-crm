@@ -105,14 +105,8 @@ const AVATAR_COLORS = [
 
 export function Avatar({ name, src, role, size = 'md', className }: { name: string | null | undefined; src?: string | null; role?: AppRole; size?: 'xs' | 'sm' | 'md' | 'lg'; className?: string }) {
   const sizes = { xs: 'h-5 w-5 text-xs', sm: 'h-7 w-7 text-xs', md: 'h-9 w-9 text-sm', lg: 'h-12 w-12 text-base' }
-  // Request a 2x source for small UI avatars so cards and selectors stay sharp
-  // without changing their displayed CSS dimensions.
-  const imageSize = { xs: 40, sm: 56, md: 72, lg: 128 }[size]
-  // Staff cards deliberately enlarge the large avatar at wider breakpoints.
-  // Keep the optimized source sharp there without asking for the original.
-  // Match the 2x source request above so the browser does not upscale a
-  // smaller responsive variant on high-density or zoomed displays.
-  const imageSizes = { xs: '40px', sm: '56px', md: '72px', lg: '128px' }[size]
+  const imageSize = { xs: 20, sm: 28, md: 36, lg: 48 }[size]
+  const imageSizes = { xs: '20px', sm: '28px', md: '36px', lg: '(min-width: 640px) 80px, 56px' }[size]
   const hash = (name ?? '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   // Client people use initials; company branding is rendered explicitly with
   // CompanyAvatar wherever the company itself is being represented.
@@ -126,7 +120,7 @@ export function Avatar({ name, src, role, size = 'md', className }: { name: stri
         sizes[size], (role ? ROLE_STYLES[role].avatar : undefined) ?? AVATAR_COLORS[hash % AVATAR_COLORS.length], className)}
     >
       {imageSrc && !imageFailed
-        ? <Image src={imageSrc} alt="" width={imageSize} height={imageSize} sizes={imageSizes} quality={90} unoptimized={imageSrc.startsWith('http')} className="h-full w-full rounded-[inherit] object-cover" onError={() => setImageFailed(true)} />
+        ? <Image src={imageSrc} alt="" width={imageSize} height={imageSize} sizes={imageSizes} className="h-full w-full rounded-[inherit] object-cover" onError={() => setImageFailed(true)} />
         : getInitials(name)}
     </span>
   )
@@ -168,7 +162,7 @@ export function CompanyAvatar({ name, src, size = 'md', className, rounded = fal
       rounded ? 'rounded-full' : 'rounded-lg',
       sizes[size], className,
     )} style={size === 'xs' ? { width: 20, height: 20, minWidth: 20, minHeight: 20 } : undefined}>
-      {src ? <Image src={src} alt="" width={imageSize} height={imageSize} sizes={`${imageSize}px`} quality={90} unoptimized={src.startsWith('http')} className="h-full w-full object-cover" /> : getInitials(name)}
+      {src ? <Image src={src} alt="" width={imageSize} height={imageSize} sizes={`${imageSize}px`} className="h-full w-full object-cover" /> : getInitials(name)}
     </div>
   )
 }

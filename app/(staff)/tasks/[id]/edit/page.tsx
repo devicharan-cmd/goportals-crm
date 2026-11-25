@@ -21,7 +21,6 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
   ])
   if (!data) notFound()
   const task = data as Task
-  const selfCreatedAndAssigned = task.created_by === me.id && task.assignee_id === me.id
   const canManageTask = task.assigned_by === me.id
     || (!task.assigned_by && !task.assignee_id && task.created_by === me.id)
   if (!canManageTask) {
@@ -74,7 +73,7 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
         task={task}
         meId={me.id}
         canMarkUrgent
-        canEditAssignment={me.role !== 'employee' || selfCreatedAndAssigned}
+        canEditAssignment={canManageTask}
         clients={clients}
         clientImageUrlByPath={clientImageUrlByPath}
         assignees={assignees}

@@ -1,6 +1,29 @@
 -- Reduce task-page round trips without changing visibility or business rules.
 -- This migration is additive and safe to re-run.
 
+-- Keep the three tab badges on the same RLS-visible task relation, but avoid
+-- rebuilding the reporting hierarchy for every page request. The assigned
+-- tab is defined by assigned_by = auth.uid(); task RLS remains authoritative.
+create or replace function public.staff_task_scope_counts()
+returns table (
+  mine_active_count bigint,
+  assigned_by_me_count bigint,
+  all_visible_count bigint
+)
+language sql
+stable
+set search_path = public
+as $$
+  select
+    count(*) filter (
+      where task.assignee_id = auth.uid()
+        and task.status not in ('completed', 'cancelled')
+    ),
+    count(*) filter (where task.assigned_by = auth.uid()),
+    count(*)
+  from public.tasks task;
+$$;
+
 create or replace function public.staff_task_page_bootstrap(
   p_include_people boolean default true,
   p_include_assignments boolean default true
@@ -82,5 +105,17 @@ create index if not exists tasks_assigned_scope_idx
 create index if not exists tasks_closed_at_idx
   on public.tasks (closed_at)
   where closed_at is not null;
+
+create index if not exists tasks_staff_list_order_idx
+  on public.tasks (is_urgent desc, due_date asc nulls last, created_at desc, id asc);
+
+create index if not exists tasks_assigned_by_idx
+  on public.tasks (assigned_by);
+
+create index if not exists tasks_assigned_at_idx
+  on public.tasks (assigned_at);
+
+create index if not exists tasks_due_date_idx
+  on public.tasks (due_date);
 
 notify pgrst, 'reload schema';

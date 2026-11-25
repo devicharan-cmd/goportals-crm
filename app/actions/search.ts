@@ -3,7 +3,7 @@
 import { requireClient, requireRole, requireStaff } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { CLIENT_PAGE_SIZE, TASK_PAGE_SIZE, TASK_STATUS_OPTIONS, TICKET_PAGE_SIZE } from '@/lib/constants'
-import { addTaskAssigneeHistory, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, STAFF_TICKET_LIST_SELECT, taskAssigneeIdsForAssignedScope, TASK_SUMMARY_SELECT, type TaskAssignerInfo, type TaskPageCursor } from '@/lib/queries'
+import { addTaskAssigneeHistory, nameMap, normalizeTaskSummaryRows, STAFF_TICKET_LIST_SELECT, TASK_SUMMARY_SELECT, type TaskAssignerInfo, type TaskPageCursor } from '@/lib/queries'
 import { parseTaskCode, parseTicketCode } from '@/lib/utils'
 import type { Client, TaskSummary, Ticket } from '@/types/database'
 
@@ -80,12 +80,7 @@ export async function searchTasks(value: string, filters: TaskSearchFilters, cur
 
   if (filters.scope === 'mine' && !isExactTaskSearch) query = query.eq('assignee_id', me.id)
   else if (filters.scope === 'assigned') {
-    const lookups = await getTaskPageLookups({ includePeople: true, includeAssignments: true })
-    const assigneeIds = taskAssigneeIdsForAssignedScope(me, lookups)
     query = query.eq('assigned_by', me.id)
-    query = assigneeIds.length
-      ? query.in('assignee_id', assigneeIds)
-      : query.eq('id', '00000000-0000-0000-0000-000000000000')
   } else if (filters.assignee) query = query.eq('assignee_id', filters.assignee)
 
   if (!filters.board && !isExactTaskSearch) {

@@ -286,9 +286,10 @@ export function TaskForm(p: TaskFormProps) {
   const clientAssignee = p.clientAssignees?.find(option => option.clientId === form.client_id)
   const canAssignClient = clientAssignee
     && (form.visibility === 'public' || p.mode === 'create')
-  const assigneeOptions = canAssignClient
-    ? [clientAssignee, ...p.assignees]
-    : p.assignees
+  const assigneeOptions = useMemo(
+    () => canAssignClient ? [clientAssignee, ...p.assignees] : p.assignees,
+    [canAssignClient, clientAssignee, p.assignees],
+  )
   const filteredAssigneeOptions = useMemo(() => {
     const query = assigneeQuery.trim().toLowerCase()
     if (!query) return assigneeOptions

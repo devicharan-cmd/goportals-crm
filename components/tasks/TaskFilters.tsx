@@ -62,7 +62,10 @@ export function TaskFilters({
     next.delete('q')
     if (value) next.set(key, value)
     else next.delete(key)
-    router.push(`${pathname}?${next.toString()}`)
+    // Filter changes are replacements, not navigations. This avoids growing
+    // browser history and lets Next keep the current shell while the filtered
+    // RSC payload is fetched.
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false })
   }
 
   const view = params.get('view') === 'list' ? 'list' : 'board'
@@ -121,7 +124,7 @@ export function TaskFilters({
     if (params.get('view')) next.set('view', params.get('view')!)
     taskSearch.setQuery('')
     setSearchInput('')
-    router.push(`${pathname}?${next.toString()}`)
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false })
   }
 
   return (
@@ -160,14 +163,14 @@ export function TaskFilters({
         next.set('due', nextDue)
         if (nextDateBy !== 'due') next.set('date_by', nextDateBy)
         else next.delete('date_by')
-        router.push(`${pathname}?${next.toString()}`)
+        router.replace(`${pathname}?${next.toString()}`, { scroll: false })
       }}
       onDateFilterClear={() => {
         const next = new URLSearchParams(params.toString())
         next.delete('q')
         next.delete('due')
         next.delete('date_by')
-        router.push(`${pathname}?${next.toString()}`)
+        router.replace(`${pathname}?${next.toString()}`, { scroll: false })
       }}
       onDueChange={value => {
         const next = new URLSearchParams(params.toString())
@@ -177,7 +180,7 @@ export function TaskFilters({
           next.delete('due')
           next.delete('date_by')
         }
-        router.push(`${pathname}?${next.toString()}`)
+        router.replace(`${pathname}?${next.toString()}`, { scroll: false })
       }}
       searchInput={searchInput}
       onSearchInput={setSearchInput}

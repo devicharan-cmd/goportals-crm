@@ -158,7 +158,7 @@ export function ClientStatusFilter({ status }: { status: ClientStatus }) {
     const nextUrl = selectedStatus
       ? `${pathname}?status=${encodeURIComponent(selectedStatus)}`
       : pathname
-    router.push(nextUrl, { scroll: false })
+    router.replace(nextUrl, { scroll: false })
   }
 
   return (

@@ -55,7 +55,7 @@ type RealtimeWorkChange = {
   nextUnassigned?: boolean
 }
 type RealtimeEvent = {
-  kind: 'tasks' | 'tickets' | 'notifications' | 'clients'
+  kind: 'tasks' | 'task_activity' | 'task_schedules' | 'ticket_activity' | 'tickets' | 'notifications' | 'clients'
   changedClientId?: string
   workChange?: RealtimeWorkChange
 }
@@ -212,7 +212,9 @@ export function AppShell({
     let active = true
     let refreshTimer: ReturnType<typeof setTimeout> | null = null
     let countsTimer: ReturnType<typeof setTimeout> | null = null
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
     let lastPageRefreshAt = 0
+    let lastFocusRefreshAt = 0
     let pageRefreshQueued = false
     const pendingCountRefreshes = new Set<'notifications' | 'urgent' | 'approvals'>()
     const changesWhileHidden: RealtimeEvent[] = []
@@ -246,7 +248,7 @@ export function AppShell({
     const schedulePageRefresh = () => {
       pageRefreshQueued = true
       if (refreshTimer) return
-      const cooldown = lastPageRefreshAt ? Math.max(0, 500 - (Date.now() - lastPageRefreshAt)) : 250
+      const cooldown = lastPageRefreshAt ? Math.max(0, 150 - (Date.now() - lastPageRefreshAt)) : 50
       refreshTimer = setTimeout(() => {
         refreshTimer = null
         if (!active || !pageRefreshQueued) return
@@ -289,6 +291,28 @@ export function AppShell({
         return
       }
       if (change?.ticketId && isMatchingDetailRoute('/tickets/', change.ticketId)) schedulePageRefresh()
+    }
+    const refreshForTaskActivityChange = () => {
+      // Activity rows are created by status/assignment triggers. Refresh the
+      // open task/detail/list immediately so the timeline and current status
+      // never wait for a manual browser reload.
+      if (routeMatches(['/dashboard', '/urgent', '/portal/tasks']) || pathnameRef.current === '/tasks'
+        || routeMatches(['/tasks/', '/tickets/', '/portal/tickets/'])) {
+        schedulePageRefresh()
+      }
+    }
+    const refreshForTaskScheduleChange = (taskId?: string) => {
+      if (routeMatches(['/dashboard', '/urgent', '/portal/tasks']) || pathnameRef.current === '/tasks'
+        || (taskId && isMatchingDetailRoute('/tasks/', taskId))
+        || routeMatches(['/tasks/'])) {
+        schedulePageRefresh()
+      }
+    }
+    const refreshForTicketActivityChange = () => {
+      if (routeMatches(['/dashboard', '/urgent', '/tickets', '/portal/tickets'])
+        || routeMatches(['/tickets/', '/portal/tickets/'])) {
+        schedulePageRefresh()
+      }
     }
     const refreshForTicketChange = (change?: RealtimeWorkChange) => {
       if (change) {
@@ -341,6 +365,9 @@ export function AppShell({
         return
       }
       if (kind === 'tasks') refreshForTaskChange(workChange)
+      else if (kind === 'task_activity') refreshForTaskActivityChange()
+      else if (kind === 'task_schedules') refreshForTaskScheduleChange(workChange?.id)
+      else if (kind === 'ticket_activity') refreshForTicketActivityChange()
       else if (kind === 'tickets') refreshForTicketChange(workChange)
       else if (kind === 'notifications') refreshForNotificationChange()
       else refreshForClientChange(changedClientId)
@@ -353,6 +380,13 @@ export function AppShell({
       )
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
+    const onFocus = () => {
+      const now = Date.now()
+      if (now - lastFocusRefreshAt < 1000) return
+      lastFocusRefreshAt = now
+      schedulePageRefresh()
+    }
+    window.addEventListener('focus', onFocus)
 
     void (async () => {
       try {
@@ -378,6 +412,21 @@ export function AppShell({
               previousUnassigned: oldTask.assignee_id === null,
               nextUnassigned: newTask.assignee_id === null,
             })
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'task_activity' }, () => {
+            handleRealtimeChange('task_activity')
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'task_schedules' }, payload => {
+            const next = payload.new as { task_id?: unknown; current_task_id?: unknown }
+            const previous = payload.old as { task_id?: unknown; current_task_id?: unknown }
+            const taskId = typeof next.current_task_id === 'string' ? next.current_task_id
+              : typeof next.task_id === 'string' ? next.task_id
+              : typeof previous.current_task_id === 'string' ? previous.current_task_id
+              : typeof previous.task_id === 'string' ? previous.task_id : undefined
+            handleRealtimeChange('task_schedules', undefined, taskId ? { id: taskId } : undefined)
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_activity' }, () => {
+            handleRealtimeChange('ticket_activity')
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, payload => {
             const newTicket = payload.new as { id?: unknown; status?: unknown; is_urgent?: unknown }
@@ -426,6 +475,11 @@ export function AppShell({
             realtimeUnavailableRef.current = true
             if (realtimeConnectedRef.current && navigator.onLine) realtimeRecoveryPendingRef.current = true
             if (shouldNotify) showErrorToast('Live updates paused. Retrying…')
+            if (reconnectTimer) clearTimeout(reconnectTimer)
+            reconnectTimer = setTimeout(() => {
+              reconnectTimer = null
+              if (active && navigator.onLine) setNetworkRevision(revision => revision + 1)
+            }, 1000)
           }
         })
         const initialCounts = new Set<'notifications' | 'urgent' | 'approvals'>(['notifications'])
@@ -446,8 +500,10 @@ export function AppShell({
       active = false
       if (refreshTimer) clearTimeout(refreshTimer)
       if (countsTimer) clearTimeout(countsTimer)
+      if (reconnectTimer) clearTimeout(reconnectTimer)
       if (channel) void supabase.removeChannel(channel)
       document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('focus', onFocus)
     }
   }, [isClient, user.id, user.role, router, networkRevision])
 

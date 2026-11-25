@@ -21,8 +21,19 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
   ])
   if (!data) notFound()
   const task = data as Task
+  // Multi-assignee copies are immutable after creation. Keep the direct edit
+  // URL from exposing a form even when someone has a bookmarked link.
+  if (task.task_group_id) {
+    redirect(`/tasks/${task.id}${searchParams.scope ? `?scope=${searchParams.scope}` : ''}`)
+  }
   const canManageTask = task.assigned_by === me.id
     || (!task.assigned_by && !task.assignee_id && task.created_by === me.id)
+  const selfAssignedTask = Boolean(task.assignee_id
+    && task.created_by === task.assignee_id
+    && task.assigned_by === task.assignee_id)
+  const canReassignTask = selfAssignedTask
+    ? task.assignee_id === me.id
+    : ['super_admin', 'manager', 'team_lead'].includes(me.role)
   if (!canManageTask) {
     redirect(`/tasks/${task.id}${searchParams.scope ? `?scope=${searchParams.scope}` : ''}`)
   }
@@ -74,6 +85,7 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
         meId={me.id}
         canMarkUrgent
         canEditAssignment={canManageTask}
+        canEditAssignee={canReassignTask}
         clients={clients}
         clientImageUrlByPath={clientImageUrlByPath}
         assignees={assignees}

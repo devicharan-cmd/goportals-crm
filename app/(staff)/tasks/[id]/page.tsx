@@ -143,6 +143,12 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const createdByMe = task.created_by === me.id
   const canManageTask = !isFormerAssignee && (task.assigned_by === me.id
     || (!task.assigned_by && !task.assignee_id && createdByMe))
+  const selfAssignedTask = Boolean(task.assignee_id
+    && task.created_by === task.assignee_id
+    && task.assigned_by === task.assignee_id)
+  const canReassignTask = !task.task_group_id && !isFormerAssignee && (selfAssignedTask
+    ? task.assignee_id === me.id
+    : ['super_admin', 'manager', 'team_lead'].includes(me.role))
   const canEditChecklist = !isFormerAssignee && (canManageTask || task.assignee_id === me.id)
   const tasksHref = scopedTasksContext ? `/tasks?scope=${searchParams.scope}` : '/tasks'
   const isCurrentScheduleTask = Boolean(taskSchedule && taskSchedule.current_task_id === task.id)
@@ -205,7 +211,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               ? 'Task deleted and schedule stopped'
               : undefined}
           />}
-          {canManageTask && <AssignButton
+          {canReassignTask && <AssignButton
             taskId={task.id}
             currentId={task.assignee_id}
             options={assignees}
@@ -216,7 +222,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               ? ticketCode(task.ticket.ticket_number)
               : task.ticket_id ? null : 'Standalone task'}
           />}
-          {canManageTask && (
+          {canManageTask && !task.task_group_id && (
             <TaskEditModal
               task={task}
               schedule={taskSchedule}
@@ -224,6 +230,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               meId={me.id}
               canMarkUrgent
               canEditAssignment={canManageTask}
+              canEditAssignee={canReassignTask}
               clients={editClients}
               clientImageUrlByPath={editClientImageUrlByPath}
               assignees={editAssignees}
@@ -352,6 +359,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               } : null}
               assignedAt={task.assigned_at}
               canChangeStatus={task.assignee_id === me.id || task.assigned_by === me.id}
+              canRequestChanges={Boolean(task.task_group_id && (task.assignee_sequence ?? 1) > 1 && task.assignee_id === me.id && !isFormerAssignee)}
               canEditPriority={canManageTask}
               canEditUrgent={canManageTask}
             />

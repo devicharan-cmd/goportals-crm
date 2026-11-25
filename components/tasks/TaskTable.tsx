@@ -7,7 +7,7 @@ import { AssignButton } from '@/components/tasks/AssignButton'
 import { MarketplacePlatformLabel } from '@/components/shared/Marketplace'
 import { ROLE_LABELS, TASK_STATUS_DOT, TASK_STATUS_LABELS, TASK_STATUS_STYLES, TASK_TERMINAL_STATUSES } from '@/lib/constants'
 import type { AssigneeOption, TaskAssignerInfo } from '@/lib/queries'
-import type { TaskSummary } from '@/types/database'
+import type { AppRole, TaskSummary } from '@/types/database'
 
 function TaskDueDisplay({ task, className, rowAligned = false }: { task: TaskSummary; className?: string; rowAligned?: boolean }) {
   const isOverdue = dueState(task.due_date, task.status, new Date(), task.due_at) === 'overdue'
@@ -28,7 +28,8 @@ function TaskDueDisplay({ task, className, rowAligned = false }: { task: TaskSum
 
 export function TaskTable({
   tasks, names, hrefBase = '/tasks', showClient = true, showAssignee = true, showAssignedBy = false,
-  taskAssigners = {}, empty, assignOptions, scope, assigneeAvatarUrls: suppliedAssigneeAvatarUrls = {},
+  taskAssigners = {}, empty, assignOptions, scope, editableTaskActorId, editableTaskRole,
+  assigneeAvatarUrls: suppliedAssigneeAvatarUrls = {},
 }: {
   tasks: TaskSummary[]
   names: Record<string, string>
@@ -40,8 +41,10 @@ export function TaskTable({
   assigneeAvatarUrls?: Record<string, string | null | undefined>
   taskAssigners?: Record<string, TaskAssignerInfo>
   empty?: { title: string; description?: string; action?: React.ReactNode }
-  /** When set, each row gets a "Change" link to reassign (managers / super admins). */
+  /** When set, each row gets a reassignment control according to task ownership/role rules. */
   assignOptions?: AssigneeOption[]
+  editableTaskActorId?: string
+  editableTaskRole?: AppRole
 }) {
   const taskHref = (taskId: string) =>
     `${hrefBase}/${taskId}${scope ? `?scope=${scope}` : ''}`
@@ -66,7 +69,18 @@ export function TaskTable({
   const ticketLabel = (task: TaskSummary) => task.ticket_id
     ? 'Under ticket'
     : task.ticket_id === null ? 'Standalone task' : '—'
-  const showReassignColumn = showAssignedBy && showAssignee && Boolean(assignOptions)
+  const canReassignTask = (task: TaskSummary) => {
+    if (!assignOptions || task.task_group_id || TASK_TERMINAL_STATUSES.includes(task.status)) return false
+    const selfAssigned = Boolean(task.assignee_id
+      && task.created_by
+      && task.assigned_by
+      && task.created_by === task.assignee_id
+      && task.assigned_by === task.assignee_id)
+    return selfAssigned
+      ? task.assignee_id === editableTaskActorId
+      : editableTaskRole !== 'employee'
+  }
+  const showReassignColumn = showAssignedBy && showAssignee && Boolean(assignOptions) && editableTaskRole !== 'employee'
   const assignedByColumnWidths = [
     8,
     22,
@@ -202,9 +216,9 @@ export function TaskTable({
                             <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span>
                             {assigneeRoles[t.assignee_id] && <span className="truncate text-xs leading-4 text-slate-400">{assigneeRoles[t.assignee_id]}</span>}
                           </span>
-                          {assignOptions && !TASK_TERMINAL_STATUSES.includes(t.status) && (
+                          {canReassignTask(t) && (
                             <span className="shrink-0">
-                          <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={ticketLabel(t)} compact />
+                          <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={ticketLabel(t)} compact />
                             </span>
                           )}
                         </span>
@@ -216,7 +230,7 @@ export function TaskTable({
               <td className={showAssignedBy ? 'px-2 py-3 text-center' : 'px-3 py-3 text-center'}><TaskDueDisplay task={t} rowAligned /></td>
               {showReassignColumn && (
                 <td className="px-2 py-3 text-center">
-                  {!TASK_TERMINAL_STATUSES.includes(t.status) && (
+                  {canReassignTask(t) && (
                     <span className="flex justify-center">
                       <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={ticketLabel(t)} compact />
                     </span>
@@ -257,9 +271,9 @@ export function TaskTable({
                   {t.assignee_id
                     ? <><Avatar name={assigneeNames[t.assignee_id]} src={assigneeAvatarUrls[t.assignee_id]} role={assigneeAvatarRoles[t.assignee_id]} size="xs" className="mt-0.5" /> <span className="truncate">{assigneeNames[t.assignee_id] ?? '—'}</span></>
                     : <span className="italic text-slate-400">Unassigned</span>}
-                  {assignOptions && !showReassignColumn && !TASK_TERMINAL_STATUSES.includes(t.status) && (
+                  {canReassignTask(t) && !showReassignColumn && (
                     <span className="shrink-0">
-                      <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={ticketLabel(t)} compact />
+                      <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={ticketLabel(t)} compact />
                     </span>
                   )}
                   </span>
@@ -287,7 +301,7 @@ export function TaskTable({
                 </span>
               </div>
             )}
-            {showReassignColumn && !TASK_TERMINAL_STATUSES.includes(t.status) && (
+            {showReassignColumn && canReassignTask(t) && (
               <div className="flex justify-end px-4 pb-3 min-[560px]:col-span-2">
                 <AssignButton taskId={t.id} currentId={t.assignee_id} options={assignOptions!} clientId={t.client_id ?? null} allowClientAssignee={t.visibility === 'public'} taskVisibility={t.visibility} ticketLabel={ticketLabel(t)} compact />
               </div>

@@ -136,8 +136,10 @@ export type TaskFormProps = {
   defaultClientId?: string
   defaultAssigneeId?: string
   canMarkUrgent: boolean
-  /** false when an employee is editing a task that's already assigned — only managers can then change assignee/due date. */
+  /** Controls deadline/assignment metadata edits for the task actor. */
   canEditAssignment?: boolean
+  /** Separate assignee permission for task owners who may edit other fields but cannot reassign. */
+  canEditAssignee?: boolean
   clients: { id: string; company_name: string; company_profile_image_path?: string | null }[]
   clientImageUrlByPath?: Record<string, string>
   assignees: Option[]
@@ -208,6 +210,7 @@ export function TaskForm(p: TaskFormProps) {
     assignee_id:     t?.assignee_id
                      ?? (p.defaultAssigneeId && p.assignees.some(a => a.id === p.defaultAssigneeId) ? p.defaultAssigneeId : null)
                      ?? (p.mode === 'create' && p.assignees.length === 1 ? p.meId : ''),
+    assignee_ids:    t?.assignee_id ? [t.assignee_id] : (p.defaultAssigneeId ? [p.defaultAssigneeId] : (p.mode === 'create' && p.assignees.length === 1 ? [p.meId] : [])),
     ticket_id:       t?.ticket_id ?? (p.mode === 'edit' ? STANDALONE_TICKET_OPTION : ''),
     due_date:        t?.due_date ?? '',
     deadline_type:   (t?.deadline_type ?? '') as DeadlineType | '',
@@ -268,6 +271,8 @@ export function TaskForm(p: TaskFormProps) {
   }, [p.schedule])
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm(f => ({ ...f, [k]: v }))
   const canEditAssignment = p.canEditAssignment ?? true
+  const canEditAssignee = p.canEditAssignee ?? canEditAssignment
+  const multiAssigneeCreate = p.mode === 'create'
   const deadlineRequired = p.mode === 'create' || canEditAssignment
   const scheduleOwnsDeadline = p.mode === 'edit' && Boolean(p.schedule)
   const ticketLinked = Boolean(form.ticket_id) && form.ticket_id !== STANDALONE_TICKET_OPTION
@@ -448,7 +453,7 @@ export function TaskForm(p: TaskFormProps) {
       client_id: clientId,
       ticket_id: ticketLinked ? '' : f.ticket_id,
       ...(p.clientAssignees?.some(option => option.id === f.assignee_id && (ticketLinked || option.clientId !== clientId))
-        ? { assignee_id: '' }
+        ? { assignee_id: '', assignee_ids: [] }
         : {}),
     }))
   }
@@ -478,13 +483,15 @@ export function TaskForm(p: TaskFormProps) {
 
   function pickAssignee(assigneeId: string) {
     const clientAssigned = p.clientAssignees?.some(option => option.id === assigneeId) ?? false
-    setForm(f => ({
-      ...f,
-      assignee_id: assigneeId,
-      ...(clientAssigned ? { visibility: 'public' as const } : {}),
-    }))
+    setForm(f => {
+      if (!multiAssigneeCreate) return { ...f, assignee_id: assigneeId, assignee_ids: [assigneeId], ...(clientAssigned ? { visibility: 'public' as const } : {}) }
+      const selected = f.assignee_ids.includes(assigneeId)
+        ? f.assignee_ids.filter(id => id !== assigneeId)
+        : [...f.assignee_ids, assigneeId]
+      return { ...f, assignee_id: selected[0] ?? '', assignee_ids: selected, ...(clientAssigned ? { visibility: 'public' as const } : {}) }
+    })
     setAssigneeError('')
-    setAssigneeOpen(false)
+    if (!multiAssigneeCreate) setAssigneeOpen(false)
   }
 
   function pickService(id: string) {
@@ -530,8 +537,8 @@ export function TaskForm(p: TaskFormProps) {
     setTitleError(titleMissing ? 'Enter a task title.' : '')
     setDescriptionError(descriptionMissing ? 'Enter a task description.' : '')
     setPriorityError(priorityMissing ? 'Select a priority.' : '')
-    const assigneeMissing = p.mode === 'create' && !form.assignee_id
-    setAssigneeError(assigneeMissing ? 'Please select an assignee before creating the task.' : '')
+    const assigneeMissing = p.mode === 'create' && form.assignee_ids.length === 0
+    setAssigneeError(assigneeMissing ? 'Please select at least one assignee before creating the task.' : '')
     const ticketMissing = !form.ticket_id
     setTicketError(ticketMissing ? 'Select a ticket or choose No ticket (standalone).' : '')
     const visibilityMissing = p.mode === 'create' && !form.visibility
@@ -567,6 +574,11 @@ export function TaskForm(p: TaskFormProps) {
     setSaving(true)
     setError('')
 
+    if (multiAssigneeCreate && scheduleEnabled && form.assignee_ids.length > 1) {
+      setError('Scheduled tasks currently support one assignee only.')
+      setSaving(false)
+      return
+    }
     const payload = {
       title:           form.title.trim(),
       description:     form.description.trim() || null,
@@ -587,9 +599,10 @@ export function TaskForm(p: TaskFormProps) {
     }
 
     const supabase = createClient()
-    const taskId = p.mode === 'create' ? crypto.randomUUID() : undefined
+    const taskId = p.mode === 'create' && form.assignee_ids.length < 2 ? crypto.randomUUID() : undefined
     let scheduleId: string | null = null
     let savedTaskId: string
+    let savedTaskIds: string[] = []
     if (scheduledCreate) {
       const { data: createdSchedule, error: scheduleError } = await supabase.rpc('create_task_schedule', {
         p_task_id: taskId,
@@ -607,13 +620,28 @@ export function TaskForm(p: TaskFormProps) {
       scheduleId = createdSchedule as string
       savedTaskId = taskId!
     } else if (p.mode === 'create') {
-      const { error } = await supabase.from('tasks').insert({ ...payload, id: taskId })
-      if (error) {
-        setError(errorMessage(error))
-        setSaving(false)
-        return
+      if (form.assignee_ids.length > 1) {
+        const { data, error } = await supabase.rpc('create_task_with_assignees', {
+          p_task_payload: payload,
+          p_assignee_ids: form.assignee_ids,
+        })
+        if (error || !data?.length) {
+          setError(errorMessage(error ?? new Error('Could not create the multi-assignee task.')))
+          setSaving(false)
+          return
+        }
+        savedTaskIds = (data as { task_id: string }[]).map(row => row.task_id)
+        savedTaskId = savedTaskIds[0]
+      } else {
+        const { error } = await supabase.from('tasks').insert({ ...payload, id: taskId })
+        if (error) {
+          setError(errorMessage(error))
+          setSaving(false)
+          return
+        }
+        savedTaskId = taskId!
+        savedTaskIds = [savedTaskId]
       }
-      savedTaskId = taskId!
     } else {
       const { data, error } = await supabase.from('tasks').update(payload).eq('id', t!.id).select('id').single()
       if (error || !data) {
@@ -622,6 +650,7 @@ export function TaskForm(p: TaskFormProps) {
         return
       }
       savedTaskId = data.id
+      savedTaskIds = [savedTaskId]
       if (scheduledEdit) {
         const { error: scheduleError } = await supabase.rpc('update_task_schedule', {
           p_task_id: data.id,
@@ -641,9 +670,11 @@ export function TaskForm(p: TaskFormProps) {
     if (files.length > 0) {
       let uploadedCount = 0
       const uploadedPaths: string[] = []
-      for (const file of files) {
+      const targetTaskIds = scheduledCreate ? [savedTaskId] : savedTaskIds
+      for (const targetTaskId of targetTaskIds) {
+       for (const file of files) {
         const safeName = file.name.replace(/[\\/]/g, '_')
-        const path = `${savedTaskId}/${crypto.randomUUID()}-${safeName}`
+        const path = `${targetTaskId}/${crypto.randomUUID()}-${safeName}`
         const { error: storageError } = await supabase.storage.from('task-files').upload(path, file)
         if (storageError) {
           if (scheduledCreate) {
@@ -666,7 +697,7 @@ export function TaskForm(p: TaskFormProps) {
               size_bytes: file.size,
             })
           : await supabase.from('task_attachments').insert({
-              task_id: savedTaskId,
+              task_id: targetTaskId,
               uploaded_by: p.meId,
               storage_path: path,
               file_name: file.name,
@@ -687,6 +718,7 @@ export function TaskForm(p: TaskFormProps) {
           return
         }
         uploadedCount += 1
+       }
       }
     }
     if (p.onSaved) {
@@ -895,25 +927,25 @@ export function TaskForm(p: TaskFormProps) {
 
       <TaskFieldsGrid columns="three" modal={!!p.modalLayout}>
         <Field label="Assignee" required={p.mode === 'create'}
-               hint={!canEditAssignment ? 'Only managers can change the assignee.' : assigneeOptions.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
+               hint={!canEditAssignee ? 'You cannot change the assignee for this task.' : assigneeOptions.length === 1 ? 'You can assign tasks to yourself.' : undefined}>
           <div className="relative" data-assignee-picker>
             <button id={assigneeSelectId} type="button" role="combobox" aria-label="Assignee" aria-controls={`${assigneeSelectId}-options`} className={cn(
               'form-field flex w-full items-center justify-between text-left',
               p.modalLayout && 'h-9 rounded-xl text-sm',
               assigneeError && 'border-red-400 bg-red-50/40 focus:border-red-500',
             )}
-                    disabled={!canEditAssignment} aria-haspopup="listbox" aria-expanded={assigneeOpen}
+                    disabled={!canEditAssignee} aria-haspopup="listbox" aria-expanded={assigneeOpen}
                     aria-required={p.mode === 'create'} aria-invalid={!!assigneeError}
                     onClick={() => setAssigneeOpen(open => {
                       if (open) setAssigneeQuery('')
                       return !open
                     })}>
               <span className="flex min-w-0 items-center gap-2">
-                {form.assignee_id
-                  ? (() => {
-              const selected = assigneeOptions.find(a => a.id === form.assignee_id)
-              return selected ? <><span className="relative h-5 w-5 shrink-0"><Avatar name={selected.name} src={selected.avatarUrl} role={selected.avatarRole} size="xs" className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 text-xs" /></span><span className="truncate">{selected.name}{selected.id === p.meId ? ' (me)' : ''}</span></> : 'Select assignee…'
-                    })()
+                {form.assignee_ids.length
+                  ? <span className="truncate">{form.assignee_ids.map((id, index) => {
+                      const selected = assigneeOptions.find(a => a.id === id)
+                      return selected ? `${index + 1}. ${selected.name}${selected.id === p.meId ? ' (me)' : ''}` : null
+                    }).filter(Boolean).join(', ')}</span>
                   : 'Select assignee…'}
               </span>
               <ChevronDown aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
@@ -934,7 +966,8 @@ export function TaskForm(p: TaskFormProps) {
                 </div>
                 <div id={`${assigneeSelectId}-options`} role="listbox" aria-label="Assigned to" className="max-h-64 space-y-1 overflow-y-auto">
                   {filteredAssigneeOptions.map(a => {
-                    const selected = form.assignee_id === a.id
+                    const selected = form.assignee_ids.includes(a.id)
+                    const selectionNumber = form.assignee_ids.indexOf(a.id)
                     return (
                       <button key={a.id} type="button" role="option" aria-selected={selected}
                               onClick={() => pickAssignee(a.id)}
@@ -946,7 +979,7 @@ export function TaskForm(p: TaskFormProps) {
                           roleLabel={a.role}
                           isMe={a.id === p.meId}
                         />
-                        {selected && <Check aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-[#045E80]" />}
+                        {selected && <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#045E80] px-1 text-[11px] font-bold text-white">{selectionNumber + 1}</span>}
                       </button>
                     )
                   })}

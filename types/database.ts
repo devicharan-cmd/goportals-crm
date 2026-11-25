@@ -221,6 +221,8 @@ export interface Task {
   assigned_by: string | null
   assigned_at: string | null
   parent_task_id: string | null
+  task_group_id: string | null
+  assignee_sequence: number | null
   ticket_id: string | null
   closed_at: string | null
   created_at: string
@@ -254,6 +256,9 @@ export interface TaskSummary {
   closed_at: string | null
   assignee_id: string | null
   assigned_by: string | null
+  created_by: string | null
+  task_group_id?: string | null
+  assignee_sequence?: number | null
   assignee_history?: TaskAssigneeHistoryItem[]
   client: { company_name: string } | null
   platform: { name: string } | null

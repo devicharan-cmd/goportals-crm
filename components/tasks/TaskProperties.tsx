@@ -8,6 +8,7 @@ import { formatDate, formatDateTime } from '@/lib/utils'
 import type { AssigneeOption } from '@/components/tasks/AssignButton'
 import { TaskStatusSelect } from '@/components/tasks/TaskStatusSelect'
 import { TaskPrioritySelect, TaskUrgentToggle } from '@/components/tasks/TaskPropertyControls'
+import { InternalChangeRequestButton } from '@/components/tasks/InternalChangeRequestButton'
 import type { AppRole, Task, TaskStatus } from '@/types/database'
 
 /** Task properties and permitted inline controls shown in the task detail sidebar. */
@@ -15,6 +16,7 @@ export function TaskProperties({
   task, ticketLabel, assignees, assigneeName, assignedBy, assignedAt,
   canChangeStatus = false,
   canEditPriority = false, canEditUrgent = false,
+  canRequestChanges = false,
 }: {
   task: Task
   ticketLabel?: string | null
@@ -25,6 +27,7 @@ export function TaskProperties({
   canChangeStatus?: boolean
   canEditPriority?: boolean
   canEditUrgent?: boolean
+  canRequestChanges?: boolean
 }) {
   const [statusWarning, setStatusWarning] = useState('')
   const row = 'grid grid-cols-[100px_1fr] items-center gap-3'
@@ -64,6 +67,8 @@ export function TaskProperties({
             />
           : <span className={value}>{TASK_STATUS_LABELS[task.status]}</span>}
       </div>
+
+      {canRequestChanges && <InternalChangeRequestButton taskId={task.id} />}
 
       <div className={row}>
         <span className={label}>Priority</span>

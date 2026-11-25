@@ -15,6 +15,7 @@ export function TaskEditModal({
   meId,
   canMarkUrgent,
   canEditAssignment,
+  canEditAssignee,
   clients,
   clientImageUrlByPath,
   assignees,
@@ -29,6 +30,7 @@ export function TaskEditModal({
   meId: string
   canMarkUrgent: boolean
   canEditAssignment: boolean
+  canEditAssignee?: boolean
   clients: TaskFormProps['clients']
   clientImageUrlByPath?: TaskFormProps['clientImageUrlByPath']
   assignees: TaskFormProps['assignees']
@@ -65,6 +67,7 @@ export function TaskEditModal({
           meId={meId}
           canMarkUrgent={canMarkUrgent}
           canEditAssignment={canEditAssignment}
+          canEditAssignee={canEditAssignee}
           clients={clients}
           clientImageUrlByPath={clientImageUrlByPath}
           assignees={assignees}

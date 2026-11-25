@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeFilterPeopleFor, getAssignedTaskAssigneeIds, getTaskPageBootstrap, nameMap, normalizeTaskSummaryRows, profileIdsInReportingHierarchy, taskAssigneeIdsForAssignedScope, taskAssigneeOptionsFor, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
+import { assigneeFilterPeopleFor, getTaskPageBootstrap, nameMap, normalizeTaskSummaryRows, taskAssigneeOptionsFor, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
 import { TASK_PAGE_SIZE } from '@/lib/constants'
 import { ButtonLink } from '@/components/ui/button'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
@@ -27,7 +27,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
   const status = searchParams.status ?? 'all'
   const bootstrapPromise = getTaskPageBootstrap()
 
-  function taskQuery(assignedScopeAssigneeIds: string[]) {
+  function taskQuery() {
     let query = supabase.from('tasks').select(TASK_SUMMARY_SELECT)
       .order('is_urgent', { ascending: false })
       .order('due_date', { ascending: true, nullsFirst: false })
@@ -39,9 +39,6 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       query = query.eq('assignee_id', me.id)
     } else if (scope === 'assigned') {
       query = query.eq('assigned_by', me.id)
-      query = assignedScopeAssigneeIds.length
-        ? query.in('assignee_id', assignedScopeAssigneeIds)
-        : query.eq('id', '00000000-0000-0000-0000-000000000000')
     } else if (searchParams.assignee) query = query.eq('assignee_id', searchParams.assignee)
     if (scope === 'all' && searchParams.assigned_by) query = query.eq('assigned_by', searchParams.assigned_by)
 
@@ -67,16 +64,8 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     return query
   }
 
-  // Reuse the profiles/membership data already needed by the filters. The
-  // previous assigned scope path fetched all profiles a second time.
-  const assignedScopeIdsPromise = scope === 'assigned'
-    ? getAssignedTaskAssigneeIds()
-    : Promise.resolve([] as string[])
-  const taskResultPromise = scope === 'assigned'
-    ? assignedScopeIdsPromise.then(ids => ids
-      ? taskQuery(ids)
-      : bootstrapPromise.then(({ lookups }) => taskQuery(taskAssigneeIdsForAssignedScope(me, lookups))))
-    : taskQuery([])
+  // Start the task query alongside the independent lookup/count requests.
+  const taskResultPromise = taskQuery()
   const [bootstrap, taskResult] = await Promise.all([
     bootstrapPromise,
     taskResultPromise,

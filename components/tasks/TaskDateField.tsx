@@ -59,8 +59,8 @@ export function TaskDateField({ value, onChange, disabled = false, readOnly = fa
                 refs[index + 1].current?.focus()
               }
             }}
-            className="min-w-0 flex-none border-0 bg-transparent p-0 text-xs text-slate-700 outline-none placeholder:text-slate-400"
-            style={{ width: index === 2 ? '2.25rem' : '1.15rem' }}
+            className="min-w-0 flex-none border-0 bg-transparent p-0 text-center text-xs text-slate-700 outline-none placeholder:text-slate-400"
+            style={{ width: index === 2 ? '2.25rem' : index === 1 ? '1.35rem' : '1.2rem' }}
           />
           {index < 2 && <span aria-hidden="true" className="text-slate-700">/</span>}
         </span>

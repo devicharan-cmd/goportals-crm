@@ -44,7 +44,9 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     supabase.from('task_activity').select('*').eq('task_id', taskId).order('created_at', { ascending: false }),
     supabase.from('time_logs').select('*').eq('task_id', taskId).order('logged_date', { ascending: false }),
     supabase.from('task_checklist_items').select('*').eq('task_id', taskId).order('sort_order'),
-    getStaffLookups(),
+    // The detail page does not render the public staff directory. Skipping
+    // that RPC removes an otherwise unrelated database round trip.
+    getStaffLookups({ includeDirectory: false }),
     supabase.from('task_attachments')
       .select('id, comment_id, uploaded_by, storage_path, file_name, mime_type, size_bytes')
       .eq('task_id', taskId),
@@ -70,9 +72,13 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const schedulePromise = scheduleLookup.maybeSingle()
   const clientImagePath = task.client?.company_profile_image_path
   const editClients = lookups.clients
-  const clientsForImages = clientImagePath && !editClients.some(client => client.company_profile_image_path === clientImagePath)
-    ? [...editClients, { company_profile_image_path: clientImagePath }]
-    : editClients
+  // Only the current task client is needed for the first paint. Signing every
+  // client image here made every task detail page wait on a large batch of
+  // storage requests, even when the task had no attachments. The edit form
+  // already signs any remaining client images on the client when it is used.
+  const clientsForImages = clientImagePath
+    ? [{ company_profile_image_path: clientImagePath }]
+    : []
   const attachmentUrlsPromise = taskAttachments?.length
     ? Promise.all([
         supabase.storage.from('task-files').createSignedUrls(taskAttachments.map(file => file.storage_path), 3600),
@@ -135,7 +141,6 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
   const canClaim = !isFormerAssignee && task.is_urgent && !task.assignee_id && !TASK_TERMINAL_STATUSES.includes(task.status)
   const scopedTasksContext = searchParams.scope === 'mine' || searchParams.scope === 'assigned' || searchParams.scope === 'all'
   const createdByMe = task.created_by === me.id
-  const selfCreatedAndAssigned = createdByMe && task.assignee_id === me.id
   const canManageTask = !isFormerAssignee && (task.assigned_by === me.id
     || (!task.assigned_by && !task.assignee_id && createdByMe))
   const canEditChecklist = !isFormerAssignee && (canManageTask || task.assignee_id === me.id)
@@ -200,7 +205,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               ? 'Task deleted and schedule stopped'
               : undefined}
           />}
-          {canManageTask && (me.role !== 'employee' || selfCreatedAndAssigned) && <AssignButton
+          {canManageTask && <AssignButton
             taskId={task.id}
             currentId={task.assignee_id}
             options={assignees}
@@ -218,7 +223,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               canManageSchedule={scheduleCanManage}
               meId={me.id}
               canMarkUrgent
-               canEditAssignment={me.role !== 'employee' || selfCreatedAndAssigned}
+              canEditAssignment={canManageTask}
               clients={editClients}
               clientImageUrlByPath={editClientImageUrlByPath}
               assignees={editAssignees}

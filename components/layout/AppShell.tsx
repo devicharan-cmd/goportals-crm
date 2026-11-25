@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import {
   ChevronLeft, ChevronRight, Loader2, Menu, User, WifiOff, X,
 } from 'lucide-react'
@@ -26,13 +27,17 @@ import { IoLogOutOutline as SignOutIcon, IoSettingsOutline as Settings } from 'r
 import { createClient } from '@/lib/supabase/client'
 import { Logo } from '@/components/layout/Logo'
 import { Avatar, CompanyAvatar } from '@/components/ui/primitives'
-import { TaskAssignmentAlert } from '@/components/shared/TaskAssignmentAlert'
-import { NotificationDrawer } from '@/components/shared/NotificationDrawer'
 import { NotificationIcon as SprigNotificationIcon } from '@/components/shared/NotificationIcon'
 import { ROLE_LABELS } from '@/lib/constants'
 import { cn, errorMessage } from '@/lib/utils'
 import { showErrorToast, showSuccessToast } from '@/lib/ui-toast'
 import type { AppRole } from '@/types/database'
+
+// These features are not needed to paint the shell or page content. Keep them
+// out of the critical shell bundle; the drawer is loaded on demand and the
+// assignment alert hydrates immediately after the first paint.
+const NotificationDrawer = dynamic(() => import('@/components/shared/NotificationDrawer').then(module => module.NotificationDrawer), { ssr: false })
+const TaskAssignmentAlert = dynamic(() => import('@/components/shared/TaskAssignmentAlert').then(module => module.TaskAssignmentAlert), { ssr: false })
 
 type NavItem = { href: string; label: string; icon: React.ElementType; roles?: AppRole[]; badge?: 'urgent' | 'approvals' }
 type NavGroup = { label?: string; items: NavItem[] }

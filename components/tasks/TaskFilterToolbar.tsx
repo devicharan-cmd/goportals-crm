@@ -355,7 +355,7 @@ export function TaskFilterToolbar({
                     <CalendarDays aria-hidden="true" className="h-5 w-5 text-[#045E80]" />
                   </div>
                   <div className="space-y-3">
-                    <label className="block text-xs font-semibold text-slate-600">
+                    <label className="form-field-label !text-xs">
                       Date type
                       <span className={cn('relative mt-1.5 block rounded-lg bg-[#FDFDFA]', (!draftRange || draftRange !== 'custom') && 'bg-[#F6F7F3]')}>
                         <button type="button" aria-haspopup="listbox" aria-expanded={dateTypeOpen} onClick={() => setDateTypeOpen(open => !open)} className="form-field flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left text-xs font-normal">
@@ -380,7 +380,7 @@ export function TaskFilterToolbar({
                       </span>
                     </label>
                     <fieldset>
-                      <legend className="text-xs font-semibold text-slate-600">Select date range</legend>
+                      <legend className="form-field-label !mb-0 !text-xs">Select date range</legend>
                       <div className="mt-1.5 grid grid-cols-4 gap-2 max-sm:grid-cols-2">
                         {[
                           { value: 'today', label: 'Today' },
@@ -411,7 +411,7 @@ export function TaskFilterToolbar({
                         ))}
                       </div>
                     </fieldset>
-                    <label className="block text-xs font-semibold text-slate-600">
+                    <label className="form-field-label !text-xs">
                       Date
                       <TaskDateField
                         value={draftDate}

@@ -11,13 +11,13 @@ import { TASK_STATUS_OPTIONS } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/client'
 import { cn, errorMessage } from '@/lib/utils'
 import { TaskResultsSkeleton } from '@/components/tasks/TaskPageSkeleton'
+import { TaskTable } from '@/components/tasks/TaskTable'
 import type { AssigneeOption, TaskAssignerInfo, TaskPageCursor } from '@/lib/queries'
 import type { TaskStatus, TaskSummary } from '@/types/database'
 
 // Drag-and-drop is useful only after work exists. Keeping it out of the
 // initial task-search bundle avoids parsing dnd-kit for an empty board.
 const TaskBoard = dynamic(() => import('@/components/tasks/TaskBoard').then(module => module.TaskBoard))
-const TaskTable = dynamic(() => import('@/components/tasks/TaskTable').then(module => module.TaskTable))
 
 type TaskSearchContextValue = {
   tasks: TaskSummary[]

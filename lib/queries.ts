@@ -241,48 +241,21 @@ export type TaskPageBootstrap = {
 /** Lookups and scope counts in one request for the initial task page render. */
 export async function getTaskPageBootstrap(): Promise<TaskPageBootstrap> {
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc('staff_task_page_bootstrap', {
-    p_include_people: true,
-    p_include_assignments: true,
-  })
-  if (error) {
-    // Keep the page compatible while migration 208 is being applied manually.
-    const [lookups, countsResult] = await Promise.all([
-      getTaskPageLookups({ includePeople: true, includeAssignments: true }),
-      supabase.rpc('staff_task_scope_counts'),
-    ])
-    if (countsResult.error) throw error
-    const counts = countsResult.data?.[0]
-    return {
-      lookups,
-      counts: {
-        mine_active_count: Number(counts?.mine_active_count ?? 0),
-        assigned_by_me_count: Number(counts?.assigned_by_me_count ?? 0),
-        all_visible_count: Number(counts?.all_visible_count ?? 0),
-      },
-    }
-  }
-  const payload = (data ?? {}) as {
-    lookups?: { people?: Person[]; clients?: ClientOption[]; departments?: Department[]; department_members?: DepartmentMember[] }
-    counts?: { mine_active_count?: number; assigned_by_me_count?: number; all_visible_count?: number }
-  }
-  const lookupPayload = payload.lookups ?? {}
-  const all = sortPeopleByRoleAndJoiningDate(lookupPayload.people ?? [])
+  // Keep the independent database work concurrent. The combined bootstrap RPC
+  // nests both operations in one SQL statement, which makes the lookup JSON
+  // build wait for the full scope-count scan before returning anything.
+  const [lookups, countsResult] = await Promise.all([
+    getTaskPageLookups({ includePeople: true, includeAssignments: true }),
+    supabase.rpc('staff_task_scope_counts'),
+  ])
+  if (countsResult.error) throw countsResult.error
+  const counts = countsResult.data?.[0]
   return {
-    lookups: {
-      people: all,
-      staff: all.filter(person => person.role !== 'client' && person.status === 'active'),
-      directoryStaff: [],
-      clients: lookupPayload.clients ?? [],
-      departments: lookupPayload.departments ?? [],
-      platforms: [],
-      services: [],
-      departmentMembers: lookupPayload.department_members ?? [],
-    },
+    lookups,
     counts: {
-      mine_active_count: Number(payload.counts?.mine_active_count ?? 0),
-      assigned_by_me_count: Number(payload.counts?.assigned_by_me_count ?? 0),
-      all_visible_count: Number(payload.counts?.all_visible_count ?? 0),
+      mine_active_count: Number(counts?.mine_active_count ?? 0),
+      assigned_by_me_count: Number(counts?.assigned_by_me_count ?? 0),
+      all_visible_count: Number(counts?.all_visible_count ?? 0),
     },
   }
 }

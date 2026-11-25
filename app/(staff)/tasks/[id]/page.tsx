@@ -24,7 +24,7 @@ import { TaskScheduleControl } from '@/components/tasks/TaskScheduleControl'
 import { FileAttachmentDownload } from '@/components/shared/FileAttachmentDownload'
 import { TYPE_LABELS } from '@/lib/constants'
 import { dueState, formatDate, formatDateTime, formatIndiaDateTime, formatRelative, formatTime, taskCode, ticketCode } from '@/lib/utils'
-import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TimeLog } from '@/types/database'
+import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TaskStatus, TimeLog } from '@/types/database'
 
 export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
   const params = await props.params
@@ -65,6 +65,15 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     service: { id: string; name: string } | null
     ticket: { id: string; ticket_number: number; subject: string } | null
   }
+  const { data: groupedTaskRows, error: groupedTaskRowsError } = task.task_group_id
+    ? await supabase.from('tasks').select('id, assignee_id, assignee_sequence, status').eq('task_group_id', task.task_group_id).order('assignee_sequence')
+    : { data: [], error: null }
+  if (groupedTaskRowsError) throw new Error(groupedTaskRowsError.message)
+  const { data: workflowActivity, error: workflowActivityError } = task.task_group_id && (groupedTaskRows ?? []).length > 1
+    ? await supabase.from('task_activity').select('*').in('task_id', (groupedTaskRows ?? []).map(row => row.id)).order('created_at', { ascending: false })
+    : { data: null, error: null }
+  if (workflowActivityError) throw new Error(workflowActivityError.message)
+  const activityForWorkflow = (workflowActivity ?? activity) as TaskActivity[]
   const scheduleLookup = task.schedule_id
     ? supabase.from('task_schedules').select('id, created_by, enabled, repeat_type, interval_days, start_date, schedule_time, created_at, current_task_id').eq('id', task.schedule_id)
     : supabase.from('task_schedules').select('id, created_by, enabled, repeat_type, interval_days, start_date, schedule_time, created_at, current_task_id').eq('task_id', task.id)
@@ -128,6 +137,12 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     ...Object.fromEntries(lookups.people.map(person => [person.id, person.avatar_url])),
     ...Object.fromEntries(assigneeHistory.map(assignee => [assignee.profile_id, assignee.avatar_url])),
   }
+  const workflowAssignees = (groupedTaskRows ?? []).map(row => ({
+    sequence: row.assignee_sequence ?? 0,
+    name: names[row.assignee_id ?? ''] ?? activityNames[row.assignee_id ?? ''] ?? 'Staff member',
+    status: row.status as TaskStatus,
+    isCurrent: row.id === task.id,
+  }))
   const taskAssigner = task.assigned_by
     ? lookups.people.find(person => person.id === task.assigned_by)
     : undefined
@@ -340,7 +355,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
           </Card>
 
           <ActivityPanel
-            activity={((activity ?? []) as TaskActivity[]).filter(entry => entry.action !== 'created' && entry.action !== 'assignee_changed')}
+            activity={activityForWorkflow.filter(entry => entry.action !== 'created' && entry.action !== 'assignee_changed')}
             names={taskActivityNames}
           />
         </div>
@@ -352,6 +367,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               ticketLabel={task.ticket ? ticketCode(task.ticket.ticket_number) : null}
               assignees={editAssignees}
               assigneeName={task.assignee_id ? assignees.find(person => person.id === task.assignee_id)?.name ?? taskActivityNames[task.assignee_id] ?? null : null}
+            workflowAssignees={workflowAssignees}
               assignedBy={taskAssigner ? {
                 name: names[taskAssigner.id],
                 avatarUrl: taskAssigner.avatar_url,

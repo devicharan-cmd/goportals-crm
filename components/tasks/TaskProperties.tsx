@@ -14,6 +14,7 @@ import type { AppRole, Task, TaskStatus } from '@/types/database'
 /** Task properties and permitted inline controls shown in the task detail sidebar. */
 export function TaskProperties({
   task, ticketLabel, assignees, assigneeName, assignedBy, assignedAt,
+  workflowAssignees,
   canChangeStatus = false,
   canEditPriority = false, canEditUrgent = false,
   canRequestChanges = false,
@@ -24,6 +25,7 @@ export function TaskProperties({
   assigneeName: string | null
   assignedBy?: { name: string; avatarUrl: string | null; role: AppRole } | null
   assignedAt?: string | null
+  workflowAssignees?: { sequence: number; name: string; status: TaskStatus; isCurrent: boolean }[]
   canChangeStatus?: boolean
   canEditPriority?: boolean
   canEditUrgent?: boolean
@@ -123,6 +125,21 @@ export function TaskProperties({
             : <span className="text-sm italic text-slate-400">Unassigned</span>}
         </div>
       </div>
+
+      {workflowAssignees && workflowAssignees.length > 1 && (
+        <div className={row}>
+          <span className={label}>Assignees</span>
+          <ol className="min-w-0 space-y-1.5 text-sm text-slate-700">
+            {workflowAssignees.map(assignee => (
+              <li key={assignee.sequence} className={`flex min-w-0 items-center gap-2 ${assignee.isCurrent ? 'font-semibold text-[#045E80]' : ''}`}>
+                <span className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">{assignee.sequence}</span>
+                <span className="min-w-0 truncate">{assignee.name}</span>
+                <span className="ml-auto flex-shrink-0 text-[11px] font-normal text-slate-400">{assignee.status.replaceAll('_', ' ')}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
 
       {assignedBy && (
         <div className={row}>

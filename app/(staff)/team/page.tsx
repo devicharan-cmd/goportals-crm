@@ -132,7 +132,7 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
       ) : (
         <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {members.map(m => (
-            <Link key={m.id} href={`/team/${m.id}`} className="group">
+            <Link key={m.id} href={`/team/${m.id}`} prefetch={false} className="group">
             <Card className={cn('h-full p-3 transition group-hover:[box-shadow:var(--shadow-pop)] group-hover:ring-1 group-hover:ring-[#9FCCDE] sm:p-5', !m.active && 'bg-slate-50 opacity-80')}>
               <div className="flex items-start gap-3">
                 <Avatar name={m.full_name || m.email} src={m.avatar_url} role={m.role} className={cn(!m.active && 'grayscale')} />

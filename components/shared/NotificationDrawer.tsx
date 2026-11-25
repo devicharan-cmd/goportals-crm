@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FiAlertTriangle as Flame, FiCheckCircle as CheckCheck, FiInbox as Inbox, FiLoader as Loader2, FiMessageSquare as MessageSquare, FiRefreshCw as RefreshCw, FiUserCheck as UserCheck, FiX as X } from 'react-icons/fi'
 import { NotificationIcon } from '@/components/shared/NotificationIcon'
 import { useRouter } from 'next/navigation'
@@ -34,8 +34,10 @@ export function NotificationDrawer({ open, userId, isClient, onClose, onUnreadCo
   const [filter, setFilter] = useState<Filter>('all')
   const [loading, setLoading] = useState(false)
   const [markingAll, setMarkingAll] = useState(false)
+  const onUnreadCountChangeRef = useRef(onUnreadCountChange)
+  onUnreadCountChangeRef.current = onUnreadCountChange
 
-  async function loadNotifications() {
+  const loadNotifications = useCallback(async () => {
     if (!userId) return
     setLoading(true)
     const { data } = await createClient().from('notifications')
@@ -45,9 +47,9 @@ export function NotificationDrawer({ open, userId, isClient, onClose, onUnreadCo
       .limit(100)
     const next = (data ?? []) as Notification[]
     setItems(next)
-    onUnreadCountChange(next.filter(n => !n.is_read).length)
+    onUnreadCountChangeRef.current(next.filter(n => !n.is_read).length)
     setLoading(false)
-  }
+  }, [userId])
 
   useEffect(() => {
     if (!open) return
@@ -60,7 +62,7 @@ export function NotificationDrawer({ open, userId, isClient, onClose, onUnreadCo
       })
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
-  }, [open, userId])
+  }, [loadNotifications, open, userId])
 
   useEffect(() => {
     if (!open) return

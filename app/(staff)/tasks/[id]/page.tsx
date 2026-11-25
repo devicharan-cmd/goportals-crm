@@ -74,6 +74,11 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     : { data: null, error: null }
   if (workflowActivityError) throw new Error(workflowActivityError.message)
   const activityForWorkflow = (workflowActivity ?? activity) as TaskActivity[]
+  const activityForPanel = ((activity ?? []) as TaskActivity[]).map(entry =>
+    entry.action === 'status_changed' && entry.old_value === 'waiting' && entry.new_value === 'todo' && task.assignee_id
+      ? { ...entry, actor_id: task.assignee_id }
+      : entry,
+  )
   const scheduleLookup = task.schedule_id
     ? supabase.from('task_schedules').select('id, created_by, enabled, repeat_type, interval_days, start_date, schedule_time, created_at, current_task_id').eq('id', task.schedule_id)
     : supabase.from('task_schedules').select('id, created_by, enabled, repeat_type, interval_days, start_date, schedule_time, created_at, current_task_id').eq('task_id', task.id)
@@ -354,8 +359,9 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
             </div>
           </Card>
 
+          {/* Each grouped assignee copy keeps its own status timeline. */}
           <ActivityPanel
-            activity={activityForWorkflow.filter(entry => entry.action !== 'created' && entry.action !== 'assignee_changed')}
+            activity={activityForPanel.filter(entry => entry.action !== 'created' && entry.action !== 'assignee_changed')}
             names={taskActivityNames}
           />
         </div>
@@ -423,6 +429,13 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
             createdBy={task.created_by}
             currentAssigneeId={task.assignee_id}
             notes={noteByActivity}
+            workflowAssignees={workflowAssignees.map(assignee => ({
+              sequence: assignee.sequence,
+              name: assignee.name,
+              role: taskActivityRoles[(groupedTaskRows ?? []).find(row => row.assignee_sequence === assignee.sequence)?.assignee_id ?? ''],
+              status: assignee.status,
+            }))}
+            workflowActivity={activityForWorkflow}
           />
         </div>
       </div>

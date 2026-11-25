@@ -65,7 +65,9 @@ export function MarketplaceLogo({ name, size = 'xs' }: { name: string; size?: 'x
 export function MarketplacePlatformLabel({ name, logoSize = 'xs', className }: { name: string; logoSize?: 'xs' | 'sm' | 'md' | 'compact'; className?: string }) {
   return (
     <span className={cn('inline-flex min-w-0 max-w-full items-center gap-1 text-xs font-normal', className)}>
-      <MarketplaceLogo name={name} size={logoSize} />
+      <span className="translate-y-px">
+        <MarketplaceLogo name={name} size={logoSize} />
+      </span>
       <span className="min-w-0 truncate">{name}</span>
     </span>
   )
@@ -83,7 +85,9 @@ export function MarketplaceAccountLabel({ platformName, accountName, size = 'xs'
 
   return (
     <span className={`inline-flex min-w-0 max-w-full items-center gap-1 ${size === 'md' ? 'text-base' : size === 'sm' ? 'text-sm' : size === 'compact' ? 'text-xs' : 'text-xs'} font-normal`}>
-      <MarketplaceLogo name={label} size={size} />
+      <span className="translate-y-px">
+        <MarketplaceLogo name={label} size={size} />
+      </span>
       <span className="min-w-0 truncate">{label}</span>
       {account && platform && account.toLocaleLowerCase() !== platform.toLocaleLowerCase() && (
         <span className="min-w-0 truncate text-slate-500">· {account}</span>

@@ -840,7 +840,7 @@ export function InviteStaffButton({
               setErrors(current => ({ ...current, reporting_to: touched.reporting_to ? validateStaffInviteField('reporting_to', value) : undefined }))
             }}
           />
-          <Field label="Departments" required error={errors.departments} errorId="staff-invite-departments-error" hint="Team Leads see the tasks and tickets of their departments.">
+          <Field label="Departments" required error={errors.departments} errorId="staff-invite-departments-error" hint="Departments support assignment and client coverage; reporting hierarchy controls team work visibility.">
             <div className="flex flex-wrap gap-1.5">
               {departments.map(d => {
                 const on = form.department_ids.includes(d.id)
@@ -1034,7 +1034,7 @@ export function InviteUserButton({ departments, actorRole, reportingPeople }: {
                   setErrors(current => ({ ...current, reporting_to: touched.reporting_to ? validateStaffInviteField('reporting_to', value) : undefined }))
                 }}
               />
-              <Field label="Departments" required error={errors.departments} errorId="add-user-departments-error" hint="Team Leads see the tasks and tickets of their departments.">
+              <Field label="Departments" required error={errors.departments} errorId="add-user-departments-error" hint="Departments support assignment and client coverage; reporting hierarchy controls team work visibility.">
                 <div className="flex flex-wrap gap-1.5">
                   {departments.map(d => {
                     const on = form.department_ids.includes(d.id)

@@ -20,6 +20,14 @@ function describe(a: ActivityEntry, names: Record<string, string>, kind: 'task' 
       return `changed priority ${a.old_value} → ${a.new_value}`
     case 'urgent_changed':
       return a.new_value === 'true' ? 'marked it urgent' : 'cleared the urgent flag'
+    case 'internal_change_requested': {
+      try {
+        const metadata = a.new_value ? JSON.parse(a.new_value) as { previous_assignee_id?: string } : null
+        return `requested changes from ${metadata?.previous_assignee_id ? names[metadata.previous_assignee_id] ?? 'the previous assignee' : 'the previous assignee'}`
+      } catch {
+        return 'requested changes from the previous assignee'
+      }
+    }
     case 'task_deleted': {
       const metadata = a.metadata
       const taskNumber = typeof metadata?.task_number === 'number' || typeof metadata?.task_number === 'string'

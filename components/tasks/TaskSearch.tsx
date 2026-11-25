@@ -13,7 +13,7 @@ import { cn, errorMessage } from '@/lib/utils'
 import { TaskResultsSkeleton } from '@/components/tasks/TaskPageSkeleton'
 import { TaskTable } from '@/components/tasks/TaskTable'
 import type { AssigneeOption, TaskAssignerInfo, TaskPageCursor } from '@/lib/queries'
-import type { TaskStatus, TaskSummary } from '@/types/database'
+import type { AppRole, TaskStatus, TaskSummary } from '@/types/database'
 
 // Drag-and-drop is useful only after work exists. Keeping it out of the
 // initial task-search bundle avoids parsing dnd-kit for an empty board.
@@ -26,6 +26,7 @@ type TaskSearchContextValue = {
   scopeCounts: { mine: number; assigned: number; all: number }
   assignOptions?: AssigneeOption[]
   editableTaskActorId?: string
+  editableTaskRole?: AppRole
   query: string
   scope: 'mine' | 'assigned' | 'all'
   scopeChanging: boolean
@@ -66,6 +67,7 @@ export function TaskSearchProvider({
   initialScopeCounts,
   assignOptions,
   editableTaskActorId,
+  editableTaskRole,
   scope,
   status,
   client,
@@ -85,6 +87,7 @@ export function TaskSearchProvider({
   initialScopeCounts: { mine: number; assigned: number; all: number }
   assignOptions?: AssigneeOption[]
   editableTaskActorId?: string
+  editableTaskRole?: AppRole
   scope: 'mine' | 'assigned' | 'all'
   status: string
   client: string
@@ -255,7 +258,7 @@ export function TaskSearchProvider({
     mine: Math.max(0, serverScopeCounts.mine + pendingMyTaskCountDelta),
   }
   const value: TaskSearchContextValue = {
-    tasks, names, taskAssigners, scopeCounts, assignOptions, editableTaskActorId, query, scope: activeScope, scopeChanging,
+    tasks, names, taskAssigners, scopeCounts, assignOptions, editableTaskActorId, editableTaskRole, query, scope: activeScope, scopeChanging,
     status, board, searching, error, setQuery: handleSearch, changeScope, adjustMyTaskCount, loadMoreTasks,
     hasMoreTasks, loadingMoreTasks,
   }
@@ -346,6 +349,8 @@ export function TaskSearchResults() {
             taskAssigners={search.taskAssigners}
             showAssignedBy
             assignOptions={search.assignOptions}
+            editableTaskActorId={search.editableTaskActorId}
+            editableTaskRole={search.editableTaskRole}
             scope={search.scope}
             empty={{
               title: search.query ? 'No tasks match this search'

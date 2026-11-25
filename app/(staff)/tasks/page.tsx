@@ -103,7 +103,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       avatarUrl: person.avatar_url,
     }] as const),
   ])
-  const assignOptions = me.role !== 'employee' ? taskAssigneeOptionsFor(me, lookups) : undefined
+  const assignOptions = taskAssigneeOptionsFor(me, lookups)
 
   return (
     <TaskSearchProvider
@@ -119,6 +119,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       }}
       assignOptions={assignOptions}
       editableTaskActorId={me.id}
+      editableTaskRole={me.role}
       scope={scope}
       status={status}
       client={searchParams.client ?? ''}

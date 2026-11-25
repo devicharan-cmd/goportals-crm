@@ -10,7 +10,7 @@ export const TASK_LIST_SELECT =
 
 /** Only the fields used by the staff task table and board. */
 export const TASK_SUMMARY_SELECT =
-  'id, task_number, title, status, priority, is_urgent, source, visibility, is_scheduled, schedule_id, platform_ids, due_date, due_at, created_at, closed_at, client_id, ticket_id, assignee_id, assigned_by, client:clients(company_name), platform:platforms(name), department:departments(name)'
+  'id, task_number, title, status, priority, is_urgent, source, visibility, is_scheduled, schedule_id, platform_ids, due_date, due_at, created_at, closed_at, client_id, ticket_id, assignee_id, assigned_by, created_by, task_group_id, assignee_sequence, client:clients(company_name), platform:platforms(name), department:departments(name)'
 
 export type TaskPageCursor = Pick<TaskSummary, 'id' | 'is_urgent' | 'due_date' | 'created_at'>
 

@@ -178,5 +178,6 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   edited:           'edited the details',
   priority_changed: 'changed priority',
   urgent_changed:   'changed urgency',
+  internal_change_requested: 'requested changes from this assignee',
   task_deleted:     'deleted a linked task',
 }

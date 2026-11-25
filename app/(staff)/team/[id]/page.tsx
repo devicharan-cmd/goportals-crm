@@ -78,7 +78,7 @@ export default async function EmployeeStatsPage(props: { params: Promise<{ id: s
 
   return (
     <>
-      <Link href="/team" className="mb-4 -ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Team</Link>
+      <Link href="/team" className="mb-4 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Back to Team</Link>
 
       {/* Header */}
       <Card className="mb-6 p-6">

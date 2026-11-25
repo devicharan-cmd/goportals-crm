@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
-import { assigneeFilterPeopleFor, getTaskPageLookups, nameMap, normalizeTaskSummaryRows, taskAssigneeIdsForAssignedScope, taskAssigneeOptionsFor, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
+import { assigneeFilterPeopleFor, getAssignedTaskAssigneeIds, getTaskPageBootstrap, nameMap, normalizeTaskSummaryRows, profileIdsInReportingHierarchy, taskAssigneeIdsForAssignedScope, taskAssigneeOptionsFor, taskAssignerFilterPeopleFor, TASK_SUMMARY_SELECT, type TaskAssignerInfo } from '@/lib/queries'
 import { TASK_PAGE_SIZE } from '@/lib/constants'
 import { ButtonLink } from '@/components/ui/button'
 import { TaskFilters } from '@/components/tasks/TaskFilters'
@@ -25,10 +25,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
     : defaultScope
   const board = searchParams.view !== 'list'
   const status = searchParams.status ?? 'all'
-  const lookupsPromise = getTaskPageLookups({
-    includePeople: true,
-    includeAssignments: true,
-  })
+  const bootstrapPromise = getTaskPageBootstrap()
 
   function taskQuery(assignedScopeAssigneeIds: string[]) {
     let query = supabase.from('tasks').select(TASK_SUMMARY_SELECT)
@@ -59,6 +56,10 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
         const start = `${searchParams.due}T00:00:00.000Z`
         const end = `${searchParams.due}T23:59:59.999Z`
         query = query.gte('assigned_at', start).lte('assigned_at', end)
+      } else if (searchParams.date_by === 'completed') {
+        const start = `${searchParams.due}T00:00:00.000Z`
+        const end = `${searchParams.due}T23:59:59.999Z`
+        query = query.gte('closed_at', start).lte('closed_at', end)
       } else {
         query = query.eq('due_date', searchParams.due)
       }
@@ -68,19 +69,20 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
 
   // Reuse the profiles/membership data already needed by the filters. The
   // previous assigned scope path fetched all profiles a second time.
-  const assignedScopeIdsPromise = lookupsPromise
-    .then(lookups => taskAssigneeIdsForAssignedScope(me, lookups))
+  const assignedScopeIdsPromise = scope === 'assigned'
+    ? getAssignedTaskAssigneeIds()
+    : Promise.resolve([] as string[])
   const taskResultPromise = scope === 'assigned'
-    ? assignedScopeIdsPromise.then(taskQuery)
+    ? assignedScopeIdsPromise.then(ids => ids
+      ? taskQuery(ids)
+      : bootstrapPromise.then(({ lookups }) => taskQuery(taskAssigneeIdsForAssignedScope(me, lookups))))
     : taskQuery([])
-  const [lookups, taskResult, taskCountsResult] = await Promise.all([
-    lookupsPromise,
+  const [bootstrap, taskResult] = await Promise.all([
+    bootstrapPromise,
     taskResultPromise,
-    supabase.rpc('staff_task_scope_counts'),
   ])
   if (taskResult.error) throw taskResult.error
-  if (taskCountsResult.error) throw taskCountsResult.error
-  const taskCounts = taskCountsResult.data?.[0]
+  const { lookups, counts: taskCounts } = bootstrap
   const tasks = normalizeTaskSummaryRows(
     (taskResult.data ?? []).slice(0, TASK_PAGE_SIZE) as Parameters<typeof normalizeTaskSummaryRows>[0],
   )
@@ -135,7 +137,7 @@ export default async function TasksPage(props: { searchParams: Promise<SP> }) {
       assignedBy={searchParams.assigned_by ?? ''}
       department={searchParams.dept ?? ''}
       due={searchParams.due ?? ''}
-      dateBy={searchParams.date_by === 'assigned' ? 'assigned' : 'due'}
+      dateBy={searchParams.date_by === 'assigned' ? 'assigned' : searchParams.date_by === 'completed' ? 'completed' : 'due'}
       board={board}
     >
       <div>

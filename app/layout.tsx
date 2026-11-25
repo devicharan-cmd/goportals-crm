@@ -1,22 +1,15 @@
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import './globals.css'
-
-const sans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-jakarta' })
 
 export const metadata: Metadata = {
   title: { default: 'GoPortals', template: '%s · GoPortals' },
   description: 'GoPortals — e-commerce & quick-commerce task management',
-  icons: {
-    icon: [{ url: '/icon.png', type: 'image/png' }],
-    shortcut: ['/icon.png'],
-  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={sans.variable} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body className="font-sans" suppressHydrationWarning>
         {children}
         <Toaster

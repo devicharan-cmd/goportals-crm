@@ -193,6 +193,7 @@ export function StaffProfileSettings({
   const [imageError, setImageError] = useState('')
   const [imageDialogOpen, setImageDialogOpen] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+  const updateProfileButton = useRef<HTMLButtonElement>(null)
 
 
   useEffect(() => { setCurrentImage(profile.avatar_url) }, [profile.avatar_url])
@@ -222,6 +223,15 @@ export function StaffProfileSettings({
     setImageError('')
     setSelectedImage(null)
     setImageDialogOpen(true)
+  }
+
+  function handleProfileImageClick() {
+    if (isEditing) {
+      openImageDialog()
+      return
+    }
+    updateProfileButton.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    updateProfileButton.current?.focus()
   }
 
   function selectImage(file?: File) {
@@ -552,7 +562,7 @@ export function StaffProfileSettings({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="rounded-2xl border border-slate-200/80 bg-white [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] overflow-hidden">
+      <div className="rounded-xl border border-slate-200/80 bg-white [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] overflow-hidden">
             {/* Card Header */}
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-5">
               <div>
@@ -575,7 +585,7 @@ export function StaffProfileSettings({
                     {canEditProfile ? (
                       <ProfileImageControl
                         busy={imageBusy}
-                        onClick={openImageDialog}
+                        onClick={handleProfileImageClick}
                         label={currentImage ? 'Update profile photo' : 'Add profile photo'}
                         className="flex h-20 w-20 items-center justify-center rounded-full shadow-sm sm:h-24 sm:w-24"
                       >
@@ -1034,6 +1044,7 @@ export function StaffProfileSettings({
               <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
                 {!isEditing ? canEditProfile ? (
                   <Button
+                    ref={updateProfileButton}
                     onClick={() => setIsEditing(true)}
                     className="px-6 py-2.5 rounded-xl font-semibold shadow-sm inline-flex items-center gap-2"
                   >

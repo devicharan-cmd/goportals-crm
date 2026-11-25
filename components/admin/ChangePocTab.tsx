@@ -201,7 +201,7 @@ export function ChangePocTab({ rows, departments, people, initialSelectedIds = [
                     const currentPoc = row.reporting_to ? peopleById.get(row.reporting_to) : null
                     const rowDepartments = row.departmentIds.map(id => departmentNames.get(id)).filter(Boolean)
                     return (
-                      <tr key={row.id} className={cn('transition-colors hover:bg-slate-50/70', checked && 'bg-[#EAF4F8]/40')}>
+                      <tr key={row.id} className={cn('transition-colors', checked ? 'bg-[#EAF4F8]/40 hover:bg-[#EAF4F8]/40' : 'hover:bg-slate-50/70')}>
                         <td className="px-4 py-3"><input type="checkbox" checked={checked} onChange={() => toggleSelected(row.id)}
                           aria-label={`Select ${row.full_name || row.email}`} className="h-4 w-4 rounded border-slate-300 text-[#045E80] focus:ring-[#045E80]" /></td>
                         <td className="px-3 py-3">

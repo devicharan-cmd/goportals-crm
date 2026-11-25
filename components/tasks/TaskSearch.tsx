@@ -51,7 +51,7 @@ type TaskSearchFilters = {
   assignedBy: string
   department: string
   due: string
-  dateBy: 'due' | 'assigned'
+  dateBy: 'due' | 'assigned' | 'completed'
   board: boolean
 }
 
@@ -92,7 +92,7 @@ export function TaskSearchProvider({
   assignedBy: string
   department: string
   due: string
-  dateBy: 'due' | 'assigned'
+  dateBy: 'due' | 'assigned' | 'completed'
   board: boolean
   children: React.ReactNode
 }) {

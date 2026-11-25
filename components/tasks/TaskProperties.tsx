@@ -134,7 +134,7 @@ export function TaskProperties({
           </div>
           <div className={row}>
             <span className={label}>Due date</span>
-            <span className={value}>{task.due_at ? formatDateTime(task.due_at) : 'No due date'}</span>
+            <span className={value}>{task.due_at ? formatDateTime(task.due_at) : task.due_date ? formatDate(task.due_date) : 'No due date'}</span>
           </div>
         </>
       )}
@@ -149,7 +149,7 @@ export function TaskProperties({
       {!task.is_scheduled && <div className={row}>
         <span className={label}>Due date</span>
         <span className={value}>
-          {task.due_date ? formatDate(task.due_date) : 'No due date'}
+          {task.due_at ? formatDateTime(task.due_at) : task.due_date ? formatDate(task.due_date) : 'No due date'}
         </span>
       </div>}
 

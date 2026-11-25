@@ -61,6 +61,24 @@ export function formatDateTime(date: string | null | undefined): string {
   return `${formattedDate} · ${formattedTime}`
 }
 
+/** Format an exact timestamp in Indian Standard Time, with time before date. */
+export function formatIndiaDateTime(date: string | null | undefined): string {
+  if (!date) return '—'
+  const value = new Date(date)
+  if (Number.isNaN(value.getTime())) return '—'
+  const parts = new Intl.DateTimeFormat('en-IN', {
+    timeZone: IST,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(value)
+  const get = (type: string) => parts.find(part => part.type === type)?.value ?? ''
+  return `${get('hour')}:${get('minute')} ${get('dayPeriod').toUpperCase()} · ${get('day')}/${get('month')}/${get('year')}`
+}
+
 /** Format a database TIME value without converting it across time zones. */
 export function formatTime(time: string | null | undefined): string {
   if (!time) return '—'
@@ -104,6 +122,28 @@ export function dueState(dueDate: string | null | undefined, status?: TaskStatus
   if (days === 0) return 'today'
   if (days <= 3) return 'soon'
   return 'ok'
+}
+
+/** Preserve an overdue indicator on completed work when it was completed after its deadline. */
+export function dueStateAtCompletion(
+  dueDate: string | null | undefined,
+  dueAt: string | null | undefined,
+  completedAt: string | null | undefined,
+): DueState {
+  if (!completedAt || !dueDate) return 'completed'
+  const completed = new Date(completedAt)
+  if (Number.isNaN(completed.getTime())) return 'completed'
+  if (dueAt) return completed.getTime() > new Date(dueAt).getTime() ? 'overdue' : 'completed'
+  return dateKeyInTimeZone(completed) > dueDate ? 'overdue' : 'completed'
+}
+
+export function dueLabelAtCompletion(
+  dueDate: string | null | undefined,
+  dueAt: string | null | undefined,
+  completedAt: string | null | undefined,
+): string {
+  if (dueStateAtCompletion(dueDate, dueAt, completedAt) !== 'overdue') return 'Completed'
+  return dueLabel(dueDate, undefined, new Date(completedAt!), dueAt)
 }
 
 export function dueLabel(dueDate: string | null | undefined, status?: TaskStatus, now = new Date(), dueAt?: string | null): string {

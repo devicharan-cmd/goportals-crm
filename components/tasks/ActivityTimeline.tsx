@@ -1,5 +1,5 @@
 import { ACTIVITY_LABELS, TASK_STATUS_LABELS, TICKET_STATUS_LABELS, TICKET_STATUS_LABELS_CLIENT } from '@/lib/constants'
-import { formatDate, formatRelative } from '@/lib/utils'
+import { formatDate, formatIndiaDateTime, formatRelative } from '@/lib/utils'
 import type { ActivityEntry } from '@/types/database'
 
 function describe(a: ActivityEntry, names: Record<string, string>, kind: 'task' | 'ticket', audience: 'staff' | 'client'): string {
@@ -65,7 +65,9 @@ export function ActivityTimeline({ activity, names, kind = 'task', audience = 's
             <span className="font-semibold text-slate-900">{a.actor_id ? names[a.actor_id] ?? 'Someone' : 'System'}</span>{' '}
             {describe(a, names, kind, audience)}
           </p>
-          <p className="text-xs text-slate-400">{formatRelative(a.created_at)}</p>
+          <p className="text-xs text-slate-400">
+            <span>{formatIndiaDateTime(a.created_at)}</span>{' · '}{formatRelative(a.created_at)}
+          </p>
         </li>
       ))}
     </ol>

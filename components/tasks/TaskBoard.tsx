@@ -13,7 +13,7 @@ import { Avatar } from '@/components/ui/primitives'
 import type { AssigneeOption } from '@/lib/queries'
 import { DueDate } from '@/components/ui/badges'
 import { PRIORITY_STYLES, TASK_STATUS_OPTIONS, TASK_TERMINAL_STATUSES, taskStatusTransitionWarning } from '@/lib/constants'
-import { cn, errorMessage, taskCode } from '@/lib/utils'
+import { cn, errorMessage, formatIndiaDateTime, taskCode } from '@/lib/utils'
 import type { TaskSummary, TaskStatus } from '@/types/database'
 import { useSingleFlight } from '@/components/shared/useSingleFlight'
 
@@ -25,8 +25,8 @@ type CardProps = {
   scope?: 'mine' | 'assigned' | 'all'
 }
 
-function BoardDueDate({ date, dueAt, status }: { date: TaskSummary['due_date']; dueAt?: TaskSummary['due_at']; status: TaskSummary['status'] }) {
-  return <DueDate date={date} dueAt={dueAt} status={status} className="block text-[11px] font-medium" />
+function BoardDueDate({ date, dueAt, status, completedAt }: { date: TaskSummary['due_date']; dueAt?: TaskSummary['due_at']; status: TaskSummary['status']; completedAt?: string | null }) {
+  return <DueDate date={date} dueAt={dueAt} status={status} completedAt={completedAt} className="block text-[11px] font-medium" />
 }
 
 function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: CardProps & { overlay?: boolean; linked?: boolean }) {
@@ -65,8 +65,13 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
       <div className="mt-2 min-w-0">
         {task.client?.company_name && <p className="truncate text-xs text-slate-500">{task.client.company_name}</p>}
         <div className={cn('flex min-w-0 flex-nowrap items-center gap-1.5 text-xs text-slate-500', task.client?.company_name && 'mt-1')}>
-          <div className="w-fit shrink-0">
-          <BoardDueDate date={task.due_date} dueAt={task.due_at} status={task.status} />
+          <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
+          <BoardDueDate date={task.due_date} dueAt={task.due_at} status={task.status} completedAt={task.closed_at} />
+          {task.status === 'completed' && task.closed_at && (
+            <span className="ml-auto whitespace-nowrap text-[10px] font-medium text-slate-400" title="Completed at (IST)">
+              {formatIndiaDateTime(task.closed_at)}
+            </span>
+          )}
           </div>
           {isScheduled && <span title="Scheduled task" className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-[#F5FAE8] px-1.5 py-0.5 text-[11px] font-semibold leading-4 text-[#5B771A] ring-1 ring-inset ring-[#D3E896]"><CalendarClock aria-hidden="true" className="h-3 w-3" />Scheduled</span>}
         </div>
@@ -78,9 +83,9 @@ function Card({ task, names, overlay, linked, assignOptions, hrefBase, scope }: 
       overlay ? 'rotate-1 border-[#2A87AA] [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]' : 'border-slate-200 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-[0_6px_14px_rgba(15,23,42,0.12)]',
       task.is_urgent && !TASK_TERMINAL_STATUSES.includes(task.status) && 'border-l-4 !border-l-red-600')}>
       {linked
-        ? <Link href={taskHref} prefetch={false} draggable={false} className="block p-3 pb-2 hover:bg-slate-50/60">{body}</Link>
-        : <div className="p-3 pb-2">{body}</div>}
-      <div className="flex min-w-0 flex-col items-start gap-1.5 border-t border-slate-100 px-3 py-2">
+        ? <Link href={taskHref} prefetch={false} draggable={false} className="block p-2.5 pb-1.5 hover:bg-slate-50/60">{body}</Link>
+        : <div className="p-2.5 pb-1.5">{body}</div>}
+      <div className="flex min-w-0 flex-col items-start gap-1.5 border-t border-slate-100 px-2.5 py-1.5">
         {task.assignee_id
           ? <span className="flex min-w-0 items-center gap-1.5 text-xs text-slate-600"><Avatar name={cardAssigneeName} src={assignee?.avatarUrl} role={assignee?.avatarRole} size="xs" /><span className="truncate">{cardAssigneeName}</span></span>
           : <span className="text-xs italic text-slate-400">Unassigned</span>}

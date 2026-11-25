@@ -2,8 +2,9 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { addDays, format, parse, isValid } from 'date-fns'
-import { CalendarDays, ChevronDown, KanbanSquare, List, Send, UserRound, UsersRound, X } from 'lucide-react'
+import { CalendarDays, Check, ChevronDown, KanbanSquare, List, Send, UserRound, UsersRound, X } from 'lucide-react'
 import { AssigneeOptionContent } from '@/components/tasks/AssigneeOptionContent'
+import { TaskDateField } from '@/components/tasks/TaskDateField'
 import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
 import { SearchableSelect } from '@/components/shared/SearchableSelect'
 import { CompanyAvatar } from '@/components/ui/primitives'
@@ -13,16 +14,9 @@ import type { AppRole } from '@/types/database'
 
 type Option = { value: string; label: string; avatarUrl?: string | null; role?: AppRole }
 
-function dateMask(digits: string) {
-  const value = digits.replace(/\D/g, '').slice(0, 8)
-  const day = value.slice(0, 2).padEnd(2, 'd')
-  const month = value.slice(2, 4).padEnd(2, 'm')
-  const year = value.slice(4, 8).padEnd(4, 'y')
-  return `${day}/${month}/${year}`
-}
-
 function dateDigitsToDisplay(digits: string) {
-  return digits.length === 8 ? `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}` : dateMask(digits)
+  const value = digits.replace(/\D/g, '').slice(0, 8)
+  return `${value.slice(0, 2).padEnd(2, 'd')}/${value.slice(2, 4).padEnd(2, 'm')}/${value.slice(4, 8).padEnd(4, 'y')}`
 }
 
 export function TaskFilterToolbar({
@@ -60,9 +54,9 @@ export function TaskFilterToolbar({
   onDepartmentChange: (department: string) => void
   due: string
   onDueChange: (due: string) => void
-  dateBy?: 'due' | 'assigned'
-  onDateByChange?: (dateBy: 'due' | 'assigned') => void
-  onDateFilterApply?: (dateBy: 'due' | 'assigned', due: string) => void
+  dateBy?: 'due' | 'assigned' | 'completed'
+  onDateByChange?: (dateBy: 'due' | 'assigned' | 'completed') => void
+  onDateFilterApply?: (dateBy: 'due' | 'assigned' | 'completed', due: string) => void
   onDateFilterClear?: () => void
   searchInput: string
   onSearchInput: (value: string) => void
@@ -73,7 +67,7 @@ export function TaskFilterToolbar({
 }) {
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number } | null>(null)
-  const [draftDateBy, setDraftDateBy] = useState<'' | 'due' | 'assigned'>(due ? dateBy : '')
+  const [draftDateBy, setDraftDateBy] = useState<'' | 'due' | 'assigned' | 'completed'>(due ? dateBy : '')
   const [draftRange, setDraftRange] = useState('')
   const [draftDate, setDraftDate] = useState(due ? format(new Date(`${due}T00:00:00`), 'ddMMyyyy') : '')
   const [dateTypeOpen, setDateTypeOpen] = useState(false)
@@ -341,7 +335,7 @@ export function TaskFilterToolbar({
             <div className="relative z-40" ref={calendarRef}>
               <button
                 type="button"
-                aria-label={due ? `Filter by ${dateBy === 'assigned' ? 'assigned' : 'due'} date: ${format(new Date(`${due}T00:00:00`), 'dd MMM yyyy')}` : 'Filter by date'}
+                aria-label={due ? `Filter by ${dateBy === 'assigned' ? 'assigned' : dateBy === 'completed' ? 'completion' : 'due'} date: ${format(new Date(`${due}T00:00:00`), 'dd MMM yyyy')}` : 'Filter by date'}
                 aria-haspopup="dialog"
                 aria-expanded={calendarOpen}
                 onClick={() => setCalendarOpen(open => !open)}
@@ -363,9 +357,9 @@ export function TaskFilterToolbar({
                   <div className="space-y-3">
                     <label className="block text-xs font-semibold text-slate-600">
                       Date type
-                      <span className="relative mt-1.5 block">
+                      <span className={cn('relative mt-1.5 block rounded-lg bg-[#FDFDFA]', (!draftRange || draftRange !== 'custom') && 'bg-[#F6F7F3]')}>
                         <button type="button" aria-haspopup="listbox" aria-expanded={dateTypeOpen} onClick={() => setDateTypeOpen(open => !open)} className="form-field flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left text-xs font-normal">
-                          <span className={cn(!draftDateBy && 'text-slate-500')}>{draftDateBy === 'due' ? 'Due date' : draftDateBy === 'assigned' ? 'Assigned date' : 'Select type'}</span>
+                          <span className={cn(!draftDateBy && 'text-slate-500')}>{draftDateBy === 'due' ? 'Due date' : draftDateBy === 'assigned' ? 'Assigned date' : draftDateBy === 'completed' ? 'Completion date' : 'Select type'}</span>
                           <ChevronDown aria-hidden="true" className="h-4 w-4 text-slate-500" />
                         </button>
                         {dateTypeOpen && (
@@ -374,9 +368,11 @@ export function TaskFilterToolbar({
                               { value: '', label: 'Select type' },
                               { value: 'due', label: 'Due date' },
                               { value: 'assigned', label: 'Assigned date' },
+                              { value: 'completed', label: 'Completion date' },
                             ].map(option => (
-                              <button key={option.value || 'empty'} type="button" role="option" aria-selected={draftDateBy === option.value} onClick={() => { setDraftDateBy(option.value as '' | 'due' | 'assigned'); setDateTypeOpen(false) }} className={cn('flex w-full items-center rounded-md px-2.5 py-2 text-left text-xs font-normal transition-colors', draftDateBy === option.value ? 'bg-[#EAF4F8] text-[#034C68]' : 'text-slate-700 hover:bg-slate-50')}>
-                                {option.label}
+                              <button key={option.value || 'empty'} type="button" role="option" aria-selected={draftDateBy === option.value} onClick={() => { setDraftDateBy(option.value as '' | 'due' | 'assigned' | 'completed'); setDateTypeOpen(false) }} className={cn('flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors', draftDateBy === option.value ? 'bg-[#EAF4F8] font-medium text-[#034C68]' : 'text-slate-700 hover:bg-slate-50')}>
+                                <span>{option.label}</span>
+                                {draftDateBy === option.value && <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />}
                               </button>
                             ))}
                           </div>
@@ -417,12 +413,17 @@ export function TaskFilterToolbar({
                     </fieldset>
                     <label className="block text-xs font-semibold text-slate-600">
                       Date
-                      <input value={draftDateDisplay} disabled={!draftRange} readOnly={draftRange !== 'custom'} onChange={event => setDraftDate(event.target.value.replace(/\D/g, '').slice(0, 8))} inputMode="numeric" aria-label="Date in day month year format" className={cn('form-field mt-1.5 h-9 w-full rounded-lg px-2.5 text-xs font-normal', (!draftRange || draftRange !== 'custom') && 'bg-slate-50 text-slate-600')} />
+                      <TaskDateField
+                        value={draftDate}
+                        onChange={setDraftDate}
+                        disabled={!draftRange}
+                        readOnly={draftRange !== 'custom'}
+                      />
                     </label>
                   </div>
                   <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
                     <button type="button" disabled={!due} onClick={() => { onDateFilterClear?.(); setCalendarOpen(false) }} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Clear</button>
-                    <button type="button" disabled={!canApplyDateFilter} onClick={() => { const iso = format(parsedDraftDate, 'yyyy-MM-dd'); (onDateFilterApply ? onDateFilterApply(draftDateBy as 'due' | 'assigned', iso) : (onDateByChange?.(draftDateBy as 'due' | 'assigned'), onDueChange(iso))); setCalendarOpen(false) }} className="rounded-lg bg-[#045E80] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#034C68] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400">Apply</button>
+                    <button type="button" disabled={!canApplyDateFilter} onClick={() => { const iso = format(parsedDraftDate, 'yyyy-MM-dd'); (onDateFilterApply ? onDateFilterApply(draftDateBy as 'due' | 'assigned' | 'completed', iso) : (onDateByChange?.(draftDateBy as 'due' | 'assigned' | 'completed'), onDueChange(iso))); setCalendarOpen(false) }} className="rounded-lg bg-[#045E80] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#034C68] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400">Apply</button>
                   </div>
                 </div>
               )}

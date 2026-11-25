@@ -126,22 +126,37 @@ export function TaskSearchProvider({
   useEffect(() => {
     let active = true
     let refreshTimer: ReturnType<typeof setTimeout> | null = null
+    let workflowRefreshTimer: ReturnType<typeof setTimeout> | null = null
     const supabase = createClient()
     const channel = supabase
       .channel(`tasks-page-${crypto.randomUUID()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, payload => {
         if (!active) return
         if (refreshTimer) clearTimeout(refreshTimer)
         refreshTimer = setTimeout(() => {
           refreshTimer = null
           if (active) router.refresh()
         }, 100)
+
+        // Completing a grouped copy also activates the next copy in a
+        // database trigger. Realtime can deliver the completion event before
+        // that follow-up update is visible to the server-rendered list, so
+        // perform one bounded follow-up refresh only for this handoff.
+        const changedTask = (payload.new ?? {}) as { status?: string; task_group_id?: string | null }
+        if (changedTask.status === 'completed' && changedTask.task_group_id) {
+          if (workflowRefreshTimer) clearTimeout(workflowRefreshTimer)
+          workflowRefreshTimer = setTimeout(() => {
+            workflowRefreshTimer = null
+            if (active) router.refresh()
+          }, 650)
+        }
       })
 
     channel.subscribe()
     return () => {
       active = false
       if (refreshTimer) clearTimeout(refreshTimer)
+      if (workflowRefreshTimer) clearTimeout(workflowRefreshTimer)
       void supabase.removeChannel(channel)
     }
   }, [router])

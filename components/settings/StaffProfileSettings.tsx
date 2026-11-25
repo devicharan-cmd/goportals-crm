@@ -1035,7 +1035,7 @@ export function StaffProfileSettings({
 
                 {!isSuperAdmin && (
                   <p className="mt-2 text-xs text-slate-500">
-                    Departments dictate which tickets and tasks you are assigned to. Contact a Super Admin to update your department memberships.
+                    Departments support assignment and client coverage. Reporting hierarchy and direct task relationships control task visibility. Contact a Super Admin to update your department memberships.
                   </p>
                 )}
               </div>

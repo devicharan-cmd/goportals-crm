@@ -274,6 +274,7 @@ export function CommentThread({
   // are loaded together with the new comment, so messages and their files
   // appear in place without refreshing the page.
   useEffect(() => {
+    let active = true
     const client = createClient()
     const channel = client
       .channel(`task-comments-live-${taskId}`)
@@ -294,9 +295,17 @@ export function CommentThread({
         }
         void loadComment(commentId)
       })
-      .subscribe()
+    // Authenticate before subscribing so Realtime evaluates the viewer's
+    // task-comment RLS policy. Without this, the initial fetch works but
+    // messages from other participants may be silently missed.
+    void (async () => {
+      const { data } = await client.auth.getSession()
+      if (!active) return
+      if (data.session?.access_token) await client.realtime.setAuth(data.session.access_token)
+      if (active) void channel.subscribe()
+    })()
 
-    return () => { void client.removeChannel(channel) }
+    return () => { active = false; void client.removeChannel(channel) }
   }, [router, taskId])
 
   async function submit(e?: React.FormEvent) {

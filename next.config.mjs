@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   devIndicators: false,
+  experimental: {
+    // Keep large icon/date packages out of route bundles when only a few
+    // exports are used. This changes bundling only, not runtime behavior.
+    optimizePackageImports: ['lucide-react', 'react-icons', 'date-fns'],
+  },
   images: {
     // Keep the existing image format/cache settings for local and optimized
     // images; remote avatars bypass the optimizer to avoid server fetch timeouts.

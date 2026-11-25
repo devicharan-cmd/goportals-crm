@@ -125,7 +125,7 @@ export function StaffTicketTabs({ activeStatus }: { activeStatus: StaffTicketSta
   return (
     <div className="inline-flex h-8 w-fit max-w-full min-w-0 gap-px rounded-lg border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] sm:h-9 sm:rounded-xl">
       {TABS.map(tab => (
-        <Link key={tab.key} href={tab.key === 'unassigned' ? '/tickets' : `/tickets?status=${tab.key}`} prefetch={false}
+        <Link key={tab.key} href={tab.key === 'unassigned' ? '/tickets' : `/tickets?status=${tab.key}`}
           className={cn(
             'relative flex h-full shrink-0 items-center gap-1 rounded-md px-2 pr-5 text-[11px] transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none sm:gap-1.5 sm:rounded-lg sm:px-2.5 sm:pr-6 sm:text-xs',
             activeStatus === tab.key

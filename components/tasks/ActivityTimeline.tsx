@@ -11,6 +11,7 @@ function describe(a: ActivityEntry, names: Record<string, string>, kind: 'task' 
     case 'created':
       return 'created it'
     case 'status_changed':
+      if (a.old_value === 'waiting' && a.new_value === 'todo') return 'is now visible in Todo after the previous assignee completed the task'
       return `moved it to ${statusLabels[a.new_value ?? ''] ?? a.new_value}`
     case 'assignee_changed':
       return a.new_value ? `assigned it to ${names[a.new_value] ?? 'a team member'}` : 'unassigned it'

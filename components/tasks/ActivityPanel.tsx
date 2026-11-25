@@ -14,9 +14,9 @@ export function ActivityPanel({
   audience?: 'staff' | 'client'
 }) {
   return (
-    <Card>
+    <Card className="flex h-[26rem] flex-col">
       <CardHeader title="Activity" />
-      <div className="max-h-80 overflow-y-auto p-5">
+      <div className="min-h-0 flex-1 overflow-y-auto p-5">
         <ActivityTimeline activity={activity} names={names} kind={kind} audience={audience} />
       </div>
     </Card>

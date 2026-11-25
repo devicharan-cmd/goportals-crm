@@ -152,7 +152,15 @@ export function TaskSearchProvider({
         }
       })
 
-    channel.subscribe()
+    // Explicitly authenticate the Realtime socket before subscribing. This
+    // matters for RLS-protected task rows: without the current JWT, updates
+    // can be silently omitted even though the page itself can read them.
+    void (async () => {
+      const { data } = await supabase.auth.getSession()
+      if (!active) return
+      if (data.session?.access_token) await supabase.realtime.setAuth(data.session.access_token)
+      if (active) channel.subscribe()
+    })()
     return () => {
       active = false
       if (refreshTimer) clearTimeout(refreshTimer)

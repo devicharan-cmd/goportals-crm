@@ -60,7 +60,7 @@ export function NotificationsList({ items, taskHref, ticketHref }: { items: Noti
           const Icon = ICONS[n.type] ?? NotificationIcon
           return (
             <li key={n.id}>
-              <button onClick={() => void runOnce(`open-${n.id}`, () => open(n))} className={cn('flex w-full items-start gap-3 px-5 py-4 text-left hover:bg-slate-50', !n.is_read && 'bg-[#EAF4F8]/40')}>
+              <button onClick={() => void runOnce(`open-${n.id}`, () => open(n))} className={cn('flex w-full items-start gap-3 px-5 py-4 text-left', !n.is_read ? 'bg-[#EAF4F8]/40 hover:bg-[#EAF4F8]/40' : 'hover:bg-slate-50')}>
                 <span className={cn('mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full',
                   n.is_read ? 'bg-slate-100 text-slate-400' : 'bg-[#CFE6EF] text-[#034C68]')}>
                   <Icon className="h-4 w-4" />

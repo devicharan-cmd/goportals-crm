@@ -36,12 +36,22 @@ export function MarketplaceLogo({ name, size = 'xs' }: { name: string; size?: 'x
       </svg>
     )
   }
+  if (key.includes('flipkartminutes') || key.includes('minutes')) {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className={`${iconSize} shrink-0`}>
+        <rect width="24" height="24" rx="2" fill="#B7194B" />
+        <text x="3.2" y="10.2" fill="#FFF" fontSize="4.3" fontWeight="700" fontStyle="italic" fontFamily="Arial, sans-serif">Flipkart</text>
+        <text x="3" y="15.3" fill="#FFE500" fontSize="4.6" fontWeight="800" fontStyle="italic" fontFamily="Arial, sans-serif">MINUTES</text>
+      </svg>
+    )
+  }
   if (key.includes('flipkart')) {
     return (
-      <svg aria-hidden="true" viewBox="0 0 24 24" className={`${iconSize} shrink-0 text-[#2874F0]`}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" className={`${iconSize} shrink-0`}>
+        <circle cx="12" cy="12" r="11.8" fill="#FFE500" />
         <path
-          fill="currentColor"
-          d="M3.833 1.333a.993.993 0 0 0-.333.061V1c0-.551.449-1 1-1h14.667c.551 0 1 .449 1 1v.333H3.833zm17.334 2.334H2.833c-.551 0-1 .449-1 1V23c0 .551.449 1 1 1h7.3l1.098-5.645h-2.24c-.051 0-5.158-.241-5.158-.241l4.639-.327-.078-.366-1.978-.285 1.882-.158-.124-.449-3.075-.467s3.341-.373 3.392-.373h3.232l.247-1.331c.289-1.616.945-2.807 1.973-3.693 1.033-.892 2.344-1.332 3.937-1.332.643 0 1.053.151 1.231.463.118.186.201.516.279.859.074.352.14.671.095.903-.057.345-.461.465-1.197.465h-.253c-1.327 0-2.134.763-2.405 2.31l-.243 1.355h1.54c.574 0 .781.402.622 1.306-.17.941-.539 1.36-1.111 1.36H14.9L13.804 24h7.362c.551 0 1-.449 1-1V4.667a1 1 0 0 0-.999-1zM20.5 2.333A.334.334 0 0 0 20.167 2H3.833a.334.334 0 0 0-.333.333V3h17v-.667z"
+          fill="#1E43B8"
+          d="M17.35 4.15c-2.45-.37-4.55.1-6.02 1.35-1.35 1.14-2.16 2.72-2.43 4.72l-.17 1.38-4.48.2-2.1.4 2.42.55 1.55.34.18.56-2.42.3-2.05.45 4.86.22.2.56-2.2.25-2.72.57 6.45.27-.8 3.73h4.35l.78-4.94h2.75c1.16 0 1.75-.54 1.9-1.62.16-1.07-.3-1.62-1.38-1.62H13l.22-1.22c.2-1.1.63-1.92 1.34-2.43.6-.44 1.37-.65 2.3-.65h.38c.7 0 1.08-.3 1.1-.9.02-.38-.13-1.1-.2-1.43-.07-.36-.3-.67-.79-.84Z"
         />
       </svg>
     )
@@ -52,10 +62,10 @@ export function MarketplaceLogo({ name, size = 'xs' }: { name: string; size?: 'x
   return <Store aria-hidden="true" className={`${iconSize} shrink-0 text-slate-500`} />
 }
 
-export function MarketplacePlatformLabel({ name }: { name: string }) {
+export function MarketplacePlatformLabel({ name, logoSize = 'xs', className }: { name: string; logoSize?: 'xs' | 'sm' | 'md' | 'compact'; className?: string }) {
   return (
-    <span className="inline-flex min-w-0 max-w-full items-center gap-1 text-xs font-normal">
-      <MarketplaceLogo name={name} />
+    <span className={cn('inline-flex min-w-0 max-w-full items-center gap-1 text-xs font-normal', className)}>
+      <MarketplaceLogo name={name} size={logoSize} />
       <span className="min-w-0 truncate">{name}</span>
     </span>
   )
@@ -150,7 +160,10 @@ export function MarketplacePlatformMultiSelect({ platforms, value, onChange, pla
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const rootRef = useRef<HTMLDivElement>(null)
-  const selected = useMemo(() => platforms.filter(platform => value.includes(platform.id)), [platforms, value])
+  const selected = useMemo(
+    () => value.map(id => platforms.find(platform => platform.id === id)).filter((platform): platform is MarketplacePlatform => Boolean(platform)),
+    [platforms, value],
+  )
   const filtered = useMemo(() => platforms.filter(platform => platform.name.toLowerCase().includes(query.trim().toLowerCase())), [platforms, query])
 
   useEffect(() => {
@@ -184,21 +197,28 @@ export function MarketplacePlatformMultiSelect({ platforms, value, onChange, pla
           <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search platforms..." className="form-field dropdown-search-input search-input-with-icon h-9 w-full rounded-lg text-sm focus:ring-0" aria-label="Search platforms" />
         </div>
-        <div className="max-h-56 space-y-1 overflow-y-auto">
+        <div className="-mr-2 max-h-56 space-y-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]">
           {filtered.map(platform => {
             const checked = value.includes(platform.id)
             return <button key={platform.id} type="button" role="option" aria-selected={checked} onClick={() => toggle(platform.id)}
-              className={cn('flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-slate-50', checked && 'bg-[#EAF4F8]')}>
+              className={cn('flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left',
+                checked ? 'bg-[#EAF4F8] hover:bg-[#EAF4F8]' : 'hover:bg-slate-50')}>
               <span className="flex min-w-0 items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  readOnly
-                  tabIndex={-1}
-                  aria-hidden="true"
-                  className="h-4 w-4 shrink-0 accent-[#045E80]"
-                />
-                <MarketplacePlatformLabel name={platform.name} />
+                <span className="relative flex h-4 w-4 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    readOnly
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className="sr-only"
+                  />
+                  <span className={cn('flex h-full w-full items-center justify-center rounded-[3px] border',
+                    checked ? 'border-[#045E80] bg-[#045E80]' : 'border-slate-400 bg-white')}>
+                    {checked && <Check aria-hidden="true" className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+                  </span>
+                </span>
+                <MarketplacePlatformLabel name={platform.name} logoSize="compact" className="text-[13px]" />
               </span>
               {checked && <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />}
             </button>
@@ -206,15 +226,23 @@ export function MarketplacePlatformMultiSelect({ platforms, value, onChange, pla
           {!filtered.length && <p className="px-3 py-2 text-sm text-slate-500">No platforms found.</p>}
         </div>
         {selected.length > 0 && (
-          <div className="mt-2 flex justify-end border-t border-slate-100 pt-2">
+          <div className="mt-2 flex items-start justify-between border-t border-slate-100 pt-2">
+            <div aria-label="Selected platforms" className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-2 py-1 pr-3">
+              {selected.map(platform => (
+                <span key={platform.id} title={platform.name} className="inline-flex h-3.5 w-3.5 items-center justify-center">
+                  <MarketplaceLogo name={platform.name} size="compact" />
+                  <span className="sr-only">{platform.name}</span>
+                </span>
+              ))}
+            </div>
             <button
               type="button"
               aria-label="Clear selected platforms"
               onClick={() => onChange([])}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#045E80]"
+              className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border border-slate-200 px-2.5 text-xs font-medium text-slate-600 transition-colors hover:border-[#045E80] hover:bg-[#045E80] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#045E80]"
             >
               <X aria-hidden="true" className="h-3.5 w-3.5" />
-              Clear selection
+              Clear
             </button>
           </div>
         )}

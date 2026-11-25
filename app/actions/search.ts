@@ -25,7 +25,7 @@ type TaskSearchFilters = {
   assignedBy: string
   department: string
   due: string
-  dateBy: 'due' | 'assigned'
+  dateBy: 'due' | 'assigned' | 'completed'
   board: boolean
 }
 
@@ -100,6 +100,10 @@ export async function searchTasks(value: string, filters: TaskSearchFilters, cur
       const start = `${filters.due}T00:00:00.000Z`
       const end = `${filters.due}T23:59:59.999Z`
       query = query.gte('assigned_at', start).lte('assigned_at', end)
+    } else if (filters.dateBy === 'completed') {
+      const start = `${filters.due}T00:00:00.000Z`
+      const end = `${filters.due}T23:59:59.999Z`
+      query = query.gte('closed_at', start).lte('closed_at', end)
     } else {
       query = query.eq('due_date', filters.due)
     }

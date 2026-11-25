@@ -1,10 +1,10 @@
 import { notFound, redirect } from 'next/navigation'
+import Link from 'next/link'
 import { requireRole } from '@/lib/auth'
 import { getUserAdminLookups, profileIdsReportingTo } from '@/lib/queries'
 import { createClient } from '@/lib/supabase/server'
 import { StaffProfileSettings } from '@/components/settings/StaffProfileSettings'
-import { ButtonLink } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ChevronRight } from 'lucide-react'
 import type { Profile } from '@/types/database'
 
 export const metadata = { title: 'Staff Profile' }
@@ -39,9 +39,17 @@ export default async function StaffProfilePage(props: { params: Promise<{ id: st
   return (
     <div className="mx-auto w-full max-w-7xl pb-12 2xl:max-w-[1600px]">
       <div className="mb-4">
-        <ButtonLink href="/admin/users" variant="ghost" size="sm">
-          <ArrowLeft className="h-4 w-4" /> Users & invites
-        </ButtonLink>
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm">
+          <Link
+            href="/admin/users"
+            prefetch
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Users & invites
+          </Link>
+          <ChevronRight aria-hidden="true" className="h-4 w-4 text-slate-400" />
+          <span aria-current="page" className="font-medium text-slate-700">Staff Profile</span>
+        </nav>
       </div>
       <StaffProfileSettings
         profile={profile}

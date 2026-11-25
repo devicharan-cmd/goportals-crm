@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft, Clock3, Globe2, LockKeyhole } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Clock3, Globe2, LockKeyhole } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
 import { assigneeOptionsFor, getClientProfileImageUrls, getStaffLookups, getTaskAssigneeHistory, nameMap, resolveTaskId, TASK_LIST_SELECT, taskAssigneeOptionsFor, taskPageTitle } from '@/lib/queries'
@@ -23,7 +23,7 @@ import { TaskEditModal } from '@/components/tasks/TaskEditModal'
 import { TaskScheduleControl } from '@/components/tasks/TaskScheduleControl'
 import { FileAttachmentDownload } from '@/components/shared/FileAttachmentDownload'
 import { TYPE_LABELS } from '@/lib/constants'
-import { dueState, formatDate, formatDateTime, formatRelative, formatTime, taskCode, ticketCode } from '@/lib/utils'
+import { dueState, formatDate, formatDateTime, formatIndiaDateTime, formatRelative, formatTime, taskCode, ticketCode } from '@/lib/utils'
 import type { TaskActivity, TaskChecklistItem, TaskComment, TaskListItem, TimeLog } from '@/types/database'
 
 export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
@@ -167,13 +167,17 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
     ...(task.ticket ? [['Ticket', <Link key="ticket" href={`/tickets/${task.ticket.id}`} className="font-medium text-[#034C68] hover:underline">
         {ticketCode(task.ticket.ticket_number)} · {task.ticket.subject}
       </Link>] as [string, React.ReactNode]] : []),
-    ...(task.closed_at ? [['Closed', formatDate(task.closed_at)] as [string, React.ReactNode]] : []),
+    ...(task.closed_at ? [['Closed', formatIndiaDateTime(task.closed_at)] as [string, React.ReactNode]] : []),
   ]
 
   return (
     <>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <Link href={tasksHref} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Tasks</Link>
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm">
+          <Link href={tasksHref} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Back to Tasks</Link>
+          <ChevronRight aria-hidden="true" className="h-4 w-4 text-slate-400" />
+          <span aria-current="page" className="font-mono font-medium text-slate-700">{taskCode(task.task_number)}</span>
+        </nav>
         <div className="flex items-center gap-2">
           {canManageTask && <DeleteButton
             table="tasks"
@@ -251,6 +255,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
                   date={task.due_date}
                   dueAt={task.due_at}
                   status={task.status}
+                  completedAt={task.closed_at}
                   className={dueState(task.due_date, task.status, new Date(), task.due_at) === 'ok' ? 'ml-auto font-semibold' : 'ml-auto'}
                 />
               </div>

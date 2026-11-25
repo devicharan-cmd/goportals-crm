@@ -10,7 +10,7 @@ export const TASK_LIST_SELECT =
 
 /** Only the fields used by the staff task table and board. */
 export const TASK_SUMMARY_SELECT =
-  'id, task_number, title, status, priority, is_urgent, source, visibility, is_scheduled, schedule_id, platform_ids, due_date, due_at, created_at, client_id, ticket_id, assignee_id, assigned_by, client:clients(company_name), platform:platforms(name), department:departments(name)'
+  'id, task_number, title, status, priority, is_urgent, source, visibility, is_scheduled, schedule_id, platform_ids, due_date, due_at, created_at, closed_at, client_id, ticket_id, assignee_id, assigned_by, client:clients(company_name), platform:platforms(name), department:departments(name)'
 
 export type TaskPageCursor = Pick<TaskSummary, 'id' | 'is_urgent' | 'due_date' | 'created_at'>
 
@@ -231,6 +231,67 @@ export async function getTaskPageLookups({ includePeople, includeAssignments }: 
     services: [],
     departmentMembers: payload.department_members ?? [],
   }
+}
+
+export type TaskPageBootstrap = {
+  lookups: StaffLookups
+  counts: { mine_active_count: number; assigned_by_me_count: number; all_visible_count: number }
+}
+
+/** Lookups and scope counts in one request for the initial task page render. */
+export async function getTaskPageBootstrap(): Promise<TaskPageBootstrap> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('staff_task_page_bootstrap', {
+    p_include_people: true,
+    p_include_assignments: true,
+  })
+  if (error) {
+    // Keep the page compatible while migration 208 is being applied manually.
+    const [lookups, countsResult] = await Promise.all([
+      getTaskPageLookups({ includePeople: true, includeAssignments: true }),
+      supabase.rpc('staff_task_scope_counts'),
+    ])
+    if (countsResult.error) throw error
+    const counts = countsResult.data?.[0]
+    return {
+      lookups,
+      counts: {
+        mine_active_count: Number(counts?.mine_active_count ?? 0),
+        assigned_by_me_count: Number(counts?.assigned_by_me_count ?? 0),
+        all_visible_count: Number(counts?.all_visible_count ?? 0),
+      },
+    }
+  }
+  const payload = (data ?? {}) as {
+    lookups?: { people?: Person[]; clients?: ClientOption[]; departments?: Department[]; department_members?: DepartmentMember[] }
+    counts?: { mine_active_count?: number; assigned_by_me_count?: number; all_visible_count?: number }
+  }
+  const lookupPayload = payload.lookups ?? {}
+  const all = sortPeopleByRoleAndJoiningDate(lookupPayload.people ?? [])
+  return {
+    lookups: {
+      people: all,
+      staff: all.filter(person => person.role !== 'client' && person.status === 'active'),
+      directoryStaff: [],
+      clients: lookupPayload.clients ?? [],
+      departments: lookupPayload.departments ?? [],
+      platforms: [],
+      services: [],
+      departmentMembers: lookupPayload.department_members ?? [],
+    },
+    counts: {
+      mine_active_count: Number(payload.counts?.mine_active_count ?? 0),
+      assigned_by_me_count: Number(payload.counts?.assigned_by_me_count ?? 0),
+      all_visible_count: Number(payload.counts?.all_visible_count ?? 0),
+    },
+  }
+}
+
+/** Resolve assigned-scope assignees in the database while the page lookups load. */
+export async function getAssignedTaskAssigneeIds(): Promise<string[] | null> {
+  const { data, error } = await (await createClient()).rpc('staff_task_assignee_ids')
+  if (error) return null
+  return (data ?? []) as string[]
 }
 
 /** Signed client profile images for visible client options. */

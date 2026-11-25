@@ -72,7 +72,7 @@ export function TaskFilters({
   const assignedBy = params.get('assigned_by') ?? ''
   const department = params.get('dept') ?? ''
   const due = params.get('due') ?? ''
-  const dateBy = params.get('date_by') === 'assigned' ? 'assigned' : 'due'
+  const dateBy = params.get('date_by') === 'assigned' ? 'assigned' : params.get('date_by') === 'completed' ? 'completed' : 'due'
   const scopeParam = params.get('scope')
   const urlScope = scopeParam === 'assigned' ? 'assigned' : scopeParam === 'all' ? 'all' : 'mine'
   const filtered = Boolean(searchInput || taskSearch.query)
@@ -158,7 +158,7 @@ export function TaskFilters({
         const next = new URLSearchParams(params.toString())
         next.delete('q')
         next.set('due', nextDue)
-        if (nextDateBy === 'assigned') next.set('date_by', 'assigned')
+        if (nextDateBy !== 'due') next.set('date_by', nextDateBy)
         else next.delete('date_by')
         router.push(`${pathname}?${next.toString()}`)
       }}

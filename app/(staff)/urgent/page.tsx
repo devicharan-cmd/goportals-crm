@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { Flame, LockKeyhole } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { requireStaff } from '@/lib/auth'
@@ -94,7 +93,7 @@ export default async function UrgentPage() {
               <ul className="divide-y divide-slate-100">
                 {openTickets.map(t => (
                   <li key={t.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
-                    <Link href={`/tickets/${t.id}`} className="min-w-0 flex-1">
+                    <a href={`/tickets/${t.id}`} className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xs font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</span>
                         {t.priority && <PriorityBadge priority={t.priority} />}
@@ -103,7 +102,7 @@ export default async function UrgentPage() {
                       <p className="mt-1 text-xs text-slate-500">
                         {[t.client?.company_name, TICKET_CATEGORY_LABELS[t.category]].filter(Boolean).join(' · ')} · raised {formatRelative(t.created_at)}
                       </p>
-                    </Link>
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -116,13 +115,13 @@ export default async function UrgentPage() {
               <ul className="divide-y divide-slate-100">
                 {takenTickets.map(t => (
                   <li key={t.id}>
-                    <Link href={`/tickets/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+                    <a href={`/tickets/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-slate-900"><span className="mr-1.5 font-mono text-xs font-semibold text-[#045E80]">{ticketCode(t.ticket_number)}</span>{t.subject}</p>
                         <p className="text-xs text-slate-500">{t.client?.company_name}</p>
                       </div>
                       <StatusBadge label={TICKET_STATUS_LABELS[t.status]} className={TICKET_STATUS_STYLES[t.status]} dotClassName={TICKET_STATUS_DOT[t.status]} />
-                    </Link>
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -139,7 +138,7 @@ export default async function UrgentPage() {
           <ul className="divide-y divide-slate-100">
             {openTasks.map(t => (
               <li key={t.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
-                <Link href={`/tasks/${t.id}`} className="min-w-0 flex-1">
+                <a href={`/tasks/${t.id}`} className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-semibold text-[#045E80]">{taskCode(t.task_number)}</span>
                     <PriorityBadge priority={t.priority} />
@@ -155,7 +154,7 @@ export default async function UrgentPage() {
                     <span aria-hidden="true">·</span> raised {formatRelative(t.created_at)}
                   </p>
                   <TaskPreviousAssignees history={t.assignee_history} compact />
-                </Link>
+                </a>
                 <div className="flex items-center gap-4">
                   <DueDate date={t.due_date} dueAt={t.due_at} status={t.status} />
                   <ClaimButton taskId={t.id} />
@@ -172,7 +171,7 @@ export default async function UrgentPage() {
           <ul className="divide-y divide-slate-100">
             {takenTasks.map(t => (
               <li key={t.id}>
-                <Link href={`/tasks/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+                    <a href={`/tasks/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                   <Avatar name={names[t.assignee_id!]} src={avatarUrls[t.assignee_id!]} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-slate-900">
@@ -183,7 +182,7 @@ export default async function UrgentPage() {
                     <TaskPreviousAssignees history={t.assignee_history} compact />
                   </div>
                   <StatusBadge label={TASK_STATUS_LABELS[t.status]} className={TASK_STATUS_STYLES[t.status]} dotClassName={TASK_STATUS_DOT[t.status]} />
-                </Link>
+                </a>
               </li>
             ))}
           </ul>

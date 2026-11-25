@@ -67,7 +67,7 @@ export default async function EditTaskPage(props: { params: Promise<{ id: string
     <div className="mx-auto max-w-3xl 2xl:max-w-5xl">
       <PageHeader
         title="Edit task"
-        back={<Link href={`/tasks/${task.id}`} className="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Back to task</Link>}
+        back={<Link href={`/tasks/${task.id}`} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Back to Task</Link>}
       />
       <TaskForm
         mode="edit"

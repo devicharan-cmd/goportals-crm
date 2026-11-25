@@ -17,6 +17,7 @@
 }
 
 :root {
+  --font-jakarta: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-sans: var(--font-jakarta), system-ui, sans-serif;
 }
 
@@ -164,15 +165,15 @@ h3 {
 /* One shared page gutter for every staff tab, matching the Spring layout at each breakpoint. */
 .app-page-main {
   width: 100%;
-  padding: 16px 12px;
+  padding: 12px;
 }
 
 @media (min-width: 640px) {
-  .app-page-main { padding: 20px 16px; }
+  .app-page-main { padding: 16px; }
 }
 
 @media (min-width: 1024px) {
-  .app-page-main { padding: 24px; }
+  .app-page-main { padding: 16px 24px 24px; }
 }
 
 .app-sidebar > div {

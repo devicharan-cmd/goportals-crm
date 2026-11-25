@@ -492,8 +492,7 @@ export function CommentThread({
           </div>
         )}
         {/* Composer sits in one rounded bar with the send button, like a chat. */}
-        <div className={cn('flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm transition focus-within:border-[#63A9C4] focus-within:ring-2 focus-within:ring-[#0A6F94]/20',
-          !willBePublic && 'border-amber-200 bg-amber-50/60 focus-within:border-amber-300 focus-within:ring-amber-500/20')}>
+        <div className="flex items-end gap-2 rounded-xl border border-[#2B645E] bg-[#FBFBF8] p-1.5 shadow-sm transition focus-within:border-[#2B645E] focus-within:ring-2 focus-within:ring-[#2B645E]/15">
           <AttachmentPicker
             disabled={saving}
             onFilesSelected={(accepted, rejected) => {
@@ -522,7 +521,7 @@ export function CommentThread({
               myRole === 'client' ? 'Write a message to the GoPortals team…'
               : 'Write a note for the team…'
             }
-            className={cn('max-h-40 min-h-[40px] flex-1 resize-none border-0 bg-transparent px-2.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0',
+            className={cn('max-h-40 min-h-[36px] flex-1 resize-none border-0 bg-transparent px-2.5 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0',
               body ? 'overflow-y-auto' : 'overflow-hidden')}
           />
           <Button type="submit" size="sm" loading={saving}

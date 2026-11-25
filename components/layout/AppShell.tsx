@@ -470,13 +470,13 @@ export function AppShell({
 
   // Close profile dropdown on click outside
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: PointerEvent) {
       if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
         setProfileMenuOpen(false)
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('pointerdown', handleClickOutside)
+    return () => document.removeEventListener('pointerdown', handleClickOutside)
   }, [])
 
   // Remember the desktop sidebar choice per browser.
@@ -642,7 +642,7 @@ export function AppShell({
         <div className={cn('sidebar-profile-menu', compact && 'sidebar-profile-menu-compact')} data-open={profileMenuOpen} role="menu" aria-hidden={!profileMenuOpen}>
           <Link
             href={isClient ? '/portal/profile' : '/settings'}
-            prefetch
+            prefetch={false}
             onClick={() => setProfileMenuOpen(false)}
             className="sidebar-profile-menu-item"
             role="menuitem"
@@ -680,9 +680,9 @@ export function AppShell({
 
       {/* Mobile drawer */}
       {open && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-[#011B26]/40 backdrop-blur-sm transition-opacity duration-200" onClick={() => setOpen(false)} />
-          <aside className="app-sidebar absolute inset-y-0 left-0 w-64 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">{renderSidebar(false, false)}</aside>
+        <div className="fixed inset-0 z-[100] lg:hidden">
+          <div className="fixed inset-0 bg-[#011B26]/40 backdrop-blur-sm transition-opacity duration-200" onClick={() => setOpen(false)} />
+          <aside className="app-sidebar fixed inset-y-0 left-0 w-64 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">{renderSidebar(false, false)}</aside>
         </div>
       )}
 

@@ -251,6 +251,7 @@ export interface TaskSummary {
   due_date: string | null
   due_at?: string | null
   created_at: string
+  closed_at: string | null
   assignee_id: string | null
   assigned_by: string | null
   assignee_history?: TaskAssigneeHistoryItem[]

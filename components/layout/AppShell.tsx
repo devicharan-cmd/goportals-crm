@@ -214,7 +214,6 @@ export function AppShell({
     let countsTimer: ReturnType<typeof setTimeout> | null = null
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
     let lastPageRefreshAt = 0
-    let lastFocusRefreshAt = 0
     let pageRefreshQueued = false
     const pendingCountRefreshes = new Set<'notifications' | 'urgent' | 'approvals'>()
     const changesWhileHidden: RealtimeEvent[] = []
@@ -380,14 +379,6 @@ export function AppShell({
       )
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
-    const onFocus = () => {
-      const now = Date.now()
-      if (now - lastFocusRefreshAt < 1000) return
-      lastFocusRefreshAt = now
-      schedulePageRefresh()
-    }
-    window.addEventListener('focus', onFocus)
-
     void (async () => {
       try {
         const { data, error } = await supabase.auth.getSession()
@@ -503,7 +494,6 @@ export function AppShell({
       if (reconnectTimer) clearTimeout(reconnectTimer)
       if (channel) void supabase.removeChannel(channel)
       document.removeEventListener('visibilitychange', onVisibilityChange)
-      window.removeEventListener('focus', onFocus)
     }
   }, [isClient, user.id, user.role, router, networkRevision])
 

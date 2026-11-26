@@ -175,7 +175,6 @@ export function TicketSearchField({ className }: { className?: string }) {
 
 export function TicketSearchResults() {
   const search = useTicketSearch()
-
   return (
     <div className="space-y-2">
       {search.error && <Alert>{search.error}</Alert>}

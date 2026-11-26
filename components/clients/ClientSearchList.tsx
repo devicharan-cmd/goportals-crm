@@ -189,7 +189,9 @@ export function ClientSearchResults() {
       {error && <Alert>{error}</Alert>}
       {searching && <span className="sr-only" role="status">Searching clients</span>}
       {clients.length === 0 ? (
-        <EmptyState icon={<Building2 className="h-6 w-6" />} title="No clients found" />
+        <div className="client-empty-state flex h-[calc(100dvh-176px)] min-h-0 items-center justify-center">
+          <EmptyState icon={<Building2 className="h-6 w-6" />} title="No clients found" />
+        </div>
       ) : (
         <ul className="divide-y divide-slate-100">
           {clients.map(client => {

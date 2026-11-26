@@ -106,12 +106,14 @@ export function SearchableSelect({
   [children, richOptions])
   const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue ?? options[0]?.value ?? '')
   const [open, setOpen] = useState(false)
+  const [closing, setClosing] = useState(false)
   const [search, setSearch] = useState('')
   const [validationError, setValidationError] = useState(false)
   const [position, setPosition] = useState<DropdownPosition | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const value = controlledValue ?? uncontrolledValue
   const selected = options.find(option => option.value === value)
   const filteredOptions = useMemo(() => {
@@ -119,9 +121,25 @@ export function SearchableSelect({
     return query ? options.filter(option => `${option.label} ${option.value}`.toLowerCase().includes(query)) : options
   }, [options, search])
 
+  function closeDropdown() {
+    if (!open) return
+    setClosing(true)
+    onClose?.()
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = setTimeout(() => {
+      setOpen(false)
+      setClosing(false)
+      setPosition(null)
+      closeTimerRef.current = null
+    }, 200)
+  }
+
+  useLayoutEffect(() => () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+  }, [])
+
   useLayoutEffect(() => {
     if (!open) {
-      setPosition(null)
       setSearch('')
       return
     }
@@ -164,18 +182,24 @@ export function SearchableSelect({
   }, [open, position])
 
   useLayoutEffect(() => {
+    const dropdown = dropdownRef.current as (HTMLElement & { showPopover?: () => void; hidePopover?: () => void }) | null
+    if (!dropdown) return
+    if (open && position) dropdown.showPopover?.()
+    else dropdown.hidePopover?.()
+  }, [open, position])
+
+  useLayoutEffect(() => {
     if (!open) return
     function closeOnOutsideClick(event: MouseEvent) {
       const target = event.target
       if (!(target instanceof Node)) return
       if (buttonRef.current?.contains(target) || dropdownRef.current?.contains(target)) return
-      setOpen(false)
-      onClose?.()
+      closeDropdown()
     }
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.stopPropagation()
-        setOpen(false)
+        closeDropdown()
         onClose?.()
       }
     }
@@ -191,9 +215,7 @@ export function SearchableSelect({
     if (controlledValue === undefined) setUncontrolledValue(nextValue)
     setValidationError(false)
     onChange?.({ target: { value: nextValue }, currentTarget: { value: nextValue } })
-    if (!keepOpenOnSelect?.(nextValue)) {
-      setOpen(false)
-    }
+    if (!keepOpenOnSelect?.(nextValue)) closeDropdown()
   }
 
   return (
@@ -237,9 +259,10 @@ export function SearchableSelect({
         aria-expanded={open}
         onClick={() => {
           if (open) {
-            setOpen(false)
-            onClose?.()
+            closeDropdown()
           } else {
+            if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+            setClosing(false)
             setOpen(true)
           }
         }}
@@ -248,10 +271,12 @@ export function SearchableSelect({
         {!hideChevron && <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />}
       </button>
       {validationError && <span className="sr-only">Please select an option.</span>}
-      {open && position && typeof document !== 'undefined' && createPortal(
+      {(open || closing) && position && typeof document !== 'undefined' && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed z-[1200] flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+          popover="manual"
+          data-closing={closing || undefined}
+          className="filter-dropdown-panel fixed z-[1200] flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
           style={{ left: position.left, top: position.top, width: position.width, maxHeight: position.maxHeight }}
         >
           {dropdownHeading && (

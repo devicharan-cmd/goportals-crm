@@ -123,19 +123,19 @@ export function StaffTicketTabs({ activeStatus }: { activeStatus: StaffTicketSta
   }, [])
 
   return (
-    <div className="inline-flex h-8 w-fit max-w-full min-w-0 gap-px rounded-lg border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] sm:h-9 sm:rounded-xl">
+    <div className="task-filter-scope-toggle inline-flex h-8 w-fit max-w-full min-w-0 gap-px rounded-lg border border-slate-200 bg-white p-0.5 sm:h-9 sm:rounded-lg">
       {TABS.map(tab => (
         <Link key={tab.key} href={tab.key === 'unassigned' ? '/tickets' : `/tickets?status=${tab.key}`}
           className={cn(
-            'relative flex h-full shrink-0 items-center gap-1 rounded-md px-2 pr-5 text-[11px] transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none sm:gap-1.5 sm:rounded-lg sm:px-2.5 sm:pr-6 sm:text-xs',
+            'relative flex h-full shrink-0 items-center gap-1 rounded-md px-2 text-[11px] transition-[background-color,color,box-shadow] duration-200 ease-out motion-reduce:transition-none sm:gap-1.5 sm:px-2.5 sm:text-xs',
             activeStatus === tab.key
-              ? 'bg-[#034C68] font-semibold text-white shadow-[0_2px_5px_rgba(2,43,59,0.2)]'
+              ? 'bg-[#034C68] font-semibold text-white'
               : 'bg-white font-medium text-slate-800',
           )}>
           <tab.icon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', activeStatus === tab.key ? 'text-white' : 'text-slate-800')} />
           <span className="min-w-0 truncate">{tab.label}</span>
           <span className={cn(
-            'absolute right-1 top-1/2 inline-grid h-3.5 min-w-3.5 -translate-y-1/2 place-items-center rounded-full px-0.5 text-center text-[9px] font-semibold leading-3.5 tabular-nums sm:h-4 sm:min-w-4 sm:px-1 sm:text-[10px] sm:leading-4',
+            'ml-1 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1 text-[11px] font-semibold leading-none tabular-nums',
             counts?.[tab.key] ? 'bg-[#95C12C] text-white' : 'bg-slate-200 text-[#0F172A]',
           )}>
             {counts ? (counts[tab.key] > 99 ? '99+' : counts[tab.key]) : '·'}

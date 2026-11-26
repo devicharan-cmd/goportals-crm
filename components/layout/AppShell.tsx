@@ -632,15 +632,15 @@ export function AppShell({
                       title={compact ? item.label + (count ? ` (${count})` : '') : undefined}
                       aria-label={compact ? item.label : undefined}
                       className={cn(
-                        'sidebar-nav-link',
-                        compact ? 'sidebar-nav-link-compact' : 'sidebar-nav-link-expanded',
+                        'sidebar-nav-link relative flex h-10 items-center overflow-hidden rounded-lg font-[var(--font-jakarta)] text-sm font-medium leading-6 [font-feature-settings:"cv11","ss01"] transition-[background-color,color] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[var(--crm-ink-09)]',
+                        compact ? 'sidebar-nav-link-compact justify-center px-2' : 'sidebar-nav-link-expanded gap-3 px-3',
                         active ? 'sidebar-nav-active sidebar-nav-item-active' : 'sidebar-nav-item-inactive',
                       )}
                     >
                       <item.icon
-                        className={cn('sidebar-nav-icon', active ? 'sidebar-nav-icon-active' : 'sidebar-nav-icon-inactive')}
+                        className={cn('sidebar-nav-icon h-[19px] w-[19px] shrink-0 stroke-2 [stroke-linecap:round] [stroke-linejoin:round] transition-colors duration-200', active ? 'sidebar-nav-icon-active text-[var(--sidebar-active-accent,#86A83A)]' : 'sidebar-nav-icon-inactive text-[var(--crm-muted)]')}
                       />
-                      {!compact && <span className="sidebar-nav-label">{item.label}</span>}
+                      {!compact && <span className="sidebar-nav-label flex-1 text-sm leading-6">{item.label}</span>}
                       {!!count && (compact
                         ? <span className={cn('absolute right-1 top-1 h-2 w-2 rounded-full', item.badge === 'urgent' ? 'bg-gradient-to-r from-red-600 to-rose-500' : 'bg-[#95C12C]')} />
                         : <span className={cn('flex items-center justify-center rounded-full text-xs font-bold leading-none',
@@ -659,11 +659,11 @@ export function AppShell({
       {/* Sidebar Footer: User details (not clickable as link) */}
       <div className="sidebar-profile-footer relative border-t border-slate-200 p-2" ref={profileMenuRef}>
         {signOutError && !compact && <p role="alert" className="mb-2 px-2 text-xs text-red-600">Could not sign out. Please try again.</p>}
-        <div className={cn('sidebar-profile-row', compact && 'sidebar-profile-row-compact')}>
+        <div className={cn('flex min-w-0 items-center', compact && 'flex-col gap-2')}>
           <button
             type="button"
             onClick={() => setProfileMenuOpen(v => !v)}
-            className={cn('sidebar-profile-trigger', compact && 'sidebar-profile-trigger-compact')}
+            className={cn('flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-[10px] border-0 bg-transparent p-1.5 text-left text-inherit transition-[background-color] duration-200 ease-[ease] hover:bg-[var(--crm-panel)] focus-visible:outline-2 focus-visible:outline-[var(--crm-review)] focus-visible:outline-offset-2 [&[aria-expanded="true"]]:bg-[var(--crm-panel)]', compact && 'flex-none justify-center p-1')}
             aria-expanded={profileMenuOpen}
             aria-haspopup="menu"
           >
@@ -684,7 +684,7 @@ export function AppShell({
             disabled={signingOut}
             title={signingOut ? 'Signing out…' : 'Sign out'}
             aria-label={signingOut ? 'Signing out' : 'Sign out'}
-            className="sidebar-profile-signout"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-0 bg-transparent text-[#8998B2] transition-[background-color,color,transform] duration-[180ms] ease-[ease] hover:bg-[#FEF3F2] hover:text-[#B42318] active:scale-90 focus-visible:outline-2 focus-visible:outline-[var(--crm-review)] focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60 [&_svg]:h-4 [&_svg]:w-4"
           >
             {signingOut ? <Loader2 className="animate-spin" /> : <SignOutIcon />}
           </button>
@@ -695,11 +695,11 @@ export function AppShell({
             href={isClient ? '/portal/profile' : '/settings'}
             prefetch={false}
             onClick={() => setProfileMenuOpen(false)}
-            className="sidebar-profile-menu-item"
+            className="flex min-h-[38px] w-full cursor-pointer items-center gap-2.5 rounded-[10px] border-0 bg-transparent px-2.5 py-[7px] text-left text-[13px] font-medium leading-[1.3] text-[var(--crm-muted)] no-underline transition-[background-color,color] duration-[180ms] ease-[ease] hover:bg-[var(--crm-panel)] hover:text-[var(--crm-ink)]"
             role="menuitem"
             tabIndex={profileMenuOpen ? 0 : -1}
           >
-            <User className="sidebar-profile-menu-icon" />
+            <User className="h-3.5 w-3.5 shrink-0" />
             {isClient ? 'Company profile' : 'Profile'}
           </Link>
           <button
@@ -708,11 +708,11 @@ export function AppShell({
               signOut()
             }}
             disabled={signingOut}
-            className="sidebar-profile-menu-item sidebar-profile-menu-item-danger"
+            className="mt-1 flex min-h-[38px] w-full cursor-pointer items-center gap-2.5 rounded-[10px] border-0 bg-transparent px-2.5 py-[7px] text-left text-[13px] font-medium leading-[1.3] text-[#D0442E] no-underline transition-[background-color,color] duration-[180ms] ease-[ease] hover:bg-[#FEF3F2] hover:text-[#D0442E]"
             role="menuitem"
             tabIndex={profileMenuOpen ? 0 : -1}
           >
-            {signingOut ? <Loader2 className="sidebar-profile-menu-icon animate-spin" /> : <SignOutIcon className="sidebar-profile-menu-icon" />}
+            {signingOut ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <SignOutIcon className="h-3.5 w-3.5 shrink-0" />}
             Sign out
           </button>
         </div>
@@ -723,7 +723,7 @@ export function AppShell({
   return (
     <div className="app-shell fixed inset-0 overflow-hidden">
       {/* Desktop sidebar */}
-      <aside className={cn('app-sidebar app-sidebar-width-transition fixed inset-y-0 left-0 z-50 hidden lg:block',
+      <aside className={cn('app-sidebar app-sidebar-width-transition fixed inset-y-0 left-0 z-50 hidden print:hidden lg:block',
         collapsed ? 'w-16' : 'w-64')}>
         {renderSidebar(collapsed, true)}
         {toggleButton}
@@ -733,13 +733,13 @@ export function AppShell({
       {open && (
         <div className="fixed inset-0 z-[100] lg:hidden">
           <div className="fixed inset-0 bg-[#011B26]/40 backdrop-blur-sm transition-opacity duration-200" onClick={() => setOpen(false)} />
-          <aside className="app-sidebar fixed inset-y-0 left-0 w-64 [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">{renderSidebar(false, false)}</aside>
+          <aside className="app-sidebar fixed inset-y-0 left-0 w-64 print:hidden [box-shadow:0_10px_30px_-10px_rgb(2_43_59_/_0.25)]">{renderSidebar(false, false)}</aside>
         </div>
       )}
 
       {/* Only the area under the top bar scrolls, so the scrollbar never runs beside the top bar. */}
       <div className={cn('app-content-sidebar-transition flex h-full min-h-0 flex-col', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
-        <header className="app-navbar relative z-40 flex h-16 flex-shrink-0 items-center gap-2.5 px-3 backdrop-blur sm:gap-3 sm:px-6">
+        <header className="app-navbar relative z-40 flex h-16 flex-shrink-0 items-center gap-2.5 px-3 backdrop-blur print:hidden sm:gap-3 sm:px-6">
           <button className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="h-[22px] w-[22px]" />
           </button>
@@ -792,7 +792,7 @@ export function AppShell({
           </div>
         )}
         <div className="app-main min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-color:#9aa8b8_transparent] [scrollbar-width:thin]">
-          <main className="app-page-main mx-auto w-full">
+          <main className="app-page-main mx-auto w-full overflow-x-clip p-3 print:p-0 sm:p-4 lg:px-6 lg:pb-4 lg:pt-4">
             {children}
           </main>
         </div>

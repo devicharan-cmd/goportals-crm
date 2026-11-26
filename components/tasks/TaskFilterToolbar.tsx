@@ -66,14 +66,40 @@ export function TaskFilterToolbar({
   action?: React.ReactNode
 }) {
   const [calendarOpen, setCalendarOpen] = useState(false)
+  const [calendarClosing, setCalendarClosing] = useState(false)
   const [calendarPosition, setCalendarPosition] = useState<{ top: number; left: number } | null>(null)
   const [draftDateBy, setDraftDateBy] = useState<'' | 'due' | 'assigned' | 'completed'>(due ? dateBy : '')
   const [draftRange, setDraftRange] = useState('')
   const [draftDate, setDraftDate] = useState(due ? format(new Date(`${due}T00:00:00`), 'ddMMyyyy') : '')
   const [dateTypeOpen, setDateTypeOpen] = useState(false)
   const calendarRef = useRef<HTMLDivElement | null>(null)
+  const datePanelRef = useRef<HTMLDivElement | null>(null)
+  const calendarCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scopeTabsRef = useRef<HTMLDivElement | null>(null)
   const [scopePill, setScopePill] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+
+  function closeCalendar() {
+    if (!calendarOpen) return
+    setCalendarClosing(true)
+    if (calendarCloseTimerRef.current) clearTimeout(calendarCloseTimerRef.current)
+    calendarCloseTimerRef.current = setTimeout(() => {
+      setCalendarOpen(false)
+      setCalendarClosing(false)
+      calendarCloseTimerRef.current = null
+    }, 200)
+  }
+
+  useEffect(() => () => {
+    if (calendarCloseTimerRef.current) clearTimeout(calendarCloseTimerRef.current)
+  }, [])
+
+  useLayoutEffect(() => {
+    const panel = datePanelRef.current as (HTMLElement & { showPopover?: () => void; hidePopover?: () => void }) | null
+    if (!panel) return
+    if (calendarOpen || calendarClosing) panel.showPopover?.()
+    else panel.hidePopover?.()
+  }, [calendarOpen, calendarClosing, calendarPosition])
+
   useEffect(() => {
     if (!calendarOpen) {
       setCalendarPosition(null)
@@ -93,18 +119,18 @@ export function TaskFilterToolbar({
     positionCalendar()
     window.addEventListener('resize', positionCalendar)
     window.addEventListener('scroll', positionCalendar, true)
-    function closeCalendar(event: PointerEvent) {
-      if (event.target instanceof Node && !calendarRef.current?.contains(event.target)) setCalendarOpen(false)
+    function handleOutside(event: PointerEvent) {
+      if (event.target instanceof Node && !calendarRef.current?.contains(event.target)) closeCalendar()
     }
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setCalendarOpen(false)
+      if (event.key === 'Escape') closeCalendar()
     }
-    document.addEventListener('pointerdown', closeCalendar)
+    document.addEventListener('pointerdown', handleOutside)
     document.addEventListener('keydown', handleKeyDown)
     return () => {
       window.removeEventListener('resize', positionCalendar)
       window.removeEventListener('scroll', positionCalendar, true)
-      document.removeEventListener('pointerdown', closeCalendar)
+      document.removeEventListener('pointerdown', handleOutside)
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [calendarOpen])
@@ -142,8 +168,8 @@ export function TaskFilterToolbar({
     }
   }, [scope, showAssignedScope, scopeCounts.mine, scopeCounts.assigned, scopeCounts.all])
 
-  const toggle = 'inline-flex h-9 items-center rounded-lg bg-slate-100 p-1 sm:max-lg:h-8 sm:max-lg:p-0.5 max-sm:h-8 max-sm:p-0.5'
-  const scopeToggle = 'relative inline-flex h-9 gap-px rounded-xl border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] sm:max-lg:h-8 max-sm:h-8 max-sm:min-w-0 max-sm:flex-1 max-sm:rounded-lg'
+  const toggle = 'task-filter-toggle inline-flex h-9 items-center rounded-lg bg-[var(--crm-app-bg)] p-1 sm:max-lg:h-8 sm:max-lg:p-0.5 max-sm:h-8 max-sm:p-0.5'
+  const scopeToggle = 'task-filter-scope-toggle relative inline-flex h-9 gap-px rounded-lg border border-slate-200 bg-white p-0.5 sm:max-lg:h-8 max-sm:h-8 max-sm:min-w-0 max-sm:flex-1 max-sm:rounded-lg'
   const select = 'task-filter-select h-9 w-full rounded-lg px-2.5 pr-2 py-1 !text-xs sm:max-lg:h-8 sm:max-lg:px-2 sm:max-lg:!text-[11px] max-sm:h-8 max-sm:rounded-md max-sm:px-1.5 max-sm:!text-[10px]'
   const staffOptions = (label: string, staff: Option[]) => [
     { value: '', text: label, label, selectedLabel: label },
@@ -178,7 +204,7 @@ export function TaskFilterToolbar({
   ]
 
   return (
-    <div className="mb-4 space-y-3 max-sm:mb-2 max-sm:space-y-2">
+    <div className="task-filters-toolbar mb-4 space-y-3 rounded-xl border border-slate-200 bg-[var(--crm-sidebar-bg)] p-3 max-sm:mb-2 max-sm:space-y-2 max-sm:rounded-lg max-sm:p-2">
       <div className="flex flex-wrap items-center gap-2 max-sm:gap-1.5">
         {showScope && <div ref={scopeTabsRef} className={scopeToggle}>
           {scopePill && <span aria-hidden="true" className="task-scope-active-pill" style={{ transform: `translate(${scopePill.x}px, ${scopePill.y}px)`, width: scopePill.width, height: scopePill.height }} />}
@@ -203,7 +229,7 @@ export function TaskFilterToolbar({
               <option.icon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0 max-sm:h-3 max-sm:w-3', scope === option.value ? 'text-white' : 'text-slate-800')} />
               <span className="shrink-0">{option.label}</span>
               <span className={cn(
-                'ml-1 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1 text-[11px] font-semibold leading-none tabular-nums',
+                'ml-1 inline-flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full p-0 text-[9px] font-semibold leading-none tabular-nums',
                 (scopeCounts[option.value] ?? 0) > 0 ? 'bg-[#95C12C] text-white' : 'bg-slate-200 text-[#0F172A]',
               )}>
                 {scopeCounts[option.value] ?? 0}
@@ -234,7 +260,7 @@ export function TaskFilterToolbar({
         {action && <div className="ml-auto">{action}</div>}
       </div>
 
-      <div className="relative z-30 flex flex-nowrap items-center gap-2 overflow-x-auto sm:flex-wrap lg:flex-nowrap max-sm:overflow-visible max-sm:gap-1 max-sm:pb-1">
+      <div className="task-filters-panel relative z-30 flex flex-nowrap items-center gap-2 overflow-x-auto sm:flex-wrap lg:flex-nowrap max-sm:overflow-visible max-sm:gap-1 max-sm:pb-1">
         <div className="contents sm:flex sm:min-w-0 sm:flex-1 sm:flex-wrap sm:items-center sm:gap-2 lg:flex-nowrap">
           {view === 'list' && (
             <div className="min-w-0 max-sm:w-[72px] sm:w-32 sm:max-lg:w-28">
@@ -338,15 +364,22 @@ export function TaskFilterToolbar({
                 aria-label={due ? `Filter by ${dateBy === 'assigned' ? 'assigned' : dateBy === 'completed' ? 'completion' : 'due'} date: ${format(new Date(`${due}T00:00:00`), 'dd MMM yyyy')}` : 'Filter by date'}
                 aria-haspopup="dialog"
                 aria-expanded={calendarOpen}
-                onClick={() => setCalendarOpen(open => !open)}
+                onClick={() => {
+                  if (calendarOpen) closeCalendar()
+                  else {
+                    if (calendarCloseTimerRef.current) clearTimeout(calendarCloseTimerRef.current)
+                    setCalendarClosing(false)
+                    setCalendarOpen(true)
+                  }
+                }}
                 className="form-field task-filter-select flex h-9 w-full items-center gap-2 rounded-lg px-2.5 py-1 text-left !text-xs text-slate-700 max-sm:h-8 max-sm:gap-1 max-sm:rounded-md max-sm:px-2 max-sm:!text-[10px]"
               >
-                <CalendarDays aria-hidden="true" className="h-4 w-4 shrink-0 text-[#045E80]" />
-                 <span className={cn('min-w-0 flex-1 truncate', !due && 'text-slate-500')}><span className="max-sm:hidden">{due ? format(new Date(`${due}T00:00:00`), 'dd MMM yyyy') : 'Date'}</span><span className="hidden max-sm:inline">{due ? format(new Date(`${due}T00:00:00`), 'dd MMM') : 'Date'}</span></span>
-                <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-500 max-sm:h-3 max-sm:w-3" />
+                <CalendarDays aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-700" />
+                 <span className="task-filter-date-label min-w-0 flex-1 truncate"><span className="max-sm:hidden">{due ? format(new Date(`${due}T00:00:00`), 'dd MMM yyyy') : 'Date'}</span><span className="hidden max-sm:inline">{due ? format(new Date(`${due}T00:00:00`), 'dd MMM') : 'Date'}</span></span>
+                <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-700 max-sm:h-3 max-sm:w-3" />
               </button>
-              {calendarOpen && calendarPosition && (
-                <div role="dialog" aria-label="Choose task date" style={{ position: 'fixed', top: calendarPosition.top, left: calendarPosition.left }} className="fixed z-[100] w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl ring-1 ring-black/5">
+              {(calendarOpen || calendarClosing) && calendarPosition && (
+                <div ref={datePanelRef} role="dialog" aria-label="Choose task date" popover="manual" style={{ position: 'fixed', top: calendarPosition.top, left: calendarPosition.left }} className="date-filter-dropdown-panel filter-dropdown-panel fixed z-[100] w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-4">
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-semibold text-[#0F172A]">Date filter</p>
@@ -363,7 +396,7 @@ export function TaskFilterToolbar({
                           <ChevronDown aria-hidden="true" className="h-4 w-4 text-slate-500" />
                         </button>
                         {dateTypeOpen && (
-                          <div role="listbox" aria-label="Date type" className="absolute left-0 right-0 top-10 z-20 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                          <div role="listbox" aria-label="Date type" className="filter-dropdown-panel absolute left-0 right-0 top-10 z-20 overflow-hidden rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
                             {[
                               { value: '', label: 'Select type' },
                               { value: 'due', label: 'Due date' },
@@ -422,8 +455,8 @@ export function TaskFilterToolbar({
                     </label>
                   </div>
                   <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                    <button type="button" disabled={!due} onClick={() => { onDateFilterClear?.(); setCalendarOpen(false) }} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Clear</button>
-                    <button type="button" disabled={!canApplyDateFilter} onClick={() => { const iso = format(parsedDraftDate, 'yyyy-MM-dd'); (onDateFilterApply ? onDateFilterApply(draftDateBy as 'due' | 'assigned' | 'completed', iso) : (onDateByChange?.(draftDateBy as 'due' | 'assigned' | 'completed'), onDueChange(iso))); setCalendarOpen(false) }} className="rounded-lg bg-[#045E80] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#034C68] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400">Apply</button>
+                    <button type="button" disabled={!due} onClick={() => { onDateFilterClear?.(); closeCalendar() }} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Clear</button>
+                    <button type="button" disabled={!canApplyDateFilter} onClick={() => { const iso = format(parsedDraftDate, 'yyyy-MM-dd'); (onDateFilterApply ? onDateFilterApply(draftDateBy as 'due' | 'assigned' | 'completed', iso) : (onDateByChange?.(draftDateBy as 'due' | 'assigned' | 'completed'), onDueChange(iso))); closeCalendar() }} className="rounded-lg bg-[#045E80] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#034C68] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400">Apply</button>
                   </div>
                 </div>
               )}

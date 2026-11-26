@@ -76,7 +76,7 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, actorRole,
         </div>
         <div className="grid grid-cols-2 gap-1.5 sm:contents">
         <SearchableSelect
-          className="form-field h-8 w-full min-w-0 rounded-lg px-2 py-1 text-[11px] focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none sm:order-2 sm:h-9 sm:w-[130px] sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-sm"
+          className="form-field h-8 w-full min-w-0 rounded-lg px-2 py-1 text-[11px] focus:border-[var(--crm-border)] focus:outline-none focus:ring-0 focus:shadow-none sm:order-2 sm:h-9 sm:w-[130px] sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-sm"
           aria-label="Filter by role"
           value={role}
           onChange={event => setRole(event.target.value)}
@@ -87,7 +87,7 @@ export function StaffDirectory({ rows, departments, canEdit, actorId, actorRole,
           ))}
         </SearchableSelect>
         <SearchableSelect
-          className="form-field h-8 w-full min-w-0 rounded-lg px-2 py-1 text-[11px] focus:border-[#045E80] focus:outline-none focus:ring-0 focus:shadow-none sm:order-3 sm:h-9 sm:w-[150px] sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-sm"
+          className="form-field h-8 w-full min-w-0 rounded-lg px-2 py-1 text-[11px] focus:border-[var(--crm-border)] focus:outline-none focus:ring-0 focus:shadow-none sm:order-3 sm:h-9 sm:w-[150px] sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-sm"
           aria-label="Filter by department"
           searchable
           searchPlaceholder="Search departments..."

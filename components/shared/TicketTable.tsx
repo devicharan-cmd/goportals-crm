@@ -33,7 +33,9 @@ export function TicketTable({
   const router = useRouter()
   const statusLabels = audience === 'client' ? TICKET_STATUS_LABELS_CLIENT : TICKET_STATUS_LABELS
   if (tickets.length === 0) {
-    return <EmptyState icon={<ClipboardList className="h-6 w-6" />} title={empty?.title ?? 'No tickets'} description={empty?.description} action={empty?.action} />
+    return <div className="ticket-empty-state flex h-[calc(100dvh-176px)] min-h-0 items-center justify-center">
+      <EmptyState icon={<ClipboardList className="h-6 w-6" />} title={empty?.title ?? 'No tickets'} description={empty?.description} action={empty?.action} />
+    </div>
   }
 
   return (

@@ -294,11 +294,11 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
               <h1 className="text-xl font-bold sm:text-2xl">{task.title}</h1>
             </div>
             <section className="mt-5">
-              <h2 className="task-overview-section-heading">
+              <h2 className="task-overview-section-heading mb-3 flex items-center gap-3">
                 <span aria-hidden="true" className="task-overview-section-marker" />
                 Description
               </h2>
-              <div className="task-overview-description">
+              <div className="task-overview-description px-4 py-3.5">
                 {task.description
                   ? <p className="whitespace-pre-wrap">{task.description}</p>
                   : <p className="italic text-slate-400">No description.</p>}
@@ -306,7 +306,7 @@ export default async function TaskDetailPage(props: { params: Promise<{ id: stri
             </section>
             {taskFileAttachments.length > 0 && (
               <section className="mt-5" aria-labelledby="task-attachments-heading">
-                <h2 id="task-attachments-heading" className="task-overview-section-heading">
+                <h2 id="task-attachments-heading" className="task-overview-section-heading mb-3 flex items-center gap-3">
                   <span aria-hidden="true" className="task-overview-section-marker" />
                   Attachments
                 </h2>

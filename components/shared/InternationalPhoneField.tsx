@@ -116,14 +116,14 @@ export function InternationalPhoneField({ value, onChange, disabled, required = 
   }
 
   return (
-    <div ref={rootRef} className={`international-phone-field ${invalid ? 'international-phone-field-invalid' : ''} ${disabled ? 'opacity-70' : ''}`}>
+    <div ref={rootRef} className={`international-phone-field flex items-center ${invalid ? 'international-phone-field-invalid' : ''} ${disabled ? 'opacity-70' : ''}`}>
       <button
         type="button"
         disabled={disabled}
         aria-label="Select phone country"
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="phone-country-trigger"
+        className="phone-country-trigger flex h-full items-center gap-1.5 px-2.5"
         onClick={() => setOpen(current => !current)}
       >
         {country ? (

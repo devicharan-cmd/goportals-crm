@@ -101,7 +101,7 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
 
   return (
     <>
-      <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="mb-3 flex flex-col gap-2 rounded-xl border border-slate-200 bg-[var(--crm-sidebar-bg)] p-3 sm:mb-4 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="grid h-8 w-full min-w-0 grid-cols-3 gap-px rounded-lg border border-slate-200 bg-white p-0.5 [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] sm:h-9 sm:w-fit sm:rounded-xl">
           {TABS.map(t => (
             <Link key={t.key} href={t.key === 'all' ? '/team' : `/team?show=${t.key}`}
@@ -130,7 +130,7 @@ export default async function TeamPage(props: { searchParams: Promise<{ show?: s
       {members.length === 0 ? (
         <Card><EmptyState icon={<Users className="h-6 w-6" />} title={show === 'inactive' ? 'Everyone is active' : 'No team members yet'} /></Card>
       ) : (
-        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="-mb-2 grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {members.map(m => (
             <Link key={m.id} href={`/team/${m.id}`} prefetch={false} className="group">
             <Card className={cn('h-full p-3 transition group-hover:[box-shadow:var(--shadow-pop)] group-hover:ring-1 group-hover:ring-[#9FCCDE] sm:p-5', !m.active && 'bg-slate-50 opacity-80')}>

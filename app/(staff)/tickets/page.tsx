@@ -70,10 +70,10 @@ export default async function StaffTicketsPage(props: { searchParams: Promise<{ 
       audience="staff"
       status={tab}
     >
-      <div>
-        <div className="mb-3 flex min-w-0 flex-col gap-2 sm:mb-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+      <div className="-mb-4">
+        <div className="ticket-filters-toolbar mb-3 flex min-w-0 flex-col gap-2 rounded-xl border border-slate-200 bg-[var(--crm-sidebar-bg)] p-3 sm:mb-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
           <div className="w-full min-w-0 overflow-x-auto sm:contents"><StaffTicketTabs activeStatus={tab} /></div>
-          <div className="flex w-full min-w-0 items-center gap-2 sm:contents">
+          <div className="flex w-full min-w-0 items-center gap-2 sm:ml-auto sm:w-auto">
             <TicketSearchField className="min-w-0 flex-1 sm:max-w-xs" />
             {me.role !== 'team_lead' && (
               <ButtonLink href="/tickets/new" prefetch={false} size="sm" className="shrink-0 whitespace-nowrap"><Plus className="h-3.5 w-3.5" /> New ticket</ButtonLink>

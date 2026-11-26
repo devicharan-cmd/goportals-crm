@@ -80,16 +80,18 @@ export default async function ClientsPage(props: { searchParams: Promise<{ statu
       status={status}
       openWorkCounts={openWorkCounts}
     >
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <ClientSearchField />
-        <ClientStatusFilter status={status} />
-        {/* Outside the search form: the modal has its own form inside. */}
-        {me.role === 'super_admin' && <ClientFormModal canEditInternal platforms={(platforms ?? []) as Platform[]} services={(services ?? []) as Service[]} />}
-      </div>
+      <div className="-mb-4">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <ClientSearchField />
+          <ClientStatusFilter status={status} />
+          {/* Outside the search form: the modal has its own form inside. */}
+          {me.role === 'super_admin' && <ClientFormModal canEditInternal platforms={(platforms ?? []) as Platform[]} services={(services ?? []) as Service[]} />}
+        </div>
 
-      <Card className="overflow-hidden">
-        <ClientSearchResults />
-      </Card>
+        <Card className="client-empty-card overflow-hidden">
+          <ClientSearchResults />
+        </Card>
+      </div>
     </ClientSearchProvider>
   )
 }

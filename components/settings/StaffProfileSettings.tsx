@@ -561,7 +561,21 @@ export function StaffProfileSettings({
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="grid gap-4 sm:gap-6 lg:gap-[18px] lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+      <nav aria-label="Settings sections" className="self-start rounded-2xl border border-[#E5E8E0] bg-[#FDFDFA] p-2 [box-shadow:0_1px_2px_0_rgb(21_32_28_/_0.05)] lg:sticky lg:top-4 lg:h-fit">
+        <div className="relative flex h-[58px] items-center gap-3 rounded-xl bg-[#F1F3EE] px-[10px] text-[#15201C] shadow-[inset_0_0_0_1px_#E5E8E0] before:absolute before:-left-2 before:top-1/2 before:h-[30px] before:w-[3px] before:-translate-y-1/2 before:rounded-r-[3px] before:bg-[#1D4B40]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-[#1D4B40] text-[#C9EC5E]">
+            <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="8" r="5" />
+              <path d="M20 21a8 8 0 0 0-16 0" />
+            </svg>
+          </span>
+          <span className="grid min-w-0 leading-[1.3]">
+            <span className="block text-[13px] font-semibold">Profile</span>
+            <span className="block text-xs text-[#66726C]">Name, photo, contact</span>
+          </span>
+        </div>
+      </nav>
       <div className="rounded-xl border border-slate-200/80 bg-white [box-shadow:0_1px_2px_0_rgb(2_43_59_/_0.04),0_1px_3px_0_rgb(2_43_59_/_0.06)] overflow-hidden">
             {/* Card Header */}
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-5">

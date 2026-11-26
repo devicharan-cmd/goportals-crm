@@ -103,28 +103,28 @@ export function NotificationDrawer({ open, userId, isClient, onClose, onUnreadCo
   return (
     <>
       <div className={cn('notification-drawer-backdrop', open && 'notification-drawer-backdrop-open')} onClick={closeDrawer} aria-hidden="true" />
-      <aside className={cn('notification-drawer', open && 'notification-drawer-open')} aria-label="Notifications" aria-hidden={!open}>
-        <header className="notification-drawer-header">
+        <aside className={cn('notification-drawer max-[520px]:w-[100vw] max-[520px]:rounded-[18px_0_0_18px]', open && 'notification-drawer-open')} aria-label="Notifications" aria-hidden={!open}>
+          <header className="notification-drawer-header flex items-center justify-between max-[520px]:px-4">
           <h2>Notifications</h2>
           <button type="button" className="notification-drawer-close" onClick={closeDrawer} aria-label="Close notifications"><X /></button>
         </header>
-        <div className="notification-drawer-filters" role="tablist" aria-label="Notification filters">
+        <div className="notification-drawer-filters flex flex-wrap items-center gap-2 max-[520px]:px-4" role="tablist" aria-label="Notification filters">
           {(['all', 'unread', 'read'] as Filter[]).map(value => (
             <button key={value} type="button" role="tab" aria-selected={filter === value} className={cn('notification-filter', filter === value && 'notification-filter-active')} onClick={() => setFilter(value)}>
               {value[0].toUpperCase() + value.slice(1)}{value === 'unread' && unread.length > 0 ? ` ${unread.length}` : ''}
             </button>
           ))}
           {filter === 'unread' && (
-            <button type="button" className="notification-mark-all" onClick={() => void markAllRead()} disabled={markingAll}>
+            <button type="button" className="notification-mark-all max-[520px]:ml-0 max-[520px]:w-full" onClick={() => void markAllRead()} disabled={markingAll}>
               {markingAll && <Loader2 className="animate-spin" />}<CheckCheck /> Mark all read
             </button>
           )}
         </div>
-        <div className="notification-drawer-list">
+        <div className="notification-drawer-list max-[520px]:p-2">
           {loading && items.length === 0 ? <div className="notification-drawer-state"><Loader2 className="animate-spin" /> Loading notifications…</div> : visible.length === 0 ? <div className="notification-drawer-state"><NotificationIcon aria-hidden="true" /><span>{filter === 'all' ? "You're all caught up." : `No ${filter} notifications.`}</span></div> : visible.map(notification => {
             const Icon = ICONS[notification.type] ?? NotificationIcon
             return (
-              <button key={notification.id} type="button" className={cn('notification-drawer-item', !notification.is_read && 'notification-drawer-item-unread')} onClick={() => void openNotification(notification)}>
+              <button key={notification.id} type="button" className={cn('notification-drawer-item flex w-full items-start gap-3', !notification.is_read && 'notification-drawer-item-unread')} onClick={() => void openNotification(notification)}>
                 <span className="notification-drawer-item-icon"><Icon /></span>
                 <span className="notification-drawer-item-copy">
                   <strong>{notification.title}</strong>
